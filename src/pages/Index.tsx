@@ -270,6 +270,8 @@ const Index = () => {
         { name: "Electronic Dreams", path: "/audio/Electronic_Dreams.mp3" },
         { name: "That Song", path: "/audio/Fobee_-_That_Song.mp3" },
         { name: "Upbeat Sports Bass", path: "/audio/MGM_-_Upbeat_Sports_Bass.mp3" },
+        { name: "Track Full", path: "/audio/Track_Full.mp3" },
+        { name: "Cool Funky Jazz Loop", path: "/audio/Cool_Funky_Jazz_Loop.mp3" },
       ],
       currentMusicIndex: 0,
       music: null as HTMLAudioElement | null,
@@ -1247,11 +1249,27 @@ const Index = () => {
       gameState.upgradeOptions = [];
     }
 
-    // Click handler para upgrades y pause menu
+    // Click handler para upgrades, pause menu y botón de música
     canvas.addEventListener("click", (e) => {
       const rect = canvas.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
+      
+      // Botón de cambiar canción (solo cuando el juego está corriendo)
+      if (gameState.state === 'running') {
+        const musicBtnW = 160;
+        const musicBtnH = 45;
+        const musicBtnX = W - musicBtnW - 20;
+        const musicBtnY = H - musicBtnH - 70;
+        
+        if (mx >= musicBtnX && mx <= musicBtnX + musicBtnW && 
+            my >= musicBtnY && my <= musicBtnY + musicBtnH) {
+          // Cambiar a la siguiente canción
+          gameState.currentMusicIndex = (gameState.currentMusicIndex + 1) % gameState.musicTracks.length;
+          playNextTrack();
+          return;
+        }
+      }
       
       if (gameState.showUpgradeUI) {
         const cardW = 280;
@@ -2180,6 +2198,36 @@ const Index = () => {
         
         ctx.globalAlpha = 1;
       }
+      
+      // Botón de cambiar canción (esquina superior derecha)
+      const musicBtnW = 160;
+      const musicBtnH = 45;
+      const musicBtnX = W - musicBtnW - 20;
+      const musicBtnY = H - musicBtnH - 70;
+      
+      // Background del botón
+      const musicBtnGradient = ctx.createLinearGradient(musicBtnX, musicBtnY, musicBtnX, musicBtnY + musicBtnH);
+      musicBtnGradient.addColorStop(0, "rgba(168, 85, 247, 0.9)");
+      musicBtnGradient.addColorStop(1, "rgba(124, 58, 237, 0.9)");
+      ctx.fillStyle = musicBtnGradient;
+      ctx.beginPath();
+      ctx.roundRect(musicBtnX, musicBtnY, musicBtnW, musicBtnH, 8);
+      ctx.fill();
+      
+      // Border
+      ctx.strokeStyle = "#a855f7";
+      ctx.lineWidth = 2;
+      ctx.shadowColor = "#a855f7";
+      ctx.shadowBlur = 10;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      
+      // Texto del botón
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 16px system-ui";
+      ctx.textAlign = "center";
+      const currentTrack = gameState.musicTracks[gameState.currentMusicIndex];
+      ctx.fillText(`♫ ${currentTrack.name.slice(0, 12)}...`, musicBtnX + musicBtnW / 2, musicBtnY + musicBtnH / 2 + 6);
       
       // Overlay de Game Over con fade
       if (gameState.state === 'gameover') {
