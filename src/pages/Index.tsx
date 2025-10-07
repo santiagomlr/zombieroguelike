@@ -1318,12 +1318,10 @@ const Index = () => {
     });
 
     function update(dt: number) {
-      // Solo actualizar si el juego está corriendo
-      if (gameState.state !== 'running') return;
-      
+      // Actualizar tiempo siempre (necesario para animaciones)
       gameState.time += dt;
 
-      // Animations
+      // Animations que deben correr siempre
       if (gameState.levelUpAnimation > 0) gameState.levelUpAnimation = Math.max(0, gameState.levelUpAnimation - dt * 2);
       if (gameState.upgradeAnimation > 0) gameState.upgradeAnimation = Math.max(0, gameState.upgradeAnimation - dt);
       if (gameState.upgradeUIAnimation < 1 && gameState.showUpgradeUI) gameState.upgradeUIAnimation = Math.min(1, gameState.upgradeUIAnimation + dt * 3);
@@ -1332,6 +1330,9 @@ const Index = () => {
       if (gameState.musicNotificationTimer > 0) {
         gameState.musicNotificationTimer = Math.max(0, gameState.musicNotificationTimer - dt);
       }
+      
+      // Solo actualizar lógica del juego si está corriendo
+      if (gameState.state !== 'running') return;
 
       // Wave system basado en conteo de enemigos eliminados
       if (gameState.waveKills >= gameState.waveEnemiesTotal) {
