@@ -454,10 +454,6 @@ const Index = () => {
       else if (side === 2) { x = Math.random() * W; y = H + 30; }
       else { x = -30; y = Math.random() * H; }
       
-      // Multiplicador de HP por wave: +15% por cada wave
-      const waveMultiplier = 1 + (gameState.wave - 1) * 0.15;
-      
-      // Sistema progresivo de enemigos según wave
       const roll = Math.random();
       let enemyType: "strong" | "medium" | "weak";
       let color: string;
@@ -465,19 +461,20 @@ const Index = () => {
       let baseHp: number;
       let rad: number;
       let spd: number;
+      let isElite = false;
       
-      // Progresión dinámica de enemigos
-      if (gameState.wave <= 3) {
-        // Wave 1-3: SOLO verdes 🟢
+      // Progresión detallada por wave
+      if (gameState.wave === 1) {
+        // Wave 1: Solo verdes 🟢
         enemyType = "weak";
         color = "#22c55e";
         damage = 5;
         baseHp = 3;
         rad = 12;
         spd = 1.3;
-      } else if (gameState.wave <= 6) {
-        // Wave 4-6: mezcla verde (70%) y morado (30%)
-        if (roll < 0.7) {
+      } else if (gameState.wave === 2) {
+        // Wave 2: Mayoría verdes, algunos morados (≤10%)
+        if (roll < 0.9) {
           enemyType = "weak";
           color = "#22c55e";
           damage = 5;
@@ -492,16 +489,9 @@ const Index = () => {
           rad = 15;
           spd = 1.1;
         }
-      } else if (gameState.wave <= 10) {
-        // Wave 7-10: morado predominante (60%), verde (30%), amarillo (10%)
-        if (roll < 0.6) {
-          enemyType = "medium";
-          color = "#a855f7";
-          damage = 10;
-          baseHp = 5;
-          rad = 15;
-          spd = 1.1;
-        } else if (roll < 0.9) {
+      } else if (gameState.wave === 3) {
+        // Wave 3: Mezcla verde/morado (20-30% morado)
+        if (roll < 0.75) {
           enemyType = "weak";
           color = "#22c55e";
           damage = 5;
@@ -509,29 +499,120 @@ const Index = () => {
           rad = 12;
           spd = 1.3;
         } else {
+          enemyType = "medium";
+          color = "#a855f7";
+          damage = 10;
+          baseHp = 5;
+          rad = 15;
+          spd = 1.1;
+        }
+      } else if (gameState.wave === 4) {
+        // Wave 4: Más morado (30-40%)
+        if (roll < 0.65) {
+          enemyType = "weak";
+          color = "#22c55e";
+          damage = 5;
+          baseHp = 3;
+          rad = 12;
+          spd = 1.3;
+        } else {
+          enemyType = "medium";
+          color = "#a855f7";
+          damage = 10;
+          baseHp = 5;
+          rad = 15;
+          spd = 1.1;
+        }
+      } else if (gameState.wave === 5) {
+        // Wave 5: Introducir amarillo (3-5%)
+        if (roll < 0.04) {
           enemyType = "strong";
           color = "#fbbf24";
           damage = 20;
           baseHp = 8;
           rad = 18;
           spd = 0.9;
+        } else if (roll < 0.6) {
+          enemyType = "medium";
+          color = "#a855f7";
+          damage = 10;
+          baseHp = 5;
+          rad = 15;
+          spd = 1.1;
+        } else {
+          enemyType = "weak";
+          color = "#22c55e";
+          damage = 5;
+          baseHp = 3;
+          rad = 12;
+          spd = 1.3;
+        }
+      } else if (gameState.wave === 6) {
+        // Wave 6: Mezcla estable 50/40/10%
+        if (roll < 0.1) {
+          enemyType = "strong";
+          color = "#fbbf24";
+          damage = 20;
+          baseHp = 8;
+          rad = 18;
+          spd = 0.9;
+        } else if (roll < 0.5) {
+          enemyType = "medium";
+          color = "#a855f7";
+          damage = 10;
+          baseHp = 5;
+          rad = 15;
+          spd = 1.1;
+        } else {
+          enemyType = "weak";
+          color = "#22c55e";
+          damage = 5;
+          baseHp = 3;
+          rad = 12;
+          spd = 1.3;
+        }
+      } else if (gameState.wave === 7) {
+        // Wave 7: Amarillos hasta 12-15%
+        if (roll < 0.13) {
+          enemyType = "strong";
+          color = "#fbbf24";
+          damage = 20;
+          baseHp = 8;
+          rad = 18;
+          spd = 0.9;
+        } else if (roll < 0.6) {
+          enemyType = "medium";
+          color = "#a855f7";
+          damage = 10;
+          baseHp = 5;
+          rad = 15;
+          spd = 1.1;
+        } else {
+          enemyType = "weak";
+          color = "#22c55e";
+          damage = 5;
+          baseHp = 3;
+          rad = 12;
+          spd = 1.3;
         }
       } else {
-        // Wave 10+: patrón dinámico - morado (50%), amarillo (30%), verde (20%)
-        if (roll < 0.5) {
-          enemyType = "medium";
-          color = "#a855f7";
-          damage = 10;
-          baseHp = 5;
-          rad = 15;
-          spd = 1.1;
-        } else if (roll < 0.8) {
+        // Wave 8+: Escalado progresivo (amarillos hasta 25-30%)
+        const yellowChance = Math.min(0.30, 0.15 + (gameState.wave - 8) * 0.02);
+        
+        if (roll < yellowChance) {
           enemyType = "strong";
           color = "#fbbf24";
           damage = 20;
           baseHp = 8;
           rad = 18;
           spd = 0.9;
+        } else if (roll < yellowChance + 0.45) {
+          enemyType = "medium";
+          color = "#a855f7";
+          damage = 10;
+          baseHp = 5;
+          rad = 15;
+          spd = 1.1;
         } else {
           enemyType = "weak";
           color = "#22c55e";
@@ -539,9 +620,26 @@ const Index = () => {
           baseHp = 3;
           rad = 12;
           spd = 1.3;
+        }
+        
+        // Posibilidad de enemigos élite (5% chance en wave 8+)
+        if (Math.random() < 0.05) {
+          isElite = true;
+          baseHp *= 1.5;
+          rad += 3;
+          color = enemyType === "strong" ? "#f59e0b" : enemyType === "medium" ? "#9333ea" : "#16a34a";
         }
       }
       
+      // Escalado de dificultad para wave 8+: +5% velocidad y daño por wave
+      if (gameState.wave >= 8) {
+        const difficultyScale = 1 + (gameState.wave - 7) * 0.05;
+        spd *= difficultyScale;
+        damage = Math.floor(damage * difficultyScale);
+      }
+      
+      // HP scaling base por wave (+15% por wave)
+      const waveMultiplier = 1 + (gameState.wave - 1) * 0.15;
       const scaledHp = Math.floor(baseHp * waveMultiplier);
       
       gameState.enemies.push({
@@ -552,7 +650,7 @@ const Index = () => {
         spd,
         enemyType,
         damage,
-        isElite: false,
+        isElite,
         isMiniBoss: false,
         color,
       });
@@ -1145,20 +1243,53 @@ const Index = () => {
         gameState.waveKills = 0;
         gameState.waveEnemiesSpawned = 0;
         
-        // Calcular presupuesto de enemigos para la nueva wave
-        // Progresión: Wave 1: 15, Wave 2: 20, Wave 3: 25, etc.
-        // Con mini-bosses incluidos ocasionalmente
-        const baseEnemies = 15 + (gameState.wave - 1) * 5;
-        const hasBoss = gameState.wave % 3 === 0; // Boss cada 3 waves
-        gameState.waveEnemiesTotal = hasBoss ? baseEnemies - 1 : baseEnemies;
+        // Configurar targets y caps específicos por wave
+        let waveTarget: number;
+        let maxConcurrent: number;
         
-        // Aumentar cap de enemigos concurrentes gradualmente
-        gameState.maxConcurrentEnemies = Math.min(50, 30 + gameState.wave * 2);
+        switch(gameState.wave) {
+          case 1:
+            waveTarget = 15;
+            maxConcurrent = 8;
+            break;
+          case 2:
+            waveTarget = 12; // +1 boss = 13 total
+            maxConcurrent = 9;
+            break;
+          case 3:
+            waveTarget = 18;
+            maxConcurrent = 11;
+            break;
+          case 4:
+            waveTarget = 20;
+            maxConcurrent = 12;
+            break;
+          case 5:
+            waveTarget = 22;
+            maxConcurrent = 14;
+            break;
+          case 6:
+            waveTarget = 24;
+            maxConcurrent = 15;
+            break;
+          case 7:
+            waveTarget = 26;
+            maxConcurrent = 16;
+            break;
+          default:
+            // Wave 8+: Escalado progresivo
+            waveTarget = 26 + (gameState.wave - 7) * 3;
+            maxConcurrent = Math.min(25, 16 + (gameState.wave - 7));
+            break;
+        }
+        
+        gameState.waveEnemiesTotal = waveTarget;
+        gameState.maxConcurrentEnemies = maxConcurrent;
         
         // Animación de transición entre waves
-        gameState.waveNotification = 2; // Mostrar durante 2 segundos
+        gameState.waveNotification = 2;
         
-        // Partículas de celebración de wave
+        // Partículas de celebración
         for (let i = 0; i < 30; i++) {
           const angle = (Math.PI * 2 * i) / 30;
           gameState.particles.push({
@@ -1172,7 +1303,7 @@ const Index = () => {
           });
         }
         
-        // Recompensa base por completar wave
+        // Recompensa por completar wave
         collectXP(20 + gameState.wave * 5);
       }
       
@@ -1311,10 +1442,24 @@ const Index = () => {
                       gameState.enemies.length < gameState.maxConcurrentEnemies;
       
       if (canSpawn) {
-        // Tasa de spawn más rápida en bursts
-        const spawnRate = gameState.wave <= 3 ? 0.5 : 
-                         gameState.wave <= 6 ? 0.4 : 
-                         gameState.wave <= 10 ? 0.3 : 0.2;
+        // Intervalos de spawn específicos por wave
+        let spawnRate: number;
+        
+        if (gameState.wave === 1) {
+          spawnRate = 1.4 + Math.random() * 0.2; // 1.4-1.6s
+        } else if (gameState.wave === 2) {
+          spawnRate = 1.3 + Math.random() * 0.2; // 1.3-1.5s
+        } else if (gameState.wave === 3) {
+          spawnRate = 1.2 + Math.random() * 0.2; // 1.2-1.4s
+        } else if (gameState.wave === 4 || gameState.wave === 5) {
+          spawnRate = 1.0 + Math.random() * 0.2; // 1.0-1.2s (bursts de 2-3)
+        } else if (gameState.wave === 6 || gameState.wave === 7) {
+          spawnRate = 0.9 + Math.random() * 0.2; // 0.9-1.1s
+        } else {
+          // Wave 8+: Más rápido gradualmente
+          const speedup = Math.min(0.3, (gameState.wave - 7) * 0.05);
+          spawnRate = Math.max(0.5, 0.8 - speedup + Math.random() * 0.2);
+        }
         
         if (gameState.lastSpawn > spawnRate) {
           spawnEnemy();
@@ -1323,8 +1468,8 @@ const Index = () => {
         }
       }
       
-      // Mini-boss spawn cada 3 waves (incluido en el presupuesto)
-      const shouldSpawnBoss = gameState.wave % 3 === 0 && 
+      // Mini-boss spawn en waves específicas (2, 5, 8, etc.)
+      const shouldSpawnBoss = (gameState.wave === 2 || gameState.wave === 5 || gameState.wave % 3 === 0) && 
                              gameState.waveEnemiesSpawned === gameState.waveEnemiesTotal;
       if (shouldSpawnBoss && gameState.enemies.length < gameState.maxConcurrentEnemies) {
         spawnMiniBoss();
@@ -1413,6 +1558,11 @@ const Index = () => {
                 points = 100;
                 xpBundles = Math.floor(Math.random() * 3) + 4; // 4-6 bundles
                 dropChance = 0.10; // 10% chance de drop temporal
+              } else if (e.isElite) {
+                // Élites: Mejor loot
+                points = 25;
+                xpBundles = 2;
+                dropChance = 0.15; // 15% chance
               } else if (e.enemyType === "strong") {
                 points = 10;
                 xpBundles = 1;
