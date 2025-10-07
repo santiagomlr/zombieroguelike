@@ -244,8 +244,6 @@ const Index = () => {
       hotspotTimer: 0,
       levelUpAnimation: 0,
       upgradeAnimation: 0,
-      nukeAnimation: 0,
-      nukeParticles: [] as any[],
       sounds: {
         shoot: new Audio(),
         hit: new Audio(),
@@ -308,35 +306,8 @@ const Index = () => {
         gameState.paused = !gameState.paused;
         gameState.showPauseMenu = !gameState.showPauseMenu;
       }
-      if (e.key.toLowerCase() === "r" && gameState.nukeAnimation === 0) {
-        // Iniciar animación de nuke
-        gameState.nukeAnimation = 2.5; // 2.5 segundos de animación
-        
-        // Crear partículas de explosión desde el centro
-        const centerX = W / 2;
-        const centerY = H / 2;
-        gameState.nukeParticles = [];
-        
-        for (let i = 0; i < 150; i++) {
-          const angle = (Math.PI * 2 * i) / 150 + Math.random() * 0.1;
-          const speed = 3 + Math.random() * 20;
-          gameState.nukeParticles.push({
-            x: centerX,
-            y: centerY,
-            vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed,
-            life: 1.5 + Math.random() * 1,
-            maxLife: 2.5,
-            color: Math.random() > 0.5 ? "#fbbf24" : Math.random() > 0.5 ? "#f87171" : "#fff",
-            size: 3 + Math.random() * 10,
-          });
-        }
-        
-        // Sonidos de explosión escalonados
-        playDeathSound();
-        setTimeout(() => playDeathSound(), 150);
-        setTimeout(() => playDeathSound(), 300);
-        setTimeout(() => playDeathSound(), 500);
+      if (e.key.toLowerCase() === "r") {
+        window.location.reload();
       }
     };
     
@@ -743,27 +714,6 @@ const Index = () => {
     });
 
     function update(dt: number) {
-      // Nuke animation updates particles
-      if (gameState.nukeAnimation > 0) {
-        gameState.nukeAnimation -= dt;
-        
-        // Update nuke particles
-        for (let i = gameState.nukeParticles.length - 1; i >= 0; i--) {
-          const p = gameState.nukeParticles[i];
-          p.x += p.vx * dt * 60;
-          p.y += p.vy * dt * 60;
-          p.life -= dt;
-          p.vx *= 0.97;
-          p.vy *= 0.97;
-        }
-        
-        // Reload when animation finishes
-        if (gameState.nukeAnimation <= 0) {
-          setTimeout(() => window.location.reload(), 100);
-        }
-        return;
-      }
-      
       if (gameState.paused) return;
       gameState.time += dt;
 
@@ -1371,81 +1321,7 @@ const Index = () => {
     function draw() {
       ctx.clearRect(0, 0, W, H);
       
-      // Nuke animation overlay - dibujado ENCIMA de todo
-      if (gameState.nukeAnimation > 0) {
-        const totalDuration = 2.5;
-        const progress = 1 - (gameState.nukeAnimation / totalDuration); // 0 a 1
-        
-        // Dibujar el juego normal debajo
-        const gradient = ctx.createRadialGradient(W / 2, H / 3, 0, W / 2, H / 3, Math.max(W, H));
-        gradient.addColorStop(0, "#0f1729");
-        gradient.addColorStop(0.5, "#0a0f1a");
-        gradient.addColorStop(1, "#060a10");
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, W, H);
-        
-        // Ondas de choque expansivas
-        const maxRadius = Math.max(W, H) * 2;
-        const waveRadius = maxRadius * Math.pow(progress, 0.7);
-        
-        for (let i = 0; i < 4; i++) {
-          const alpha = Math.max(0, (1 - progress) * 0.6);
-          ctx.strokeStyle = `rgba(251, 191, 36, ${alpha})`;
-          ctx.lineWidth = 20 - i * 4;
-          ctx.beginPath();
-          ctx.arc(W / 2, H / 2, waveRadius - i * 80, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-        
-        // Explosión central brillante
-        const explosionRadius = Math.min(waveRadius * 0.4, 400);
-        const explosionGradient = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, explosionRadius);
-        
-        if (progress < 0.3) {
-          // Inicio: blanco brillante
-          explosionGradient.addColorStop(0, `rgba(255, 255, 255, ${1 - progress * 2})`);
-          explosionGradient.addColorStop(0.4, `rgba(251, 191, 36, ${1 - progress * 2})`);
-          explosionGradient.addColorStop(0.7, `rgba(248, 113, 113, ${0.8 - progress * 2})`);
-        } else {
-          // Después: se desvanece
-          const fadeAlpha = Math.max(0, 1 - (progress - 0.3) * 2);
-          explosionGradient.addColorStop(0, `rgba(251, 191, 36, ${fadeAlpha * 0.8})`);
-          explosionGradient.addColorStop(0.5, `rgba(248, 113, 113, ${fadeAlpha * 0.5})`);
-        }
-        explosionGradient.addColorStop(1, "rgba(0, 0, 0, 0)");
-        
-        ctx.fillStyle = explosionGradient;
-        ctx.beginPath();
-        ctx.arc(W / 2, H / 2, explosionRadius, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Partículas de explosión
-        for (const p of gameState.nukeParticles) {
-          if (p.life > 0) {
-            const particleAlpha = Math.min(1, p.life / p.maxLife);
-            ctx.fillStyle = p.color;
-            ctx.globalAlpha = particleAlpha;
-            ctx.shadowColor = p.color;
-            ctx.shadowBlur = p.size * 2;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-            ctx.fill();
-          }
-        }
-        ctx.shadowBlur = 0;
-        ctx.globalAlpha = 1;
-        
-        // Flash blanco final
-        if (progress > 0.75) {
-          const flashAlpha = Math.min(1, (progress - 0.75) * 4);
-          ctx.fillStyle = `rgba(255, 255, 255, ${flashAlpha})`;
-          ctx.fillRect(0, 0, W, H);
-        }
-        
-        return;
-      }
-      
-      // Fondo normal
+      // Fondo
       const gradient = ctx.createRadialGradient(W / 2, H / 3, 0, W / 2, H / 3, Math.max(W, H));
       gradient.addColorStop(0, "#0f1729");
       gradient.addColorStop(0.5, "#0a0f1a");
@@ -1467,13 +1343,13 @@ const Index = () => {
         ctx.setLineDash([]);
         
         // Progress circle (cuando está activo - progreso de recompensa)
-        if (h.active && h.rad > 15) {
+        if (h.active) {
           ctx.strokeStyle = "#22c55e";
           ctx.lineWidth = 6;
           ctx.beginPath();
           ctx.arc(h.x, h.y, h.rad - 10, 0, (Math.PI * 2 * h.progress) / h.required);
           ctx.stroke();
-        } else if (!h.active && h.rad > 15) {
+        } else {
           // Timer de caducación (cuando NO está activo)
           const expirationProgress = h.expirationTimer / h.maxExpiration;
           ctx.strokeStyle = "#ef4444";
