@@ -367,9 +367,9 @@ const Index = () => {
         rad = 18;
         spd = 0.9;
       } else if (roll < 0.5) {
-        // 30% Azul - Medio
+        // 30% Morado - Medio
         enemyType = "medium";
-        color = "#3b82f6";
+        color = "#a855f7";
         damage = 10;
         baseHp = 5;
         rad = 15;
