@@ -918,9 +918,9 @@ const Index = () => {
 
       if (gameState.player.ifr > 0) gameState.player.ifr = Math.max(0, gameState.player.ifr - dt);
 
-      // Movimiento
-      let vx = (gameState.keys["d"] ? 1 : 0) - (gameState.keys["a"] ? 1 : 0);
-      let vy = (gameState.keys["s"] ? 1 : 0) - (gameState.keys["w"] ? 1 : 0);
+      // Movimiento (WASD o flechas)
+      let vx = (gameState.keys["d"] || gameState.keys["arrowright"] ? 1 : 0) - (gameState.keys["a"] || gameState.keys["arrowleft"] ? 1 : 0);
+      let vy = (gameState.keys["s"] || gameState.keys["arrowdown"] ? 1 : 0) - (gameState.keys["w"] || gameState.keys["arrowup"] ? 1 : 0);
       const len = Math.hypot(vx, vy) || 1;
       vx /= len;
       vy /= len;
