@@ -284,9 +284,21 @@ const Index = () => {
       musicNotificationTimer: 0,
       musicMuted: false,
       sfxMuted: false,
+      enemyLogo: null as HTMLImageElement | null,
     };
 
     gameStateRef.current = gameState;
+    
+    // Load enemy logo
+    const enemyLogoImg = new Image();
+    enemyLogoImg.src = '/images/enemy-logo.png';
+    enemyLogoImg.onload = () => {
+      gameState.enemyLogo = enemyLogoImg;
+      console.log('Enemy logo loaded successfully');
+    };
+    enemyLogoImg.onerror = () => {
+      console.error('Failed to load enemy logo');
+    };
     
     // Initialize Web Audio API
     try {
@@ -2410,13 +2422,50 @@ const Index = () => {
       
       // Enemigos
       for (const e of gameState.enemies) {
-        ctx.fillStyle = e.color;
-        ctx.shadowColor = e.color;
-        ctx.shadowBlur = e.isMiniBoss ? 25 : 15;
-        ctx.beginPath();
-        ctx.arc(e.x, e.y, e.rad, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
+        ctx.save();
+        
+        // Si tenemos el logo cargado, dibujarlo con el color del enemigo
+        if (gameState.enemyLogo && gameState.enemyLogo.complete) {
+          ctx.translate(e.x, e.y);
+          
+          // Aplicar sombra con el color del enemigo
+          ctx.shadowColor = e.color;
+          ctx.shadowBlur = e.isMiniBoss ? 25 : 15;
+          
+          // Dibujar el logo escalado al tamaño del enemigo
+          const logoSize = e.rad * 2;
+          
+          // Dibujar el logo en blanco
+          ctx.globalAlpha = 1;
+          ctx.drawImage(
+            gameState.enemyLogo,
+            -logoSize / 2,
+            -logoSize / 2,
+            logoSize,
+            logoSize
+          );
+          
+          // Aplicar color usando multiply blend mode
+          ctx.globalCompositeOperation = 'multiply';
+          ctx.fillStyle = e.color;
+          ctx.fillRect(-logoSize / 2, -logoSize / 2, logoSize, logoSize);
+          
+          // Restaurar blend mode
+          ctx.globalCompositeOperation = 'source-over';
+          
+          ctx.shadowBlur = 0;
+          ctx.restore();
+        } else {
+          // Fallback: dibujar círculo si la imagen no está cargada
+          ctx.fillStyle = e.color;
+          ctx.shadowColor = e.color;
+          ctx.shadowBlur = e.isMiniBoss ? 25 : 15;
+          ctx.beginPath();
+          ctx.arc(e.x, e.y, e.rad, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          ctx.restore();
+        }
         
         // HP bar para todos los enemigos
         const barW = e.rad * 2;
