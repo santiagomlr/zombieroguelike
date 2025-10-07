@@ -1187,7 +1187,7 @@ const Index = () => {
         progress: 0,
         required: isNegative ? 10 : 3, // Positivos: 3s para completar, Negativos: no aplica
         expirationTimer: 0,
-        maxExpiration: isNegative ? 45 : 5, // Positivos: duran 5s, Negativos: 45s
+        maxExpiration: isNegative ? 6 : 5, // Positivos: 5s, Negativos: 6s (estilo COD Zombies)
         active: false,
         isNegative, // true = zona de peligro, false = zona positiva
       });
@@ -1778,6 +1778,38 @@ const Index = () => {
       // Solo actualizar lógica del juego si está corriendo
       if (gameState.state !== 'running') return;
 
+      // ═══════════════════════════════════════════════════════════
+      // SISTEMA DE OLEADAS (WAVES) - Estilo Call of Duty Zombies
+      // ═══════════════════════════════════════════════════════════
+      //
+      // 📊 LÓGICA DE OLEADAS:
+      // • Cada wave tiene un número fijo de enemigos (waveEnemiesTotal)
+      // • Los enemigos solo spawnean si hay cupo (normalEnemies < maxConcurrentEnemies)
+      // • Boss/Mini-boss NO cuentan en el límite de enemigos concurrentes
+      // • La siguiente wave NO inicia hasta que waveKills >= waveEnemiesTotal
+      // • Al completar: bono de XP + mensaje "✔ Wave X completada" por 3s
+      //
+      // 📈 PROGRESIÓN:
+      // • Enemigos totales: W1: 10 → W10: 90 → W20: ~350 → W25+: ~700+
+      // • Concurrentes: 12-15 (W1-5) → 25-30 (W10-15) → 50-60 (W21+)
+      // • Spawn rate: 1.2s (W1-2) → 0.5s (W10) → 0.1-0.3s (W16+) + bursts
+      // • HP: +20%/wave (1-5) → +35%/wave (6-15) → +50%/wave (16+)
+      // • Velocidad: +3%/wave → +5%/wave → +7%/wave (max +200%)
+      // • Daño: +15%/wave → +25%/wave → +35%/wave
+      // • Especiales: 5% (W1-3) → 15% (W6-10) → 45% (W19+)
+      //
+      // 🔴 BOSS/MINI-BOSS:
+      // • Boss cada 5 waves: HP = base × wave × 3
+      // • Mini-boss en W3, W7, W12, W17, W22...: HP = base × wave × 2
+      // • Ambos se agregan sin importar el límite concurrente
+      //
+      // ⚠️ DANGER ZONES:
+      // • Desde W11+: hasta 2 zonas simultáneas
+      // • Duración: 6 segundos
+      // • Daño continuo: 8 HP/s
+      //
+      // ═══════════════════════════════════════════════════════════
+      
       // Wave system basado en conteo de enemigos eliminados
       if (gameState.waveKills >= gameState.waveEnemiesTotal) {
         // Wave completada!
@@ -1833,16 +1865,20 @@ const Index = () => {
           maxConcurrent = Math.min(60, 45 + (gameState.wave - 20) * 3);
         }
         
-        // Boss waves tienen el boss incluido en el conteo
+        // Boss waves (cada 5) y Mini-boss waves (3, 7, 12, 17, 22...) incluyen +1 enemigo
         if (gameState.wave % 5 === 0) {
           waveTarget += 1; // +1 por el boss
+        }
+        const isMiniBossWave = gameState.wave === 3 || (gameState.wave > 3 && (gameState.wave - 3) % 5 === 0 && gameState.wave % 5 !== 0);
+        if (isMiniBossWave) {
+          waveTarget += 1; // +1 por el mini-boss
         }
         
         gameState.waveEnemiesTotal = waveTarget;
         gameState.maxConcurrentEnemies = maxConcurrent;
         
-        // Animación de transición entre waves
-        gameState.waveNotification = 2;
+        // Animación de transición entre waves (3 segundos)
+        gameState.waveNotification = 3;
         
         // Partículas de celebración
         for (let i = 0; i < 30; i++) {
@@ -2049,13 +2085,26 @@ const Index = () => {
       gameState.player.x = newX;
       gameState.player.y = newY;
 
-      // Spawn enemigos por lotes (burst controlado)
+      // ═══════════════════════════════════════════════════════════
+      // SISTEMA DE SPAWN DE ENEMIGOS - Estilo COD Zombies
+      // ═══════════════════════════════════════════════════════════
+      // 
+      // Reglas:
+      // 1. Solo se spawnean enemigos normales si waveEnemiesSpawned < waveEnemiesTotal
+      // 2. Boss y Mini-boss NO cuentan en el límite de maxConcurrentEnemies
+      // 3. Los spawns se detienen cuando se alcanza waveEnemiesTotal
+      // 4. La wave NO avanza hasta que waveKills >= waveEnemiesTotal
+      // 5. En waves 8+, enemigos aparecen en bursts de 3-5 simultáneos
+      // 
+      // ═══════════════════════════════════════════════════════════
+      
       gameState.lastSpawn += dt;
       
-      // Solo spawnear si no hemos alcanzado el total de enemigos para esta wave
-      // Y si no excedemos el cap de enemigos concurrentes
+      // Solo spawnear enemigos normales si no hemos alcanzado el total
+      // Boss/Mini-boss NO cuentan en el límite concurrente
+      const normalEnemies = gameState.enemies.filter(e => !e.isBoss && !e.isMiniBoss).length;
       const canSpawn = gameState.waveEnemiesSpawned < gameState.waveEnemiesTotal && 
-                      gameState.enemies.length < gameState.maxConcurrentEnemies;
+                      normalEnemies < gameState.maxConcurrentEnemies;
       
       if (canSpawn) {
         // Velocidad de spawn estilo COD Zombies - Spawns en bursts agresivos
@@ -2086,8 +2135,9 @@ const Index = () => {
           }
           
           for (let i = 0; i < spawnCount; i++) {
+            const normalEnemies = gameState.enemies.filter(e => !e.isBoss && !e.isMiniBoss).length;
             if (gameState.waveEnemiesSpawned < gameState.waveEnemiesTotal && 
-                gameState.enemies.length < gameState.maxConcurrentEnemies) {
+                normalEnemies < gameState.maxConcurrentEnemies) {
               spawnEnemy();
               gameState.waveEnemiesSpawned++;
             }
@@ -2096,13 +2146,13 @@ const Index = () => {
         }
       }
       
-      // Boss spawn cada 5 waves (ya incluido en el conteo del wave)
+      // Boss spawn cada 5 waves (NO cuenta en límite concurrente)
       if (gameState.wave % 5 === 0 && gameState.waveEnemiesSpawned === gameState.waveEnemiesTotal - 1 && gameState.enemies.length === 0) {
         spawnBoss();
         gameState.waveEnemiesSpawned++;
       }
       
-      // Mini-boss spawn (wave 3, 7, 12, 17, 22...)
+      // Mini-boss spawn (wave 3, 7, 12, 17, 22...) (NO cuenta en límite concurrente)
       const isMiniBossWave = gameState.wave === 3 || (gameState.wave > 3 && (gameState.wave - 3) % 5 === 0);
       if (isMiniBossWave && gameState.waveEnemiesSpawned === gameState.waveEnemiesTotal - 1 && gameState.enemies.length === 0) {
         spawnMiniBoss();
@@ -2156,8 +2206,9 @@ const Index = () => {
         // Comportamientos especiales de enemigos
         if (e.specialType === "summoner" && e.summonCooldown !== undefined) {
           e.summonCooldown -= dt;
-          if (e.summonCooldown <= 0 && gameState.enemies.length < gameState.maxConcurrentEnemies) {
-            // Invocar zombi pequeño
+          const normalEnemies = gameState.enemies.filter(en => !en.isBoss && !en.isMiniBoss).length;
+          if (e.summonCooldown <= 0 && normalEnemies < gameState.maxConcurrentEnemies) {
+            // Invocar zombi pequeño (NO cuenta en límite si viene de summoner en wave boss)
             for (let i = 0; i < 2; i++) {
               const angle = Math.random() * Math.PI * 2;
               const dist = 30;
@@ -3299,7 +3350,7 @@ const Index = () => {
         ctx.globalAlpha = 1;
       }
       
-      // Wave notification
+      // Wave notification - "✔ Wave X completada"
       if (gameState.waveNotification > 0) {
         const alpha = Math.min(1, gameState.waveNotification);
         const fadeOut = gameState.waveNotification < 1 ? gameState.waveNotification : 1;
@@ -3307,16 +3358,23 @@ const Index = () => {
         
         // Fondo semitransparente
         ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-        ctx.fillRect(0, H / 2 - 60, W, 120);
+        ctx.fillRect(0, H / 2 - 80, W, 160);
+        
+        // Checkmark ✔
+        const pulse = Math.sin(gameState.time * 8) * 0.2 + 0.8;
+        ctx.fillStyle = "#22c55e";
+        ctx.shadowColor = "#22c55e";
+        ctx.shadowBlur = 30 * pulse;
+        ctx.font = "bold 72px system-ui";
+        ctx.textAlign = "center";
+        ctx.fillText("✔", W / 2, H / 2 - 10);
         
         // Texto principal con glow
-        const pulse = Math.sin(gameState.time * 8) * 0.2 + 0.8;
         ctx.fillStyle = "#a855f7";
         ctx.shadowColor = "#a855f7";
         ctx.shadowBlur = 30 * pulse;
-        ctx.font = "bold 64px system-ui";
-        ctx.textAlign = "center";
-        ctx.fillText(`WAVE ${gameState.wave}`, W / 2, H / 2 + 10);
+        ctx.font = "bold 48px system-ui";
+        ctx.fillText(`Wave ${gameState.wave - 1} completada`, W / 2, H / 2 + 50);
         
         ctx.globalAlpha = 1;
         ctx.shadowBlur = 0;
