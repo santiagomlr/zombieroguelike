@@ -2610,7 +2610,7 @@ const Index = () => {
       />
       
       {/* Audio controls */}
-      <div className="absolute top-4 right-4 flex gap-2 z-10">
+      <div className="absolute bottom-4 right-4 flex gap-2 z-10">
         <button
           onClick={() => {
             if (gameStateRef.current) {
