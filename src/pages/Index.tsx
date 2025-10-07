@@ -17,6 +17,7 @@ interface Translations {
   wave: string;
   weapons: string;
   tomes: string;
+  items: string;
   movement: string;
   restart: string;
   pause: string;
@@ -46,6 +47,7 @@ const translations: Record<Language, Translations> = {
     wave: "Wave",
     weapons: "Armas:",
     tomes: "Tomos:",
+    items: "Ítems:",
     movement: "WASD - Movimiento",
     restart: "R - Reiniciar",
     pause: "ESC - Pausa",
@@ -73,6 +75,7 @@ const translations: Record<Language, Translations> = {
     wave: "Wave",
     weapons: "Weapons:",
     tomes: "Tomes:",
+    items: "Items:",
     movement: "WASD - Movement",
     restart: "R - Restart",
     pause: "ESC - Pause",
@@ -155,13 +158,38 @@ const TOMES: Tome[] = [
 ];
 
 const ITEMS: Item[] = [
-  { id: "magnet", name: "Imán", description: "+50% Rango de imán", effect: "magnet", rarity: "common", color: "#9ca3af" },
-  { id: "regen", name: "Regeneración", description: "+1 HP cada 10s", effect: "regen", rarity: "uncommon", color: "#22c55e" },
-  { id: "luck", name: "Suerte", description: "+20% Drop rate", effect: "luck", rarity: "rare", color: "#fbbf24" },
-  { id: "shielditem", name: "Escudo Temporal", description: "+1 Escudo (bloquea 1 golpe)", effect: "shield", rarity: "epic", color: "#3b82f6" },
-  { id: "maxhp", name: "Corazón", description: "+1 HP máximo", effect: "maxhp", rarity: "epic", color: "#f87171" },
-  { id: "aura", name: "Aura de Fuego", description: "Daño en área", effect: "aura", rarity: "epic", color: "#f87171" },
-  { id: "vampire", name: "Vampirismo", description: "10% robo de vida", effect: "vampire", rarity: "legendary", color: "#a855f7" },
+  // Común
+  { id: "windboots", name: "Botas de Viento", description: "+5% velocidad", effect: "speedboost", rarity: "common", color: "#9ca3af" },
+  { id: "fastgloves", name: "Guantes Rápidos", description: "+5% cadencia", effect: "firerateitem", rarity: "common", color: "#9ca3af" },
+  { id: "lightvest", name: "Chaleco Ligero", description: "+10 HP máximo", effect: "maxhp10", rarity: "common", color: "#9ca3af" },
+  { id: "tacticalbelt", name: "Cinturón Táctico", description: "+10% magnetismo", effect: "magnetitem", rarity: "common", color: "#9ca3af" },
+  { id: "oldclock", name: "Reloj Antiguo", description: "+5% duración powerups", effect: "powerupduration", rarity: "common", color: "#9ca3af" },
+  { id: "rustyring", name: "Anillo Oxidado", description: "+10 XP por kill", effect: "xpbonus", rarity: "common", color: "#9ca3af" },
+  
+  // Raro
+  { id: "combatglasses", name: "Gafas de Combate", description: "+10% precisión", effect: "precisionitem", rarity: "rare", color: "#3b82f6" },
+  { id: "reinforcedpants", name: "Pantalones Reforzados", description: "-5% daño recibido", effect: "damagereduction", rarity: "rare", color: "#3b82f6" },
+  { id: "bouncegloves", name: "Guantes de Rebote", description: "+1 rebote", effect: "bounceitem", rarity: "rare", color: "#3b82f6" },
+  { id: "extrabag", name: "Mochila Extra", description: "+capacidad drops", effect: "dropcapacity", rarity: "rare", color: "#3b82f6" },
+  { id: "energyclock", name: "Reloj de Energía", description: "+10% cadencia global", effect: "globalfirerate", rarity: "rare", color: "#3b82f6" },
+  { id: "ballistichelmet", name: "Casco Balístico", description: "Inmunidad 1er golpe/wave", effect: "firsthitimmune", rarity: "rare", color: "#3b82f6" },
+  
+  // Épico
+  { id: "jetboots", name: "Botas Jet", description: "+15% velocidad", effect: "jetspeed", rarity: "epic", color: "#a855f7" },
+  { id: "reactiveshield", name: "Escudo Reactivo", description: "Onda empuja enemigos", effect: "reactiveshield", rarity: "epic", color: "#a855f7" },
+  { id: "chaosamuleto", name: "Amuleto del Caos", description: "Daño +10% a +50%", effect: "chaosdamage", rarity: "epic", color: "#a855f7" },
+  { id: "ironmedal", name: "Medalla de Hierro", description: "+15% HP máximo", effect: "maxhp15", rarity: "epic", color: "#a855f7" },
+  { id: "heavyvest", name: "Chaleco Pesado", description: "-10% velocidad, -25% daño", effect: "heavyarmor", rarity: "epic", color: "#a855f7" },
+  { id: "plasmafragment", name: "Fragmento de Plasma", description: "+1 rebote +15% alcance", effect: "plasmafrag", rarity: "epic", color: "#a855f7" },
+  
+  // Legendario
+  { id: "voidcore", name: "Núcleo del Vacío", description: "XP Doble", effect: "doublexp", rarity: "legendary", color: "#fbbf24" },
+  { id: "solargauntlet", name: "Guantelete Solar", description: "Proyectil cada 10 kills", effect: "solargauntlet", rarity: "legendary", color: "#fbbf24" },
+  { id: "infernalengine", name: "Motor Infernal", description: "+25% velocidad +20% daño, +10% daño recibido", effect: "infernalengine", rarity: "legendary", color: "#fbbf24" },
+  { id: "bloodstone", name: "Piedra de Sangre", description: "5 HP cada 30 kills", effect: "bloodstone", rarity: "legendary", color: "#fbbf24" },
+  { id: "hordetotem", name: "Tótem de la Horda", description: "+1 enemigo spawn, +2 XP/kill", effect: "hordetotem", rarity: "legendary", color: "#fbbf24" },
+  { id: "artificialheart", name: "Corazón Artificial", description: "+50 HP permanente", effect: "artificialheart", rarity: "legendary", color: "#fbbf24" },
+  { id: "infinitylens", name: "Lente del Infinito", description: "+10% todos los stats", effect: "infinitylens", rarity: "legendary", color: "#fbbf24" },
 ];
 
 const rarityColors = {
@@ -230,6 +258,14 @@ const Index = () => {
           regenInterval: 0,
           magnetMultiplier: 1,
           bounceOnEnemies: false,
+          damageReduction: 0,
+          powerupDuration: 1,
+          xpBonus: 0,
+          firstHitImmuneUsed: false,
+          chaosDamage: false,
+          solarGauntletKills: 0,
+          bloodstoneKills: 0,
+          reactiveShieldActive: false,
         },
       },
       bullets: [] as any[],
@@ -437,6 +473,14 @@ const Index = () => {
         regenInterval: 0,
         magnetMultiplier: 1,
         bounceOnEnemies: false,
+        damageReduction: 0,
+        powerupDuration: 1,
+        xpBonus: 0,
+        firstHitImmuneUsed: false,
+        chaosDamage: false,
+        solarGauntletKills: 0,
+        bloodstoneKills: 0,
+        reactiveShieldActive: false,
       };
       
       // Resetear juego
@@ -527,6 +571,9 @@ const Index = () => {
       else if (side === 1) { x = W + 30; y = Math.random() * H; }
       else if (side === 2) { x = Math.random() * W; y = H + 30; }
       else { x = -30; y = Math.random() * H; }
+      
+      // Horde Totem: +1 enemigo adicional spawn
+      const hordeTotem = gameState.player.items.find((it: Item) => it.id === "hordetotem");
       
       const roll = Math.random();
       let enemyType: "strong" | "medium" | "weak";
@@ -773,7 +820,15 @@ const Index = () => {
 
     function shootWeapon(weapon: Weapon, target: any) {
       const range = weapon.range * gameState.player.stats.rangeMultiplier;
-      const damage = weapon.damage * gameState.player.stats.damageMultiplier;
+      let baseDamage = weapon.damage * gameState.player.stats.damageMultiplier;
+      
+      // Amuleto del Caos: daño aleatorio +10% a +50%
+      if (gameState.player.stats.chaosDamage) {
+        const chaosBonus = 1 + (Math.random() * 0.4 + 0.1); // 1.1x a 1.5x
+        baseDamage *= chaosBonus;
+      }
+      
+      const damage = baseDamage;
       const dir = Math.atan2(target.y - gameState.player.y, target.x - gameState.player.x);
       
       const isPierce = weapon.special === "pierce";
@@ -897,7 +952,8 @@ const Index = () => {
     }
 
     function collectXP(v: number) {
-      const xpGained = v * gameState.player.stats.xpMultiplier;
+      // Aplicar multiplicador y bonus de XP
+      const xpGained = (v + gameState.player.stats.xpBonus) * gameState.player.stats.xpMultiplier;
       gameState.xp += xpGained;
       while (gameState.xp >= gameState.nextXP) {
         gameState.xp -= gameState.nextXP;
@@ -925,7 +981,10 @@ const Index = () => {
     
     function collectPowerup(drop: any) {
       const type = drop.powerupType;
-      const duration = drop.duration;
+      let duration = drop.duration;
+      
+      // Aplicar bonus de duración de powerups
+      duration *= gameState.player.stats.powerupDuration;
       
       playPowerupSound();
       
@@ -1133,13 +1192,28 @@ const Index = () => {
         }
       }
       
-      // Items siempre disponibles
+      // Items siempre disponibles (pero filtrar los que ya tiene)
       for (const item of ITEMS) {
-        availableUpgrades.push({ 
-          type: "item", 
-          data: item, 
-          rarity: item.rarity 
-        });
+        // No agregar si ya lo tiene
+        if (!gameState.player.items.find((it: Item) => it.id === item.id)) {
+          // Control de legendarios: máximo uno cada 3 waves
+          if (item.rarity === "legendary") {
+            // Solo permitir legendarios en waves múltiplos de 3
+            if (gameState.wave % 3 === 0) {
+              availableUpgrades.push({ 
+                type: "item", 
+                data: item, 
+                rarity: item.rarity 
+              });
+            }
+          } else {
+            availableUpgrades.push({ 
+              type: "item", 
+              data: item, 
+              rarity: item.rarity 
+            });
+          }
+        }
       }
       
       // Seleccionar 3 upgrades únicos
@@ -1326,16 +1400,101 @@ const Index = () => {
         }
       } else if (option.type === "item") {
         const item = option.data as Item;
-        gameState.player.items.push(item);
         
-        if (item.effect === "magnet") gameState.player.magnet *= 1.5;
-        if (item.effect === "shield") gameState.player.shield = Math.min(3, gameState.player.shield + 1);
-        if (item.effect === "maxhp") {
-          gameState.player.maxhp = Math.min(150, gameState.player.maxhp + 20);
-          gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + 20);
+        // Verificar que no esté duplicado
+        if (!gameState.player.items.find((it: Item) => it.id === item.id)) {
+          gameState.player.items.push(item);
+          
+          // Aplicar efectos de ítems
+          switch(item.effect) {
+            case "speedboost":
+              gameState.player.stats.speedMultiplier *= 1.05;
+              break;
+            case "firerateitem":
+              gameState.player.stats.fireRateMultiplier *= 1.05;
+              break;
+            case "maxhp10":
+              gameState.player.maxhp += 10;
+              gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + 10);
+              break;
+            case "magnetitem":
+              gameState.player.stats.magnetMultiplier *= 1.1;
+              break;
+            case "powerupduration":
+              gameState.player.stats.powerupDuration *= 1.05;
+              break;
+            case "xpbonus":
+              gameState.player.stats.xpBonus += 10;
+              break;
+            case "precisionitem":
+              gameState.player.stats.precision += 10;
+              break;
+            case "damagereduction":
+              gameState.player.stats.damageReduction += 0.05;
+              break;
+            case "bounceitem":
+              gameState.player.stats.bounces += 1;
+              break;
+            case "dropcapacity":
+              // Efecto pasivo, no modifica stats directamente
+              break;
+            case "globalfirerate":
+              gameState.player.stats.fireRateMultiplier *= 1.1;
+              break;
+            case "firsthitimmune":
+              // Se maneja en la colisión
+              break;
+            case "jetspeed":
+              gameState.player.stats.speedMultiplier *= 1.15;
+              break;
+            case "reactiveshield":
+              gameState.player.stats.reactiveShieldActive = true;
+              break;
+            case "chaosdamage":
+              gameState.player.stats.chaosDamage = true;
+              break;
+            case "maxhp15":
+              const bonus15 = Math.floor(gameState.player.maxhp * 0.15);
+              gameState.player.maxhp += bonus15;
+              gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + bonus15);
+              break;
+            case "heavyarmor":
+              gameState.player.stats.speedMultiplier *= 0.9;
+              gameState.player.stats.damageReduction += 0.25;
+              break;
+            case "plasmafrag":
+              gameState.player.stats.bounces += 1;
+              gameState.player.stats.rangeMultiplier *= 1.15;
+              break;
+            case "doublexp":
+              gameState.player.stats.xpMultiplier *= 2;
+              break;
+            case "solargauntlet":
+              gameState.player.stats.solarGauntletKills = 0;
+              break;
+            case "infernalengine":
+              gameState.player.stats.speedMultiplier *= 1.25;
+              gameState.player.stats.damageMultiplier *= 1.2;
+              gameState.player.stats.damageReduction -= 0.1; // Recibe +10% daño
+              break;
+            case "bloodstone":
+              gameState.player.stats.bloodstoneKills = 0;
+              break;
+            case "hordetotem":
+              // Se maneja en spawn de enemigos y XP
+              break;
+            case "artificialheart":
+              gameState.player.maxhp += 50;
+              gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + 50);
+              break;
+            case "infinitylens":
+              gameState.player.stats.speedMultiplier *= 1.1;
+              gameState.player.stats.damageMultiplier *= 1.1;
+              gameState.player.stats.rangeMultiplier *= 1.1;
+              gameState.player.stats.xpMultiplier *= 1.1;
+              break;
+          }
         }
-        if (item.effect === "aura") gameState.player.stats.auraRadius = 80;
-        if (item.effect === "vampire") gameState.player.stats.vampire = 0.1;
       }
 
       gameState.showUpgradeUI = false;
@@ -1462,6 +1621,9 @@ const Index = () => {
         gameState.wave++;
         gameState.waveKills = 0;
         gameState.waveEnemiesSpawned = 0;
+        
+        // Reset first hit immune para la nueva wave
+        gameState.player.stats.firstHitImmuneUsed = false;
         
         // Configurar targets y caps específicos por wave
         let waveTarget: number;
@@ -1848,7 +2010,14 @@ const Index = () => {
               for (let k = 0; k < xpBundles; k++) {
                 const offsetX = (Math.random() - 0.5) * 40;
                 const offsetY = (Math.random() - 0.5) * 40;
-                dropXP(e.x + offsetX, e.y + offsetY, e.isMiniBoss ? 30 : (e.enemyType === "strong" ? 5 : e.enemyType === "medium" ? 3 : 2));
+                let xpValue = e.isMiniBoss ? 30 : (e.enemyType === "strong" ? 5 : e.enemyType === "medium" ? 3 : 2);
+                
+                // Horde Totem: +2 XP por kill
+                if (gameState.player.items.find((it: Item) => it.id === "hordetotem")) {
+                  xpValue += 2;
+                }
+                
+                dropXP(e.x + offsetX, e.y + offsetY, xpValue);
               }
               
               // Drop de curación (5% de probabilidad - más raro)
@@ -1870,6 +2039,66 @@ const Index = () => {
               if (gameState.player.stats.vampire > 0) {
                 const healAmount = Math.floor(b.damage * gameState.player.stats.vampire * 10);
                 gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + healAmount);
+              }
+              
+              // Solar Gauntlet: cada 10 kills dispara proyectil masivo
+              if (gameState.player.items.find((it: Item) => it.id === "solargauntlet")) {
+                gameState.player.stats.solarGauntletKills++;
+                if (gameState.player.stats.solarGauntletKills >= 10) {
+                  gameState.player.stats.solarGauntletKills = 0;
+                  // Disparar proyectil masivo en todas direcciones
+                  for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
+                    gameState.bullets.push({
+                      x: gameState.player.x,
+                      y: gameState.player.y,
+                      dir: angle,
+                      spd: 15,
+                      life: 3,
+                      damage: gameState.player.stats.damageMultiplier * 50,
+                      color: "#fbbf24",
+                      bounces: 0,
+                      bounceOnEnemies: false,
+                      pierce: true,
+                      aoe: false,
+                    });
+                  }
+                  // Efecto visual
+                  for (let j = 0; j < 30; j++) {
+                    const angle = (Math.PI * 2 * j) / 30;
+                    gameState.particles.push({
+                      x: gameState.player.x,
+                      y: gameState.player.y,
+                      vx: Math.cos(angle) * 10,
+                      vy: Math.sin(angle) * 10,
+                      life: 1,
+                      color: "#fbbf24",
+                      size: 5,
+                    });
+                  }
+                  playPowerupSound();
+                }
+              }
+              
+              // Bloodstone: cada 30 kills recupera 5 HP
+              if (gameState.player.items.find((it: Item) => it.id === "bloodstone")) {
+                gameState.player.stats.bloodstoneKills++;
+                if (gameState.player.stats.bloodstoneKills >= 30) {
+                  gameState.player.stats.bloodstoneKills = 0;
+                  gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + 5);
+                  // Efecto visual de curación
+                  for (let j = 0; j < 12; j++) {
+                    const angle = (Math.PI * 2 * j) / 12;
+                    gameState.particles.push({
+                      x: gameState.player.x,
+                      y: gameState.player.y,
+                      vx: Math.cos(angle) * 4,
+                      vy: Math.sin(angle) * 4,
+                      life: 0.8,
+                      color: "#dc2626",
+                      size: 4,
+                    });
+                  }
+                }
               }
               
               playHitSound();
@@ -1963,7 +2192,26 @@ const Index = () => {
           
           // Daño solo si no está en rage mode
           if (gameState.player.rageTimer <= 0 && gameState.player.ifr <= 0) {
-            if (gameState.player.shield > 0) {
+            // First Hit Immune: revisar si es el primer golpe de la wave
+            const hasFirstHitImmune = gameState.player.items.find((it: Item) => it.id === "ballistichelmet");
+            if (hasFirstHitImmune && !gameState.player.stats.firstHitImmuneUsed) {
+              // Inmunidad al primer golpe
+              gameState.player.stats.firstHitImmuneUsed = true;
+              gameState.player.ifr = gameState.player.ifrDuration;
+              // Efecto visual de inmunidad
+              for (let j = 0; j < 15; j++) {
+                const angle = (Math.PI * 2 * j) / 15;
+                gameState.particles.push({
+                  x: gameState.player.x,
+                  y: gameState.player.y,
+                  vx: Math.cos(angle) * 8,
+                  vy: Math.sin(angle) * 8,
+                  life: 1,
+                  color: "#fbbf24",
+                  size: 4,
+                });
+              }
+            } else if (gameState.player.shield > 0) {
               gameState.player.shield--;
               gameState.player.ifr = gameState.player.ifrDuration;
               // Shield break particles
@@ -1982,10 +2230,41 @@ const Index = () => {
             } else {
               const safeCurrentHp = Number.isFinite(Number(gameState.player.hp)) ? Number(gameState.player.hp) : Number(gameState.player.maxhp) || 0;
               const rawDmg = (e as any).damage;
-              const dmg = Number.isFinite(Number(rawDmg)) ? Number(rawDmg) : 10;
+              let dmg = Number.isFinite(Number(rawDmg)) ? Number(rawDmg) : 10;
+              
+              // Aplicar reducción de daño
+              dmg *= (1 - gameState.player.stats.damageReduction);
+              
               const nextHp = Math.max(0, Math.min(Number(gameState.player.maxhp) || 0, safeCurrentHp - dmg));
               gameState.player.hp = nextHp;
               gameState.player.ifr = gameState.player.ifrDuration;
+              
+              // Escudo Reactivo: empuja enemigos
+              if (gameState.player.stats.reactiveShieldActive) {
+                for (const enemy of gameState.enemies) {
+                  const dist = Math.hypot(enemy.x - gameState.player.x, enemy.y - gameState.player.y);
+                  if (dist < 150) {
+                    const pushDir = Math.atan2(enemy.y - gameState.player.y, enemy.x - gameState.player.x);
+                    enemy.x += Math.cos(pushDir) * 50;
+                    enemy.y += Math.sin(pushDir) * 50;
+                    // Daño a enemigos empujados
+                    enemy.hp -= gameState.player.stats.damageMultiplier * 5;
+                  }
+                }
+                // Efecto visual de onda
+                for (let j = 0; j < 20; j++) {
+                  const angle = (Math.PI * 2 * j) / 20;
+                  gameState.particles.push({
+                    x: gameState.player.x,
+                    y: gameState.player.y,
+                    vx: Math.cos(angle) * 12,
+                    vy: Math.sin(angle) * 12,
+                    life: 0.8,
+                    color: "#a855f7",
+                    size: 4,
+                  });
+                }
+              }
               
               // Hit particles
               for (let j = 0; j < 10; j++) {
@@ -2257,15 +2536,43 @@ const Index = () => {
       ctx.fillStyle = "#fff";
       ctx.font = "bold 14px system-ui";
       const tomeY = 80 + gameState.player.weapons.length * 25 + 10;
-      ctx.fillText("Tomos:", W - 220, tomeY);
+      ctx.fillText(t.tomes, W - 220, tomeY);
       for (let i = 0; i < gameState.player.tomes.length; i++) {
-        const t = gameState.player.tomes[i];
-        ctx.fillStyle = t.color;
+        const tome = gameState.player.tomes[i];
+        ctx.fillStyle = tome.color;
         ctx.fillRect(W - 220, tomeY + 10 + i * 25, 18, 18);
         ctx.fillStyle = "#fff";
         ctx.font = "12px system-ui";
-        const tomeText = t.level > 1 ? `${t.name} LVL ${t.level}` : t.name;
+        const tomeText = tome.level > 1 ? `${tome.name} LVL ${tome.level}` : tome.name;
         ctx.fillText(tomeText, W - 195, tomeY + 23 + i * 25);
+      }
+
+      // Items display
+      if (gameState.player.items.length > 0) {
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 14px system-ui";
+        const itemY = tomeY + gameState.player.tomes.length * 25 + 20;
+        ctx.fillText(t.items, W - 220, itemY);
+        
+        // Mostrar solo primeros 10 ítems (si hay más, scroll)
+        const maxItemsToShow = Math.min(10, gameState.player.items.length);
+        for (let i = 0; i < maxItemsToShow; i++) {
+          const item = gameState.player.items[i];
+          ctx.fillStyle = item.color;
+          ctx.fillRect(W - 220, itemY + 10 + i * 20, 12, 12);
+          ctx.fillStyle = "#fff";
+          ctx.font = "10px system-ui";
+          // Truncar nombre si es muy largo
+          const itemName = item.name.length > 18 ? item.name.substring(0, 16) + "..." : item.name;
+          ctx.fillText(itemName, W - 202, itemY + 20 + i * 20);
+        }
+        
+        // Indicador de más ítems
+        if (gameState.player.items.length > 10) {
+          ctx.fillStyle = "#9ca3af";
+          ctx.font = "10px system-ui";
+          ctx.fillText(`+${gameState.player.items.length - 10} más`, W - 220, itemY + 10 + maxItemsToShow * 20 + 15);
+        }
       }
 
       // Level up animation
