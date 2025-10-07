@@ -156,6 +156,9 @@ const Index = () => {
     const handleKeyDown = (e: KeyboardEvent) => {
       gameState.keys[e.key.toLowerCase()] = true;
       if (e.key === "Escape") gameState.paused = !gameState.paused;
+      if (e.key.toLowerCase() === "r") {
+        window.location.reload();
+      }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
@@ -1061,19 +1064,17 @@ const Index = () => {
         ctx.fill();
         ctx.shadowBlur = 0;
         
-        // HP bar para élites
-        if (e.isElite) {
-          const barW = e.rad * 2;
-          const barH = 4;
-          const barX = e.x - barW / 2;
-          const barY = e.y - e.rad - 8;
-          
-          ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
-          ctx.fillRect(barX, barY, barW, barH);
-          
-          ctx.fillStyle = "#f87171";
-          ctx.fillRect(barX, barY, barW * (e.hp / e.maxhp), barH);
-        }
+        // HP bar para todos los enemigos
+        const barW = e.rad * 2;
+        const barH = e.isElite ? 5 : 3;
+        const barX = e.x - barW / 2;
+        const barY = e.y - e.rad - 8;
+        
+        ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+        ctx.fillRect(barX, barY, barW, barH);
+        
+        ctx.fillStyle = e.isElite ? "#f87171" : "#34d399";
+        ctx.fillRect(barX, barY, barW * (e.hp / e.maxhp), barH);
       }
       
       // Balas
@@ -1179,6 +1180,7 @@ const Index = () => {
       
       <div className="absolute top-4 left-4 text-xs text-muted-foreground space-y-1 pointer-events-none">
         <p>WASD - Movimiento</p>
+        <p>R - Reiniciar</p>
         <p>ESC - Pausa</p>
         <p>Disparo automático</p>
       </div>
