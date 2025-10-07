@@ -177,6 +177,7 @@ const Index = () => {
   const [level, setLevel] = useState(1);
   const [language, setLanguage] = useState<Language>("es");
   const gameStateRef = useRef<any>(null);
+  const resetGameRef = useRef<(() => void) | null>(null);
   
   const t = translations[language];
 
@@ -193,6 +194,7 @@ const Index = () => {
     canvas.height = H;
 
     const gameState = {
+      state: 'running' as 'running' | 'paused' | 'gameover',
       player: {
         x: W / 2,
         y: H / 2,
@@ -245,8 +247,6 @@ const Index = () => {
       weaponCooldowns: {} as Record<string, number>,
       audioContext: null as AudioContext | null,
       keys: {} as Record<string, boolean>,
-      paused: false,
-      showPauseMenu: false,
       showUpgradeUI: false,
       upgradeOptions: [] as Upgrade[],
       regenTimer: 0,
@@ -314,13 +314,116 @@ const Index = () => {
       setTimeout(() => playSound(600, 0.15, "sine", 0.25), 100);
     };
     
+    // Game state management
+    function endGame() {
+      if (gameState.state === 'gameover') return; // Ya está en game over
+      
+      gameState.state = 'gameover';
+      gameState.player.hp = 0;
+      setGameOver(true);
+      
+      // Save to leaderboard
+      const leaderboard = JSON.parse(localStorage.getItem("leaderboard") || "[]");
+      leaderboard.push({ 
+        score: gameState.score, 
+        level: gameState.level, 
+        wave: gameState.wave, 
+        date: new Date().toISOString() 
+      });
+      leaderboard.sort((a: any, b: any) => b.score - a.score);
+      localStorage.setItem("leaderboard", JSON.stringify(leaderboard.slice(0, 10)));
+      
+      playDeathSound();
+    }
+    
+    function resetGame() {
+      // Limpiar arrays
+      gameState.bullets.length = 0;
+      gameState.enemies.length = 0;
+      gameState.drops.length = 0;
+      gameState.particles.length = 0;
+      gameState.hotspots.length = 0;
+      
+      // Resetear jugador
+      gameState.player.x = W / 2;
+      gameState.player.y = H / 2;
+      gameState.player.hp = 100;
+      gameState.player.maxhp = 100;
+      gameState.player.shield = 0;
+      gameState.player.ifr = 0;
+      gameState.player.magnet = 120;
+      gameState.player.rageTimer = 0;
+      gameState.player.tempMagnetTimer = 0;
+      gameState.player.tempShieldTimer = 0;
+      gameState.player.weapons = [{ ...WEAPONS[0] }];
+      gameState.player.tomes = [];
+      gameState.player.items = [];
+      gameState.player.stats = {
+        damageMultiplier: 1,
+        speedMultiplier: 1,
+        rangeMultiplier: 1,
+        fireRateMultiplier: 1,
+        bounces: 0,
+        multishot: 0,
+        auraRadius: 0,
+        vampire: 0,
+        xpMultiplier: 1,
+      };
+      
+      // Resetear juego
+      gameState.score = 0;
+      gameState.level = 1;
+      gameState.xp = 0;
+      gameState.nextXP = 25;
+      gameState.time = 0;
+      gameState.wave = 1;
+      gameState.waveKills = 0;
+      gameState.waveEnemiesTotal = 15;
+      gameState.waveEnemiesSpawned = 0;
+      gameState.maxConcurrentEnemies = 30;
+      gameState.lastSpawn = 0;
+      gameState.lastMiniBossSpawn = 0;
+      gameState.weaponCooldowns = {};
+      gameState.regenTimer = 0;
+      gameState.auraTimer = 0;
+      gameState.hotspotTimer = 0;
+      gameState.levelUpAnimation = 0;
+      gameState.upgradeAnimation = 0;
+      gameState.xpBarRainbow = false;
+      gameState.waveNotification = 0;
+      gameState.restartTimer = 0;
+      gameState.showUpgradeUI = false;
+      gameState.upgradeOptions = [];
+      
+      // Actualizar React state
+      setScore(0);
+      setLevel(1);
+      setGameOver(false);
+      
+      // Cambiar a running
+      gameState.state = 'running';
+    }
+    
+    // Exponer resetGame al ref para usarlo desde el JSX
+    resetGameRef.current = resetGame;
+    
     const handleKeyDown = (e: KeyboardEvent) => {
       gameState.keys[e.key.toLowerCase()] = true;
-      if (e.key === "Escape") {
-        gameState.paused = !gameState.paused;
-        gameState.showPauseMenu = !gameState.showPauseMenu;
+      
+      // Game Over: R o Enter para reiniciar
+      if (gameState.state === 'gameover' && (e.key.toLowerCase() === 'r' || e.key === 'Enter')) {
+        resetGame();
+        return;
       }
-      // R key start timer, no instant reload
+      
+      // Escape para pausar/reanudar (solo en running o paused)
+      if (e.key === "Escape" && gameState.state !== 'gameover') {
+        if (gameState.state === 'running') {
+          gameState.state = 'paused';
+        } else if (gameState.state === 'paused') {
+          gameState.state = 'running';
+        }
+      }
     };
     
     const handleKeyUp = (e: KeyboardEvent) => {
@@ -685,7 +788,7 @@ const Index = () => {
     }
 
     function showUpgradeScreen() {
-      gameState.paused = true;
+      gameState.state = 'paused';
       gameState.showUpgradeUI = true;
       
       const options: Upgrade[] = [];
@@ -887,6 +990,7 @@ const Index = () => {
       if (!option) return;
 
       gameState.upgradeAnimation = 1.5;
+      gameState.state = 'running';
 
       if (option.type === "weapon") {
         const weapon = option.data as Weapon;
@@ -980,7 +1084,6 @@ const Index = () => {
       }
 
       gameState.showUpgradeUI = false;
-      gameState.paused = false;
       gameState.xpBarRainbow = false; // Desactivar animación rainbow al cerrar menú
       gameState.upgradeOptions = [];
     }
@@ -1005,7 +1108,7 @@ const Index = () => {
             break;
           }
         }
-      } else if (gameState.showPauseMenu) {
+      } else if (gameState.state === 'paused') {
         const btnW = 180;
         const btnH = 50;
         const btnGap = 20;
@@ -1015,31 +1118,20 @@ const Index = () => {
         
         // Continue button
         if (mx >= continueX && mx <= continueX + btnW && my >= btnY && my <= btnY + btnH) {
-          gameState.paused = false;
-          gameState.showPauseMenu = false;
+          gameState.state = 'running';
         }
         
         // Restart button
         if (mx >= restartX && mx <= restartX + btnW && my >= btnY && my <= btnY + btnH) {
-          window.location.reload();
+          resetGame();
         }
       }
     });
 
     function update(dt: number) {
-      // Restart timer (works even when paused)
-      if (gameState.keys["r"]) {
-        gameState.restartTimer = Math.min(gameState.restartHoldTime, gameState.restartTimer + dt);
-        if (gameState.restartTimer >= gameState.restartHoldTime) {
-          // Force immediate reload
-          setTimeout(() => window.location.reload(), 0);
-          return; // Stop updating
-        }
-      } else {
-        gameState.restartTimer = 0;
-      }
-
-      if (gameState.paused) return;
+      // Solo actualizar si el juego está corriendo
+      if (gameState.state !== 'running') return;
+      
       gameState.time += dt;
 
       // Animations
@@ -1492,15 +1584,7 @@ const Index = () => {
             }
             
             if (gameState.player.hp <= 0) {
-              // Save score to leaderboard
-              const leaderboard = JSON.parse(localStorage.getItem("leaderboard") || "[]");
-              leaderboard.push({ score: gameState.score, level: gameState.level, wave: gameState.wave, date: new Date().toISOString() });
-              leaderboard.sort((a: any, b: any) => b.score - a.score);
-              localStorage.setItem("leaderboard", JSON.stringify(leaderboard.slice(0, 10)));
-              
-              playDeathSound();
-              setGameOver(true);
-              gameState.paused = true;
+              endGame();
             }
             
             playHitSound();
@@ -1804,7 +1888,9 @@ const Index = () => {
       }
       
       // Barra de progreso de Wave basada en kills (abajo a la derecha, junto al Score)
-      const waveProgress = Math.min(1, gameState.waveKills / gameState.waveEnemiesTotal);
+      const waveProgress = gameState.waveEnemiesTotal > 0 
+        ? Math.min(1, gameState.waveKills / gameState.waveEnemiesTotal)
+        : 0;
       const waveBarW = 300;
       const waveBarH = 24;
       const waveBarX = W - waveBarW - 20;
@@ -1819,7 +1905,7 @@ const Index = () => {
       
       // Progreso (gradiente morado)
       const progressW = waveBarW * waveProgress;
-      if (progressW > 0) {
+      if (progressW > 0 && isFinite(progressW)) {
         const gradient = ctx.createLinearGradient(waveBarX, waveBarY, waveBarX + progressW, waveBarY);
         gradient.addColorStop(0, "#a855f7");
         gradient.addColorStop(1, "#c084fc");
@@ -1835,6 +1921,12 @@ const Index = () => {
       ctx.shadowBlur = 4;
       ctx.fillText(`${gameState.waveKills} / ${gameState.waveEnemiesTotal}`, waveBarX + waveBarW / 2, waveBarY + waveBarH / 2 + 5);
       ctx.shadowBlur = 0;
+      
+      // Overlay de Game Over con fade
+      if (gameState.state === 'gameover') {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+        ctx.fillRect(0, 0, W, H);
+      }
 
       // Upgrade animation
       if (gameState.upgradeAnimation > 0) {
@@ -2195,7 +2287,7 @@ const Index = () => {
       drawUpgradeUI();
       
       // Pause menu
-      if (gameState.showPauseMenu) {
+      if (gameState.state === 'paused' && !gameState.showUpgradeUI) {
         ctx.save();
         ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
         ctx.fillRect(0, 0, W, H);
@@ -2303,36 +2395,49 @@ const Index = () => {
       />
       
       {gameOver && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/90">
+        <div 
+          className="fixed inset-0 flex items-center justify-center bg-black/90 backdrop-blur-sm z-[999]"
+          style={{ pointerEvents: 'auto' }}
+          tabIndex={-1}
+        >
           <div className="text-center space-y-6 p-8 max-w-2xl">
-            <h1 className="text-6xl font-bold text-red-500 animate-pulse">GAME OVER</h1>
-            <p className="text-3xl text-foreground">Puntuación: {score}</p>
-            <p className="text-2xl text-muted-foreground">Nivel alcanzado: {level}</p>
-            <p className="text-xl text-muted-foreground">Wave {gameStateRef.current?.wave || 1}</p>
+            <h1 className="text-6xl font-bold text-red-500 animate-pulse drop-shadow-[0_0_30px_rgba(239,68,68,0.8)]">
+              {t.gameOver}
+            </h1>
             
-            <div className="mt-8 p-4 bg-background/50 rounded-lg">
-              <h2 className="text-2xl font-bold text-foreground mb-4">🏆 Leaderboard</h2>
+            <div className="space-y-3 text-foreground">
+              <p className="text-3xl font-bold">{t.finalScore}: <span className="text-yellow-400">{score}</span></p>
+              <p className="text-2xl">{t.finalLevel}: <span className="text-blue-400">{level}</span></p>
+              <p className="text-xl">{t.finalWave}: <span className="text-purple-400">{gameStateRef.current?.wave || 1}</span></p>
+            </div>
+            
+            <div className="mt-8 p-6 bg-background/50 rounded-lg border border-primary/20">
+              <h2 className="text-2xl font-bold text-primary mb-4">🏆 {t.leaderboard}</h2>
               <div className="space-y-2">
                 {(() => {
                   const leaderboard = JSON.parse(localStorage.getItem("leaderboard") || "[]");
                   return leaderboard.slice(0, 5).map((entry: any, i: number) => (
-                    <div key={i} className="flex justify-between text-lg">
+                    <div key={i} className="flex justify-between text-lg px-4 py-2 bg-background/30 rounded">
                       <span className="text-muted-foreground">#{i + 1}</span>
                       <span className="text-foreground font-semibold">{entry.score}</span>
-                      <span className="text-muted-foreground">Nivel {entry.level}</span>
-                      <span className="text-muted-foreground">Wave {entry.wave}</span>
+                      <span className="text-muted-foreground">LVL {entry.level}</span>
+                      <span className="text-muted-foreground">W{entry.wave}</span>
                     </div>
                   ));
                 })()}
               </div>
             </div>
             
-            <button
-              onClick={() => window.location.reload()}
-              className="mt-8 px-8 py-4 bg-primary text-primary-foreground rounded-lg text-xl font-bold hover:opacity-90 transition-opacity"
-            >
-              Jugar de nuevo
-            </button>
+            <div className="flex gap-4 justify-center mt-8">
+              <button
+                onClick={() => {
+                  resetGameRef.current?.();
+                }}
+                className="px-8 py-4 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xl font-bold transition-colors shadow-lg"
+              >
+                {t.playAgain} (R / Enter)
+              </button>
+            </div>
           </div>
         </div>
       )}
