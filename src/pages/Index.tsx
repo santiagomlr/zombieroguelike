@@ -740,6 +740,7 @@ const Index = () => {
         isElite: false,
         isMiniBoss: true,
         color: "#fbbf24",
+        damage: Math.floor(25 * (1 + (gameState.wave - 1) * 0.05)),
       });
     }
 
@@ -1841,7 +1842,11 @@ const Index = () => {
                 });
               }
             } else {
-              gameState.player.hp = Math.max(0, gameState.player.hp - e.damage);
+              const safeCurrentHp = Number.isFinite(Number(gameState.player.hp)) ? Number(gameState.player.hp) : Number(gameState.player.maxhp) || 0;
+              const rawDmg = (e as any).damage;
+              const dmg = Number.isFinite(Number(rawDmg)) ? Number(rawDmg) : 10;
+              const nextHp = Math.max(0, Math.min(Number(gameState.player.maxhp) || 0, safeCurrentHp - dmg));
+              gameState.player.hp = nextHp;
               gameState.player.ifr = gameState.player.ifrDuration;
               
               // Hit particles
@@ -2831,7 +2836,7 @@ const Index = () => {
         const hpBarX = leftCol + 70;
         const hpBarW = 180;
         const hpBarH = 18;
-        const hpPercent = gameState.player.hp / gameState.player.maxhp;
+        const hpPercent = Math.max(0, Math.min(1, (Number(gameState.player.hp) || 0) / (Number(gameState.player.maxhp) || 1)));
         
         ctx.fillStyle = "rgba(50, 50, 50, 0.8)";
         ctx.fillRect(hpBarX, contentY - 12, hpBarW, hpBarH);
