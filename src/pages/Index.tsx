@@ -289,9 +289,9 @@ const Index = () => {
       time: 0,
       wave: 1,
       waveKills: 0,
-      waveEnemiesTotal: 7, // Wave 1 empieza con 7
+      waveEnemiesTotal: 10, // Wave 1 empieza con 10 (estilo COD Zombies)
       waveEnemiesSpawned: 0,
-      maxConcurrentEnemies: 7,
+      maxConcurrentEnemies: 12,
       lastSpawn: 0,
       lastBossSpawn: 0,
       lastMiniBossSpawn: 0,
@@ -511,9 +511,9 @@ const Index = () => {
       gameState.time = 0;
       gameState.wave = 1;
       gameState.waveKills = 0;
-      gameState.waveEnemiesTotal = 7; // Wave 1 empieza con 7 enemigos
+      gameState.waveEnemiesTotal = 10; // Wave 1 empieza con 10 enemigos (estilo COD Zombies)
       gameState.waveEnemiesSpawned = 0;
-      gameState.maxConcurrentEnemies = 7;
+      gameState.maxConcurrentEnemies = 12;
       gameState.lastSpawn = 0;
       gameState.lastMiniBossSpawn = 0;
       gameState.weaponCooldowns = {};
@@ -609,8 +609,21 @@ const Index = () => {
       let isElite = false;
       let specialType: "explosive" | "fast" | "tank" | "summoner" | null = null;
       
-      // Tipos especiales de enemigos (10% chance en waves 3+)
-      if (gameState.wave >= 3 && typeRoll < 0.1) {
+      // Tipos especiales de enemigos (escalado estilo COD Zombies)
+      let specialChance = 0;
+      if (gameState.wave <= 3) {
+        specialChance = 0.05;
+      } else if (gameState.wave <= 7) {
+        specialChance = 0.15;
+      } else if (gameState.wave <= 12) {
+        specialChance = 0.25;
+      } else if (gameState.wave <= 18) {
+        specialChance = 0.35;
+      } else {
+        specialChance = 0.45;
+      }
+      
+      if (typeRoll < specialChance) {
         const specialRoll = Math.random();
         if (specialRoll < 0.25) {
           specialType = "explosive";
@@ -817,18 +830,43 @@ const Index = () => {
         }
       }
       
-      // Escalado de dificultad para wave 8+: +5% velocidad y daño por wave
-      if (gameState.wave >= 8) {
-        const difficultyScale = 1 + (gameState.wave - 7) * 0.05;
-        spd *= difficultyScale;
-        damage = Math.floor(damage * difficultyScale);
+      // Escalado de dificultad estilo COD Zombies - Velocidad
+      let speedScale = 1;
+      if (gameState.wave <= 10) {
+        speedScale = 1 + (gameState.wave - 1) * 0.03;
+      } else if (gameState.wave <= 20) {
+        speedScale = 1 + (gameState.wave - 1) * 0.05;
+      } else {
+        speedScale = Math.min(3, 1 + (gameState.wave - 1) * 0.07); // Cap en +200%
       }
+      
+      // Escalado de daño
+      let damageScale = 1;
+      if (gameState.wave <= 5) {
+        damageScale = 1;
+      } else if (gameState.wave <= 10) {
+        damageScale = 1 + (gameState.wave - 5) * 0.15;
+      } else if (gameState.wave <= 20) {
+        damageScale = 1 + (gameState.wave - 5) * 0.25;
+      } else {
+        damageScale = 1 + (gameState.wave - 5) * 0.35;
+      }
+      
+      spd *= speedScale;
+      damage = Math.floor(damage * damageScale);
       
       }
       
-      // HP scaling base por wave (+15% por wave)
-      const waveMultiplier = 1 + (gameState.wave - 1) * 0.15;
-      const scaledHp = Math.floor(baseHp * waveMultiplier);
+      // HP scaling estilo COD Zombies - Escalado exponencial
+      let hpMultiplier = 1;
+      if (gameState.wave <= 5) {
+        hpMultiplier = 1 + (gameState.wave - 1) * 0.2;
+      } else if (gameState.wave <= 15) {
+        hpMultiplier = 1 + (gameState.wave - 1) * 0.35;
+      } else {
+        hpMultiplier = 1 + (gameState.wave - 1) * 0.5;
+      }
+      const scaledHp = Math.floor(baseHp * hpMultiplier);
       
       gameState.enemies.push({
         x, y,
@@ -855,9 +893,10 @@ const Index = () => {
       const x = W / 2;
       const y = -100;
       
-      const waveMultiplier = 1 + (gameState.wave - 1) * 0.2;
+      // Boss HP escalado agresivo estilo COD Zombies
       const baseHp = 150;
-      const scaledHp = Math.floor(baseHp * waveMultiplier);
+      const bossHpMultiplier = 1 + (gameState.wave - 1) * 3; // Mucho más tanque
+      const scaledHp = Math.floor(baseHp * bossHpMultiplier);
       
       gameState.enemies.push({
         x, y,
@@ -890,10 +929,10 @@ const Index = () => {
       else if (side === 2) { x = Math.random() * W; y = H + 40; }
       else { x = -40; y = Math.random() * H; }
       
-      // Multiplicador de HP por wave: +15% por cada wave
-      const waveMultiplier = 1 + (gameState.wave - 1) * 0.15;
+      // Mini-boss HP escalado estilo COD Zombies
       const baseHp = 25;
-      const scaledHp = Math.floor(baseHp * waveMultiplier);
+      const miniBossHpMultiplier = 1 + (gameState.wave - 1) * 2; // Más tanque que antes
+      const scaledHp = Math.floor(baseHp * miniBossHpMultiplier);
       
       gameState.enemies.push({
         x, y,
@@ -1749,24 +1788,54 @@ const Index = () => {
         // Reset first hit immune para la nueva wave
         gameState.player.stats.firstHitImmuneUsed = false;
         
-        // Progresión lineal simple de enemigos por wave
+        // Sistema de oleadas estilo COD Zombies - Escalado exponencial
         let waveTarget: number;
         let maxConcurrent: number;
         
+        // Fórmula exponencial para número de enemigos
         if (gameState.wave === 1) {
-          waveTarget = 7;  // Wave 1: 7 enemigos
-          maxConcurrent = 7;
+          waveTarget = 10;
+          maxConcurrent = 12;
         } else if (gameState.wave === 2) {
-          waveTarget = 10; // Wave 2: 10 enemigos (incluye mini-boss)
-          maxConcurrent = 8;
-        } else if (gameState.wave % 5 === 0) {
-          // Waves múltiplos de 5: Boss fight
-          waveTarget = 7 + (gameState.wave - 1) * 3 + 1; // +1 por el boss
-          maxConcurrent = Math.min(15, 7 + Math.floor(gameState.wave / 2));
+          waveTarget = 15;
+          maxConcurrent = 13;
+        } else if (gameState.wave === 3) {
+          waveTarget = 20;
+          maxConcurrent = 15;
+        } else if (gameState.wave === 4) {
+          waveTarget = 24;
+          maxConcurrent = 18;
+        } else if (gameState.wave === 5) {
+          waveTarget = 30;
+          maxConcurrent = 20;
+        } else if (gameState.wave === 6) {
+          waveTarget = 38;
+          maxConcurrent = 22;
+        } else if (gameState.wave === 7) {
+          waveTarget = 48;
+          maxConcurrent = 25;
+        } else if (gameState.wave === 8) {
+          waveTarget = 60;
+          maxConcurrent = 28;
+        } else if (gameState.wave === 9) {
+          waveTarget = 75;
+          maxConcurrent = 30;
+        } else if (gameState.wave === 10) {
+          waveTarget = 90;
+          maxConcurrent = 35;
+        } else if (gameState.wave <= 20) {
+          // Wave 11-20: Escalado exponencial fuerte
+          waveTarget = Math.floor(90 + (gameState.wave - 10) * 10 * Math.pow(1.15, gameState.wave - 10));
+          maxConcurrent = Math.min(45, 35 + (gameState.wave - 10) * 2);
         } else {
-          // Progresión lineal: +3 enemigos por wave
-          waveTarget = 7 + (gameState.wave - 1) * 3;
-          maxConcurrent = Math.min(15, 7 + Math.floor(gameState.wave / 2));
+          // Wave 21+: Caos absoluto
+          waveTarget = Math.floor(90 + (gameState.wave - 10) * 10 * Math.pow(1.15, gameState.wave - 10));
+          maxConcurrent = Math.min(60, 45 + (gameState.wave - 20) * 3);
+        }
+        
+        // Boss waves tienen el boss incluido en el conteo
+        if (gameState.wave % 5 === 0) {
+          waveTarget += 1; // +1 por el boss
         }
         
         gameState.waveEnemiesTotal = waveTarget;
@@ -1805,9 +1874,16 @@ const Index = () => {
         spawnHotspot(false);
       }
       
-      // Danger Zone spawning (negativos) - cada 45s, máximo 1
-      if (gameState.wave >= 3 && gameState.hotspots.filter(h => h.isNegative).length === 0) {
-        if (Math.random() < 0.02 * dt) { // probabilidad por frame
+      // Danger Zone spawning (negativos) - Más frecuentes estilo COD Zombies
+      if (gameState.wave >= 3 && gameState.hotspots.filter(h => h.isNegative).length < (gameState.wave >= 11 ? 2 : 1)) {
+        let dangerChance = 0.02;
+        if (gameState.wave >= 6 && gameState.wave < 11) {
+          dangerChance = 0.025; // Cada ~40s
+        } else if (gameState.wave >= 11) {
+          dangerChance = 0.033; // Cada ~30s, hasta 2 zonas
+        }
+        
+        if (Math.random() < dangerChance * dt) {
           spawnHotspot(true);
         }
       }
@@ -1982,28 +2058,40 @@ const Index = () => {
                       gameState.enemies.length < gameState.maxConcurrentEnemies;
       
       if (canSpawn) {
-        // Intervalos de spawn específicos por wave
+        // Velocidad de spawn estilo COD Zombies - Spawns en bursts agresivos
         let spawnRate: number;
         
-        if (gameState.wave === 1) {
-          spawnRate = 1.4 + Math.random() * 0.2; // 1.4-1.6s
-        } else if (gameState.wave === 2) {
-          spawnRate = 1.3 + Math.random() * 0.2; // 1.3-1.5s
-        } else if (gameState.wave === 3) {
-          spawnRate = 1.2 + Math.random() * 0.2; // 1.2-1.4s
-        } else if (gameState.wave === 4 || gameState.wave === 5) {
-          spawnRate = 1.0 + Math.random() * 0.2; // 1.0-1.2s (bursts de 2-3)
-        } else if (gameState.wave === 6 || gameState.wave === 7) {
-          spawnRate = 0.9 + Math.random() * 0.2; // 0.9-1.1s
+        if (gameState.wave === 1 || gameState.wave === 2) {
+          // Wave 1-2: Spawn controlado
+          spawnRate = 1.2 + Math.random() * 0.3;
+        } else if (gameState.wave <= 5) {
+          // Wave 3-5: Aumenta presión
+          spawnRate = 0.8 + Math.random() * 0.2;
+        } else if (gameState.wave <= 10) {
+          // Wave 6-10: Spawns rápidos en bursts
+          spawnRate = 0.4 + Math.random() * 0.3;
+        } else if (gameState.wave <= 15) {
+          // Wave 11-15: Spawns constantes
+          spawnRate = 0.2 + Math.random() * 0.2;
         } else {
-          // Wave 8+: Más rápido gradualmente
-          const speedup = Math.min(0.3, (gameState.wave - 7) * 0.05);
-          spawnRate = Math.max(0.5, 0.8 - speedup + Math.random() * 0.2);
+          // Wave 16+: Inundación continua
+          spawnRate = 0.1 + Math.random() * 0.2;
         }
         
         if (gameState.lastSpawn > spawnRate) {
-          spawnEnemy();
-          gameState.waveEnemiesSpawned++;
+          // Spawns en hordas (Wave 8+)
+          let spawnCount = 1;
+          if (gameState.wave >= 8 && Math.random() < 0.3) {
+            spawnCount = Math.floor(Math.random() * 3) + 3; // 3-5 enemigos simultáneos
+          }
+          
+          for (let i = 0; i < spawnCount; i++) {
+            if (gameState.waveEnemiesSpawned < gameState.waveEnemiesTotal && 
+                gameState.enemies.length < gameState.maxConcurrentEnemies) {
+              spawnEnemy();
+              gameState.waveEnemiesSpawned++;
+            }
+          }
           gameState.lastSpawn = 0;
         }
       }
@@ -2014,8 +2102,9 @@ const Index = () => {
         gameState.waveEnemiesSpawned++;
       }
       
-      // Mini-boss spawn en wave 2 (ya incluido en el conteo del wave)
-      if (gameState.wave === 2 && gameState.waveEnemiesSpawned === gameState.waveEnemiesTotal - 1 && gameState.enemies.length === 0) {
+      // Mini-boss spawn (wave 3, 7, 12, 17, 22...)
+      const isMiniBossWave = gameState.wave === 3 || (gameState.wave > 3 && (gameState.wave - 3) % 5 === 0);
+      if (isMiniBossWave && gameState.waveEnemiesSpawned === gameState.waveEnemiesTotal - 1 && gameState.enemies.length === 0) {
         spawnMiniBoss();
         gameState.waveEnemiesSpawned++;
       }
