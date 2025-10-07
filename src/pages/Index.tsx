@@ -143,6 +143,11 @@ const WEAPONS: Weapon[] = [
   { id: "laser", name: "Láser", damage: 2, fireRate: 4, range: 400, projectileSpeed: 15, rarity: "epic", color: "#06b6d4", special: "pierce", level: 1 },
   { id: "railgun", name: "Railgun", damage: 12, fireRate: 0.3, range: 500, projectileSpeed: 20, rarity: "legendary", color: "#fbbf24", special: "pierce", level: 1 },
   { id: "minigun", name: "Minigun", damage: 0.5, fireRate: 10, range: 220, projectileSpeed: 12, rarity: "legendary", color: "#f87171", special: "rapid", level: 1 },
+  // Nuevas armas elementales
+  { id: "electric", name: "Arma Eléctrica", damage: 1.5, fireRate: 3, range: 300, projectileSpeed: 10, rarity: "epic", color: "#60a5fa", special: "chain", level: 1 },
+  { id: "flamethrower", name: "Lanzallamas", damage: 0.8, fireRate: 8, range: 150, projectileSpeed: 6, rarity: "rare", color: "#fb923c", special: "fire", level: 1 },
+  { id: "frostbow", name: "Arco Congelante", damage: 1.2, fireRate: 2, range: 350, projectileSpeed: 9, rarity: "epic", color: "#38bdf8", special: "freeze", level: 1 },
+  { id: "homing", name: "Misil Teledirigido", damage: 4, fireRate: 1, range: 400, projectileSpeed: 7, rarity: "legendary", color: "#f472b6", special: "homing", level: 1 },
 ];
 
 const TOMES: Tome[] = [
@@ -276,6 +281,7 @@ const Index = () => {
       particles: [] as any[],
       hotspots: [] as any[],
       maxParticles: 200,
+      bosses: [] as any[],
       score: 0,
       level: 1,
       xp: 0,
@@ -589,13 +595,55 @@ const Index = () => {
       
       for (let spawnIdx = 0; spawnIdx < spawnCount; spawnIdx++) {
       const roll = Math.random();
-      let enemyType: "strong" | "medium" | "weak";
+      const typeRoll = Math.random();
+      let enemyType: "strong" | "medium" | "weak" | "explosive" | "fast" | "tank" | "summoner";
       let color: string;
       let damage: number;
       let baseHp: number;
       let rad: number;
       let spd: number;
       let isElite = false;
+      let specialType: "explosive" | "fast" | "tank" | "summoner" | null = null;
+      
+      // Tipos especiales de enemigos (10% chance en waves 3+)
+      if (gameState.wave >= 3 && typeRoll < 0.1) {
+        const specialRoll = Math.random();
+        if (specialRoll < 0.25) {
+          specialType = "explosive";
+          enemyType = "explosive";
+          color = "#ef4444";
+          damage = 15;
+          baseHp = 2;
+          rad = 10;
+          spd = 1.5;
+        } else if (specialRoll < 0.5) {
+          specialType = "fast";
+          enemyType = "fast";
+          color = "#fbbf24";
+          damage = 3;
+          baseHp = 1;
+          rad = 10;
+          spd = 2.5;
+        } else if (specialRoll < 0.75) {
+          specialType = "tank";
+          enemyType = "tank";
+          color = "#78716c";
+          damage = 20;
+          baseHp = 15;
+          rad = 20;
+          spd = 0.6;
+        } else {
+          specialType = "summoner";
+          enemyType = "summoner";
+          color = "#a855f7";
+          damage = 5;
+          baseHp = 8;
+          rad = 14;
+          spd = 0.9;
+        }
+      } else {
+        // Enemigos normales
+        specialType = null;
       
       // Progresión detallada por wave
       if (gameState.wave === 1) {
@@ -772,6 +820,8 @@ const Index = () => {
         damage = Math.floor(damage * difficultyScale);
       }
       
+      }
+      
       // HP scaling base por wave (+15% por wave)
       const waveMultiplier = 1 + (gameState.wave - 1) * 0.15;
       const scaledHp = Math.floor(baseHp * waveMultiplier);
@@ -786,9 +836,46 @@ const Index = () => {
         damage,
         isElite,
         isMiniBoss: false,
+        isBoss: false,
         color,
+        specialType,
+        frozenTimer: 0,
+        burnTimer: 0,
+        poisonTimer: 0,
+        summonCooldown: 0,
       });
       }
+    }
+    
+    function spawnBoss() {
+      const x = W / 2;
+      const y = -100;
+      
+      const waveMultiplier = 1 + (gameState.wave - 1) * 0.2;
+      const baseHp = 150;
+      const scaledHp = Math.floor(baseHp * waveMultiplier);
+      
+      gameState.enemies.push({
+        x, y,
+        rad: 40,
+        hp: scaledHp,
+        maxhp: scaledHp,
+        spd: 0.8,
+        enemyType: "strong",
+        damage: 30,
+        isElite: false,
+        isMiniBoss: false,
+        isBoss: true,
+        color: "#dc2626",
+        specialType: null,
+        frozenTimer: 0,
+        burnTimer: 0,
+        poisonTimer: 0,
+        phase: 1,
+        attackCooldown: 0,
+        jumpCooldown: 0,
+        projectileCooldown: 0,
+      });
     }
     
     function spawnMiniBoss() {
@@ -842,12 +929,21 @@ const Index = () => {
         baseDamage *= chaosBonus;
       }
       
+      // Chance de crítico (10% base)
+      const critChance = 0.1;
+      const isCrit = Math.random() < critChance;
+      if (isCrit) baseDamage *= 2;
+      
       const damage = baseDamage;
       const dir = Math.atan2(target.y - gameState.player.y, target.x - gameState.player.x);
       
       const isPierce = weapon.special === "pierce";
       const isAoe = weapon.special === "aoe";
       const isSpread = weapon.special === "spread";
+      const isChain = weapon.special === "chain";
+      const isFire = weapon.special === "fire";
+      const isFreeze = weapon.special === "freeze";
+      const isHoming = weapon.special === "homing";
       
       // Aplicar dispersión reducida por precisión
       const baseSpread = 0.15;
@@ -889,6 +985,13 @@ const Index = () => {
             bounceOnEnemies: gameState.player.stats.bounceOnEnemies,
             pierce: isPierce,
             aoe: isAoe,
+            chain: isChain,
+            fire: isFire,
+            freeze: isFreeze,
+            homing: isHoming,
+            homingTarget: isHoming ? target : null,
+            chainCount: isChain ? 3 : 0,
+            isCrit,
           });
         }
       }
@@ -1878,22 +1981,227 @@ const Index = () => {
         }
       }
       
+      // Boss spawn cada 5 waves
+      if (gameState.wave % 5 === 0 && gameState.waveEnemiesSpawned === gameState.waveEnemiesTotal && gameState.enemies.length === 0) {
+        spawnBoss();
+        gameState.waveEnemiesTotal++;
+      }
+      
       // Mini-boss spawn en waves específicas (2, 5, 8, etc.)
-      const shouldSpawnBoss = (gameState.wave === 2 || gameState.wave === 5 || gameState.wave % 3 === 0) && 
-                             gameState.waveEnemiesSpawned === gameState.waveEnemiesTotal;
-      if (shouldSpawnBoss && gameState.enemies.length < gameState.maxConcurrentEnemies) {
+      const shouldSpawnMiniBoss = (gameState.wave === 2 || (gameState.wave % 3 === 0 && gameState.wave % 5 !== 0)) && 
+                              gameState.waveEnemiesSpawned === gameState.waveEnemiesTotal;
+      if (shouldSpawnMiniBoss && gameState.enemies.length < gameState.maxConcurrentEnemies) {
         spawnMiniBoss();
         gameState.waveEnemiesSpawned++;
         gameState.waveEnemiesTotal++;
       }
 
-      // Mover enemigos
+      // Mover enemigos y aplicar efectos elementales
       for (const e of gameState.enemies) {
-        const dx = gameState.player.x - e.x;
-        const dy = gameState.player.y - e.y;
-        const d = Math.hypot(dx, dy) || 1;
-        e.x += (dx / d) * e.spd;
-        e.y += (dy / d) * e.spd;
+        // Efectos elementales (DoT)
+        if (e.burnTimer > 0) {
+          e.burnTimer -= dt;
+          e.hp -= 0.5 * dt; // 0.5 daño por segundo
+          // Partículas de fuego
+          if (Math.random() < 0.1 && gameState.particles.length < gameState.maxParticles) {
+            gameState.particles.push({
+              x: e.x + (Math.random() - 0.5) * e.rad,
+              y: e.y + (Math.random() - 0.5) * e.rad,
+              vx: (Math.random() - 0.5),
+              vy: -1,
+              life: 0.5,
+              color: "#fb923c",
+              size: 3,
+            });
+          }
+        }
+        
+        if (e.poisonTimer > 0) {
+          e.poisonTimer -= dt;
+          e.hp -= 0.3 * dt; // 0.3 daño por segundo (ignora defensa)
+          // Partículas de veneno
+          if (Math.random() < 0.1 && gameState.particles.length < gameState.maxParticles) {
+            gameState.particles.push({
+              x: e.x + (Math.random() - 0.5) * e.rad,
+              y: e.y + (Math.random() - 0.5) * e.rad,
+              vx: (Math.random() - 0.5) * 0.5,
+              vy: (Math.random() - 0.5) * 0.5,
+              life: 0.8,
+              color: "#84cc16",
+              size: 2,
+            });
+          }
+        }
+        
+        // Movimiento (ralentizado si está congelado)
+        let movementSpeed = e.spd;
+        if (e.frozenTimer > 0) {
+          e.frozenTimer -= dt;
+          movementSpeed *= 0.5; // 50% más lento
+        }
+        
+        // Comportamientos especiales de enemigos
+        if (e.specialType === "summoner" && e.summonCooldown !== undefined) {
+          e.summonCooldown -= dt;
+          if (e.summonCooldown <= 0 && gameState.enemies.length < gameState.maxConcurrentEnemies) {
+            // Invocar zombi pequeño
+            for (let i = 0; i < 2; i++) {
+              const angle = Math.random() * Math.PI * 2;
+              const dist = 30;
+              gameState.enemies.push({
+                x: e.x + Math.cos(angle) * dist,
+                y: e.y + Math.sin(angle) * dist,
+                rad: 8,
+                hp: 1,
+                maxhp: 1,
+                spd: 1.2,
+                enemyType: "weak",
+                damage: 3,
+                isElite: false,
+                isMiniBoss: false,
+                isBoss: false,
+                color: "#a855f7",
+                specialType: null,
+                frozenTimer: 0,
+                burnTimer: 0,
+                poisonTimer: 0,
+              });
+            }
+            e.summonCooldown = 8; // 8 segundos entre invocaciones
+          }
+        }
+        
+        // Movimiento hacia el jugador (excepto bosses con comportamiento especial)
+        if (!e.isBoss) {
+          const dx = gameState.player.x - e.x;
+          const dy = gameState.player.y - e.y;
+          const d = Math.hypot(dx, dy) || 1;
+          e.x += (dx / d) * movementSpeed;
+          e.y += (dy / d) * movementSpeed;
+        } else {
+          // Comportamiento de boss
+          if (e.phase === 1 && e.hp < e.maxhp * 0.66) e.phase = 2;
+          if (e.phase === 2 && e.hp < e.maxhp * 0.33) e.phase = 3;
+          
+          e.attackCooldown -= dt;
+          e.jumpCooldown -= dt;
+          e.projectileCooldown -= dt;
+          
+          // Fase 1: movimiento normal + proyectiles ocasionales
+          if (e.phase === 1) {
+            const dx = gameState.player.x - e.x;
+            const dy = gameState.player.y - e.y;
+            const d = Math.hypot(dx, dy) || 1;
+            e.x += (dx / d) * movementSpeed;
+            e.y += (dy / d) * movementSpeed;
+            
+            if (e.projectileCooldown <= 0) {
+              // Disparar proyectil al jugador
+              const dir = Math.atan2(gameState.player.y - e.y, gameState.player.x - e.x);
+              gameState.bullets.push({
+                x: e.x,
+                y: e.y,
+                dir,
+                spd: 5,
+                life: 3,
+                damage: 15,
+                color: "#ef4444",
+                bounces: 0,
+                bounceOnEnemies: false,
+                pierce: false,
+                aoe: false,
+                isEnemyBullet: true,
+              });
+              e.projectileCooldown = 2;
+            }
+          }
+          // Fase 2: saltos + más proyectiles
+          else if (e.phase === 2) {
+            if (e.jumpCooldown <= 0) {
+              // Saltar a posición aleatoria
+              e.x = Math.random() * (W - 100) + 50;
+              e.y = Math.random() * (H - 100) + 50;
+              e.jumpCooldown = 4;
+              
+              // Partículas de salto
+              for (let j = 0; j < 20; j++) {
+                const angle = (Math.PI * 2 * j) / 20;
+                gameState.particles.push({
+                  x: e.x,
+                  y: e.y,
+                  vx: Math.cos(angle) * 8,
+                  vy: Math.sin(angle) * 8,
+                  life: 0.8,
+                  color: "#dc2626",
+                  size: 4,
+                });
+              }
+            }
+            
+            if (e.projectileCooldown <= 0) {
+              // Disparar 3 proyectiles en spread
+              for (let i = -1; i <= 1; i++) {
+                const dir = Math.atan2(gameState.player.y - e.y, gameState.player.x - e.x) + i * 0.3;
+                gameState.bullets.push({
+                  x: e.x,
+                  y: e.y,
+                  dir,
+                  spd: 6,
+                  life: 3,
+                  damage: 15,
+                  color: "#ef4444",
+                  bounces: 0,
+                  bounceOnEnemies: false,
+                  pierce: false,
+                  aoe: false,
+                  isEnemyBullet: true,
+                });
+              }
+              e.projectileCooldown = 1.5;
+            }
+          }
+          // Fase 3: frenético - saltos rápidos + patrón circular de proyectiles
+          else if (e.phase === 3) {
+            if (e.jumpCooldown <= 0) {
+              e.x = Math.random() * (W - 100) + 50;
+              e.y = Math.random() * (H - 100) + 50;
+              e.jumpCooldown = 2.5;
+              
+              // Patrón circular de proyectiles
+              for (let j = 0; j < 8; j++) {
+                const angle = (Math.PI * 2 * j) / 8;
+                gameState.bullets.push({
+                  x: e.x,
+                  y: e.y,
+                  dir: angle,
+                  spd: 5,
+                  life: 4,
+                  damage: 20,
+                  color: "#dc2626",
+                  bounces: 0,
+                  bounceOnEnemies: false,
+                  pierce: false,
+                  aoe: false,
+                  isEnemyBullet: true,
+                });
+              }
+              
+              // Partículas de salto
+              for (let j = 0; j < 30; j++) {
+                const angle = (Math.PI * 2 * j) / 30;
+                gameState.particles.push({
+                  x: e.x,
+                  y: e.y,
+                  vx: Math.cos(angle) * 10,
+                  vy: Math.sin(angle) * 10,
+                  life: 1,
+                  color: "#dc2626",
+                  size: 5,
+                });
+              }
+            }
+          }
+        }
       }
 
       // Disparo automático
@@ -1901,6 +2209,18 @@ const Index = () => {
 
       // Actualizar balas
       for (const b of gameState.bullets) {
+        // Homing missiles
+        if (b.homing && b.homingTarget && gameState.enemies.includes(b.homingTarget)) {
+          const target = b.homingTarget;
+          const targetDir = Math.atan2(target.y - b.y, target.x - b.x);
+          const turnSpeed = 0.1;
+          let angleDiff = targetDir - b.dir;
+          // Normalizar ángulo
+          while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+          while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+          b.dir += angleDiff * turnSpeed;
+        }
+        
         b.x += Math.cos(b.dir) * b.spd;
         b.y += Math.sin(b.dir) * b.spd;
         b.life -= dt;
@@ -1926,8 +2246,90 @@ const Index = () => {
       for (let i = gameState.enemies.length - 1; i >= 0; i--) {
         const e = gameState.enemies[i];
         for (const b of gameState.bullets) {
+          // Skip balas de enemigos
+          if (b.isEnemyBullet) continue;
+          
           if (Math.hypot(e.x - b.x, e.y - b.y) < e.rad + 4) {
             e.hp -= b.damage;
+            
+            // Aplicar efectos elementales
+            if (b.fire) {
+              e.burnTimer = 3; // 3 segundos de fuego
+            }
+            if (b.freeze) {
+              e.frozenTimer = 2; // 2 segundos congelado
+            }
+            
+            // Chain lightning
+            if (b.chain && b.chainCount > 0) {
+              b.chainCount--;
+              // Buscar el enemigo más cercano que no haya sido golpeado
+              let closestEnemy = null;
+              let closestDist = Infinity;
+              for (const e2 of gameState.enemies) {
+                if (e2 !== e && !e2.chainedThisShot) {
+                  const dist = Math.hypot(e2.x - b.x, e2.y - b.y);
+                  if (dist < closestDist && dist < 150) {
+                    closestDist = dist;
+                    closestEnemy = e2;
+                  }
+                }
+              }
+              
+              if (closestEnemy) {
+                closestEnemy.hp -= b.damage * 0.7;
+                closestEnemy.chainedThisShot = true;
+                // Efecto visual de chain
+                if (gameState.particles.length < gameState.maxParticles - 5) {
+                  for (let j = 0; j < 5; j++) {
+                    const t = j / 5;
+                    gameState.particles.push({
+                      x: b.x + (closestEnemy.x - b.x) * t,
+                      y: b.y + (closestEnemy.y - b.y) * t,
+                      vx: (Math.random() - 0.5) * 2,
+                      vy: (Math.random() - 0.5) * 2,
+                      life: 0.3,
+                      color: "#60a5fa",
+                      size: 3,
+                    });
+                  }
+                }
+                // Continuar la cadena
+                b.x = closestEnemy.x;
+                b.y = closestEnemy.y;
+              } else {
+                b.life = 0;
+              }
+            }
+            
+            // Limpiar flag de chain
+            for (const enemy of gameState.enemies) {
+              enemy.chainedThisShot = false;
+            }
+            
+            // Explosión AOE
+            if (b.aoe) {
+              for (const e2 of gameState.enemies) {
+                if (Math.hypot(e2.x - b.x, e2.y - b.y) < 60) {
+                  e2.hp -= b.damage * 0.5;
+                }
+              }
+              // Partículas de explosión con límite
+              if (gameState.particles.length < gameState.maxParticles - 20) {
+                for (let j = 0; j < 20; j++) {
+                  const angle = (Math.PI * 2 * j) / 20;
+                  gameState.particles.push({
+                    x: b.x,
+                    y: b.y,
+                    vx: Math.cos(angle) * 5,
+                    vy: Math.sin(angle) * 5,
+                    life: 0.6,
+                    color: "#a855f7",
+                    size: 3,
+                  });
+                }
+              }
+            }
             
             // Explosión AOE
             if (b.aoe) {
@@ -1996,6 +2398,37 @@ const Index = () => {
             if (e.hp <= 0) {
               gameState.enemies.splice(i, 1);
               
+              // Explosivos: explotan al morir
+              if (e.specialType === "explosive") {
+                for (const e2 of gameState.enemies) {
+                  if (Math.hypot(e2.x - e.x, e2.y - e.y) < 80) {
+                    e2.hp -= 10;
+                  }
+                }
+                // Daño al jugador si está cerca
+                if (Math.hypot(gameState.player.x - e.x, gameState.player.y - e.y) < 80) {
+                  if (gameState.player.ifr <= 0 && gameState.player.shield === 0) {
+                    gameState.player.hp -= 10;
+                    gameState.player.ifr = gameState.player.ifrDuration;
+                  }
+                }
+                // Partículas de explosión grande
+                if (gameState.particles.length < gameState.maxParticles - 30) {
+                  for (let j = 0; j < 30; j++) {
+                    const angle = (Math.PI * 2 * j) / 30;
+                    gameState.particles.push({
+                      x: e.x,
+                      y: e.y,
+                      vx: Math.cos(angle) * 10,
+                      vy: Math.sin(angle) * 10,
+                      life: 1,
+                      color: "#ef4444",
+                      size: 5,
+                    });
+                  }
+                }
+              }
+              
               // Incrementar contador de muertes de la wave
               gameState.waveKills++;
               
@@ -2004,7 +2437,43 @@ const Index = () => {
               let xpBundles = 1;
               let dropChance = 0;
               
-              if (e.isMiniBoss) {
+              if (e.isBoss) {
+                // Boss muerto: recompensas legendarias
+                points = 500;
+                xpBundles = 10;
+                // Drop garantizado: item legendario
+                const legendaryItems = ITEMS.filter(it => it.rarity === "legendary" && !gameState.player.items.find((pi: Item) => pi.id === it.id));
+                if (legendaryItems.length > 0) {
+                  const randomLegendary = legendaryItems[Math.floor(Math.random() * legendaryItems.length)];
+                  gameState.player.items.push(randomLegendary);
+                  gameState.player.itemFlags[randomLegendary.id] = true;
+                  
+                  // Aplicar efecto del item
+                  switch(randomLegendary.effect) {
+                    case "doublexp": gameState.player.stats.xpMultiplier *= 2; break;
+                    case "solargauntlet": gameState.player.stats.solarGauntletKills = 0; break;
+                    case "infernalengine":
+                      gameState.player.stats.speedMultiplier *= 1.25;
+                      gameState.player.stats.damageMultiplier *= 1.20;
+                      gameState.player.stats.damageReduction -= 0.10;
+                      break;
+                    case "bloodstone": gameState.player.stats.bloodstoneKills = 0; break;
+                    case "hordetotem": break;
+                    case "artificialheart":
+                      gameState.player.maxhp += 50;
+                      gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + 50);
+                      break;
+                    case "infinitylens":
+                      gameState.player.stats.speedMultiplier *= 1.1;
+                      gameState.player.stats.damageMultiplier *= 1.1;
+                      gameState.player.stats.rangeMultiplier *= 1.1;
+                      gameState.player.stats.xpMultiplier *= 1.1;
+                      break;
+                  }
+                }
+                // Curación completa
+                gameState.player.hp = gameState.player.maxhp;
+              } else if (e.isMiniBoss) {
                 points = 100;
                 xpBundles = Math.floor(Math.random() * 3) + 4; // 4-6 bundles
                 dropChance = 0.10; // 10% chance de drop temporal
@@ -2013,6 +2482,11 @@ const Index = () => {
                 points = 25;
                 xpBundles = 2;
                 dropChance = 0.15; // 15% chance
+              } else if (e.specialType) {
+                // Enemigos especiales
+                points = 15;
+                xpBundles = 1;
+                dropChance = 0.08;
               } else if (e.enemyType === "strong") {
                 points = 10;
                 xpBundles = 1;
@@ -2236,8 +2710,8 @@ const Index = () => {
             gameState.player.y = Math.max(gameState.player.rad, Math.min(H - gameState.player.rad, gameState.player.y));
           }
           
-          // Daño solo si no está en rage mode
-          if (gameState.player.rageTimer <= 0 && gameState.player.ifr <= 0) {
+          // Daño solo si no está en rage mode y no es un boss (los bosses no hacen daño por contacto)
+          if (!e.isBoss && gameState.player.rageTimer <= 0 && gameState.player.ifr <= 0) {
             // First Hit Immune: revisar si es el primer golpe de la wave
             const hasFirstHitImmune = gameState.player.itemFlags.ballistichelmet;
             if (hasFirstHitImmune && !gameState.player.stats.firstHitImmuneUsed) {
@@ -2343,6 +2817,30 @@ const Index = () => {
           }
         }
       }
+      
+      // Colisión jugador-balas de enemigos
+      for (let i = gameState.bullets.length - 1; i >= 0; i--) {
+        const b = gameState.bullets[i];
+        if (b.isEnemyBullet) {
+          const d = Math.hypot(b.x - gameState.player.x, b.y - gameState.player.y);
+          if (d < gameState.player.rad + 4) {
+            if (gameState.player.ifr <= 0) {
+              if (gameState.player.shield > 0) {
+                gameState.player.shield--;
+              } else {
+                gameState.player.hp -= b.damage;
+              }
+              gameState.player.ifr = gameState.player.ifrDuration;
+              
+              if (gameState.player.hp <= 0) {
+                endGame();
+              }
+            }
+            gameState.bullets.splice(i, 1);
+          }
+        }
+      }
+
 
       // Colisión entre enemigos
       for (let i = 0; i < gameState.enemies.length; i++) {
@@ -3118,13 +3616,30 @@ const Index = () => {
       for (const e of gameState.enemies) {
         ctx.save();
         
+        // Efectos elementales visuales
+        if (e.frozenTimer > 0) {
+          // Efecto de congelamiento
+          ctx.shadowColor = "#38bdf8";
+          ctx.shadowBlur = 20;
+        } else if (e.burnTimer > 0) {
+          // Efecto de fuego
+          ctx.shadowColor = "#fb923c";
+          ctx.shadowBlur = 25;
+        } else if (e.poisonTimer > 0) {
+          // Efecto de veneno
+          ctx.shadowColor = "#84cc16";
+          ctx.shadowBlur = 15;
+        }
+        
         // Si tenemos el logo cargado, dibujarlo con el color del enemigo
         if (gameState.enemyLogo && gameState.enemyLogo.complete) {
           ctx.translate(e.x, e.y);
           
-          // Aplicar sombra con el color del enemigo
-          ctx.shadowColor = e.color;
-          ctx.shadowBlur = e.isMiniBoss ? 25 : 15;
+          // Aplicar sombra con el color del enemigo (o efecto elemental)
+          if (!e.frozenTimer && !e.burnTimer && !e.poisonTimer) {
+            ctx.shadowColor = e.color;
+            ctx.shadowBlur = e.isBoss ? 40 : e.isMiniBoss ? 25 : 15;
+          }
           
           // Dibujar el logo escalado al tamaño del enemigo
           const logoSize = e.rad * 2;
@@ -3155,8 +3670,10 @@ const Index = () => {
         } else {
           // Fallback: dibujar círculo si la imagen no está cargada
           ctx.fillStyle = e.color;
-          ctx.shadowColor = e.color;
-          ctx.shadowBlur = e.isMiniBoss ? 25 : 15;
+          if (!e.frozenTimer && !e.burnTimer && !e.poisonTimer) {
+            ctx.shadowColor = e.color;
+            ctx.shadowBlur = e.isBoss ? 40 : e.isMiniBoss ? 25 : 15;
+          }
           ctx.beginPath();
           ctx.arc(e.x, e.y, e.rad, 0, Math.PI * 2);
           ctx.fill();
@@ -3164,28 +3681,123 @@ const Index = () => {
           ctx.restore();
         }
         
+        // Indicador de tipo especial
+        if (e.specialType) {
+          ctx.save();
+          ctx.textAlign = "center";
+          ctx.font = "bold 16px system-ui";
+          ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+          ctx.shadowBlur = 4;
+          let emoji = "";
+          if (e.specialType === "explosive") emoji = "💣";
+          else if (e.specialType === "fast") emoji = "⚡";
+          else if (e.specialType === "tank") emoji = "🛡️";
+          else if (e.specialType === "summoner") emoji = "👻";
+          ctx.fillText(emoji, e.x, e.y - e.rad - 20);
+          ctx.shadowBlur = 0;
+          ctx.restore();
+        }
+        
+        // Indicador de boss
+        if (e.isBoss) {
+          ctx.save();
+          ctx.textAlign = "center";
+          ctx.font = "bold 24px system-ui";
+          ctx.fillStyle = "#fbbf24";
+          ctx.shadowColor = "#dc2626";
+          ctx.shadowBlur = 20;
+          ctx.fillText("👑 BOSS 👑", e.x, e.y - e.rad - 25);
+          ctx.shadowBlur = 0;
+          ctx.restore();
+        }
+        
         // HP bar para todos los enemigos
         const barW = e.rad * 2;
-        const barH = e.isMiniBoss ? 6 : e.isElite ? 5 : 3;
+        const barH = e.isBoss ? 8 : e.isMiniBoss ? 6 : e.isElite ? 5 : 3;
         const barX = e.x - barW / 2;
-        const barY = e.y - e.rad - 10;
+        const barY = e.y - e.rad - (e.isBoss ? 35 : 10);
         
         ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
         ctx.fillRect(barX, barY, barW, barH);
         
-        ctx.fillStyle = e.isMiniBoss ? "#fbbf24" : e.isElite ? "#f87171" : "#34d399";
+        ctx.fillStyle = e.isBoss ? "#dc2626" : e.isMiniBoss ? "#fbbf24" : e.isElite ? "#f87171" : "#34d399";
         ctx.fillRect(barX, barY, barW * (e.hp / e.maxhp), barH);
+        
+        // Fase del boss
+        if (e.isBoss) {
+          ctx.save();
+          ctx.fillStyle = "#fff";
+          ctx.font = "bold 14px system-ui";
+          ctx.textAlign = "center";
+          ctx.fillText(`FASE ${e.phase}`, e.x, e.y + e.rad + 15);
+          ctx.restore();
+        }
       }
       
       // Balas
       for (const b of gameState.bullets) {
-        ctx.fillStyle = b.color;
-        ctx.shadowColor = b.color;
-        ctx.shadowBlur = 10;
+        ctx.save();
+        
+        // Efectos visuales especiales
+        let bulletSize = 3;
+        let glowSize = 10;
+        
+        if (b.aoe) {
+          bulletSize = 5;
+          glowSize = 20;
+        } else if (b.pierce) {
+          bulletSize = 4;
+          glowSize = 15;
+        } else if (b.homing) {
+          bulletSize = 4;
+          glowSize = 12;
+          // Trail para misiles teledirigidos
+          ctx.strokeStyle = b.color + "40";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          const trailLength = 20;
+          ctx.moveTo(b.x, b.y);
+          ctx.lineTo(b.x - Math.cos(b.dir) * trailLength, b.y - Math.sin(b.dir) * trailLength);
+          ctx.stroke();
+        } else if (b.chain) {
+          // Efecto eléctrico
+          glowSize = 15;
+          ctx.shadowBlur = 20;
+          ctx.shadowColor = "#60a5fa";
+        } else if (b.fire) {
+          // Efecto de fuego
+          glowSize = 12;
+          ctx.shadowColor = "#fb923c";
+        } else if (b.freeze) {
+          // Efecto de hielo
+          glowSize = 12;
+          ctx.shadowColor = "#38bdf8";
+        }
+        
+        // Balas de enemigos (rojo)
+        if (b.isEnemyBullet) {
+          ctx.fillStyle = "#ef4444";
+          ctx.shadowColor = "#ef4444";
+          bulletSize = 4;
+          glowSize = 15;
+        } else {
+          ctx.fillStyle = b.color;
+          ctx.shadowColor = b.color;
+        }
+        
+        // Crítico: partículas adicionales y glow
+        if (b.isCrit) {
+          glowSize *= 1.5;
+          ctx.shadowBlur = glowSize * 2;
+        } else {
+          ctx.shadowBlur = glowSize;
+        }
+        
         ctx.beginPath();
-        ctx.arc(b.x, b.y, b.aoe ? 5 : 3, 0, Math.PI * 2);
+        ctx.arc(b.x, b.y, bulletSize, 0, Math.PI * 2);
         ctx.fill();
         ctx.shadowBlur = 0;
+        ctx.restore();
       }
       
       // Aura de fuego
