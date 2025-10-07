@@ -942,7 +942,7 @@ const Index = () => {
     }
 
     function dropXP(x: number, y: number, val: number) {
-      gameState.drops.push({ x, y, rad: 8, type: "xp", val, color: "#06b6d4" });
+      gameState.drops.push({ x, y, rad: 8, type: "xp", val, color: "#06b6d4", lifetime: 10 });
     }
     
     function dropHeal(x: number, y: number) {
@@ -2157,6 +2157,20 @@ const Index = () => {
         }
       }
 
+      // Actualizar lifetime de drops y eliminar expirados
+      for (let i = gameState.drops.length - 1; i >= 0; i--) {
+        const g = gameState.drops[i];
+        
+        // Decrementar lifetime solo para XP
+        if (g.type === "xp" && g.lifetime !== undefined) {
+          g.lifetime -= dt;
+          if (g.lifetime <= 0) {
+            gameState.drops.splice(i, 1);
+            continue;
+          }
+        }
+      }
+      
       // Recoger drops
       for (let i = gameState.drops.length - 1; i >= 0; i--) {
         const g = gameState.drops[i];
@@ -3057,6 +3071,16 @@ const Index = () => {
 
       // Drops con glow de rareza para powerups
       for (const d of gameState.drops) {
+        // Parpadeo para XP que está por expirar
+        let alpha = 1;
+        if (d.type === "xp" && d.lifetime !== undefined && d.lifetime < 3) {
+          // Parpadeo más rápido cuando está cerca de expirar
+          const blinkSpeed = d.lifetime < 1 ? 10 : 6;
+          alpha = Math.abs(Math.sin(gameState.time * blinkSpeed)) * 0.7 + 0.3;
+        }
+        
+        ctx.save();
+        ctx.globalAlpha = alpha;
         ctx.fillStyle = d.color;
         ctx.shadowColor = d.color;
         
@@ -3083,6 +3107,7 @@ const Index = () => {
         ctx.closePath();
         ctx.fill();
         ctx.shadowBlur = 0;
+        ctx.restore();
       }
       
       // Partículas
