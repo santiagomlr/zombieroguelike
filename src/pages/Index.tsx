@@ -2095,49 +2095,6 @@ const Index = () => {
         ctx.shadowBlur = 0;
       }
       
-      // Barra de progreso de Wave basada en kills (debajo de la barra de XP)
-      const waveProgress = gameState.waveEnemiesTotal > 0 
-        ? Math.min(1, gameState.waveKills / gameState.waveEnemiesTotal)
-        : 0;
-      const waveBarW = W - 40; // Full width como XP bar
-      const waveBarH = 28;
-      const waveBarX = 20;
-      const waveBarY = xpBarY + xpBarH + 10; // Debajo de la barra de XP
-      const waveBarRadius = 14;
-      
-      // Fondo de la barra (redondeada)
-      ctx.fillStyle = "rgba(20, 25, 35, 0.9)";
-      ctx.beginPath();
-      ctx.roundRect(waveBarX, waveBarY, waveBarW, waveBarH, waveBarRadius);
-      ctx.fill();
-      ctx.strokeStyle = "#a855f7";
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      
-      // Progreso (gradiente morado)
-      const progressW = (waveBarW - 8) * waveProgress;
-      if (progressW > 0 && isFinite(progressW)) {
-        ctx.save();
-        ctx.beginPath();
-        ctx.roundRect(waveBarX + 4, waveBarY + 4, progressW, waveBarH - 8, waveBarRadius - 4);
-        ctx.clip();
-        
-        const gradient = ctx.createLinearGradient(waveBarX, waveBarY, waveBarX + progressW, waveBarY);
-        gradient.addColorStop(0, "#a855f7");
-        gradient.addColorStop(1, "#c084fc");
-        ctx.fillStyle = gradient;
-        ctx.fillRect(waveBarX + 4, waveBarY + 4, progressW, waveBarH - 8);
-        ctx.restore();
-      }
-      
-      // Texto de progreso de kills
-      ctx.fillStyle = "#fff";
-      ctx.font = "bold 16px system-ui";
-      ctx.textAlign = "center";
-      ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-      ctx.shadowBlur = 4;
-      ctx.fillText(`WAVE ${gameState.wave}: ${gameState.waveKills} / ${gameState.waveEnemiesTotal}`, waveBarX + waveBarW / 2, waveBarY + waveBarH / 2 + 6);
-      ctx.shadowBlur = 0;
       
       // Notificación de música
       if (gameState.musicNotificationTimer > 0) {
@@ -2713,22 +2670,6 @@ const Index = () => {
         </div>
       )}
       
-      {/* Language selector - moved to avoid overlapping score */}
-      <button
-        onClick={() => setLanguage(language === "es" ? "en" : "es")}
-        className="absolute top-20 right-4 px-4 py-2 bg-primary/80 hover:bg-primary text-primary-foreground rounded-lg font-bold transition-colors z-10"
-        title="Change instructions language"
-      >
-        {language.toUpperCase()}
-      </button>
-      
-      {/* Controls - Instructions only affected by language */}
-      <div className="absolute bottom-4 left-4 text-xs text-muted-foreground space-y-1 pointer-events-none">
-        <p>{t.movement}</p>
-        <p>{t.restart}</p>
-        <p>{t.pause}</p>
-        <p>{t.autoShoot}</p>
-      </div>
     </div>
   );
 };
