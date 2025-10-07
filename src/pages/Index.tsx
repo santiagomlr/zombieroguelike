@@ -99,6 +99,7 @@ interface Weapon {
   rarity: Rarity;
   color: string;
   special?: string;
+  level: number;
 }
 
 interface Tome {
@@ -109,6 +110,7 @@ interface Tome {
   value: number;
   rarity: Rarity;
   color: string;
+  level: number;
 }
 
 interface Item {
@@ -124,26 +126,28 @@ interface Upgrade {
   type: "weapon" | "tome" | "item";
   data: Weapon | Tome | Item;
   rarity: Rarity;
+  isLevelUp?: boolean;
+  targetIndex?: number;
 }
 
 const WEAPONS: Weapon[] = [
-  { id: "pistol", name: "Pistola", damage: 1, fireRate: 2, range: 250, projectileSpeed: 8, rarity: "common", color: "#9ca3af" },
-  { id: "shotgun", name: "Escopeta", damage: 3, fireRate: 0.8, range: 180, projectileSpeed: 6, rarity: "uncommon", color: "#22c55e", special: "spread" },
-  { id: "smg", name: "SMG", damage: 0.7, fireRate: 6, range: 200, projectileSpeed: 10, rarity: "rare", color: "#3b82f6" },
-  { id: "rocket", name: "Lanzacohetes", damage: 8, fireRate: 0.5, range: 350, projectileSpeed: 5, rarity: "epic", color: "#a855f7", special: "aoe" },
-  { id: "laser", name: "Láser", damage: 2, fireRate: 4, range: 400, projectileSpeed: 15, rarity: "epic", color: "#06b6d4", special: "pierce" },
-  { id: "railgun", name: "Railgun", damage: 12, fireRate: 0.3, range: 500, projectileSpeed: 20, rarity: "legendary", color: "#fbbf24", special: "pierce" },
-  { id: "minigun", name: "Minigun", damage: 0.5, fireRate: 10, range: 220, projectileSpeed: 12, rarity: "legendary", color: "#f87171", special: "rapid" },
+  { id: "pistol", name: "Pistola", damage: 1, fireRate: 2, range: 250, projectileSpeed: 8, rarity: "common", color: "#9ca3af", level: 1 },
+  { id: "shotgun", name: "Escopeta", damage: 3, fireRate: 0.8, range: 180, projectileSpeed: 6, rarity: "uncommon", color: "#22c55e", special: "spread", level: 1 },
+  { id: "smg", name: "SMG", damage: 0.7, fireRate: 6, range: 200, projectileSpeed: 10, rarity: "rare", color: "#3b82f6", level: 1 },
+  { id: "rocket", name: "Lanzacohetes", damage: 8, fireRate: 0.5, range: 350, projectileSpeed: 5, rarity: "epic", color: "#a855f7", special: "aoe", level: 1 },
+  { id: "laser", name: "Láser", damage: 2, fireRate: 4, range: 400, projectileSpeed: 15, rarity: "epic", color: "#06b6d4", special: "pierce", level: 1 },
+  { id: "railgun", name: "Railgun", damage: 12, fireRate: 0.3, range: 500, projectileSpeed: 20, rarity: "legendary", color: "#fbbf24", special: "pierce", level: 1 },
+  { id: "minigun", name: "Minigun", damage: 0.5, fireRate: 10, range: 220, projectileSpeed: 12, rarity: "legendary", color: "#f87171", special: "rapid", level: 1 },
 ];
 
 const TOMES: Tome[] = [
-  { id: "power", name: "Tomo de Poder", description: "+50% Daño", effect: "damage", value: 1.5, rarity: "rare", color: "#f87171" },
-  { id: "speed", name: "Tomo de Velocidad", description: "+30% Velocidad", effect: "speed", value: 1.3, rarity: "uncommon", color: "#22c55e" },
-  { id: "range", name: "Tomo de Alcance", description: "+40% Alcance", effect: "range", value: 1.4, rarity: "uncommon", color: "#3b82f6" },
-  { id: "fire", name: "Tomo de Cadencia", description: "+50% Cadencia", effect: "fireRate", value: 1.5, rarity: "rare", color: "#fbbf24" },
-  { id: "bounce", name: "Tomo de Rebote", description: "+2 Rebotes", effect: "bounce", value: 2, rarity: "epic", color: "#a855f7" },
-  { id: "multi", name: "Tomo Múltiple", description: "+1 Proyectil", effect: "multishot", value: 1, rarity: "legendary", color: "#06b6d4" },
-  { id: "xp", name: "Tomo de Experiencia", description: "+50% XP ganado", effect: "xp", value: 1.5, rarity: "rare", color: "#ec4899" },
+  { id: "power", name: "Tomo de Poder", description: "+50% Daño", effect: "damage", value: 1.5, rarity: "rare", color: "#f87171", level: 1 },
+  { id: "speed", name: "Tomo de Velocidad", description: "+30% Velocidad", effect: "speed", value: 1.3, rarity: "uncommon", color: "#22c55e", level: 1 },
+  { id: "range", name: "Tomo de Alcance", description: "+40% Alcance", effect: "range", value: 1.4, rarity: "uncommon", color: "#3b82f6", level: 1 },
+  { id: "fire", name: "Tomo de Cadencia", description: "+50% Cadencia", effect: "fireRate", value: 1.5, rarity: "rare", color: "#fbbf24", level: 1 },
+  { id: "bounce", name: "Tomo de Rebote", description: "+2 Rebotes", effect: "bounce", value: 2, rarity: "epic", color: "#a855f7", level: 1 },
+  { id: "multi", name: "Tomo Múltiple", description: "+1 Proyectil", effect: "multishot", value: 1, rarity: "legendary", color: "#06b6d4", level: 1 },
+  { id: "xp", name: "Tomo de Experiencia", description: "+50% XP ganado", effect: "xp", value: 1.5, rarity: "rare", color: "#ec4899", level: 1 },
 ];
 
 const ITEMS: Item[] = [
@@ -572,50 +576,67 @@ const Index = () => {
         
         let type = roll < 0.4 ? "weapon" : roll < 0.7 ? "tome" : "item";
         
-        // Sistema refinado: Si armas y tomos están llenos, SOLO upgrades
+        // Sistema de límites: Si armas y tomos están llenos, SOLO ofrecer upgrades
         if (weaponsFull && tomesFull) {
           type = roll < 0.5 ? "weapon" : "tome";
         } else if (weaponsFull && !tomesFull) {
-          // Armas llenas: solo tomos nuevos o upgrades de armas
-          type = roll < 0.5 ? "weapon" : "tome";
+          // Armas llenas: 50% tomos nuevos, 50% upgrades de armas
+          type = roll < 0.5 ? "weapon" : roll < 0.75 ? "tome" : "item";
         } else if (!weaponsFull && tomesFull) {
-          // Tomos llenos: solo armas nuevas o upgrades de tomos
-          type = roll < 0.5 ? "weapon" : "tome";
+          // Tomos llenos: 50% armas nuevas, 50% upgrades de tomos
+          type = roll < 0.5 ? "tome" : roll < 0.75 ? "weapon" : "item";
         }
         
         if (type === "weapon") {
           if (weaponsFull) {
-            // Si slots llenos, ofrecer upgrade (reemplazo)
-            const currentWeapon = gameState.player.weapons[Math.floor(Math.random() * gameState.player.weapons.length)];
-            const available = WEAPONS.filter(w => 
-              (rarity === w.rarity || Math.random() < 0.3) && 
-              w.id !== currentWeapon.id
-            );
-            if (available.length > 0) {
-              const weapon = available[Math.floor(Math.random() * available.length)];
-              options.push({ type: "weapon", data: weapon, rarity: weapon.rarity });
-            }
+            // Si slots llenos, ofrecer mejora de nivel de arma existente
+            const weaponIndex = Math.floor(Math.random() * gameState.player.weapons.length);
+            const currentWeapon = gameState.player.weapons[weaponIndex];
+            const upgradedWeapon = { ...currentWeapon };
+            options.push({ 
+              type: "weapon", 
+              data: upgradedWeapon, 
+              rarity: currentWeapon.rarity,
+              isLevelUp: true,
+              targetIndex: weaponIndex
+            });
           } else {
-            // Si slots disponibles, ofrecer armas que NO tenga
+            // Si slots disponibles, ofrecer armas nuevas que NO tenga
             const available = WEAPONS.filter(w => 
               (rarity === w.rarity || Math.random() < 0.3) && 
               !gameState.player.weapons.find((pw: Weapon) => pw.id === w.id)
             );
             if (available.length > 0) {
-              const weapon = available[Math.floor(Math.random() * available.length)];
+              const weapon = { ...available[Math.floor(Math.random() * available.length)] };
               options.push({ type: "weapon", data: weapon, rarity: weapon.rarity });
             }
           }
         } else if (type === "tome") {
-          const available = TOMES.filter(t => 
-            (rarity === t.rarity || Math.random() < 0.3) &&
-            gameState.player.tomes.filter((pt: Tome) => pt.id === t.id).length < 1
-          );
-          if (available.length > 0) {
-            const tome = available[Math.floor(Math.random() * available.length)];
-            options.push({ type: "tome", data: tome, rarity: tome.rarity });
+          if (tomesFull) {
+            // Si slots llenos, ofrecer mejora de nivel de tomo existente
+            const tomeIndex = Math.floor(Math.random() * gameState.player.tomes.length);
+            const currentTome = gameState.player.tomes[tomeIndex];
+            const upgradedTome = { ...currentTome };
+            options.push({ 
+              type: "tome", 
+              data: upgradedTome, 
+              rarity: currentTome.rarity,
+              isLevelUp: true,
+              targetIndex: tomeIndex
+            });
+          } else {
+            // Si slots disponibles, ofrecer tomos nuevos que NO tenga
+            const available = TOMES.filter(t => 
+              (rarity === t.rarity || Math.random() < 0.3) &&
+              !gameState.player.tomes.find((pt: Tome) => pt.id === t.id)
+            );
+            if (available.length > 0) {
+              const tome = { ...available[Math.floor(Math.random() * available.length)] };
+              options.push({ type: "tome", data: tome, rarity: tome.rarity });
+            }
           }
         } else {
+          // Ítems siempre disponibles sin límite
           const available = ITEMS.filter(it => rarity === it.rarity || Math.random() < 0.3);
           if (available.length > 0) {
             const item = available[Math.floor(Math.random() * available.length)];
@@ -635,24 +656,61 @@ const Index = () => {
 
       if (option.type === "weapon") {
         const weapon = option.data as Weapon;
-        if (gameState.player.weapons.length < 3) {
-          gameState.player.weapons.push(weapon);
+        
+        if (option.isLevelUp && option.targetIndex !== undefined) {
+          // Mejora de nivel de arma existente
+          const existingWeapon = gameState.player.weapons[option.targetIndex];
+          existingWeapon.level++;
+          
+          // Bonificaciones por nivel: +20% daño, +20% cadencia, +15% alcance
+          existingWeapon.damage *= 1.20;
+          existingWeapon.fireRate *= 1.20;
+          existingWeapon.range *= 1.15;
         } else {
-          gameState.player.weapons[Math.floor(Math.random() * 3)] = weapon;
+          // Nueva arma
+          if (gameState.player.weapons.length < 3) {
+            gameState.player.weapons.push(weapon);
+          }
         }
       } else if (option.type === "tome") {
         const tome = option.data as Tome;
-        if (gameState.player.tomes.length < 3) {
-          gameState.player.tomes.push(tome);
-        }
         
-        if (tome.effect === "damage") gameState.player.stats.damageMultiplier *= tome.value;
-        if (tome.effect === "speed") gameState.player.stats.speedMultiplier *= tome.value;
-        if (tome.effect === "range") gameState.player.stats.rangeMultiplier *= tome.value;
-        if (tome.effect === "fireRate") gameState.player.stats.fireRateMultiplier *= tome.value;
-        if (tome.effect === "bounce") gameState.player.stats.bounces += tome.value;
-        if (tome.effect === "multishot") gameState.player.stats.multishot += tome.value;
-        if (tome.effect === "xp") gameState.player.stats.xpMultiplier *= tome.value;
+        if (option.isLevelUp && option.targetIndex !== undefined) {
+          // Mejora de nivel de tomo existente
+          const existingTome = gameState.player.tomes[option.targetIndex];
+          existingTome.level++;
+          
+          // Aplicar bonificación según el efecto del tomo
+          if (existingTome.effect === "damage") {
+            gameState.player.stats.damageMultiplier *= 1.15; // +15% daño adicional
+          } else if (existingTome.effect === "speed") {
+            gameState.player.stats.speedMultiplier *= 1.10; // +10% velocidad adicional
+          } else if (existingTome.effect === "range") {
+            gameState.player.stats.rangeMultiplier *= 1.15; // +15% alcance adicional
+          } else if (existingTome.effect === "fireRate") {
+            gameState.player.stats.fireRateMultiplier *= 1.15; // +15% cadencia adicional
+          } else if (existingTome.effect === "bounce") {
+            gameState.player.stats.bounces += 1; // +1 rebote
+          } else if (existingTome.effect === "multishot") {
+            gameState.player.stats.multishot += 1; // +1 proyectil
+          } else if (existingTome.effect === "xp") {
+            gameState.player.stats.xpMultiplier *= 1.15; // +15% XP adicional
+          }
+        } else {
+          // Nuevo tomo
+          if (gameState.player.tomes.length < 3) {
+            gameState.player.tomes.push(tome);
+            
+            // Aplicar efecto inicial
+            if (tome.effect === "damage") gameState.player.stats.damageMultiplier *= tome.value;
+            if (tome.effect === "speed") gameState.player.stats.speedMultiplier *= tome.value;
+            if (tome.effect === "range") gameState.player.stats.rangeMultiplier *= tome.value;
+            if (tome.effect === "fireRate") gameState.player.stats.fireRateMultiplier *= tome.value;
+            if (tome.effect === "bounce") gameState.player.stats.bounces += tome.value;
+            if (tome.effect === "multishot") gameState.player.stats.multishot += tome.value;
+            if (tome.effect === "xp") gameState.player.stats.xpMultiplier *= tome.value;
+          }
+        }
       } else if (option.type === "item") {
         const item = option.data as Item;
         gameState.player.items.push(item);
@@ -1179,7 +1237,8 @@ const Index = () => {
         ctx.fillRect(W - 220, 80 + i * 25, 18, 18);
         ctx.fillStyle = "#fff";
         ctx.font = "12px system-ui";
-        ctx.fillText(w.name, W - 195, 93 + i * 25);
+        const weaponText = w.level > 1 ? `${w.name} LVL ${w.level}` : w.name;
+        ctx.fillText(weaponText, W - 195, 93 + i * 25);
       }
 
       // Tomes display
@@ -1193,7 +1252,8 @@ const Index = () => {
         ctx.fillRect(W - 220, tomeY + 10 + i * 25, 18, 18);
         ctx.fillStyle = "#fff";
         ctx.font = "12px system-ui";
-        ctx.fillText(t.name, W - 195, tomeY + 23 + i * 25);
+        const tomeText = t.level > 1 ? `${t.name} LVL ${t.level}` : t.name;
+        ctx.fillText(tomeText, W - 195, tomeY + 23 + i * 25);
       }
 
       // Level up animation
@@ -1291,20 +1351,41 @@ const Index = () => {
         const typeText = option.type === "weapon" ? "ARMA" : option.type === "tome" ? "TOMO" : "ÍTEM";
         ctx.fillText(typeText, x + cardW / 2, y + hover + 25);
         
-        // Nombre
+        // Nombre con nivel
         const data = option.data as any;
         ctx.fillStyle = "#fff";
         ctx.font = "bold 18px system-ui";
-        ctx.fillText(data.name, x + cardW / 2, y + hover + 60);
+        const nameText = option.isLevelUp ? `${data.name} LVL ${data.level + 1}` : data.name;
+        ctx.fillText(nameText, x + cardW / 2, y + hover + 60);
         
         // Descripción
         ctx.fillStyle = "#9ca3af";
         ctx.font = "14px system-ui";
         if (option.type === "weapon") {
           const w = data as Weapon;
-          ctx.fillText(`Daño: ${w.damage}`, x + cardW / 2, y + hover + 90);
-          ctx.fillText(`Cadencia: ${w.fireRate.toFixed(1)}/s`, x + cardW / 2, y + hover + 110);
-          ctx.fillText(`Alcance: ${w.range}`, x + cardW / 2, y + hover + 130);
+          if (option.isLevelUp) {
+            ctx.fillText(`+20% Daño`, x + cardW / 2, y + hover + 90);
+            ctx.fillText(`+20% Cadencia`, x + cardW / 2, y + hover + 110);
+            ctx.fillText(`+15% Alcance`, x + cardW / 2, y + hover + 130);
+          } else {
+            ctx.fillText(`Daño: ${w.damage.toFixed(1)}`, x + cardW / 2, y + hover + 90);
+            ctx.fillText(`Cadencia: ${w.fireRate.toFixed(1)}/s`, x + cardW / 2, y + hover + 110);
+            ctx.fillText(`Alcance: ${w.range}`, x + cardW / 2, y + hover + 130);
+          }
+        } else if (option.type === "tome") {
+          const t = data as Tome;
+          if (option.isLevelUp) {
+            // Mostrar bonificación específica según el efecto
+            if (t.effect === "damage") ctx.fillText(`+15% Daño adicional`, x + cardW / 2, y + hover + 100);
+            else if (t.effect === "speed") ctx.fillText(`+10% Velocidad adicional`, x + cardW / 2, y + hover + 100);
+            else if (t.effect === "range") ctx.fillText(`+15% Alcance adicional`, x + cardW / 2, y + hover + 100);
+            else if (t.effect === "fireRate") ctx.fillText(`+15% Cadencia adicional`, x + cardW / 2, y + hover + 100);
+            else if (t.effect === "bounce") ctx.fillText(`+1 Rebote adicional`, x + cardW / 2, y + hover + 100);
+            else if (t.effect === "multishot") ctx.fillText(`+1 Proyectil adicional`, x + cardW / 2, y + hover + 100);
+            else if (t.effect === "xp") ctx.fillText(`+15% XP adicional`, x + cardW / 2, y + hover + 100);
+          } else {
+            ctx.fillText(t.description, x + cardW / 2, y + hover + 100);
+          }
         } else {
           ctx.fillText(data.description, x + cardW / 2, y + hover + 100);
         }
