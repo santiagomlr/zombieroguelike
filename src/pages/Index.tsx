@@ -322,6 +322,8 @@ const Index = () => {
       nextEventWave: 3, // Primera wave con evento ambiental
       lightningTimer: 0,
       fogOpacity: 0,
+      fogZones: [] as Array<{ x: number; y: number; width: number; height: number }>,
+      stormZone: null as { x: number; y: number; radius: number; vx: number; vy: number } | null,
       sounds: {
         shoot: new Audio(),
         hit: new Audio(),
@@ -549,6 +551,8 @@ const Index = () => {
       gameState.nextEventWave = 3;
       gameState.lightningTimer = 0;
       gameState.fogOpacity = 0;
+      gameState.fogZones = [];
+      gameState.stormZone = null;
       
       // Actualizar React state
       setScore(0);
@@ -1938,6 +1942,8 @@ const Index = () => {
             gameState.eventTimer = 0;
             gameState.eventNotification = 6; // 6 segundos de notificación
             gameState.fogOpacity = 0;
+            gameState.fogZones = [];
+            gameState.stormZone = null;
           }
           
           // Próximo evento en 3-5 waves
@@ -1966,6 +1972,8 @@ const Index = () => {
           gameState.environmentalEvent = gameState.secondaryEvent;
           gameState.secondaryEvent = null;
           gameState.fogOpacity = 0;
+          gameState.fogZones = [];
+          gameState.stormZone = null;
           
           // Si todavía hay un evento, reiniciar timer
           if (gameState.environmentalEvent) {
@@ -1976,64 +1984,145 @@ const Index = () => {
           // Aplicar efectos según el tipo de evento
           switch (gameState.environmentalEvent) {
             case "storm":
-              // ⚡ TORMENTA ELÉCTRICA: Relámpagos aleatorios
-              gameState.lightningTimer += dt;
-              if (gameState.lightningTimer >= 2) {
-                gameState.lightningTimer = 0;
-                // Crear relámpago en posición aleatoria
-                const lightningX = Math.random() * W;
-                const lightningY = Math.random() * H;
-                const lightningRad = 80;
-                
-                // Daño a jugador si está cerca
-                const distToPlayer = Math.hypot(lightningX - gameState.player.x, lightningY - gameState.player.y);
-                if (distToPlayer < lightningRad && gameState.player.ifr === 0) {
-                  gameState.player.hp -= 10;
-                  gameState.player.ifr = gameState.player.ifrDuration;
-                  if (gameState.player.hp <= 0) {
-                    gameState.state = 'gameover';
-                    gameState.gameOverTimer = 3;
-                  }
+              // ⚡ TORMENTA: Zona circular que se mueve aleatoriamente
+              // Crear zona de tormenta si no existe
+              if (!gameState.stormZone) {
+                gameState.stormZone = {
+                  x: Math.random() * W,
+                  y: Math.random() * H,
+                  radius: 150,
+                  vx: (Math.random() - 0.5) * 100,
+                  vy: (Math.random() - 0.5) * 100,
+                };
+              }
+              
+              // Mover la tormenta aleatoriamente
+              gameState.stormZone.x += gameState.stormZone.vx * dt;
+              gameState.stormZone.y += gameState.stormZone.vy * dt;
+              
+              // Rebotar en los bordes y cambiar dirección aleatoriamente
+              if (gameState.stormZone.x < gameState.stormZone.radius || gameState.stormZone.x > W - gameState.stormZone.radius) {
+                gameState.stormZone.vx *= -1;
+                gameState.stormZone.vx += (Math.random() - 0.5) * 50;
+              }
+              if (gameState.stormZone.y < gameState.stormZone.radius || gameState.stormZone.y > H - gameState.stormZone.radius) {
+                gameState.stormZone.vy *= -1;
+                gameState.stormZone.vy += (Math.random() - 0.5) * 50;
+              }
+              
+              // Cambiar dirección aleatoriamente
+              if (Math.random() < 0.02) {
+                gameState.stormZone.vx = (Math.random() - 0.5) * 100;
+                gameState.stormZone.vy = (Math.random() - 0.5) * 100;
+              }
+              
+              // Mantener velocidad dentro de límites
+              const stormSpeed = Math.hypot(gameState.stormZone.vx, gameState.stormZone.vy);
+              if (stormSpeed > 150) {
+                gameState.stormZone.vx = (gameState.stormZone.vx / stormSpeed) * 150;
+                gameState.stormZone.vy = (gameState.stormZone.vy / stormSpeed) * 150;
+              }
+              
+              // Daño continuo si el jugador está dentro
+              const distToStorm = Math.hypot(gameState.player.x - gameState.stormZone.x, gameState.player.y - gameState.stormZone.y);
+              if (distToStorm < gameState.stormZone.radius) {
+                gameState.player.hp -= 10 * dt; // 10 HP/s
+                if (gameState.player.hp <= 0) {
+                  gameState.state = 'gameover';
+                  gameState.gameOverTimer = 3;
                 }
                 
-                // Partículas de relámpago
-                if (gameState.particles.length < gameState.maxParticles - 30) {
-                  for (let i = 0; i < 30; i++) {
-                    const angle = Math.random() * Math.PI * 2;
-                    const speed = Math.random() * 8 + 4;
-                    gameState.particles.push({
-                      x: lightningX,
-                      y: lightningY,
-                      vx: Math.cos(angle) * speed,
-                      vy: Math.sin(angle) * speed,
-                      life: 0.5,
-                      color: "#60a5fa",
-                      size: 4,
-                    });
-                  }
+                // Partículas de daño eléctrico
+                if (Math.random() < 0.3 && gameState.particles.length < gameState.maxParticles) {
+                  gameState.particles.push({
+                    x: gameState.player.x + (Math.random() - 0.5) * 30,
+                    y: gameState.player.y + (Math.random() - 0.5) * 30,
+                    vx: (Math.random() - 0.5) * 4,
+                    vy: (Math.random() - 0.5) * 4,
+                    life: 0.5,
+                    color: "#60a5fa",
+                    size: 4,
+                  });
                 }
+              }
+              
+              // Partículas de tormenta
+              if (Math.random() < 0.5 && gameState.particles.length < gameState.maxParticles) {
+                const angle = Math.random() * Math.PI * 2;
+                const dist = Math.random() * gameState.stormZone.radius;
+                gameState.particles.push({
+                  x: gameState.stormZone.x + Math.cos(angle) * dist,
+                  y: gameState.stormZone.y + Math.sin(angle) * dist,
+                  vx: (Math.random() - 0.5) * 2,
+                  vy: (Math.random() - 0.5) * 2,
+                  life: 0.8,
+                  color: "#60a5fa",
+                  size: 3,
+                });
               }
               break;
               
             case "fog":
-              // 🌫️ NIEBLA TÓXICA: Reduce visibilidad + daño constante
+              // 🌫️ NIEBLA TÓXICA: Zonas rectangulares que limitan movimiento
+              // Crear zonas de niebla si no existen
+              if (gameState.fogZones.length === 0) {
+                // Crear 2-3 zonas rectangulares
+                const numZones = 2 + Math.floor(Math.random() * 2);
+                for (let i = 0; i < numZones; i++) {
+                  const width = 200 + Math.random() * 150;
+                  const height = 150 + Math.random() * 100;
+                  gameState.fogZones.push({
+                    x: Math.random() * (W - width),
+                    y: Math.random() * (H - height),
+                    width,
+                    height,
+                  });
+                }
+              }
+              
               // Fade in niebla
-              if (gameState.fogOpacity < 0.6) {
-                gameState.fogOpacity = Math.min(0.6, gameState.fogOpacity + dt * 0.5);
+              if (gameState.fogOpacity < 0.8) {
+                gameState.fogOpacity = Math.min(0.8, gameState.fogOpacity + dt * 0.5);
               }
               
-              // Daño continuo leve (sin invulnerabilidad)
-              gameState.player.hp -= 2 * dt;
-              if (gameState.player.hp <= 0) {
-                gameState.state = 'gameover';
-                gameState.gameOverTimer = 3;
+              // Verificar si el jugador está en alguna zona de niebla
+              let inFogZone = false;
+              for (const zone of gameState.fogZones) {
+                if (gameState.player.x > zone.x && gameState.player.x < zone.x + zone.width &&
+                    gameState.player.y > zone.y && gameState.player.y < zone.y + zone.height) {
+                  inFogZone = true;
+                  break;
+                }
               }
               
-              // Partículas de niebla
-              if (Math.random() < 0.1 && gameState.particles.length < gameState.maxParticles) {
+              // Daño aumentado si está en zona de niebla
+              if (inFogZone) {
+                gameState.player.hp -= 5 * dt; // 5 HP/s (aumentado desde 2)
+                if (gameState.player.hp <= 0) {
+                  gameState.state = 'gameover';
+                  gameState.gameOverTimer = 3;
+                }
+                
+                // Partículas de daño en el jugador
+                if (Math.random() < 0.2 && gameState.particles.length < gameState.maxParticles) {
+                  gameState.particles.push({
+                    x: gameState.player.x + (Math.random() - 0.5) * 30,
+                    y: gameState.player.y + (Math.random() - 0.5) * 30,
+                    vx: (Math.random() - 0.5) * 2,
+                    vy: -Math.random() * 3,
+                    life: 0.8,
+                    color: "#84cc16",
+                    size: 4,
+                  });
+                }
+              }
+              
+              // Partículas de niebla en las zonas
+              if (Math.random() < 0.3 && gameState.particles.length < gameState.maxParticles) {
+                const zone = gameState.fogZones[Math.floor(Math.random() * gameState.fogZones.length)];
                 gameState.particles.push({
-                  x: Math.random() * W,
-                  y: Math.random() * H,
+                  x: zone.x + Math.random() * zone.width,
+                  y: zone.y + Math.random() * zone.height,
                   vx: (Math.random() - 0.5) * 0.5,
                   vy: (Math.random() - 0.5) * 0.5,
                   life: 3,
@@ -2267,6 +2356,24 @@ const Index = () => {
       // Movimiento tentativo
       let newX = gameState.player.x + vx * spd;
       let newY = gameState.player.y + vy * spd;
+      
+      // Restricción de movimiento en zonas de niebla
+      if (gameState.environmentalEvent === "fog" && gameState.fogZones.length > 0) {
+        for (const zone of gameState.fogZones) {
+          // Verificar si el jugador está en la zona actualmente
+          const isInZone = gameState.player.x >= zone.x && gameState.player.x <= zone.x + zone.width &&
+                          gameState.player.y >= zone.y && gameState.player.y <= zone.y + zone.height;
+          
+          if (isInZone) {
+            // Restringir movimiento para que no pueda salir de la zona
+            if (newX < zone.x) newX = zone.x;
+            if (newX > zone.x + zone.width) newX = zone.x + zone.width;
+            if (newY < zone.y) newY = zone.y;
+            if (newY > zone.y + zone.height) newY = zone.y + zone.height;
+            break; // Solo aplicar restricción de la primera zona que contenga al jugador
+          }
+        }
+      }
       
       // Clamp a los límites del mapa
       newX = Math.max(gameState.player.rad, Math.min(W - gameState.player.rad, newX));
@@ -3606,8 +3713,8 @@ const Index = () => {
         
         // Texto de noticia con descripción de efectos
         const eventTexts = {
-          storm: "⚡ TORMENTA: Relámpagos causan 10 HP de daño cada 2s",
-          fog: "🌫️ NIEBLA TÓXICA: Daño constante de 2 HP/s + visibilidad reducida",
+          storm: "⚡ TORMENTA: Zona móvil circular causa 10 HP/s de daño",
+          fog: "🌫️ NIEBLA TÓXICA: Zonas verdes causan 5 HP/s y limitan movimiento",
           eclipse: "🌑 ECLIPSE: Oscuridad reduce rango de visión drásticamente",
           rain: "☢️ LLUVIA RADIACTIVA: Enemigos ganan +50% velocidad en zonas púrpuras"
         };
@@ -3984,14 +4091,75 @@ const Index = () => {
       // EFECTOS AMBIENTALES - Renderizado
       // ═══════════════════════════════════════════════════════════
       
+      // Renderizar zonas de niebla
+      if (gameState.environmentalEvent === "fog" && gameState.fogZones.length > 0) {
+        for (const zone of gameState.fogZones) {
+          const pulse = Math.sin(gameState.time * 3) * 0.15 + 0.85;
+          
+          // Zona de niebla tóxica
+          ctx.fillStyle = `rgba(132, 204, 22, ${gameState.fogOpacity * 0.4})`;
+          ctx.fillRect(zone.x, zone.y, zone.width, zone.height);
+          
+          // Borde de la zona
+          ctx.strokeStyle = `rgba(132, 204, 22, ${pulse})`;
+          ctx.lineWidth = 3;
+          ctx.shadowColor = "#84cc16";
+          ctx.shadowBlur = 15 * pulse;
+          ctx.setLineDash([10, 10]);
+          ctx.strokeRect(zone.x, zone.y, zone.width, zone.height);
+          ctx.setLineDash([]);
+          ctx.shadowBlur = 0;
+          
+          // Icono de niebla en el centro
+          ctx.fillStyle = `rgba(132, 204, 22, ${pulse})`;
+          ctx.font = "bold 48px system-ui";
+          ctx.textAlign = "center";
+          ctx.shadowColor = "#84cc16";
+          ctx.shadowBlur = 20;
+          ctx.fillText("🌫️", zone.x + zone.width / 2, zone.y + zone.height / 2 + 16);
+          ctx.shadowBlur = 0;
+        }
+      }
+      
+      // Renderizar zona de tormenta
+      if (gameState.environmentalEvent === "storm" && gameState.stormZone) {
+        const pulse = Math.sin(gameState.time * 4) * 0.2 + 0.8;
+        const storm = gameState.stormZone;
+        
+        // Círculo de tormenta
+        const gradient = ctx.createRadialGradient(storm.x, storm.y, 0, storm.x, storm.y, storm.radius);
+        gradient.addColorStop(0, "rgba(96, 165, 250, 0.4)");
+        gradient.addColorStop(0.7, "rgba(96, 165, 250, 0.2)");
+        gradient.addColorStop(1, "rgba(59, 130, 246, 0)");
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(storm.x, storm.y, storm.radius, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Borde pulsante
+        ctx.strokeStyle = `rgba(96, 165, 250, ${pulse})`;
+        ctx.lineWidth = 4;
+        ctx.shadowColor = "#60a5fa";
+        ctx.shadowBlur = 20 * pulse;
+        ctx.setLineDash([8, 8]);
+        ctx.beginPath();
+        ctx.arc(storm.x, storm.y, storm.radius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.shadowBlur = 0;
+        
+        // Icono de tormenta
+        ctx.fillStyle = `rgba(96, 165, 250, ${pulse})`;
+        ctx.font = "bold 56px system-ui";
+        ctx.textAlign = "center";
+        ctx.shadowColor = "#60a5fa";
+        ctx.shadowBlur = 25;
+        ctx.fillText("⚡", storm.x, storm.y + 20);
+        ctx.shadowBlur = 0;
+      }
+      
       if (gameState.environmentalEvent) {
         switch (gameState.environmentalEvent) {
-          case "fog":
-            // 🌫️ NIEBLA TÓXICA: Overlay verde tóxico
-            ctx.fillStyle = `rgba(132, 204, 22, ${gameState.fogOpacity * 0.3})`;
-            ctx.fillRect(0, 0, W, H);
-            break;
-            
           case "eclipse":
             // 🌑 ECLIPSE: Oscuridad con vignette
             const vignetteGradient = ctx.createRadialGradient(W / 2, H / 2, 200, W / 2, H / 2, Math.max(W, H) * 0.8);
@@ -3999,15 +4167,6 @@ const Index = () => {
             vignetteGradient.addColorStop(1, "rgba(0, 0, 0, 0.7)");
             ctx.fillStyle = vignetteGradient;
             ctx.fillRect(0, 0, W, H);
-            break;
-            
-          case "storm":
-            // ⚡ TORMENTA: Flash de relámpagos
-            const lightningFlash = Math.sin(gameState.lightningTimer * 15) > 0.95 ? 0.3 : 0;
-            if (lightningFlash > 0) {
-              ctx.fillStyle = `rgba(96, 165, 250, ${lightningFlash})`;
-              ctx.fillRect(0, 0, W, H);
-            }
             break;
             
           case "rain":
