@@ -57,13 +57,15 @@ const TOMES: Tome[] = [
   { id: "fire", name: "Tomo de Cadencia", description: "+50% Cadencia", effect: "fireRate", value: 1.5, rarity: "rare", color: "#fbbf24" },
   { id: "bounce", name: "Tomo de Rebote", description: "+2 Rebotes", effect: "bounce", value: 2, rarity: "epic", color: "#a855f7" },
   { id: "multi", name: "Tomo Múltiple", description: "+1 Proyectil", effect: "multishot", value: 1, rarity: "legendary", color: "#06b6d4" },
+  { id: "xp", name: "Tomo de Experiencia", description: "+50% XP ganado", effect: "xp", value: 1.5, rarity: "rare", color: "#ec4899" },
 ];
 
 const ITEMS: Item[] = [
   { id: "magnet", name: "Imán", description: "+50% Rango de imán", effect: "magnet", rarity: "common", color: "#9ca3af" },
   { id: "regen", name: "Regeneración", description: "+1 HP cada 10s", effect: "regen", rarity: "uncommon", color: "#22c55e" },
   { id: "luck", name: "Suerte", description: "+20% Drop rate", effect: "luck", rarity: "rare", color: "#fbbf24" },
-  { id: "shield", name: "Escudo", description: "+2 HP máximo", effect: "maxhp", rarity: "epic", color: "#3b82f6" },
+  { id: "shielditem", name: "Escudo Temporal", description: "+1 Escudo (bloquea 1 golpe)", effect: "shield", rarity: "epic", color: "#3b82f6" },
+  { id: "maxhp", name: "Corazón", description: "+1 HP máximo", effect: "maxhp", rarity: "epic", color: "#f87171" },
   { id: "aura", name: "Aura de Fuego", description: "Daño en área", effect: "aura", rarity: "epic", color: "#f87171" },
   { id: "vampire", name: "Vampirismo", description: "10% robo de vida", effect: "vampire", rarity: "legendary", color: "#a855f7" },
 ];
@@ -104,7 +106,8 @@ const Index = () => {
         spd: 3.5,
         rad: 16,
         hp: 6,
-        maxhp: 6,
+        maxhp: 7,
+        shield: 0,
         ifr: 0,
         magnet: 120,
         weapons: [WEAPONS[0]],
@@ -119,17 +122,21 @@ const Index = () => {
           multishot: 0,
           auraRadius: 0,
           vampire: 0,
+          xpMultiplier: 1,
         },
       },
       bullets: [] as any[],
       enemies: [] as any[],
       drops: [] as any[],
       particles: [] as any[],
+      hotspots: [] as any[],
       score: 0,
       level: 1,
       xp: 0,
       nextXP: 50,
       time: 0,
+      wave: 1,
+      waveTimer: 0,
       lastSpawn: 0,
       weaponCooldowns: {} as Record<string, number>,
       keys: {} as Record<string, boolean>,
@@ -138,6 +145,9 @@ const Index = () => {
       upgradeOptions: [] as Upgrade[],
       regenTimer: 0,
       auraTimer: 0,
+      hotspotTimer: 0,
+      levelUpAnimation: 0,
+      upgradeAnimation: 0,
     };
 
     gameStateRef.current = gameState;
@@ -290,14 +300,29 @@ const Index = () => {
     }
 
     function collectXP(v: number) {
-      gameState.xp += v;
+      const xpGained = v * gameState.player.stats.xpMultiplier;
+      gameState.xp += xpGained;
       while (gameState.xp >= gameState.nextXP) {
         gameState.xp -= gameState.nextXP;
         gameState.level++;
         setLevel(gameState.level);
         gameState.nextXP = Math.floor(gameState.nextXP * 1.3 + 30);
+        gameState.levelUpAnimation = 1;
         showUpgradeScreen();
       }
+    }
+
+    function spawnHotspot() {
+      const x = Math.random() * (W - 200) + 100;
+      const y = Math.random() * (H - 200) + 100;
+      gameState.hotspots.push({
+        x,
+        y,
+        rad: 60,
+        progress: 0,
+        required: 10,
+        active: false,
+      });
     }
 
     function showUpgradeScreen() {
@@ -307,6 +332,9 @@ const Index = () => {
       const options: Upgrade[] = [];
       const rarityRoll = Math.random();
       
+      const weaponsFull = gameState.player.weapons.length >= 3;
+      const tomesFull = gameState.player.tomes.length >= 3;
+      
       for (let i = 0; i < 3; i++) {
         let rarity: Rarity = "common";
         const roll = Math.random();
@@ -315,7 +343,12 @@ const Index = () => {
         else if (rarityRoll < 0.35) rarity = "rare";
         else if (rarityRoll < 0.60) rarity = "uncommon";
         
-        const type = roll < 0.4 ? "weapon" : roll < 0.7 ? "tome" : "item";
+        let type = roll < 0.4 ? "weapon" : roll < 0.7 ? "tome" : "item";
+        
+        // Si armas y tomos están llenos, solo ofrecer armas y tomos (reemplazos)
+        if (weaponsFull && tomesFull) {
+          type = roll < 0.5 ? "weapon" : "tome";
+        }
         
         if (type === "weapon") {
           const available = WEAPONS.filter(w => 
@@ -329,7 +362,7 @@ const Index = () => {
         } else if (type === "tome") {
           const available = TOMES.filter(t => 
             (rarity === t.rarity || Math.random() < 0.3) &&
-            gameState.player.tomes.filter((pt: Tome) => pt.id === t.id).length < 3
+            gameState.player.tomes.filter((pt: Tome) => pt.id === t.id).length < 1
           );
           if (available.length > 0) {
             const tome = available[Math.floor(Math.random() * available.length)];
@@ -344,23 +377,27 @@ const Index = () => {
         }
       }
       
-      gameState.upgradeOptions = options;
+      gameState.upgradeOptions = options.slice(0, 3);
     }
 
     function selectUpgrade(index: number) {
       const option = gameState.upgradeOptions[index];
       if (!option) return;
 
+      gameState.upgradeAnimation = 1.5;
+
       if (option.type === "weapon") {
         const weapon = option.data as Weapon;
         if (gameState.player.weapons.length < 3) {
           gameState.player.weapons.push(weapon);
         } else {
-          gameState.player.weapons[0] = weapon;
+          gameState.player.weapons[Math.floor(Math.random() * 3)] = weapon;
         }
       } else if (option.type === "tome") {
         const tome = option.data as Tome;
-        gameState.player.tomes.push(tome);
+        if (gameState.player.tomes.length < 3) {
+          gameState.player.tomes.push(tome);
+        }
         
         if (tome.effect === "damage") gameState.player.stats.damageMultiplier *= tome.value;
         if (tome.effect === "speed") gameState.player.stats.speedMultiplier *= tome.value;
@@ -368,14 +405,16 @@ const Index = () => {
         if (tome.effect === "fireRate") gameState.player.stats.fireRateMultiplier *= tome.value;
         if (tome.effect === "bounce") gameState.player.stats.bounces += tome.value;
         if (tome.effect === "multishot") gameState.player.stats.multishot += tome.value;
+        if (tome.effect === "xp") gameState.player.stats.xpMultiplier *= tome.value;
       } else if (option.type === "item") {
         const item = option.data as Item;
         gameState.player.items.push(item);
         
         if (item.effect === "magnet") gameState.player.magnet *= 1.5;
+        if (item.effect === "shield") gameState.player.shield = Math.min(3, gameState.player.shield + 1);
         if (item.effect === "maxhp") {
-          gameState.player.maxhp += 2;
-          gameState.player.hp += 2;
+          gameState.player.maxhp = Math.min(7, gameState.player.maxhp + 1);
+          gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + 1);
         }
         if (item.effect === "aura") gameState.player.stats.auraRadius = 80;
         if (item.effect === "vampire") gameState.player.stats.vampire = 0.1;
@@ -412,6 +451,57 @@ const Index = () => {
     function update(dt: number) {
       if (gameState.paused) return;
       gameState.time += dt;
+
+      // Animations
+      if (gameState.levelUpAnimation > 0) gameState.levelUpAnimation = Math.max(0, gameState.levelUpAnimation - dt * 2);
+      if (gameState.upgradeAnimation > 0) gameState.upgradeAnimation = Math.max(0, gameState.upgradeAnimation - dt);
+
+      // Wave system
+      gameState.waveTimer += dt;
+      if (gameState.waveTimer >= 60) {
+        gameState.waveTimer = 0;
+        gameState.wave++;
+      }
+
+      // Hotspot spawning
+      gameState.hotspotTimer += dt;
+      if (gameState.hotspotTimer >= 30 && gameState.hotspots.length < 2) {
+        gameState.hotspotTimer = 0;
+        spawnHotspot();
+      }
+
+      // Hotspot logic
+      for (let i = gameState.hotspots.length - 1; i >= 0; i--) {
+        const h = gameState.hotspots[i];
+        const d = Math.hypot(h.x - gameState.player.x, h.y - gameState.player.y);
+        
+        if (d < h.rad) {
+          h.active = true;
+          h.progress += dt;
+          if (h.progress >= h.required) {
+            // Reward!
+            collectXP(100);
+            gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + 2);
+            gameState.hotspots.splice(i, 1);
+            // Particles
+            for (let j = 0; j < 30; j++) {
+              const angle = (Math.PI * 2 * j) / 30;
+              gameState.particles.push({
+                x: h.x,
+                y: h.y,
+                vx: Math.cos(angle) * 8,
+                vy: Math.sin(angle) * 8,
+                life: 1,
+                color: "#fbbf24",
+                size: 4,
+              });
+            }
+          }
+        } else {
+          h.active = false;
+          h.progress = Math.max(0, h.progress - dt * 0.5);
+        }
+      }
 
       // Regeneración
       if (gameState.player.items.find((it: Item) => it.id === "regen")) {
@@ -461,9 +551,10 @@ const Index = () => {
       gameState.player.x = Math.max(gameState.player.rad, Math.min(W - gameState.player.rad, gameState.player.x + vx * spd));
       gameState.player.y = Math.max(gameState.player.rad, Math.min(H - gameState.player.rad, gameState.player.y + vy * spd));
 
-      // Spawn enemigos
+      // Spawn enemigos con dificultad de wave
       gameState.lastSpawn += dt;
-      const spawnRate = Math.max(0.3, 1.2 - gameState.level * 0.05);
+      const waveDifficulty = 1 + (gameState.wave - 1) * 0.2;
+      const spawnRate = Math.max(0.2, 1.2 - gameState.level * 0.05) / waveDifficulty;
       if (gameState.lastSpawn > spawnRate) {
         spawnEnemy();
         gameState.lastSpawn = 0;
@@ -587,10 +678,34 @@ const Index = () => {
       for (const e of gameState.enemies) {
         if (Math.hypot(e.x - gameState.player.x, e.y - gameState.player.y) < e.rad + gameState.player.rad) {
           if (gameState.player.ifr <= 0) {
-            gameState.player.hp--;
-            gameState.player.ifr = 1.5;
+            if (gameState.player.shield > 0) {
+              gameState.player.shield--;
+              gameState.player.ifr = 1.5;
+              // Shield break particles
+              for (let j = 0; j < 12; j++) {
+                const angle = (Math.PI * 2 * j) / 12;
+                gameState.particles.push({
+                  x: gameState.player.x,
+                  y: gameState.player.y,
+                  vx: Math.cos(angle) * 6,
+                  vy: Math.sin(angle) * 6,
+                  life: 0.8,
+                  color: "#3b82f6",
+                  size: 3,
+                });
+              }
+            } else {
+              gameState.player.hp--;
+              gameState.player.ifr = 1.5;
+            }
             
             if (gameState.player.hp <= 0) {
+              // Save score to leaderboard
+              const leaderboard = JSON.parse(localStorage.getItem("leaderboard") || "[]");
+              leaderboard.push({ score: gameState.score, level: gameState.level, wave: gameState.wave, date: new Date().toISOString() });
+              leaderboard.sort((a: any, b: any) => b.score - a.score);
+              localStorage.setItem("leaderboard", JSON.stringify(leaderboard.slice(0, 10)));
+              
               setGameOver(true);
               gameState.paused = true;
             }
@@ -655,6 +770,18 @@ const Index = () => {
           ctx.fillRect(x + 3, hpY + 3, hpW - 6, hpH - 6);
         }
       }
+
+      // Shield
+      for (let i = 0; i < gameState.player.shield; i++) {
+        const x = hpX + gameState.player.maxhp * (hpW + hpGap) + i * (hpW + hpGap);
+        ctx.fillStyle = "rgba(20, 25, 35, 0.9)";
+        ctx.fillRect(x, hpY, hpW, hpH);
+        ctx.strokeStyle = "#3b82f6";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, hpY, hpW, hpH);
+        ctx.fillStyle = "#3b82f6";
+        ctx.fillRect(x + 3, hpY + 3, hpW - 6, hpH - 6);
+      }
       
       // XP Bar
       const xpBarW = 300;
@@ -678,39 +805,74 @@ const Index = () => {
       ctx.textAlign = "left";
       ctx.fillText(`Nivel ${gameState.level}`, xpBarX + xpBarW + 12, xpBarY + xpBarH - 2);
       
+      // Wave
+      ctx.fillStyle = "#a855f7";
+      ctx.font = "bold 16px system-ui";
+      ctx.fillText(`Wave ${gameState.wave}`, xpBarX, xpBarY + xpBarH + 20);
+      
       // Score
       ctx.textAlign = "right";
       ctx.fillStyle = "#fbbf24";
       ctx.font = "bold 24px system-ui";
       ctx.fillText(`${gameState.score}`, W - 20, 40);
-      
-      // Mini mapa
-      const miniSize = 150;
-      const miniX = W - miniSize - 20;
-      const miniY = H - miniSize - 20;
-      
-      ctx.fillStyle = "rgba(10, 15, 25, 0.8)";
-      ctx.fillRect(miniX, miniY, miniSize, miniSize);
-      ctx.strokeStyle = "#334155";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(miniX, miniY, miniSize, miniSize);
-      
-      // Jugador en minimapa
-      const miniPlayerX = miniX + (gameState.player.x / W) * miniSize;
-      const miniPlayerY = miniY + (gameState.player.y / H) * miniSize;
-      ctx.fillStyle = "#60a5fa";
-      ctx.beginPath();
-      ctx.arc(miniPlayerX, miniPlayerY, 3, 0, Math.PI * 2);
-      ctx.fill();
-      
-      // Enemigos en minimapa
-      ctx.fillStyle = "#34d399";
-      for (const e of gameState.enemies) {
-        const ex = miniX + (e.x / W) * miniSize;
-        const ey = miniY + (e.y / H) * miniSize;
-        ctx.beginPath();
-        ctx.arc(ex, ey, e.isElite ? 2.5 : 1.5, 0, Math.PI * 2);
-        ctx.fill();
+
+      // Weapons display
+      ctx.textAlign = "left";
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 14px system-ui";
+      ctx.fillText("Armas:", W - 220, 70);
+      for (let i = 0; i < gameState.player.weapons.length; i++) {
+        const w = gameState.player.weapons[i];
+        ctx.fillStyle = w.color;
+        ctx.fillRect(W - 220, 80 + i * 25, 18, 18);
+        ctx.fillStyle = "#fff";
+        ctx.font = "12px system-ui";
+        ctx.fillText(w.name, W - 195, 93 + i * 25);
+      }
+
+      // Tomes display
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 14px system-ui";
+      const tomeY = 80 + gameState.player.weapons.length * 25 + 10;
+      ctx.fillText("Tomos:", W - 220, tomeY);
+      for (let i = 0; i < gameState.player.tomes.length; i++) {
+        const t = gameState.player.tomes[i];
+        ctx.fillStyle = t.color;
+        ctx.fillRect(W - 220, tomeY + 10 + i * 25, 18, 18);
+        ctx.fillStyle = "#fff";
+        ctx.font = "12px system-ui";
+        ctx.fillText(t.name, W - 195, tomeY + 23 + i * 25);
+      }
+
+      // Level up animation
+      if (gameState.levelUpAnimation > 0) {
+        const alpha = gameState.levelUpAnimation;
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = "#fbbf24";
+        ctx.font = "bold 72px system-ui";
+        ctx.textAlign = "center";
+        const scale = 1 + (1 - alpha) * 0.5;
+        ctx.save();
+        ctx.translate(W / 2, H / 2);
+        ctx.scale(scale, scale);
+        ctx.fillText("LEVEL UP!", 0, 0);
+        ctx.restore();
+        ctx.globalAlpha = 1;
+      }
+
+      // Upgrade animation
+      if (gameState.upgradeAnimation > 0) {
+        const alpha = Math.min(1, gameState.upgradeAnimation);
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = "#06b6d4";
+        ctx.lineWidth = 8;
+        const radius = gameState.player.rad + 20;
+        for (let i = 0; i < 3; i++) {
+          ctx.beginPath();
+          ctx.arc(gameState.player.x, gameState.player.y, radius + i * 10, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
       }
       
       ctx.restore();
@@ -721,21 +883,26 @@ const Index = () => {
 
       ctx.save();
       
-      // Overlay
+      // Animated overlay
       ctx.fillStyle = "rgba(0, 0, 0, 0.85)";
       ctx.fillRect(0, 0, W, H);
       
-      // Título
-      ctx.fillStyle = "#fff";
+      const pulse = Math.sin(gameState.time * 3) * 0.1 + 0.9;
+      
+      // Título con animación
+      ctx.fillStyle = "#fbbf24";
+      ctx.shadowColor = "#fbbf24";
+      ctx.shadowBlur = 20 * pulse;
       ctx.font = "bold 48px system-ui";
       ctx.textAlign = "center";
       ctx.fillText("¡SUBISTE DE NIVEL!", W / 2, H / 2 - 180);
+      ctx.shadowBlur = 0;
       
       ctx.font = "24px system-ui";
       ctx.fillStyle = "#9ca3af";
       ctx.fillText("Elige una mejora:", W / 2, H / 2 - 130);
       
-      // Cards
+      // Cards con animación
       const cardW = 250;
       const cardH = 180;
       const gap = 30;
@@ -747,20 +914,22 @@ const Index = () => {
         const x = startX + i * (cardW + gap);
         const y = startY;
         
+        const hover = Math.sin(gameState.time * 4 + i * 1.2) * 5;
+        
         // Card background
         const rarityColor = rarityColors[option.rarity];
         ctx.fillStyle = "rgba(20, 25, 35, 0.95)";
-        ctx.fillRect(x, y, cardW, cardH);
+        ctx.fillRect(x, y + hover, cardW, cardH);
         
-        // Borde de rareza
+        // Borde de rareza con animación
         ctx.strokeStyle = rarityColor;
-        ctx.lineWidth = 3;
-        ctx.strokeRect(x, y, cardW, cardH);
+        ctx.lineWidth = 3 + Math.sin(gameState.time * 5 + i) * 1;
+        ctx.strokeRect(x, y + hover, cardW, cardH);
         
-        // Glow effect
+        // Glow effect pulsante
         ctx.shadowColor = rarityColor;
-        ctx.shadowBlur = 20;
-        ctx.strokeRect(x, y, cardW, cardH);
+        ctx.shadowBlur = 30 * pulse;
+        ctx.strokeRect(x, y + hover, cardW, cardH);
         ctx.shadowBlur = 0;
         
         // Tipo
@@ -768,34 +937,42 @@ const Index = () => {
         ctx.font = "bold 14px system-ui";
         ctx.textAlign = "center";
         const typeText = option.type === "weapon" ? "ARMA" : option.type === "tome" ? "TOMO" : "ÍTEM";
-        ctx.fillText(typeText, x + cardW / 2, y + 25);
+        ctx.fillText(typeText, x + cardW / 2, y + hover + 25);
         
         // Nombre
         const data = option.data as any;
         ctx.fillStyle = "#fff";
         ctx.font = "bold 18px system-ui";
-        ctx.fillText(data.name, x + cardW / 2, y + 60);
+        ctx.fillText(data.name, x + cardW / 2, y + hover + 60);
         
         // Descripción
         ctx.fillStyle = "#9ca3af";
         ctx.font = "14px system-ui";
         if (option.type === "weapon") {
           const w = data as Weapon;
-          ctx.fillText(`Daño: ${w.damage}`, x + cardW / 2, y + 90);
-          ctx.fillText(`Cadencia: ${w.fireRate.toFixed(1)}/s`, x + cardW / 2, y + 110);
-          ctx.fillText(`Alcance: ${w.range}`, x + cardW / 2, y + 130);
+          ctx.fillText(`Daño: ${w.damage}`, x + cardW / 2, y + hover + 90);
+          ctx.fillText(`Cadencia: ${w.fireRate.toFixed(1)}/s`, x + cardW / 2, y + hover + 110);
+          ctx.fillText(`Alcance: ${w.range}`, x + cardW / 2, y + hover + 130);
         } else {
-          ctx.fillText(data.description, x + cardW / 2, y + 100);
+          ctx.fillText(data.description, x + cardW / 2, y + hover + 100);
         }
         
         // Rareza
         ctx.fillStyle = rarityColor;
         ctx.font = "bold 12px system-ui";
-        ctx.fillText(option.rarity.toUpperCase(), x + cardW / 2, y + cardH - 15);
+        ctx.fillText(option.rarity.toUpperCase(), x + cardW / 2, y + hover + cardH - 15);
         
-        // Hover effect (simplificado)
-        ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
-        ctx.fillRect(x, y, cardW, cardH);
+        // Partículas de rareza
+        for (let j = 0; j < 2; j++) {
+          const px = x + Math.random() * cardW;
+          const py = y + hover + Math.random() * cardH;
+          ctx.fillStyle = rarityColor;
+          ctx.globalAlpha = 0.3 + Math.random() * 0.3;
+          ctx.beginPath();
+          ctx.arc(px, py, 2, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        }
       }
       
       ctx.restore();
@@ -812,6 +989,43 @@ const Index = () => {
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, W, H);
       
+      // Hotspots
+      for (const h of gameState.hotspots) {
+        const pulse = Math.sin(gameState.time * 3) * 0.1 + 0.9;
+        
+        // Outer circle
+        ctx.strokeStyle = h.active ? "#fbbf24" : "rgba(251, 191, 36, 0.5)";
+        ctx.lineWidth = 3;
+        ctx.setLineDash([10, 10]);
+        ctx.beginPath();
+        ctx.arc(h.x, h.y, h.rad, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        
+        // Progress circle
+        if (h.active) {
+          ctx.strokeStyle = "#22c55e";
+          ctx.lineWidth = 6;
+          ctx.beginPath();
+          ctx.arc(h.x, h.y, h.rad - 10, 0, (Math.PI * 2 * h.progress) / h.required);
+          ctx.stroke();
+        }
+        
+        // Center glow
+        ctx.fillStyle = `rgba(251, 191, 36, ${0.1 * pulse})`;
+        ctx.beginPath();
+        ctx.arc(h.x, h.y, h.rad * 0.6, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Time remaining text
+        if (h.active) {
+          ctx.fillStyle = "#fff";
+          ctx.font = "bold 20px system-ui";
+          ctx.textAlign = "center";
+          ctx.fillText(`${Math.ceil(h.required - h.progress)}s`, h.x, h.y + 5);
+        }
+      }
+
       // Drops
       for (const d of gameState.drops) {
         ctx.fillStyle = d.color;
@@ -930,10 +1144,29 @@ const Index = () => {
       
       {gameOver && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/90">
-          <div className="text-center space-y-6 p-8">
-            <h1 className="text-6xl font-bold text-red-500">GAME OVER</h1>
+          <div className="text-center space-y-6 p-8 max-w-2xl">
+            <h1 className="text-6xl font-bold text-red-500 animate-pulse">GAME OVER</h1>
             <p className="text-3xl text-foreground">Puntuación: {score}</p>
             <p className="text-2xl text-muted-foreground">Nivel alcanzado: {level}</p>
+            <p className="text-xl text-muted-foreground">Wave {gameStateRef.current?.wave || 1}</p>
+            
+            <div className="mt-8 p-4 bg-background/50 rounded-lg">
+              <h2 className="text-2xl font-bold text-foreground mb-4">🏆 Leaderboard</h2>
+              <div className="space-y-2">
+                {(() => {
+                  const leaderboard = JSON.parse(localStorage.getItem("leaderboard") || "[]");
+                  return leaderboard.slice(0, 5).map((entry: any, i: number) => (
+                    <div key={i} className="flex justify-between text-lg">
+                      <span className="text-muted-foreground">#{i + 1}</span>
+                      <span className="text-foreground font-semibold">{entry.score}</span>
+                      <span className="text-muted-foreground">Nivel {entry.level}</span>
+                      <span className="text-muted-foreground">Wave {entry.wave}</span>
+                    </div>
+                  ));
+                })()}
+              </div>
+            </div>
+            
             <button
               onClick={() => window.location.reload()}
               className="mt-8 px-8 py-4 bg-primary text-primary-foreground rounded-lg text-xl font-bold hover:opacity-90 transition-opacity"
