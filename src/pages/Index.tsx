@@ -153,7 +153,7 @@ const WEAPONS: Weapon[] = [
 const TOMES: Tome[] = [
   { id: "power", name: "Tomo de Poder", description: "+10% Daño", effect: "damage", value: 1.1, rarity: "rare", color: "#f87171", level: 1 },
   { id: "speed", name: "Tomo de Velocidad", description: "+5% Velocidad", effect: "speed", value: 1.05, rarity: "uncommon", color: "#22c55e", level: 1 },
-  { id: "bounce", name: "Tomo de Rebote", description: "+1 Rebote", effect: "bounce", value: 1, rarity: "epic", color: "#a855f7", level: 1 },
+  { id: "bounce", name: "Tomo de Rebote", description: "+1 Rebote (Enemigos)", effect: "bounce", value: 1, rarity: "epic", color: "#a855f7", level: 1 },
   { id: "range", name: "Tomo de Alcance", description: "+10% Alcance", effect: "range", value: 1.1, rarity: "uncommon", color: "#3b82f6", level: 1 },
   { id: "precision", name: "Tomo de Precisión", description: "+10% Precisión", effect: "precision", value: 1.1, rarity: "rare", color: "#8b5cf6", level: 1 },
   { id: "multi", name: "Tomo Múltiple", description: "+1 Proyectil", effect: "multishot", value: 1, rarity: "legendary", color: "#06b6d4", level: 1 },
@@ -1432,12 +1432,7 @@ const Index = () => {
             // +1 rebote por nivel (max 5 rebotes)
             if (currentLevel < 5) {
               gameState.player.stats.bounces += 1;
-              existingTome.description = `${gameState.player.stats.bounces} Rebotes`;
-              // Nivel 5: rebotan en enemigos también
-              if (existingTome.level >= 5) {
-                gameState.player.stats.bounceOnEnemies = true;
-                existingTome.description = `${gameState.player.stats.bounces} Rebotes + Enemigos`;
-              }
+              existingTome.description = `${gameState.player.stats.bounces} Rebotes (Enemigos)`;
             }
           } else if (existingTome.effect === "range") {
             // Niveles específicos: +10%, +25%, +40%, +60%, +80% (max 5)
@@ -1508,6 +1503,7 @@ const Index = () => {
               gameState.player.stats.fireRateMultiplier *= tome.value;
             } else if (tome.effect === "bounce") {
               gameState.player.stats.bounces += tome.value;
+              gameState.player.stats.bounceOnEnemies = true;
             } else if (tome.effect === "multishot") {
               gameState.player.stats.multishot += tome.value;
             } else if (tome.effect === "precision") {
