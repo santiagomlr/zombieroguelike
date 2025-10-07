@@ -273,7 +273,15 @@ const Index = () => {
         pickup: new Audio(),
         death: new Audio(),
       },
-      music: new Audio(),
+      musicTracks: [
+        { name: "Electronic Dreams", path: "/audio/Electronic_Dreams.mp3" },
+        { name: "That Song", path: "/audio/Fobee_-_That_Song.mp3" },
+        { name: "Upbeat Sports Bass", path: "/audio/MGM_-_Upbeat_Sports_Bass.mp3" },
+      ],
+      currentMusicIndex: 0,
+      music: null as HTMLAudioElement | null,
+      musicNotification: "",
+      musicNotificationTimer: 0,
     };
 
     gameStateRef.current = gameState;
@@ -285,6 +293,45 @@ const Index = () => {
     } catch (e) {
       console.warn("Web Audio API not supported");
     }
+    
+    // Initialize music system
+    function initMusic() {
+      if (!gameState.music) {
+        const audio = new Audio();
+        audio.volume = 0.3;
+        audio.loop = false;
+        
+        audio.addEventListener('ended', () => {
+          // Pasar a la siguiente canción
+          gameState.currentMusicIndex = (gameState.currentMusicIndex + 1) % gameState.musicTracks.length;
+          playNextTrack();
+        });
+        
+        gameState.music = audio;
+        playNextTrack();
+      }
+    }
+    
+    function playNextTrack() {
+      if (!gameState.music) return;
+      
+      const track = gameState.musicTracks[gameState.currentMusicIndex];
+      gameState.music.src = track.path;
+      gameState.music.play().catch(e => console.warn("Audio play failed:", e));
+      
+      // Mostrar notificación
+      gameState.musicNotification = track.name;
+      gameState.musicNotificationTimer = 3; // 3 segundos
+    }
+    
+    // Start music on first user interaction
+    const startMusicOnce = () => {
+      initMusic();
+      canvas.removeEventListener('click', startMusicOnce);
+      window.removeEventListener('keydown', startMusicOnce);
+    };
+    canvas.addEventListener('click', startMusicOnce);
+    window.addEventListener('keydown', startMusicOnce);
     
     // Sound effect functions
     const playSound = (frequency: number, duration: number, type: OscillatorType = "sine", volume: number = 0.3) => {
@@ -399,6 +446,7 @@ const Index = () => {
       gameState.upgradeAnimation = 0;
       gameState.xpBarRainbow = false;
       gameState.waveNotification = 0;
+      gameState.musicNotificationTimer = 0;
       gameState.restartTimer = 0;
       gameState.showUpgradeUI = false;
       gameState.upgradeOptions = [];
@@ -1243,6 +1291,11 @@ const Index = () => {
       // Animations
       if (gameState.levelUpAnimation > 0) gameState.levelUpAnimation = Math.max(0, gameState.levelUpAnimation - dt * 2);
       if (gameState.upgradeAnimation > 0) gameState.upgradeAnimation = Math.max(0, gameState.upgradeAnimation - dt);
+      
+      // Music notification timer
+      if (gameState.musicNotificationTimer > 0) {
+        gameState.musicNotificationTimer = Math.max(0, gameState.musicNotificationTimer - dt);
+      }
 
       // Wave system basado en conteo de enemigos eliminados
       if (gameState.waveKills >= gameState.waveEnemiesTotal) {
@@ -1855,16 +1908,13 @@ const Index = () => {
         }
       }
       
-      // Level y Wave info (arriba derecha)
+      // Level y Wave info (arriba izquierda, debajo de HP)
       ctx.textAlign = "left";
       ctx.fillStyle = "#fff";
       ctx.font = "bold 18px system-ui";
       ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
       ctx.shadowBlur = 4;
       ctx.fillText(`NIVEL ${gameState.level}`, 20, hpBarY + hpBarH + 30);
-      
-      ctx.fillStyle = "#a855f7";
-      ctx.fillText(`WAVE ${gameState.wave}`, 20, hpBarY + hpBarH + 55);
       ctx.shadowBlur = 0;
       
       // Score
@@ -2045,40 +2095,83 @@ const Index = () => {
         ctx.shadowBlur = 0;
       }
       
-      // Barra de progreso de Wave basada en kills (abajo a la derecha, junto al Score)
+      // Barra de progreso de Wave basada en kills (debajo de la barra de XP)
       const waveProgress = gameState.waveEnemiesTotal > 0 
         ? Math.min(1, gameState.waveKills / gameState.waveEnemiesTotal)
         : 0;
-      const waveBarW = 300;
-      const waveBarH = 24;
-      const waveBarX = W - waveBarW - 20;
-      const waveBarY = 60;
+      const waveBarW = W - 40; // Full width como XP bar
+      const waveBarH = 28;
+      const waveBarX = 20;
+      const waveBarY = xpBarY + xpBarH + 10; // Debajo de la barra de XP
+      const waveBarRadius = 14;
       
-      // Fondo de la barra
+      // Fondo de la barra (redondeada)
       ctx.fillStyle = "rgba(20, 25, 35, 0.9)";
-      ctx.fillRect(waveBarX, waveBarY, waveBarW, waveBarH);
-      ctx.strokeStyle = "#334155";
+      ctx.beginPath();
+      ctx.roundRect(waveBarX, waveBarY, waveBarW, waveBarH, waveBarRadius);
+      ctx.fill();
+      ctx.strokeStyle = "#a855f7";
       ctx.lineWidth = 2;
-      ctx.strokeRect(waveBarX, waveBarY, waveBarW, waveBarH);
+      ctx.stroke();
       
       // Progreso (gradiente morado)
-      const progressW = waveBarW * waveProgress;
+      const progressW = (waveBarW - 8) * waveProgress;
       if (progressW > 0 && isFinite(progressW)) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(waveBarX + 4, waveBarY + 4, progressW, waveBarH - 8, waveBarRadius - 4);
+        ctx.clip();
+        
         const gradient = ctx.createLinearGradient(waveBarX, waveBarY, waveBarX + progressW, waveBarY);
         gradient.addColorStop(0, "#a855f7");
         gradient.addColorStop(1, "#c084fc");
         ctx.fillStyle = gradient;
-        ctx.fillRect(waveBarX + 2, waveBarY + 2, progressW - 4, waveBarH - 4);
+        ctx.fillRect(waveBarX + 4, waveBarY + 4, progressW, waveBarH - 8);
+        ctx.restore();
       }
       
       // Texto de progreso de kills
       ctx.fillStyle = "#fff";
-      ctx.font = "bold 14px system-ui";
+      ctx.font = "bold 16px system-ui";
       ctx.textAlign = "center";
       ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
       ctx.shadowBlur = 4;
-      ctx.fillText(`${gameState.waveKills} / ${gameState.waveEnemiesTotal}`, waveBarX + waveBarW / 2, waveBarY + waveBarH / 2 + 5);
+      ctx.fillText(`WAVE ${gameState.wave}: ${gameState.waveKills} / ${gameState.waveEnemiesTotal}`, waveBarX + waveBarW / 2, waveBarY + waveBarH / 2 + 6);
       ctx.shadowBlur = 0;
+      
+      // Notificación de música
+      if (gameState.musicNotificationTimer > 0) {
+        const notifAlpha = Math.min(1, gameState.musicNotificationTimer);
+        ctx.globalAlpha = notifAlpha;
+        
+        const notifY = 120;
+        const notifPadding = 20;
+        const notifText = `♫ ${gameState.musicNotification}`;
+        
+        ctx.font = "bold 24px system-ui";
+        ctx.textAlign = "center";
+        const textMetrics = ctx.measureText(notifText);
+        const notifW = textMetrics.width + notifPadding * 2;
+        const notifH = 50;
+        const notifX = W / 2 - notifW / 2;
+        
+        // Background
+        ctx.fillStyle = "rgba(20, 25, 35, 0.95)";
+        ctx.beginPath();
+        ctx.roundRect(notifX, notifY, notifW, notifH, 10);
+        ctx.fill();
+        
+        // Border
+        ctx.strokeStyle = "#a855f7";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        // Text
+        ctx.fillStyle = "#fff";
+        ctx.fillText(notifText, W / 2, notifY + notifH / 2 + 8);
+        
+        ctx.globalAlpha = 1;
+      }
       
       // Overlay de Game Over con fade
       if (gameState.state === 'gameover') {
@@ -2620,15 +2713,16 @@ const Index = () => {
         </div>
       )}
       
-      {/* Language selector */}
+      {/* Language selector - moved to avoid overlapping score */}
       <button
         onClick={() => setLanguage(language === "es" ? "en" : "es")}
-        className="absolute top-4 right-4 px-4 py-2 bg-primary/80 hover:bg-primary text-primary-foreground rounded-lg font-bold transition-colors z-10"
+        className="absolute top-20 right-4 px-4 py-2 bg-primary/80 hover:bg-primary text-primary-foreground rounded-lg font-bold transition-colors z-10"
+        title="Change instructions language"
       >
         {language.toUpperCase()}
       </button>
       
-      {/* Controls - Repositioned to bottom-left */}
+      {/* Controls - Instructions only affected by language */}
       <div className="absolute bottom-4 left-4 text-xs text-muted-foreground space-y-1 pointer-events-none">
         <p>{t.movement}</p>
         <p>{t.restart}</p>
