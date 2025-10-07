@@ -313,6 +313,14 @@ const Index = () => {
       restartTimer: 0,
       restartHoldTime: 5,
       gameOverTimer: 0,
+      // Sistema de Eventos Ambientales
+      environmentalEvent: null as "storm" | "fog" | "eclipse" | "rain" | null,
+      eventNotification: 0,
+      eventDuration: 0,
+      eventTimer: 0,
+      nextEventWave: 3, // Primera wave con evento ambiental
+      lightningTimer: 0,
+      fogOpacity: 0,
       sounds: {
         shoot: new Audio(),
         hit: new Audio(),
@@ -532,6 +540,13 @@ const Index = () => {
       gameState.restartTimer = 0;
       gameState.showUpgradeUI = false;
       gameState.upgradeOptions = [];
+      gameState.environmentalEvent = null;
+      gameState.eventNotification = 0;
+      gameState.eventDuration = 0;
+      gameState.eventTimer = 0;
+      gameState.nextEventWave = 3;
+      gameState.lightningTimer = 0;
+      gameState.fogOpacity = 0;
       
       // Actualizar React state
       setScore(0);
@@ -1896,11 +1911,154 @@ const Index = () => {
         
         // Recompensa por completar wave
         collectXP(20 + gameState.wave * 5);
+        
+        // ═══════════════════════════════════════════════════════════
+        // SISTEMA DE EVENTOS AMBIENTALES
+        // ═══════════════════════════════════════════════════════════
+        // Activar evento ambiental cada 3-5 waves
+        if (gameState.wave >= gameState.nextEventWave) {
+          const events = ["storm", "fog", "eclipse", "rain"] as const;
+          gameState.environmentalEvent = events[Math.floor(Math.random() * events.length)];
+          gameState.eventDuration = 60; // 60 segundos de duración
+          gameState.eventTimer = 0;
+          gameState.eventNotification = 5; // 5 segundos de notificación
+          gameState.fogOpacity = 0;
+          
+          // Próximo evento en 3-5 waves
+          gameState.nextEventWave = gameState.wave + 3 + Math.floor(Math.random() * 3);
+        }
       }
       
       // Reducir timer de notificación de wave
       if (gameState.waveNotification > 0) {
         gameState.waveNotification = Math.max(0, gameState.waveNotification - dt);
+      }
+      
+      // ═══════════════════════════════════════════════════════════
+      // EVENTOS AMBIENTALES - Lógica y Efectos
+      // ═══════════════════════════════════════════════════════════
+      
+      if (gameState.eventNotification > 0) {
+        gameState.eventNotification = Math.max(0, gameState.eventNotification - dt);
+      }
+      
+      if (gameState.environmentalEvent) {
+        gameState.eventTimer += dt;
+        
+        // Si el evento terminó, desactivarlo
+        if (gameState.eventTimer >= gameState.eventDuration) {
+          gameState.environmentalEvent = null;
+          gameState.fogOpacity = 0;
+        } else {
+          // Aplicar efectos según el tipo de evento
+          switch (gameState.environmentalEvent) {
+            case "storm":
+              // ⚡ TORMENTA ELÉCTRICA: Relámpagos aleatorios
+              gameState.lightningTimer += dt;
+              if (gameState.lightningTimer >= 2) {
+                gameState.lightningTimer = 0;
+                // Crear relámpago en posición aleatoria
+                const lightningX = Math.random() * W;
+                const lightningY = Math.random() * H;
+                const lightningRad = 80;
+                
+                // Daño a jugador si está cerca
+                const distToPlayer = Math.hypot(lightningX - gameState.player.x, lightningY - gameState.player.y);
+                if (distToPlayer < lightningRad && gameState.player.ifr === 0) {
+                  gameState.player.hp -= 10;
+                  gameState.player.ifr = gameState.player.ifrDuration;
+                  if (gameState.player.hp <= 0) {
+                    gameState.state = 'gameover';
+                    gameState.gameOverTimer = 3;
+                  }
+                }
+                
+                // Partículas de relámpago
+                if (gameState.particles.length < gameState.maxParticles - 30) {
+                  for (let i = 0; i < 30; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = Math.random() * 8 + 4;
+                    gameState.particles.push({
+                      x: lightningX,
+                      y: lightningY,
+                      vx: Math.cos(angle) * speed,
+                      vy: Math.sin(angle) * speed,
+                      life: 0.5,
+                      color: "#60a5fa",
+                      size: 4,
+                    });
+                  }
+                }
+              }
+              break;
+              
+            case "fog":
+              // 🌫️ NIEBLA TÓXICA: Reduce visibilidad + daño constante
+              // Fade in niebla
+              if (gameState.fogOpacity < 0.6) {
+                gameState.fogOpacity = Math.min(0.6, gameState.fogOpacity + dt * 0.5);
+              }
+              
+              // Daño continuo leve (sin invulnerabilidad)
+              gameState.player.hp -= 2 * dt;
+              if (gameState.player.hp <= 0) {
+                gameState.state = 'gameover';
+                gameState.gameOverTimer = 3;
+              }
+              
+              // Partículas de niebla
+              if (Math.random() < 0.1 && gameState.particles.length < gameState.maxParticles) {
+                gameState.particles.push({
+                  x: Math.random() * W,
+                  y: Math.random() * H,
+                  vx: (Math.random() - 0.5) * 0.5,
+                  vy: (Math.random() - 0.5) * 0.5,
+                  life: 3,
+                  color: "#84cc16",
+                  size: 20,
+                });
+              }
+              break;
+              
+            case "eclipse":
+              // 🌑 ECLIPSE: Reduce rango de visión (efecto visual oscuro)
+              // El efecto es principalmente visual, se renderiza en el canvas
+              break;
+              
+            case "rain":
+              // ☢️ LLUVIA RADIACTIVA: Enemigos ganan velocidad en zonas específicas
+              // Crear zonas radiactivas tipo negative hotspots
+              if (Math.random() < 0.01 && gameState.hotspots.filter(h => h.isRadioactive).length < 3) {
+                const x = Math.random() * (W - 200) + 100;
+                const y = Math.random() * (H - 200) + 100;
+                gameState.hotspots.push({
+                  x, y,
+                  rad: 100,
+                  progress: 0,
+                  required: 0,
+                  expirationTimer: 0,
+                  maxExpiration: 15, // 15 segundos
+                  active: false,
+                  isNegative: false,
+                  isRadioactive: true, // Marca especial para lluvia radiactiva
+                });
+              }
+              
+              // Partículas de lluvia
+              if (Math.random() < 0.3 && gameState.particles.length < gameState.maxParticles) {
+                gameState.particles.push({
+                  x: Math.random() * W,
+                  y: -10,
+                  vx: 0,
+                  vy: 15,
+                  life: 2,
+                  color: "#a855f7",
+                  size: 2,
+                });
+              }
+              break;
+          }
+        }
       }
 
       // Hotspot spawning (positivos)
@@ -1931,6 +2089,15 @@ const Index = () => {
       for (let i = gameState.hotspots.length - 1; i >= 0; i--) {
         const h = gameState.hotspots[i];
         const d = Math.hypot(h.x - gameState.player.x, h.y - gameState.player.y);
+        
+        // Zonas radiactivas solo afectan enemigos, no jugador
+        if (h.isRadioactive) {
+          h.expirationTimer += dt;
+          if (h.expirationTimer >= h.maxExpiration) {
+            gameState.hotspots.splice(i, 1);
+          }
+          continue; // Skip player interaction
+        }
         
         if (d < h.rad) {
           h.active = true;
@@ -2240,8 +2407,23 @@ const Index = () => {
           const dx = gameState.player.x - e.x;
           const dy = gameState.player.y - e.y;
           const d = Math.hypot(dx, dy) || 1;
-          e.x += (dx / d) * movementSpeed;
-          e.y += (dy / d) * movementSpeed;
+          
+          // ☢️ Bonus de velocidad si está en zona radiactiva (lluvia)
+          let speedBonus = 1;
+          if (gameState.environmentalEvent === "rain") {
+            for (const h of gameState.hotspots) {
+              if (h.isRadioactive) {
+                const distToZone = Math.hypot(e.x - h.x, e.y - h.y);
+                if (distToZone < h.rad) {
+                  speedBonus = 1.5; // +50% velocidad en zona radiactiva
+                  break;
+                }
+              }
+            }
+          }
+          
+          e.x += (dx / d) * movementSpeed * speedBonus;
+          e.y += (dy / d) * movementSpeed * speedBonus;
         } else {
           // Comportamiento de boss
           if (e.phase === 1 && e.hp < e.maxhp * 0.66) e.phase = 2;
@@ -3380,6 +3562,54 @@ const Index = () => {
         ctx.shadowBlur = 0;
       }
       
+      // ⚠️ BARRA DE NOTIFICACIÓN AMBIENTAL - Estilo Noticiero
+      if (gameState.eventNotification > 0) {
+        const notifAlpha = Math.min(1, gameState.eventNotification / 2);
+        ctx.globalAlpha = notifAlpha;
+        
+        // Barra superior roja de alerta
+        ctx.fillStyle = "rgba(220, 38, 38, 0.95)";
+        ctx.fillRect(0, 0, W, 60);
+        
+        // Borde inferior brillante
+        ctx.fillStyle = "#ef4444";
+        ctx.fillRect(0, 58, W, 2);
+        
+        // Icono de alerta
+        ctx.fillStyle = "#fbbf24";
+        ctx.font = "bold 32px system-ui";
+        ctx.textAlign = "left";
+        ctx.fillText("⚠️", 20, 40);
+        
+        // Texto de noticia
+        const eventTexts = {
+          storm: "⚡ ALERTA METEOROLÓGICA: Tormenta eléctrica detectada en el área",
+          fog: "🌫️ PELIGRO BIOLÓGICO: Niebla tóxica contaminando la zona",
+          eclipse: "🌑 FENÓMENO ASTRONÓMICO: Eclipse solar reduciendo visibilidad",
+          rain: "☢️ EMERGENCIA RADIACTIVA: Lluvia contaminada incrementa hostilidad enemiga"
+        };
+        
+        const eventText = gameState.environmentalEvent ? eventTexts[gameState.environmentalEvent] : "";
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 22px system-ui";
+        ctx.textAlign = "left";
+        ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+        ctx.shadowBlur = 4;
+        ctx.fillText(eventText, 70, 40);
+        ctx.shadowBlur = 0;
+        
+        // Duración del evento
+        if (gameState.environmentalEvent) {
+          const remaining = Math.ceil(gameState.eventDuration - gameState.eventTimer);
+          ctx.fillStyle = "#fbbf24";
+          ctx.font = "bold 18px system-ui";
+          ctx.textAlign = "right";
+          ctx.fillText(`${remaining}s`, W - 20, 40);
+        }
+        
+        ctx.globalAlpha = 1;
+      }
+      
       
       // Notificación de música
       if (gameState.musicNotificationTimer > 0) {
@@ -3722,6 +3952,42 @@ const Index = () => {
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, W, H);
       
+      // ═══════════════════════════════════════════════════════════
+      // EFECTOS AMBIENTALES - Renderizado
+      // ═══════════════════════════════════════════════════════════
+      
+      if (gameState.environmentalEvent) {
+        switch (gameState.environmentalEvent) {
+          case "fog":
+            // 🌫️ NIEBLA TÓXICA: Overlay verde tóxico
+            ctx.fillStyle = `rgba(132, 204, 22, ${gameState.fogOpacity * 0.3})`;
+            ctx.fillRect(0, 0, W, H);
+            break;
+            
+          case "eclipse":
+            // 🌑 ECLIPSE: Oscuridad con vignette
+            const vignetteGradient = ctx.createRadialGradient(W / 2, H / 2, 200, W / 2, H / 2, Math.max(W, H) * 0.8);
+            vignetteGradient.addColorStop(0, "rgba(0, 0, 0, 0)");
+            vignetteGradient.addColorStop(1, "rgba(0, 0, 0, 0.7)");
+            ctx.fillStyle = vignetteGradient;
+            ctx.fillRect(0, 0, W, H);
+            break;
+            
+          case "storm":
+            // ⚡ TORMENTA: Flash de relámpagos
+            const lightningFlash = Math.sin(gameState.lightningTimer * 15) > 0.95 ? 0.3 : 0;
+            if (lightningFlash > 0) {
+              ctx.fillStyle = `rgba(96, 165, 250, ${lightningFlash})`;
+              ctx.fillRect(0, 0, W, H);
+            }
+            break;
+            
+          case "rain":
+            // ☢️ LLUVIA RADIACTIVA: No hay overlay global, solo partículas
+            break;
+        }
+      }
+      
       // Hotspots
       for (const h of gameState.hotspots) {
         const pulse = Math.sin(gameState.time * 3) * 0.1 + 0.9;
@@ -3773,8 +4039,42 @@ const Index = () => {
             ctx.font = "bold 16px system-ui";
             ctx.fillText(`${Math.ceil(remaining)}s`, h.x, h.y + 45);
           }
+        } else if (h.isRadioactive) {
+          // ☢️ ZONA RADIACTIVA (Lluvia Radiactiva)
+          const radioPulse = Math.sin(gameState.time * 4) * 0.2 + 0.8;
+          
+          // Gradiente púrpura radiactivo
+          const radioGradient = ctx.createRadialGradient(h.x, h.y, 0, h.x, h.y, h.rad);
+          radioGradient.addColorStop(0, "rgba(168, 85, 247, 0.4)");
+          radioGradient.addColorStop(0.6, "rgba(147, 51, 234, 0.2)");
+          radioGradient.addColorStop(1, "rgba(126, 34, 206, 0)");
+          ctx.fillStyle = radioGradient;
+          ctx.beginPath();
+          ctx.arc(h.x, h.y, h.rad, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // Borde radiactivo animado
+          ctx.strokeStyle = `rgba(168, 85, 247, ${radioPulse})`;
+          ctx.lineWidth = 3;
+          ctx.shadowColor = "#a855f7";
+          ctx.shadowBlur = 20 * radioPulse;
+          ctx.setLineDash([6, 6]);
+          ctx.beginPath();
+          ctx.arc(h.x, h.y, h.rad, gameState.time * 2, gameState.time * 2 + Math.PI * 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.shadowBlur = 0;
+          
+          // Icono radiactivo
+          ctx.fillStyle = "#a855f7";
+          ctx.font = "bold 28px system-ui";
+          ctx.textAlign = "center";
+          ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+          ctx.shadowBlur = 8;
+          ctx.fillText("☢️", h.x, h.y + 8);
+          ctx.shadowBlur = 0;
         } else {
-          // HOTSPOT POSITIVO (original)
+          // HOTSPOT POSITIVO (recompensa)
           // Outer circle
           ctx.strokeStyle = h.active ? "#fbbf24" : "rgba(251, 191, 36, 0.5)";
           ctx.lineWidth = 3;
@@ -3809,13 +4109,13 @@ const Index = () => {
           
           // Time remaining text
           if (h.active) {
-            // Mostrar tiempo para completar (10s)
+            // Mostrar tiempo para completar
             ctx.fillStyle = "#22c55e";
             ctx.font = "bold 20px system-ui";
             ctx.textAlign = "center";
             ctx.fillText(`${Math.ceil(h.required - h.progress)}s`, h.x, h.y + 5);
           } else {
-            // Mostrar tiempo de caducación (45s)
+            // Mostrar tiempo de caducación
             const remaining = h.maxExpiration - h.expirationTimer;
             ctx.fillStyle = "#ef4444";
             ctx.font = "bold 18px system-ui";
