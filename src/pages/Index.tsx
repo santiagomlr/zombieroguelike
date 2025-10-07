@@ -545,7 +545,9 @@ const Index = () => {
         y,
         rad: 60,
         progress: 0,
-        required: 45,
+        required: 10, // 10 segundos para recompensa cuando está dentro
+        expirationTimer: 0, // Timer de caducación (45s)
+        maxExpiration: 45, // Se elimina si no llegas en 45s
         active: false,
       });
     }
@@ -733,16 +735,19 @@ const Index = () => {
         spawnHotspot();
       }
 
-      // Hotspot logic - MEJORADO: pausa cuando jugador está dentro
+      // Hotspot logic - Timer de caducación (45s) vs Timer de recompensa (10s)
       for (let i = gameState.hotspots.length - 1; i >= 0; i--) {
         const h = gameState.hotspots[i];
         const d = Math.hypot(h.x - gameState.player.x, h.y - gameState.player.y);
         
         if (d < h.rad) {
+          // Jugador DENTRO: cuenta para recompensa (10s)
           h.active = true;
-          h.progress += dt; // Solo incrementa cuando está dentro
+          h.progress += dt;
+          // NO incrementa timer de caducación
+          
           if (h.progress >= h.required) {
-            // Reward!
+            // ¡Recompensa!
             collectXP(100);
             gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + 2);
             gameState.hotspots.splice(i, 1);
@@ -761,8 +766,14 @@ const Index = () => {
             }
           }
         } else {
+          // Jugador FUERA: cuenta timer de caducación (45s)
           h.active = false;
-          // NO decrementa cuando está fuera, solo se queda en pausa
+          h.expirationTimer += dt;
+          
+          // Si pasa el tiempo de caducación, eliminar sin recompensa
+          if (h.expirationTimer >= h.maxExpiration) {
+            gameState.hotspots.splice(i, 1);
+          }
         }
       }
       
@@ -1331,12 +1342,20 @@ const Index = () => {
         ctx.stroke();
         ctx.setLineDash([]);
         
-        // Progress circle
+        // Progress circle (cuando está activo - progreso de recompensa)
         if (h.active) {
           ctx.strokeStyle = "#22c55e";
           ctx.lineWidth = 6;
           ctx.beginPath();
           ctx.arc(h.x, h.y, h.rad - 10, 0, (Math.PI * 2 * h.progress) / h.required);
+          ctx.stroke();
+        } else {
+          // Timer de caducación (cuando NO está activo)
+          const expirationProgress = h.expirationTimer / h.maxExpiration;
+          ctx.strokeStyle = "#ef4444";
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.arc(h.x, h.y, h.rad - 10, 0, Math.PI * 2 * expirationProgress);
           ctx.stroke();
         }
         
@@ -1348,10 +1367,18 @@ const Index = () => {
         
         // Time remaining text
         if (h.active) {
-          ctx.fillStyle = "#fff";
+          // Mostrar tiempo para completar (10s)
+          ctx.fillStyle = "#22c55e";
           ctx.font = "bold 20px system-ui";
           ctx.textAlign = "center";
           ctx.fillText(`${Math.ceil(h.required - h.progress)}s`, h.x, h.y + 5);
+        } else {
+          // Mostrar tiempo de caducación (45s)
+          const remaining = h.maxExpiration - h.expirationTimer;
+          ctx.fillStyle = "#ef4444";
+          ctx.font = "bold 18px system-ui";
+          ctx.textAlign = "center";
+          ctx.fillText(`${Math.ceil(remaining)}s`, h.x, h.y + 5);
         }
       }
 
