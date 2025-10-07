@@ -200,10 +200,11 @@ const Index = () => {
         vy: 0,
         spd: 3.5,
         rad: 16,
-        hp: 6,
-        maxhp: 7,
+        hp: 100,
+        maxhp: 100,
         shield: 0,
         ifr: 0,
+        ifrDuration: 2,
         magnet: 120,
         rageTimer: 0,
         tempMagnetTimer: 0,
@@ -348,19 +349,54 @@ const Index = () => {
       // Multiplicador de HP por wave: +15% por cada wave
       const waveMultiplier = 1 + (gameState.wave - 1) * 0.15;
       
-      const isElite = Math.random() < 0.1;
-      const baseHp = isElite ? 8 : 3;
+      // Sistema de tipos de enemigos por color
+      const roll = Math.random();
+      let enemyType: "strong" | "medium" | "weak";
+      let color: string;
+      let damage: number;
+      let baseHp: number;
+      let rad: number;
+      let spd: number;
+      
+      if (roll < 0.2) {
+        // 20% Amarillo - Fuerte
+        enemyType = "strong";
+        color = "#fbbf24";
+        damage = 20;
+        baseHp = 8;
+        rad = 18;
+        spd = 0.9;
+      } else if (roll < 0.5) {
+        // 30% Azul - Medio
+        enemyType = "medium";
+        color = "#3b82f6";
+        damage = 10;
+        baseHp = 5;
+        rad = 15;
+        spd = 1.1;
+      } else {
+        // 50% Verde - Débil
+        enemyType = "weak";
+        color = "#22c55e";
+        damage = 5;
+        baseHp = 3;
+        rad = 12;
+        spd = 1.3;
+      }
+      
       const scaledHp = Math.floor(baseHp * waveMultiplier);
       
       gameState.enemies.push({
         x, y,
-        rad: isElite ? 20 : 14,
+        rad,
         hp: scaledHp,
         maxhp: scaledHp,
-        spd: isElite ? 0.8 : 1.2,
-        isElite,
+        spd,
+        enemyType,
+        damage,
+        isElite: false,
         isMiniBoss: false,
-        color: isElite ? "#a855f7" : "#34d399",
+        color,
       });
     }
     
@@ -490,6 +526,17 @@ const Index = () => {
 
     function dropXP(x: number, y: number, val: number) {
       gameState.drops.push({ x, y, rad: 8, type: "xp", val, color: "#06b6d4" });
+    }
+    
+    function dropHeal(x: number, y: number) {
+      const healAmount = Math.random() < 0.5 ? 15 : 25; // Curación pequeña o mediana
+      gameState.drops.push({ 
+        x, y, 
+        rad: 10, 
+        type: "heal", 
+        val: healAmount, 
+        color: "#ef4444" 
+      });
     }
     
     function dropPowerup(x: number, y: number, type: "magnet" | "shield" | "rage") {
@@ -857,8 +904,8 @@ const Index = () => {
         if (item.effect === "magnet") gameState.player.magnet *= 1.5;
         if (item.effect === "shield") gameState.player.shield = Math.min(3, gameState.player.shield + 1);
         if (item.effect === "maxhp") {
-          gameState.player.maxhp = Math.min(7, gameState.player.maxhp + 1);
-          gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + 1);
+          gameState.player.maxhp = Math.min(150, gameState.player.maxhp + 20);
+          gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + 20);
         }
         if (item.effect === "aura") gameState.player.stats.auraRadius = 80;
         if (item.effect === "vampire") gameState.player.stats.vampire = 0.1;
@@ -1005,7 +1052,7 @@ const Index = () => {
         gameState.regenTimer += dt;
         if (gameState.regenTimer >= 10) {
           gameState.regenTimer = 0;
-          gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + 1);
+          gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + 5);
         }
       }
 
@@ -1143,12 +1190,18 @@ const Index = () => {
                 points = 100;
                 xpBundles = Math.floor(Math.random() * 3) + 4; // 4-6 bundles
                 dropChance = 0.10; // 10% chance de drop temporal
-              } else if (e.isElite) {
-                points = 50;
-                xpBundles = Math.floor(Math.random() * 3) + 3; // 3-5 bundles
-                dropChance = 0.05; // 5% chance de drop temporal
-              } else {
+              } else if (e.enemyType === "strong") {
+                points = 10;
                 xpBundles = 1;
+                dropChance = 0.05;
+              } else if (e.enemyType === "medium") {
+                points = 7;
+                xpBundles = 1;
+                dropChance = 0.03;
+              } else {
+                points = 5;
+                xpBundles = 1;
+                dropChance = 0.02;
               }
               
               gameState.score += points;
@@ -1158,7 +1211,15 @@ const Index = () => {
               for (let k = 0; k < xpBundles; k++) {
                 const offsetX = (Math.random() - 0.5) * 40;
                 const offsetY = (Math.random() - 0.5) * 40;
-                dropXP(e.x + offsetX, e.y + offsetY, e.isMiniBoss ? 30 : e.isElite ? 25 : 10);
+                dropXP(e.x + offsetX, e.y + offsetY, e.isMiniBoss ? 30 : (e.enemyType === "strong" ? 5 : e.enemyType === "medium" ? 3 : 2));
+              }
+              
+              // Drop de curación (15% de probabilidad)
+              const healRoll = Math.random();
+              const luckMultiplier = gameState.player.items.find((it: Item) => it.id === "luck") ? 1.5 : 1;
+              
+              if (healRoll < 0.15 * luckMultiplier) {
+                dropHeal(e.x, e.y);
               }
               
               // Drop temporal con probabilidad
@@ -1170,7 +1231,8 @@ const Index = () => {
 
               // Vampirismo
               if (gameState.player.stats.vampire > 0) {
-                gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + b.damage * gameState.player.stats.vampire);
+                const healAmount = Math.floor(b.damage * gameState.player.stats.vampire * 10);
+                gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + healAmount);
               }
               
               playHitSound();
@@ -1213,6 +1275,22 @@ const Index = () => {
         if (d < gameState.player.rad + g.rad) {
           if (g.type === "xp") {
             collectXP(g.val);
+          } else if (g.type === "heal") {
+            gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + g.val);
+            playPowerupSound();
+            // Partículas de curación
+            for (let j = 0; j < 15; j++) {
+              const angle = (Math.PI * 2 * j) / 15;
+              gameState.particles.push({
+                x: gameState.player.x,
+                y: gameState.player.y,
+                vx: Math.cos(angle) * 3,
+                vy: Math.sin(angle) * 3,
+                life: 0.6,
+                color: "#22c55e",
+                size: 4,
+              });
+            }
           } else if (g.type === "powerup") {
             collectPowerup(g);
           }
@@ -1227,7 +1305,7 @@ const Index = () => {
             if (gameState.player.ifr <= 0) {
               if (gameState.player.shield > 0) {
                 gameState.player.shield--;
-                gameState.player.ifr = 1.5;
+                gameState.player.ifr = gameState.player.ifrDuration;
                 // Shield break particles
                 for (let j = 0; j < 12; j++) {
                   const angle = (Math.PI * 2 * j) / 12;
@@ -1242,8 +1320,22 @@ const Index = () => {
                   });
                 }
               } else {
-                gameState.player.hp--;
-                gameState.player.ifr = 1.5;
+                gameState.player.hp = Math.max(0, gameState.player.hp - e.damage);
+                gameState.player.ifr = gameState.player.ifrDuration;
+                
+                // Hit particles
+                for (let j = 0; j < 10; j++) {
+                  const angle = (Math.PI * 2 * j) / 10;
+                  gameState.particles.push({
+                    x: gameState.player.x,
+                    y: gameState.player.y,
+                    vx: Math.cos(angle) * 4,
+                    vy: Math.sin(angle) * 4,
+                    life: 0.4,
+                    color: "#ef4444",
+                    size: 3,
+                  });
+                }
               }
               
               if (gameState.player.hp <= 0) {
@@ -1257,6 +1349,8 @@ const Index = () => {
                 setGameOver(true);
                 gameState.paused = true;
               }
+              
+              playHitSound();
             }
           }
         }
@@ -1299,44 +1393,79 @@ const Index = () => {
     function drawHUD() {
       ctx.save();
       
-      // HP
-      const hpX = 20;
-      const hpY = 20;
-      const hpW = 24;
-      const hpH = 24;
-      const hpGap = 8;
+      // HP Bar - Barra horizontal con valor numérico
+      const hpBarX = 20;
+      const hpBarY = 20;
+      const hpBarW = 300;
+      const hpBarH = 32;
       
-      for (let i = 0; i < gameState.player.maxhp; i++) {
-        const x = hpX + i * (hpW + hpGap);
-        ctx.fillStyle = "rgba(20, 25, 35, 0.9)";
-        ctx.fillRect(x, hpY, hpW, hpH);
-        ctx.strokeStyle = "#334155";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(x, hpY, hpW, hpH);
-        
-        if (i < gameState.player.hp) {
-          ctx.fillStyle = "#f87171";
-          ctx.fillRect(x + 3, hpY + 3, hpW - 6, hpH - 6);
-        }
+      // Fondo de la barra de HP
+      ctx.fillStyle = "rgba(20, 25, 35, 0.9)";
+      ctx.fillRect(hpBarX, hpBarY, hpBarW, hpBarH);
+      ctx.strokeStyle = "#334155";
+      ctx.lineWidth = 3;
+      ctx.strokeRect(hpBarX, hpBarY, hpBarW, hpBarH);
+      
+      // Barra de HP actual (roja)
+      const hpPercent = gameState.player.hp / gameState.player.maxhp;
+      const currentHpBarW = hpBarW * hpPercent;
+      
+      // Gradiente para la barra de HP
+      const hpGradient = ctx.createLinearGradient(hpBarX, hpBarY, hpBarX + currentHpBarW, hpBarY);
+      if (hpPercent > 0.5) {
+        hpGradient.addColorStop(0, "#ef4444");
+        hpGradient.addColorStop(1, "#dc2626");
+      } else if (hpPercent > 0.25) {
+        hpGradient.addColorStop(0, "#f97316");
+        hpGradient.addColorStop(1, "#ea580c");
+      } else {
+        hpGradient.addColorStop(0, "#dc2626");
+        hpGradient.addColorStop(1, "#991b1b");
+      }
+      
+      ctx.fillStyle = hpGradient;
+      ctx.fillRect(hpBarX + 2, hpBarY + 2, currentHpBarW - 4, hpBarH - 4);
+      
+      // Texto de HP en el centro
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 18px system-ui";
+      ctx.textAlign = "center";
+      ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+      ctx.shadowBlur = 4;
+      ctx.fillText(`HP ${Math.floor(gameState.player.hp)} / ${gameState.player.maxhp}`, hpBarX + hpBarW / 2, hpBarY + hpBarH / 2 + 6);
+      ctx.shadowBlur = 0;
+      
+      // Efecto de parpadeo durante invulnerabilidad
+      if (gameState.player.ifr > 0) {
+        const flashAlpha = Math.sin(gameState.time * 20) * 0.3 + 0.3;
+        ctx.globalAlpha = flashAlpha;
+        ctx.strokeStyle = "#fbbf24";
+        ctx.lineWidth = 4;
+        ctx.strokeRect(hpBarX - 2, hpBarY - 2, hpBarW + 4, hpBarH + 4);
+        ctx.globalAlpha = 1;
       }
 
-      // Shield
-      for (let i = 0; i < gameState.player.shield; i++) {
-        const x = hpX + gameState.player.maxhp * (hpW + hpGap) + i * (hpW + hpGap);
-        ctx.fillStyle = "rgba(20, 25, 35, 0.9)";
-        ctx.fillRect(x, hpY, hpW, hpH);
-        ctx.strokeStyle = "#3b82f6";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(x, hpY, hpW, hpH);
+      // Shield icons
+      if (gameState.player.shield > 0) {
+        ctx.textAlign = "left";
         ctx.fillStyle = "#3b82f6";
-        ctx.fillRect(x + 3, hpY + 3, hpW - 6, hpH - 6);
+        ctx.font = "bold 16px system-ui";
+        for (let i = 0; i < gameState.player.shield; i++) {
+          const shieldX = hpBarX + hpBarW + 15 + i * 30;
+          ctx.beginPath();
+          ctx.arc(shieldX, hpBarY + hpBarH / 2, 12, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = "#2563eb";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
       }
       
       // XP Bar
       const xpBarW = 300;
       const xpBarH = 12;
       const xpBarX = 20;
-      const xpBarY = hpY + hpH + 12;
+      const xpBarY = hpBarY + hpBarH + 12;
       
       ctx.fillStyle = "rgba(20, 25, 35, 0.9)";
       ctx.fillRect(xpBarX, xpBarY, xpBarW, xpBarH);
