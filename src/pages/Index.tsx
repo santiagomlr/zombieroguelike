@@ -2947,13 +2947,56 @@ const Index = () => {
         }
       }
       
-      // Level y Wave info (arriba izquierda, debajo de HP)
+      // Level info (arriba izquierda, debajo de HP)
       ctx.textAlign = "left";
       ctx.fillStyle = "#fff";
       ctx.font = "bold 18px system-ui";
       ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
       ctx.shadowBlur = 4;
       ctx.fillText(`NIVEL ${gameState.level}`, 20, hpBarY + hpBarH + 30);
+      ctx.shadowBlur = 0;
+      
+      // Wave counter (debajo del nivel)
+      const waveY = hpBarY + hpBarH + 55;
+      ctx.fillStyle = "#a855f7";
+      ctx.font = "bold 16px system-ui";
+      ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+      ctx.shadowBlur = 4;
+      ctx.fillText(`WAVE ${gameState.wave}`, 20, waveY);
+      ctx.shadowBlur = 0;
+      
+      // Wave progression bar (debajo del wave counter)
+      const progressBarX = 20;
+      const progressBarY = waveY + 10;
+      const progressBarW = 300;
+      const progressBarH = 20;
+      
+      // Fondo de la barra
+      ctx.fillStyle = "rgba(20, 25, 35, 0.9)";
+      ctx.fillRect(progressBarX, progressBarY, progressBarW, progressBarH);
+      ctx.strokeStyle = "#334155";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(progressBarX, progressBarY, progressBarW, progressBarH);
+      
+      // Progreso (enemigos eliminados / total de la wave)
+      const waveProgress = Math.min(1, gameState.waveKills / Math.max(1, gameState.waveEnemiesTotal));
+      const currentProgressW = Math.max(0, progressBarW * waveProgress);
+      
+      if (currentProgressW > 0) {
+        const progressGradient = ctx.createLinearGradient(progressBarX, progressBarY, progressBarX + currentProgressW, progressBarY);
+        progressGradient.addColorStop(0, "#a855f7");
+        progressGradient.addColorStop(1, "#7c3aed");
+        ctx.fillStyle = progressGradient;
+        ctx.fillRect(progressBarX + 1, progressBarY + 1, currentProgressW - 2, progressBarH - 2);
+      }
+      
+      // Texto de progreso
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 12px system-ui";
+      ctx.textAlign = "center";
+      ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+      ctx.shadowBlur = 4;
+      ctx.fillText(`${gameState.waveKills} / ${gameState.waveEnemiesTotal}`, progressBarX + progressBarW / 2, progressBarY + progressBarH / 2 + 4);
       ctx.shadowBlur = 0;
       
       // Score
