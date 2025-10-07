@@ -315,6 +315,7 @@ const Index = () => {
       gameOverTimer: 0,
       // Sistema de Eventos Ambientales
       environmentalEvent: null as "storm" | "fog" | "eclipse" | "rain" | null,
+      secondaryEvent: null as "storm" | "fog" | "eclipse" | "rain" | null,
       eventNotification: 0,
       eventDuration: 0,
       eventTimer: 0,
@@ -541,6 +542,7 @@ const Index = () => {
       gameState.showUpgradeUI = false;
       gameState.upgradeOptions = [];
       gameState.environmentalEvent = null;
+      gameState.secondaryEvent = null;
       gameState.eventNotification = 0;
       gameState.eventDuration = 0;
       gameState.eventTimer = 0;
@@ -1916,13 +1918,27 @@ const Index = () => {
         // SISTEMA DE EVENTOS AMBIENTALES
         // ═══════════════════════════════════════════════════════════
         // Activar evento ambiental cada 3-5 waves
+        // LÍMITE: Solo un evento hasta wave 7, múltiples después de wave 8
         if (gameState.wave >= gameState.nextEventWave) {
-          const events = ["storm", "fog", "eclipse", "rain"] as const;
-          gameState.environmentalEvent = events[Math.floor(Math.random() * events.length)];
-          gameState.eventDuration = 60; // 60 segundos de duración
-          gameState.eventTimer = 0;
-          gameState.eventNotification = 5; // 5 segundos de notificación
-          gameState.fogOpacity = 0;
+          // Verificar si ya hay un evento activo (solo importante antes de wave 8)
+          const canAddEvent = gameState.wave >= 8 || !gameState.environmentalEvent;
+          
+          if (canAddEvent) {
+            const events = ["storm", "fog", "eclipse", "rain"] as const;
+            const newEvent = events[Math.floor(Math.random() * events.length)];
+            
+            // Si ya hay un evento, guardar para mostrar ambos (wave 8+)
+            if (gameState.environmentalEvent && gameState.wave >= 8) {
+              gameState.secondaryEvent = newEvent;
+            } else {
+              gameState.environmentalEvent = newEvent;
+            }
+            
+            gameState.eventDuration = 60; // 60 segundos de duración
+            gameState.eventTimer = 0;
+            gameState.eventNotification = 6; // 6 segundos de notificación
+            gameState.fogOpacity = 0;
+          }
           
           // Próximo evento en 3-5 waves
           gameState.nextEventWave = gameState.wave + 3 + Math.floor(Math.random() * 3);
@@ -1945,10 +1961,17 @@ const Index = () => {
       if (gameState.environmentalEvent) {
         gameState.eventTimer += dt;
         
-        // Si el evento terminó, desactivarlo
+        // Si el evento terminó, mover secondary a primary
         if (gameState.eventTimer >= gameState.eventDuration) {
-          gameState.environmentalEvent = null;
+          gameState.environmentalEvent = gameState.secondaryEvent;
+          gameState.secondaryEvent = null;
           gameState.fogOpacity = 0;
+          
+          // Si todavía hay un evento, reiniciar timer
+          if (gameState.environmentalEvent) {
+            gameState.eventTimer = 0;
+            gameState.eventNotification = 6;
+          }
         } else {
           // Aplicar efectos según el tipo de evento
           switch (gameState.environmentalEvent) {
@@ -2653,49 +2676,49 @@ const Index = () => {
               enemy.chainedThisShot = false;
             }
             
-            // Explosión AOE
+            // 💥 EXPLOSIÓN AOE (Lanzacohetes y armas explosivas)
+            // Splash damage en área grande
             if (b.aoe) {
+              const explosionRadius = 100; // Radio grande de explosión
+              const splashDamage = b.damage * 0.75; // 75% del daño a todos en el área
+              
               for (const e2 of gameState.enemies) {
-                if (Math.hypot(e2.x - b.x, e2.y - b.y) < 60) {
-                  e2.hp -= b.damage * 0.5;
+                const distToExplosion = Math.hypot(e2.x - b.x, e2.y - b.y);
+                if (distToExplosion < explosionRadius) {
+                  // Daño que disminuye con la distancia
+                  const damageMultiplier = 1 - (distToExplosion / explosionRadius) * 0.5;
+                  e2.hp -= splashDamage * damageMultiplier;
+                  
+                  // Partículas de impacto en cada enemigo afectado
+                  if (gameState.particles.length < gameState.maxParticles - 3) {
+                    for (let k = 0; k < 3; k++) {
+                      gameState.particles.push({
+                        x: e2.x,
+                        y: e2.y,
+                        vx: (Math.random() - 0.5) * 3,
+                        vy: (Math.random() - 0.5) * 3,
+                        life: 0.4,
+                        color: "#ef4444",
+                        size: 4,
+                      });
+                    }
+                  }
                 }
               }
-              // Partículas de explosión con límite
-              if (gameState.particles.length < gameState.maxParticles - 20) {
-                for (let j = 0; j < 20; j++) {
-                  const angle = (Math.PI * 2 * j) / 20;
+              
+              // Partículas de explosión central
+              if (gameState.particles.length < gameState.maxParticles - 30) {
+                for (let j = 0; j < 30; j++) {
+                  const angle = (Math.PI * 2 * j) / 30;
+                  const speed = 3 + Math.random() * 5;
                   gameState.particles.push({
                     x: b.x,
                     y: b.y,
-                    vx: Math.cos(angle) * 5,
-                    vy: Math.sin(angle) * 5,
-                    life: 0.6,
-                    color: "#a855f7",
-                    size: 3,
-                  });
-                }
-              }
-            }
-            
-            // Explosión AOE
-            if (b.aoe) {
-              for (const e2 of gameState.enemies) {
-                if (Math.hypot(e2.x - b.x, e2.y - b.y) < 60) {
-                  e2.hp -= b.damage * 0.5;
-                }
-              }
-              // Partículas de explosión con límite
-              if (gameState.particles.length < gameState.maxParticles - 20) {
-                for (let j = 0; j < 20; j++) {
-                  const angle = (Math.PI * 2 * j) / 20;
-                  gameState.particles.push({
-                    x: b.x,
-                    y: b.y,
-                    vx: Math.cos(angle) * 5,
-                    vy: Math.sin(angle) * 5,
-                    life: 0.6,
-                    color: "#a855f7",
-                    size: 3,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    life: 0.8,
+                    color: j % 2 === 0 ? "#a855f7" : "#f97316",
+                    size: 4,
                   });
                 }
               }
@@ -3581,17 +3604,22 @@ const Index = () => {
         ctx.textAlign = "left";
         ctx.fillText("⚠️", 20, 40);
         
-        // Texto de noticia
+        // Texto de noticia con descripción de efectos
         const eventTexts = {
-          storm: "⚡ ALERTA METEOROLÓGICA: Tormenta eléctrica detectada en el área",
-          fog: "🌫️ PELIGRO BIOLÓGICO: Niebla tóxica contaminando la zona",
-          eclipse: "🌑 FENÓMENO ASTRONÓMICO: Eclipse solar reduciendo visibilidad",
-          rain: "☢️ EMERGENCIA RADIACTIVA: Lluvia contaminada incrementa hostilidad enemiga"
+          storm: "⚡ TORMENTA: Relámpagos causan 10 HP de daño cada 2s",
+          fog: "🌫️ NIEBLA TÓXICA: Daño constante de 2 HP/s + visibilidad reducida",
+          eclipse: "🌑 ECLIPSE: Oscuridad reduce rango de visión drásticamente",
+          rain: "☢️ LLUVIA RADIACTIVA: Enemigos ganan +50% velocidad en zonas púrpuras"
         };
         
-        const eventText = gameState.environmentalEvent ? eventTexts[gameState.environmentalEvent] : "";
+        // Construir texto: mostrar ambos eventos si están activos (wave 8+)
+        let eventText = gameState.environmentalEvent ? eventTexts[gameState.environmentalEvent] : "";
+        if (gameState.secondaryEvent) {
+          eventText += " | " + eventTexts[gameState.secondaryEvent];
+        }
+        
         ctx.fillStyle = "#fff";
-        ctx.font = "bold 22px system-ui";
+        ctx.font = "bold 20px system-ui";
         ctx.textAlign = "left";
         ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
         ctx.shadowBlur = 4;
