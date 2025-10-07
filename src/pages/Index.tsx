@@ -262,6 +262,7 @@ const Index = () => {
       hotspotTimer: 0,
       levelUpAnimation: 0,
       upgradeAnimation: 0,
+      upgradeUIAnimation: 0,
       xpBarRainbow: false,
       waveNotification: 0,
       restartTimer: 0,
@@ -963,6 +964,7 @@ const Index = () => {
     function showUpgradeScreen() {
       gameState.state = 'paused';
       gameState.showUpgradeUI = true;
+      gameState.upgradeUIAnimation = 0; // Start animation from 0
       
       const options: Upgrade[] = [];
       const usedKeys: Set<string> = new Set(); // Para evitar duplicados
@@ -1268,11 +1270,11 @@ const Index = () => {
       const my = e.clientY - rect.top;
       
       if (gameState.showUpgradeUI) {
-        const cardW = 250;
-        const cardH = 180;
-        const gap = 30;
+        const cardW = 280;
+        const cardH = 220;
+        const gap = 40;
         const startX = W / 2 - (cardW * 1.5 + gap);
-        const startY = H / 2 - cardH / 2;
+        const startY = H / 2 - cardH / 2 + 20;
         
         for (let i = 0; i < 3; i++) {
           const cx = startX + i * (cardW + gap);
@@ -1341,6 +1343,7 @@ const Index = () => {
       // Animations
       if (gameState.levelUpAnimation > 0) gameState.levelUpAnimation = Math.max(0, gameState.levelUpAnimation - dt * 2);
       if (gameState.upgradeAnimation > 0) gameState.upgradeAnimation = Math.max(0, gameState.upgradeAnimation - dt);
+      if (gameState.upgradeUIAnimation < 1 && gameState.showUpgradeUI) gameState.upgradeUIAnimation = Math.min(1, gameState.upgradeUIAnimation + dt * 3);
       
       // Music notification timer
       if (gameState.musicNotificationTimer > 0) {
@@ -2209,111 +2212,241 @@ const Index = () => {
 
       ctx.save();
       
-      // Animated overlay
-      ctx.fillStyle = "rgba(0, 0, 0, 0.85)";
+      // Easing function for smooth animation
+      const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+      const animProgress = easeOutCubic(gameState.upgradeUIAnimation);
+      
+      // Animated overlay with fade-in
+      ctx.globalAlpha = animProgress * 0.95;
+      ctx.fillStyle = "rgba(0, 0, 0, 0.9)";
       ctx.fillRect(0, 0, W, H);
+      ctx.globalAlpha = 1;
       
-      const pulse = Math.sin(gameState.time * 3) * 0.1 + 0.9;
+      // Particles background effect
+      for (let i = 0; i < 30; i++) {
+        const px = (W / 2) + Math.sin(gameState.time * 0.5 + i) * (300 + i * 10);
+        const py = (H / 2) + Math.cos(gameState.time * 0.7 + i) * (200 + i * 8);
+        const size = 2 + Math.sin(gameState.time * 2 + i) * 1;
+        ctx.fillStyle = `rgba(251, 191, 36, ${0.1 * animProgress})`;
+        ctx.beginPath();
+        ctx.arc(px, py, size, 0, Math.PI * 2);
+        ctx.fill();
+      }
       
-      // Título con animación
-      ctx.fillStyle = "#fbbf24";
+      const pulse = Math.sin(gameState.time * 3) * 0.15 + 0.85;
+      
+      // Título con animación de escala y fade
+      ctx.globalAlpha = animProgress;
+      const titleScale = 0.8 + (animProgress * 0.2);
+      ctx.save();
+      ctx.translate(W / 2, H / 2 - 180);
+      ctx.scale(titleScale, titleScale);
+      
+      // Glow effect en el título
       ctx.shadowColor = "#fbbf24";
-      ctx.shadowBlur = 20 * pulse;
-      ctx.font = "bold 48px system-ui";
+      ctx.shadowBlur = 40 * pulse * animProgress;
+      ctx.fillStyle = "#fbbf24";
+      ctx.font = "bold 56px system-ui";
       ctx.textAlign = "center";
-      ctx.fillText("¡SUBISTE DE NIVEL!", W / 2, H / 2 - 180);
+      ctx.fillText("¡SUBISTE DE NIVEL!", 0, 0);
+      
+      // Segundo glow para más intensidad
+      ctx.shadowBlur = 60 * pulse * animProgress;
+      ctx.fillText("¡SUBISTE DE NIVEL!", 0, 0);
       ctx.shadowBlur = 0;
       
-      ctx.font = "24px system-ui";
-      ctx.fillStyle = "#9ca3af";
-      ctx.fillText("Elige una mejora:", W / 2, H / 2 - 130);
+      ctx.restore();
       
-      // Cards con animación
-      const cardW = 250;
-      const cardH = 180;
-      const gap = 30;
+      // Subtítulo con fade
+      ctx.font = "28px system-ui";
+      ctx.fillStyle = `rgba(156, 163, 175, ${animProgress})`;
+      ctx.textAlign = "center";
+      ctx.fillText("Elige una mejora:", W / 2, H / 2 - 100);
+      
+      ctx.globalAlpha = 1;
+      
+      // Cards con animación escalonada
+      const cardW = 280;
+      const cardH = 220;
+      const gap = 40;
       const startX = W / 2 - (cardW * 1.5 + gap);
-      const startY = H / 2 - cardH / 2;
+      const startY = H / 2 - cardH / 2 + 20;
       
       for (let i = 0; i < gameState.upgradeOptions.length; i++) {
         const option = gameState.upgradeOptions[i];
         const x = startX + i * (cardW + gap);
         const y = startY;
         
-        const hover = Math.sin(gameState.time * 4 + i * 1.2) * 5;
+        // Animación escalonada para cada carta
+        const cardDelay = i * 0.15;
+        const cardAnimProgress = Math.max(0, Math.min(1, (gameState.upgradeUIAnimation - cardDelay) / 0.5));
+        const cardEase = easeOutCubic(cardAnimProgress);
         
-        // Card background
+        // Hover effect
+        const hover = Math.sin(gameState.time * 4 + i * 1.2) * 8;
+        const yOffset = y + hover - (1 - cardEase) * 50; // Slide up animation
+        
+        ctx.save();
+        ctx.globalAlpha = cardEase;
+        
+        // Card shadow
+        ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+        ctx.shadowBlur = 30;
+        ctx.shadowOffsetY = 10;
+        
+        // Card background con gradiente
         const rarityColor = rarityColors[option.rarity];
-        ctx.fillStyle = "rgba(20, 25, 35, 0.95)";
-        ctx.fillRect(x, y + hover, cardW, cardH);
+        const bgGradient = ctx.createLinearGradient(x, yOffset, x, yOffset + cardH);
+        bgGradient.addColorStop(0, "rgba(30, 35, 45, 0.98)");
+        bgGradient.addColorStop(1, "rgba(15, 20, 30, 0.98)");
+        ctx.fillStyle = bgGradient;
+        ctx.fillRect(x, yOffset, cardW, cardH);
         
-        // Borde de rareza con animación
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetY = 0;
+        
+        // Borde de rareza con doble línea
         ctx.strokeStyle = rarityColor;
-        ctx.lineWidth = 3 + Math.sin(gameState.time * 5 + i) * 1;
-        ctx.strokeRect(x, y + hover, cardW, cardH);
-        
-        // Glow effect pulsante
+        ctx.lineWidth = 4;
         ctx.shadowColor = rarityColor;
-        ctx.shadowBlur = 30 * pulse;
-        ctx.strokeRect(x, y + hover, cardW, cardH);
+        ctx.shadowBlur = 25 * pulse;
+        ctx.strokeRect(x, yOffset, cardW, cardH);
+        
+        // Inner border
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = `${rarityColor}80`;
+        ctx.strokeRect(x + 5, yOffset + 5, cardW - 10, cardH - 10);
         ctx.shadowBlur = 0;
         
-        // Tipo
+        // Accent bar en la parte superior
+        const accentGradient = ctx.createLinearGradient(x, yOffset, x + cardW, yOffset);
+        accentGradient.addColorStop(0, "transparent");
+        accentGradient.addColorStop(0.5, rarityColor);
+        accentGradient.addColorStop(1, "transparent");
+        ctx.fillStyle = accentGradient;
+        ctx.fillRect(x, yOffset, cardW, 4);
+        
+        // Tipo badge
+        const badgeY = yOffset + 25;
         ctx.fillStyle = rarityColor;
         ctx.font = "bold 14px system-ui";
         ctx.textAlign = "center";
-        const typeText = option.type === "weapon" ? "ARMA" : option.type === "tome" ? "TOMO" : "ÍTEM";
-        ctx.fillText(typeText, x + cardW / 2, y + hover + 25);
+        const typeText = option.type === "weapon" ? "⚔️ ARMA" : option.type === "tome" ? "📖 TOMO" : "✨ ÍTEM";
+        
+        // Badge background
+        const badgeW = 100;
+        const badgeH = 24;
+        const badgeX = x + cardW / 2 - badgeW / 2;
+        ctx.fillStyle = `${rarityColor}30`;
+        ctx.fillRect(badgeX, badgeY - 18, badgeW, badgeH);
+        ctx.fillStyle = rarityColor;
+        ctx.strokeStyle = rarityColor;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(badgeX, badgeY - 18, badgeW, badgeH);
+        
+        ctx.fillText(typeText, x + cardW / 2, badgeY);
         
         // Nombre con nivel
         const data = option.data as any;
         ctx.fillStyle = "#fff";
-        ctx.font = "bold 18px system-ui";
-        const nameText = option.isLevelUp ? `${data.name} LVL ${data.level + 1}` : data.name;
-        ctx.fillText(nameText, x + cardW / 2, y + hover + 60);
+        ctx.font = "bold 22px system-ui";
+        ctx.shadowColor = "#000";
+        ctx.shadowBlur = 4;
+        const nameText = option.isLevelUp ? `${data.name} ★${data.level + 1}` : data.name;
         
-        // Descripción
-        ctx.fillStyle = "#9ca3af";
-        ctx.font = "14px system-ui";
+        // Wrap text if too long
+        const maxWidth = cardW - 30;
+        ctx.fillText(nameText, x + cardW / 2, yOffset + 75, maxWidth);
+        ctx.shadowBlur = 0;
+        
+        // Descripción con mejor formato
+        ctx.fillStyle = "#cbd5e1";
+        ctx.font = "15px system-ui";
+        
         if (option.type === "weapon") {
           const w = data as Weapon;
-        if (option.isLevelUp && option.description) {
-            ctx.fillText(option.description, x + cardW / 2, y + hover + 100);
+          if (option.isLevelUp && option.description) {
+            // Wrap description text
+            wrapText(ctx, option.description, x + cardW / 2, yOffset + 110, maxWidth, 20);
           } else {
-            ctx.fillText(`Daño: ${w.damage.toFixed(1)}`, x + cardW / 2, y + hover + 90);
-            ctx.fillText(`Cadencia: ${w.fireRate.toFixed(1)}/s`, x + cardW / 2, y + hover + 110);
-            ctx.fillText(`Alcance: ${w.range}`, x + cardW / 2, y + hover + 130);
+            ctx.textAlign = "left";
+            const statsX = x + 20;
+            ctx.fillText(`💥 Daño: ${w.damage.toFixed(1)}`, statsX, yOffset + 110);
+            ctx.fillText(`⚡ Cadencia: ${w.fireRate.toFixed(1)}/s`, statsX, yOffset + 135);
+            ctx.fillText(`🎯 Alcance: ${w.range}`, statsX, yOffset + 160);
+            ctx.textAlign = "center";
           }
         } else if (option.type === "tome") {
           const t = data as Tome;
-          if (option.isLevelUp && option.description) {
-            ctx.fillText(option.description, x + cardW / 2, y + hover + 100);
-          } else {
-            ctx.fillText(t.description, x + cardW / 2, y + hover + 100);
-          }
+          const desc = option.isLevelUp && option.description ? option.description : t.description;
+          wrapText(ctx, desc, x + cardW / 2, yOffset + 110, maxWidth, 20);
         } else {
-          ctx.fillText(data.description, x + cardW / 2, y + hover + 100);
+          wrapText(ctx, data.description, x + cardW / 2, yOffset + 110, maxWidth, 20);
         }
         
-        // Rareza
+        // Rareza badge en la parte inferior
+        const rarityBadgeY = yOffset + cardH - 25;
         ctx.fillStyle = rarityColor;
-        ctx.font = "bold 12px system-ui";
-        ctx.fillText(option.rarity.toUpperCase(), x + cardW / 2, y + hover + cardH - 15);
+        ctx.font = "bold 13px system-ui";
+        ctx.textAlign = "center";
         
-        // Partículas de rareza
-        for (let j = 0; j < 2; j++) {
-          const px = x + Math.random() * cardW;
-          const py = y + hover + Math.random() * cardH;
+        const rarityBadgeW = 120;
+        const rarityBadgeH = 22;
+        const rarityBadgeX = x + cardW / 2 - rarityBadgeW / 2;
+        
+        ctx.fillStyle = `${rarityColor}40`;
+        ctx.fillRect(rarityBadgeX, rarityBadgeY - 16, rarityBadgeW, rarityBadgeH);
+        
+        ctx.fillStyle = rarityColor;
+        ctx.fillText(`★ ${option.rarity.toUpperCase()} ★`, x + cardW / 2, rarityBadgeY);
+        
+        // Partículas flotantes alrededor de la carta
+        for (let j = 0; j < 5; j++) {
+          const angle = (gameState.time * 2 + j * Math.PI * 2 / 5) % (Math.PI * 2);
+          const radius = 30 + Math.sin(gameState.time * 3 + j) * 10;
+          const px = x + cardW / 2 + Math.cos(angle) * radius;
+          const py = yOffset + cardH / 2 + Math.sin(angle) * radius;
+          const size = 2 + Math.sin(gameState.time * 4 + j) * 1;
+          
           ctx.fillStyle = rarityColor;
-          ctx.globalAlpha = 0.3 + Math.random() * 0.3;
+          ctx.globalAlpha = (0.3 + Math.sin(gameState.time * 5 + j) * 0.2) * cardEase;
           ctx.beginPath();
-          ctx.arc(px, py, 2, 0, Math.PI * 2);
+          ctx.arc(px, py, size, 0, Math.PI * 2);
           ctx.fill();
-          ctx.globalAlpha = 1;
         }
+        
+        ctx.restore();
       }
       
+      // Hint text
+      ctx.globalAlpha = animProgress;
+      ctx.fillStyle = "rgba(156, 163, 175, 0.6)";
+      ctx.font = "16px system-ui";
+      ctx.textAlign = "center";
+      ctx.fillText("Click para seleccionar", W / 2, H - 60);
+      
       ctx.restore();
+    }
+    
+    // Helper function para wrap text
+    function wrapText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number) {
+      const words = text.split(' ');
+      let line = '';
+      let currentY = y;
+      
+      for (let n = 0; n < words.length; n++) {
+        const testLine = line + words[n] + ' ';
+        const metrics = ctx.measureText(testLine);
+        
+        if (metrics.width > maxWidth && n > 0) {
+          ctx.fillText(line, x, currentY);
+          line = words[n] + ' ';
+          currentY += lineHeight;
+        } else {
+          line = testLine;
+        }
+      }
+      ctx.fillText(line, x, currentY);
     }
 
     function draw() {
