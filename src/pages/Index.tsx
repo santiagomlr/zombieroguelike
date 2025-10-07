@@ -3543,10 +3543,28 @@ const Index = () => {
 
     requestAnimationFrame(gameLoop);
 
+    // Prevenir scroll y gestos en dispositivos móviles
+    const preventScroll = (e: TouchEvent) => {
+      e.preventDefault();
+    };
+
+    const preventGesture = (e: Event) => {
+      e.preventDefault();
+    };
+
+    document.addEventListener('touchmove', preventScroll, { passive: false });
+    document.addEventListener('gesturestart', preventGesture, { passive: false });
+    document.addEventListener('gesturechange', preventGesture, { passive: false });
+    document.addEventListener('gestureend', preventGesture, { passive: false });
+
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("resize", handleResize);
+      document.removeEventListener('touchmove', preventScroll);
+      document.removeEventListener('gesturestart', preventGesture);
+      document.removeEventListener('gesturechange', preventGesture);
+      document.removeEventListener('gestureend', preventGesture);
     };
   }, []);
 
