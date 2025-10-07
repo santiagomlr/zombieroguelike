@@ -314,12 +314,14 @@ const Index = () => {
       restartHoldTime: 5,
       gameOverTimer: 0,
       // Sistema de Eventos Ambientales
-      environmentalEvent: null as "storm" | "fog" | "eclipse" | "rain" | null,
-      secondaryEvent: null as "storm" | "fog" | "eclipse" | "rain" | null,
+      environmentalEvent: null as "storm" | "fog" | "rain" | null,
+      secondaryEvent: null as "storm" | "fog" | "rain" | null,
       eventNotification: 0,
       eventDuration: 0,
       eventTimer: 0,
-      nextEventWave: 3, // Primera wave con evento ambiental
+      eventPhase: "none" as "none" | "notification" | "fadein" | "active" | "fadeout",
+      eventIntensity: 0, // 0 a 1 para fade in/out
+      nextEventWave: 4, // Primera wave con evento ambiental (wave 4)
       lightningTimer: 0,
       fogOpacity: 0,
       fogZones: [] as Array<{ x: number; y: number; width: number; height: number }>,
@@ -548,7 +550,9 @@ const Index = () => {
       gameState.eventNotification = 0;
       gameState.eventDuration = 0;
       gameState.eventTimer = 0;
-      gameState.nextEventWave = 3;
+      gameState.eventPhase = "none";
+      gameState.eventIntensity = 0;
+      gameState.nextEventWave = 4;
       gameState.lightningTimer = 0;
       gameState.fogOpacity = 0;
       gameState.fogZones = [];
@@ -1921,8 +1925,8 @@ const Index = () => {
         // ═══════════════════════════════════════════════════════════
         // SISTEMA DE EVENTOS AMBIENTALES
         // ═══════════════════════════════════════════════════════════
-        // Activar evento ambiental cada 3-5 waves
-        // LÍMITE: Solo un evento hasta wave 7, múltiples después de wave 8
+        // Activar evento ambiental en waves específicas: 4, 7, 10, 13, 16, 19...
+        // Patrón: wave 4, luego cada 3 waves (7, 10, 13, 16...)
         if (gameState.wave >= gameState.nextEventWave) {
           // Verificar si ya hay un evento activo (solo importante antes de wave 8)
           const canAddEvent = gameState.wave >= 8 || !gameState.environmentalEvent;
@@ -1936,18 +1940,23 @@ const Index = () => {
               gameState.secondaryEvent = newEvent;
             } else {
               gameState.environmentalEvent = newEvent;
+              gameState.eventPhase = "notification";
+              gameState.eventIntensity = 0;
+              gameState.eventTimer = 0;
+              gameState.eventNotification = 5; // 5 segundos de aviso antes de que empiece
+              gameState.fogOpacity = 0;
+              gameState.fogZones = [];
+              gameState.stormZone = null;
             }
-            
-            gameState.eventDuration = 60; // 60 segundos de duración
-            gameState.eventTimer = 0;
-            gameState.eventNotification = 6; // 6 segundos de notificación
-            gameState.fogOpacity = 0;
-            gameState.fogZones = [];
-            gameState.stormZone = null;
           }
           
-          // Próximo evento en 3-5 waves
-          gameState.nextEventWave = gameState.wave + 3 + Math.floor(Math.random() * 3);
+          // Próximo evento: calcular según el patrón
+          // Wave 4 -> 7 (diferencia 3), 7 -> 10 (diferencia 3), luego cada 3
+          if (gameState.nextEventWave === 4) {
+            gameState.nextEventWave = 7;
+          } else {
+            gameState.nextEventWave = gameState.wave + 3;
+          }
         }
       }
       
@@ -1960,28 +1969,58 @@ const Index = () => {
       // EVENTOS AMBIENTALES - Lógica y Efectos
       // ═══════════════════════════════════════════════════════════
       
+      // Fase de notificación
       if (gameState.eventNotification > 0) {
         gameState.eventNotification = Math.max(0, gameState.eventNotification - dt);
+        
+        // Cuando termina la notificación, empezar fade in
+        if (gameState.eventNotification === 0 && gameState.eventPhase === "notification") {
+          gameState.eventPhase = "fadein";
+          gameState.eventIntensity = 0;
+        }
       }
       
-      if (gameState.environmentalEvent) {
-        gameState.eventTimer += dt;
-        
-        // Si el evento terminó, mover secondary a primary
-        if (gameState.eventTimer >= gameState.eventDuration) {
-          gameState.environmentalEvent = gameState.secondaryEvent;
-          gameState.secondaryEvent = null;
-          gameState.fogOpacity = 0;
-          gameState.fogZones = [];
-          gameState.stormZone = null;
+      if (gameState.environmentalEvent && gameState.eventPhase !== "notification") {
+        // Fase de Fade In (5 segundos)
+        if (gameState.eventPhase === "fadein") {
+          gameState.eventIntensity = Math.min(1, gameState.eventIntensity + dt * 0.2); // 5 segundos para llegar a 1
           
-          // Si todavía hay un evento, reiniciar timer
-          if (gameState.environmentalEvent) {
-            gameState.eventTimer = 0;
-            gameState.eventNotification = 6;
+          if (gameState.eventIntensity >= 1) {
+            gameState.eventPhase = "active";
           }
-        } else {
-          // Aplicar efectos según el tipo de evento
+        }
+        
+        // Verificar si la wave cambió (evento termina al final de la wave)
+        if (gameState.waveKills >= gameState.waveEnemiesTotal && gameState.eventPhase === "active") {
+          gameState.eventPhase = "fadeout";
+        }
+        
+        // Fase de Fade Out (3 segundos)
+        if (gameState.eventPhase === "fadeout") {
+          gameState.eventIntensity = Math.max(0, gameState.eventIntensity - dt * 0.33); // 3 segundos para llegar a 0
+          
+          if (gameState.eventIntensity <= 0) {
+            // Evento terminado
+            gameState.environmentalEvent = gameState.secondaryEvent;
+            gameState.secondaryEvent = null;
+            gameState.fogOpacity = 0;
+            gameState.fogZones = [];
+            gameState.stormZone = null;
+            gameState.eventPhase = "none";
+            gameState.eventIntensity = 0;
+            
+            // Si todavía hay un evento, reiniciar
+            if (gameState.environmentalEvent) {
+              gameState.eventPhase = "notification";
+              gameState.eventNotification = 5;
+            }
+          }
+        }
+        
+        // Aplicar efectos solo en fase active
+        if (gameState.eventPhase === "active" || gameState.eventPhase === "fadein" || gameState.eventPhase === "fadeout") {
+          const intensity = gameState.eventIntensity;
+          
           switch (gameState.environmentalEvent) {
             case "storm":
               // ⚡ TORMENTA: Zona circular que se mueve aleatoriamente
@@ -2023,17 +2062,17 @@ const Index = () => {
                 gameState.stormZone.vy = (gameState.stormZone.vy / stormSpeed) * 150;
               }
               
-              // Daño continuo si el jugador está dentro
+              // Daño continuo si el jugador está dentro (escalado por intensidad)
               const distToStorm = Math.hypot(gameState.player.x - gameState.stormZone.x, gameState.player.y - gameState.stormZone.y);
               if (distToStorm < gameState.stormZone.radius) {
-                gameState.player.hp -= 10 * dt; // 10 HP/s
+                gameState.player.hp -= 10 * dt * intensity; // 10 HP/s escalado por intensidad
                 if (gameState.player.hp <= 0) {
                   gameState.state = 'gameover';
                   gameState.gameOverTimer = 3;
                 }
                 
                 // Partículas de daño eléctrico
-                if (Math.random() < 0.3 && gameState.particles.length < gameState.maxParticles) {
+                if (Math.random() < 0.3 * intensity && gameState.particles.length < gameState.maxParticles) {
                   gameState.particles.push({
                     x: gameState.player.x + (Math.random() - 0.5) * 30,
                     y: gameState.player.y + (Math.random() - 0.5) * 30,
@@ -2047,7 +2086,7 @@ const Index = () => {
               }
               
               // Partículas de tormenta
-              if (Math.random() < 0.5 && gameState.particles.length < gameState.maxParticles) {
+              if (Math.random() < 0.5 * intensity && gameState.particles.length < gameState.maxParticles) {
                 const angle = Math.random() * Math.PI * 2;
                 const dist = Math.random() * gameState.stormZone.radius;
                 gameState.particles.push({
@@ -2063,29 +2102,25 @@ const Index = () => {
               break;
               
             case "fog":
-              // 🌫️ NIEBLA TÓXICA: Zonas rectangulares que limitan movimiento
-              // Crear zonas de niebla si no existen
-              if (gameState.fogZones.length === 0) {
-                // Crear 2-3 zonas rectangulares
-                const numZones = 2 + Math.floor(Math.random() * 2);
-                for (let i = 0; i < numZones; i++) {
-                  const width = 200 + Math.random() * 150;
-                  const height = 150 + Math.random() * 100;
-                  gameState.fogZones.push({
-                    x: Math.random() * (W - width),
-                    y: Math.random() * (H - height),
-                    width,
-                    height,
-                  });
-                }
+              // 🌫️ NIEBLA TÓXICA: 1 zona rectangular que limita movimiento
+              // Crear zona de niebla si no existe (solo 1)
+              if (gameState.fogZones.length === 0 && intensity > 0.3) {
+                const width = 250 + Math.random() * 150;
+                const height = 200 + Math.random() * 100;
+                gameState.fogZones.push({
+                  x: Math.random() * (W - width),
+                  y: Math.random() * (H - height),
+                  width,
+                  height,
+                });
               }
               
               // Fade in niebla
-              if (gameState.fogOpacity < 0.8) {
-                gameState.fogOpacity = Math.min(0.8, gameState.fogOpacity + dt * 0.5);
+              if (gameState.fogOpacity < 0.8 * intensity) {
+                gameState.fogOpacity = Math.min(0.8 * intensity, gameState.fogOpacity + dt * 0.3);
               }
               
-              // Verificar si el jugador está en alguna zona de niebla
+              // Verificar si el jugador está en la zona de niebla
               let inFogZone = false;
               for (const zone of gameState.fogZones) {
                 if (gameState.player.x > zone.x && gameState.player.x < zone.x + zone.width &&
@@ -2095,16 +2130,16 @@ const Index = () => {
                 }
               }
               
-              // Daño aumentado si está en zona de niebla
+              // Daño aumentado si está en zona de niebla (escalado por intensidad)
               if (inFogZone) {
-                gameState.player.hp -= 5 * dt; // 5 HP/s (aumentado desde 2)
+                gameState.player.hp -= 5 * dt * intensity; // 5 HP/s escalado por intensidad
                 if (gameState.player.hp <= 0) {
                   gameState.state = 'gameover';
                   gameState.gameOverTimer = 3;
                 }
                 
                 // Partículas de daño en el jugador
-                if (Math.random() < 0.2 && gameState.particles.length < gameState.maxParticles) {
+                if (Math.random() < 0.2 * intensity && gameState.particles.length < gameState.maxParticles) {
                   gameState.particles.push({
                     x: gameState.player.x + (Math.random() - 0.5) * 30,
                     y: gameState.player.y + (Math.random() - 0.5) * 30,
@@ -2118,8 +2153,8 @@ const Index = () => {
               }
               
               // Partículas de niebla en las zonas
-              if (Math.random() < 0.3 && gameState.particles.length < gameState.maxParticles) {
-                const zone = gameState.fogZones[Math.floor(Math.random() * gameState.fogZones.length)];
+              if (Math.random() < 0.3 * intensity && gameState.particles.length < gameState.maxParticles && gameState.fogZones.length > 0) {
+                const zone = gameState.fogZones[0];
                 gameState.particles.push({
                   x: zone.x + Math.random() * zone.width,
                   y: zone.y + Math.random() * zone.height,
@@ -2133,9 +2168,9 @@ const Index = () => {
               break;
               
             case "rain":
-              // ☢️ LLUVIA RADIACTIVA: Enemigos ganan velocidad en zonas específicas
-              // Crear zonas radiactivas tipo negative hotspots - MUY GRANDES
-              if (Math.random() < 0.01 && gameState.hotspots.filter(h => h.isRadioactive).length < 2) {
+              // ☢️ LLUVIA RADIACTIVA: Enemigos ganan velocidad en zonas específicas - SOLO 1 CÍRCULO
+              // Crear zona radiactiva tipo negative hotspot - MUY GRANDE
+              if (gameState.hotspots.filter(h => h.isRadioactive).length === 0 && intensity > 0.3) {
                 const x = Math.random() * (W - 600) + 300;
                 const y = Math.random() * (H - 600) + 300;
                 gameState.hotspots.push({
@@ -2144,7 +2179,7 @@ const Index = () => {
                   progress: 0,
                   required: 0,
                   expirationTimer: 0,
-                  maxExpiration: 15, // 15 segundos
+                  maxExpiration: 999, // No expira durante el evento
                   active: false,
                   isNegative: false,
                   isRadioactive: true, // Marca especial para lluvia radiactiva
@@ -2152,7 +2187,7 @@ const Index = () => {
               }
               
               // Partículas de lluvia
-              if (Math.random() < 0.3 && gameState.particles.length < gameState.maxParticles) {
+              if (Math.random() < 0.3 * intensity && gameState.particles.length < gameState.maxParticles) {
                 gameState.particles.push({
                   x: Math.random() * W,
                   y: -10,
@@ -3688,7 +3723,7 @@ const Index = () => {
       }
       
       // ⚠️ BARRA DE NOTIFICACIÓN AMBIENTAL - Estilo Noticiero
-      if (gameState.eventNotification > 0) {
+      if (gameState.eventNotification > 0 && gameState.eventPhase === "notification") {
         const notifAlpha = Math.min(1, gameState.eventNotification / 2);
         ctx.globalAlpha = notifAlpha;
         
@@ -3708,9 +3743,9 @@ const Index = () => {
         
         // Texto de noticia con descripción de efectos
         const eventTexts = {
-          storm: "⚡ TORMENTA: Zona móvil circular causa 10 HP/s de daño",
-          fog: "🌫️ NIEBLA TÓXICA: Zonas verdes causan 5 HP/s y limitan movimiento",
-          rain: "☢️ LLUVIA RADIACTIVA: Enemigos ganan +50% velocidad en zonas púrpuras gigantes"
+          storm: "⚡ ALERTA: Tormenta eléctrica aproximándose...",
+          fog: "🌫️ ALERTA: Niebla tóxica detectada en el área...",
+          rain: "☢️ ALERTA: Lluvia radiactiva inminente..."
         };
         
         // Construir texto: mostrar ambos eventos si están activos (wave 8+)
@@ -3726,15 +3761,6 @@ const Index = () => {
         ctx.shadowBlur = 4;
         ctx.fillText(eventText, 70, 40);
         ctx.shadowBlur = 0;
-        
-        // Duración del evento
-        if (gameState.environmentalEvent) {
-          const remaining = Math.ceil(gameState.eventDuration - gameState.eventTimer);
-          ctx.fillStyle = "#fbbf24";
-          ctx.font = "bold 18px system-ui";
-          ctx.textAlign = "right";
-          ctx.fillText(`${remaining}s`, W - 20, 40);
-        }
         
         ctx.globalAlpha = 1;
       }
@@ -4085,26 +4111,30 @@ const Index = () => {
       // EFECTOS AMBIENTALES - Renderizado
       // ═══════════════════════════════════════════════════════════
       
-      // Renderizar zonas de niebla
-      if (gameState.environmentalEvent === "fog" && gameState.fogZones.length > 0) {
+      // Renderizar zonas de niebla (solo si el evento está activo y con intensidad)
+      if (gameState.environmentalEvent === "fog" && gameState.fogZones.length > 0 && 
+          (gameState.eventPhase === "fadein" || gameState.eventPhase === "active" || gameState.eventPhase === "fadeout")) {
+        const intensity = gameState.eventIntensity;
+        
         for (const zone of gameState.fogZones) {
           const pulse = Math.sin(gameState.time * 3) * 0.15 + 0.85;
           
-          // Zona de niebla tóxica
-          ctx.fillStyle = `rgba(132, 204, 22, ${gameState.fogOpacity * 0.4})`;
+          // Zona de niebla tóxica con intensidad
+          ctx.fillStyle = `rgba(132, 204, 22, ${gameState.fogOpacity * 0.4 * intensity})`;
           ctx.fillRect(zone.x, zone.y, zone.width, zone.height);
           
           // Borde de la zona
-          ctx.strokeStyle = `rgba(132, 204, 22, ${pulse})`;
+          ctx.strokeStyle = `rgba(132, 204, 22, ${pulse * intensity})`;
           ctx.lineWidth = 3;
           ctx.shadowColor = "#84cc16";
-          ctx.shadowBlur = 15 * pulse;
+          ctx.shadowBlur = 15 * pulse * intensity;
           ctx.setLineDash([10, 10]);
           ctx.strokeRect(zone.x, zone.y, zone.width, zone.height);
           ctx.setLineDash([]);
           ctx.shadowBlur = 0;
           
           // Icono de niebla en el centro
+          ctx.globalAlpha = intensity;
           ctx.fillStyle = `rgba(132, 204, 22, ${pulse})`;
           ctx.font = "bold 48px system-ui";
           ctx.textAlign = "center";
@@ -4112,18 +4142,21 @@ const Index = () => {
           ctx.shadowBlur = 20;
           ctx.fillText("🌫️", zone.x + zone.width / 2, zone.y + zone.height / 2 + 16);
           ctx.shadowBlur = 0;
+          ctx.globalAlpha = 1;
         }
       }
       
-      // Renderizar zona de tormenta
-      if (gameState.environmentalEvent === "storm" && gameState.stormZone) {
+      // Renderizar zona de tormenta (solo si el evento está activo y con intensidad)
+      if (gameState.environmentalEvent === "storm" && gameState.stormZone && 
+          (gameState.eventPhase === "fadein" || gameState.eventPhase === "active" || gameState.eventPhase === "fadeout")) {
+        const intensity = gameState.eventIntensity;
         const pulse = Math.sin(gameState.time * 4) * 0.2 + 0.8;
         const storm = gameState.stormZone;
         
-        // Círculo de tormenta
+        // Círculo de tormenta con intensidad
         const gradient = ctx.createRadialGradient(storm.x, storm.y, 0, storm.x, storm.y, storm.radius);
-        gradient.addColorStop(0, "rgba(96, 165, 250, 0.4)");
-        gradient.addColorStop(0.7, "rgba(96, 165, 250, 0.2)");
+        gradient.addColorStop(0, `rgba(96, 165, 250, ${0.4 * intensity})`);
+        gradient.addColorStop(0.7, `rgba(96, 165, 250, ${0.2 * intensity})`);
         gradient.addColorStop(1, "rgba(59, 130, 246, 0)");
         ctx.fillStyle = gradient;
         ctx.beginPath();
@@ -4131,10 +4164,10 @@ const Index = () => {
         ctx.fill();
         
         // Borde pulsante
-        ctx.strokeStyle = `rgba(96, 165, 250, ${pulse})`;
+        ctx.strokeStyle = `rgba(96, 165, 250, ${pulse * intensity})`;
         ctx.lineWidth = 4;
         ctx.shadowColor = "#60a5fa";
-        ctx.shadowBlur = 20 * pulse;
+        ctx.shadowBlur = 20 * pulse * intensity;
         ctx.setLineDash([8, 8]);
         ctx.beginPath();
         ctx.arc(storm.x, storm.y, storm.radius, 0, Math.PI * 2);
@@ -4143,6 +4176,7 @@ const Index = () => {
         ctx.shadowBlur = 0;
         
         // Icono de tormenta
+        ctx.globalAlpha = intensity;
         ctx.fillStyle = `rgba(96, 165, 250, ${pulse})`;
         ctx.font = "bold 56px system-ui";
         ctx.textAlign = "center";
@@ -4150,6 +4184,7 @@ const Index = () => {
         ctx.shadowBlur = 25;
         ctx.fillText("⚡", storm.x, storm.y + 20);
         ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
       }
       
       if (gameState.environmentalEvent) {
