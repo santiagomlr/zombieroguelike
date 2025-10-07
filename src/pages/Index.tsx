@@ -396,14 +396,8 @@ const Index = () => {
       gameState.musicNotificationTimer = 3; // 3 segundos
     }
     
-    // Start music on first user interaction
-    const startMusicOnce = () => {
-      initMusic();
-      canvas.removeEventListener('click', startMusicOnce);
-      window.removeEventListener('keydown', startMusicOnce);
-    };
-    canvas.addEventListener('click', startMusicOnce);
-    window.addEventListener('keydown', startMusicOnce);
+    // Intentar iniciar música automáticamente
+    initMusic();
     
     // Sound effect functions
     const playSound = (frequency: number, duration: number, type: OscillatorType = "sine", volume: number = 0.3) => {
