@@ -244,6 +244,8 @@ const Index = () => {
       hotspotTimer: 0,
       levelUpAnimation: 0,
       upgradeAnimation: 0,
+      restartTimer: 0,
+      restartHoldTime: 5,
       sounds: {
         shoot: new Audio(),
         hit: new Audio(),
@@ -306,9 +308,7 @@ const Index = () => {
         gameState.paused = !gameState.paused;
         gameState.showPauseMenu = !gameState.showPauseMenu;
       }
-      if (e.key.toLowerCase() === "r") {
-        window.location.reload();
-      }
+      // R key start timer, no instant reload
     };
     
     const handleKeyUp = (e: KeyboardEvent) => {
@@ -714,6 +714,16 @@ const Index = () => {
     });
 
     function update(dt: number) {
+      // Restart timer (works even when paused)
+      if (gameState.keys["r"]) {
+        gameState.restartTimer += dt;
+        if (gameState.restartTimer >= gameState.restartHoldTime) {
+          window.location.reload();
+        }
+      } else {
+        gameState.restartTimer = 0;
+      }
+
       if (gameState.paused) return;
       gameState.time += dt;
 
@@ -1491,6 +1501,43 @@ const Index = () => {
       ctx.shadowBlur = 0;
       ctx.restore();
       
+      // Restart hold indicator
+      if (gameState.restartTimer > 0) {
+        const progress = gameState.restartTimer / gameState.restartHoldTime;
+        const centerX = W / 2;
+        const centerY = H / 2;
+        const radius = 60;
+        
+        // Background circle
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+        ctx.lineWidth = 8;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // Progress arc
+        ctx.strokeStyle = "#ef4444";
+        ctx.lineWidth = 8;
+        ctx.shadowColor = "#ef4444";
+        ctx.shadowBlur = 20;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        
+        // Text
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 24px system-ui";
+        ctx.textAlign = "center";
+        ctx.fillText("R", centerX, centerY + 8);
+        
+        // Timer text
+        const remaining = Math.ceil(gameState.restartHoldTime - gameState.restartTimer);
+        ctx.font = "bold 18px system-ui";
+        ctx.fillStyle = "#ef4444";
+        ctx.fillText(`${remaining}s`, centerX, centerY + 35);
+      }
+
       // Powerup indicators
       let indicatorY = gameState.player.y - gameState.player.rad - 30;
       if (gameState.player.tempMagnetTimer > 0) {
