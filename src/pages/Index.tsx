@@ -128,6 +128,8 @@ interface Upgrade {
   rarity: Rarity;
   isLevelUp?: boolean;
   targetIndex?: number;
+  upgradeType?: "damage" | "fireRate" | "range" | "special" | "effect";
+  description?: string;
 }
 
 const WEAPONS: Weapon[] = [
@@ -572,93 +574,197 @@ const Index = () => {
       gameState.showUpgradeUI = true;
       
       const options: Upgrade[] = [];
-      const rarityRoll = Math.random();
+      const usedKeys: Set<string> = new Set(); // Para evitar duplicados
       
       // Verificar si tiene pistola (reemplazable) o si slots están realmente llenos
       const hasPistol = gameState.player.weapons.some((w: Weapon) => w.id === "pistol");
       const weaponsFull = gameState.player.weapons.length >= 3 && !hasPistol;
       const tomesFull = gameState.player.tomes.length >= 3;
       
-      for (let i = 0; i < 3; i++) {
-        let rarity: Rarity = "common";
-        const roll = Math.random();
-        if (rarityRoll < 0.05) rarity = "legendary";
-        else if (rarityRoll < 0.15) rarity = "epic";
-        else if (rarityRoll < 0.35) rarity = "rare";
-        else if (rarityRoll < 0.60) rarity = "uncommon";
-        
-        let type = roll < 0.4 ? "weapon" : roll < 0.7 ? "tome" : "item";
-        
-        // Sistema de límites: Si armas y tomos están llenos (sin contar pistola), SOLO ofrecer upgrades
-        if (weaponsFull && tomesFull) {
-          type = roll < 0.5 ? "weapon" : "tome";
-        } else if (weaponsFull && !tomesFull) {
-          // Armas llenas: 50% tomos nuevos, 50% upgrades de armas
-          type = roll < 0.5 ? "weapon" : roll < 0.75 ? "tome" : "item";
-        } else if (!weaponsFull && tomesFull) {
-          // Tomos llenos: 50% armas nuevas, 50% upgrades de tomos
-          type = roll < 0.5 ? "tome" : roll < 0.75 ? "weapon" : "item";
+      // Generar pool de posibles upgrades
+      const availableUpgrades: Upgrade[] = [];
+      
+      // Weapon upgrades
+      if (weaponsFull) {
+        // Ofrecer mejoras variadas para armas existentes
+        for (let i = 0; i < gameState.player.weapons.length; i++) {
+          const w = gameState.player.weapons[i];
+          const upgradeVariants: Array<{
+            upgradeType: "damage" | "fireRate" | "range" | "special";
+            description: string;
+            rarity: Rarity;
+          }> = [
+            {
+              upgradeType: "damage",
+              description: "+30% Daño",
+              rarity: "uncommon",
+            },
+            {
+              upgradeType: "fireRate",
+              description: "+25% Cadencia",
+              rarity: "rare",
+            },
+            {
+              upgradeType: "range",
+              description: "+20% Alcance",
+              rarity: "uncommon",
+            },
+          ];
+          
+          // Agregar variante especial según el tipo de arma
+          if (w.special === "spread") {
+            upgradeVariants.push({
+              upgradeType: "special" as const,
+              description: "+1 Pellet adicional",
+              rarity: "rare" as Rarity,
+            });
+          } else if (w.special === "aoe") {
+            upgradeVariants.push({
+              upgradeType: "special" as const,
+              description: "+50% Radio de explosión",
+              rarity: "epic" as Rarity,
+            });
+          } else if (w.special === "pierce") {
+            upgradeVariants.push({
+              upgradeType: "special" as const,
+              description: "+2 Perforaciones",
+              rarity: "rare" as Rarity,
+            });
+          }
+          
+          for (const variant of upgradeVariants) {
+            availableUpgrades.push({
+              type: "weapon",
+              data: { ...w },
+              rarity: variant.rarity,
+              isLevelUp: true,
+              targetIndex: i,
+              upgradeType: variant.upgradeType,
+              description: variant.description,
+            });
+          }
         }
-        
-        if (type === "weapon") {
-          if (weaponsFull) {
-            // Si slots llenos sin pistola, ofrecer mejora de nivel de arma existente
-            const weaponIndex = Math.floor(Math.random() * gameState.player.weapons.length);
-            const currentWeapon = gameState.player.weapons[weaponIndex];
-            const upgradedWeapon = { ...currentWeapon };
-            options.push({ 
-              type: "weapon", 
-              data: upgradedWeapon, 
-              rarity: currentWeapon.rarity,
-              isLevelUp: true,
-              targetIndex: weaponIndex
-            });
-          } else {
-            // Si slots disponibles (o tiene pistola reemplazable), ofrecer armas nuevas que NO tenga
-            const available = WEAPONS.filter(w => 
-              (rarity === w.rarity || Math.random() < 0.3) && 
-              !gameState.player.weapons.find((pw: Weapon) => pw.id === w.id)
-            );
-            if (available.length > 0) {
-              const weapon = { ...available[Math.floor(Math.random() * available.length)] };
-              options.push({ type: "weapon", data: weapon, rarity: weapon.rarity });
-            }
-          }
-        } else if (type === "tome") {
-          if (tomesFull) {
-            // Si slots llenos, ofrecer mejora de nivel de tomo existente
-            const tomeIndex = Math.floor(Math.random() * gameState.player.tomes.length);
-            const currentTome = gameState.player.tomes[tomeIndex];
-            const upgradedTome = { ...currentTome };
-            options.push({ 
-              type: "tome", 
-              data: upgradedTome, 
-              rarity: currentTome.rarity,
-              isLevelUp: true,
-              targetIndex: tomeIndex
-            });
-          } else {
-            // Si slots disponibles, ofrecer tomos nuevos que NO tenga
-            const available = TOMES.filter(t => 
-              (rarity === t.rarity || Math.random() < 0.3) &&
-              !gameState.player.tomes.find((pt: Tome) => pt.id === t.id)
-            );
-            if (available.length > 0) {
-              const tome = { ...available[Math.floor(Math.random() * available.length)] };
-              options.push({ type: "tome", data: tome, rarity: tome.rarity });
-            }
-          }
-        } else {
-          // Ítems siempre disponibles sin límite
-          const available = ITEMS.filter(it => rarity === it.rarity || Math.random() < 0.3);
-          if (available.length > 0) {
-            const item = available[Math.floor(Math.random() * available.length)];
-            options.push({ type: "item", data: item, rarity: item.rarity });
-          }
+      } else {
+        // Armas nuevas disponibles
+        const available = WEAPONS.filter(w => 
+          !gameState.player.weapons.find((pw: Weapon) => pw.id === w.id)
+        );
+        for (const weapon of available) {
+          availableUpgrades.push({ 
+            type: "weapon", 
+            data: { ...weapon }, 
+            rarity: weapon.rarity 
+          });
         }
       }
       
-      gameState.upgradeOptions = options.slice(0, 3);
+      // Tome upgrades
+      if (tomesFull) {
+        // Ofrecer mejoras variadas para tomos existentes
+        for (let i = 0; i < gameState.player.tomes.length; i++) {
+          const t = gameState.player.tomes[i];
+          type UpgradeVariant = {
+            upgradeType: "effect" | "special";
+            description: string;
+            rarity: Rarity;
+          };
+          const upgradeVariants: UpgradeVariant[] = [];
+          
+          if (t.effect === "damage") {
+            upgradeVariants.push(
+              { upgradeType: "effect", description: "+20% Daño", rarity: "rare" },
+              { upgradeType: "special", description: "+15% Daño crítico", rarity: "epic" }
+            );
+          } else if (t.effect === "speed") {
+            upgradeVariants.push(
+              { upgradeType: "effect", description: "+15% Velocidad", rarity: "uncommon" },
+              { upgradeType: "special", description: "+10% Esquiva", rarity: "rare" }
+            );
+          } else if (t.effect === "range") {
+            upgradeVariants.push(
+              { upgradeType: "effect", description: "+20% Alcance", rarity: "uncommon" },
+              { upgradeType: "special", description: "+15% Velocidad de proyectil", rarity: "rare" }
+            );
+          } else if (t.effect === "fireRate") {
+            upgradeVariants.push(
+              { upgradeType: "effect", description: "+20% Cadencia", rarity: "rare" },
+              { upgradeType: "special", description: "Recarga instantánea ocasional", rarity: "epic" }
+            );
+          } else if (t.effect === "bounce") {
+            upgradeVariants.push(
+              { upgradeType: "effect", description: "+1 Rebote", rarity: "epic" },
+              { upgradeType: "special", description: "Rebotes explosivos", rarity: "legendary" }
+            );
+          } else if (t.effect === "multishot") {
+            upgradeVariants.push(
+              { upgradeType: "effect", description: "+1 Proyectil", rarity: "legendary" },
+              { upgradeType: "special", description: "Patrón circular", rarity: "epic" }
+            );
+          } else if (t.effect === "xp") {
+            upgradeVariants.push(
+              { upgradeType: "effect", description: "+25% XP", rarity: "rare" },
+              { upgradeType: "special", description: "Doble XP de jefes", rarity: "epic" }
+            );
+          }
+          
+          for (const variant of upgradeVariants) {
+            availableUpgrades.push({
+              type: "tome",
+              data: { ...t },
+              rarity: variant.rarity,
+              isLevelUp: true,
+              targetIndex: i,
+              upgradeType: variant.upgradeType,
+              description: variant.description,
+            });
+          }
+        }
+      } else {
+        // Tomos nuevos disponibles
+        const available = TOMES.filter(t => 
+          !gameState.player.tomes.find((pt: Tome) => pt.id === t.id)
+        );
+        for (const tome of available) {
+          availableUpgrades.push({ 
+            type: "tome", 
+            data: { ...tome }, 
+            rarity: tome.rarity 
+          });
+        }
+      }
+      
+      // Items siempre disponibles
+      for (const item of ITEMS) {
+        availableUpgrades.push({ 
+          type: "item", 
+          data: item, 
+          rarity: item.rarity 
+        });
+      }
+      
+      // Seleccionar 3 upgrades únicos
+      while (options.length < 3 && availableUpgrades.length > 0) {
+        const index = Math.floor(Math.random() * availableUpgrades.length);
+        const upgrade = availableUpgrades[index];
+        
+        // Crear clave única para evitar duplicados
+        let key = "";
+        if (upgrade.isLevelUp) {
+          key = `${upgrade.type}-${upgrade.targetIndex}-${upgrade.upgradeType}`;
+        } else {
+          key = `${upgrade.type}-${(upgrade.data as any).id}`;
+        }
+        
+        if (!usedKeys.has(key)) {
+          usedKeys.add(key);
+          options.push(upgrade);
+        }
+        
+        // Remover de disponibles para evitar repetir
+        availableUpgrades.splice(index, 1);
+      }
+      
+      gameState.upgradeOptions = options;
     }
 
     function selectUpgrade(index: number) {
@@ -675,10 +781,23 @@ const Index = () => {
           const existingWeapon = gameState.player.weapons[option.targetIndex];
           existingWeapon.level++;
           
-          // Bonificaciones por nivel: +20% daño, +20% cadencia, +15% alcance
-          existingWeapon.damage *= 1.20;
-          existingWeapon.fireRate *= 1.20;
-          existingWeapon.range *= 1.15;
+          // Aplicar mejora según el tipo
+          if (option.upgradeType === "damage") {
+            existingWeapon.damage *= 1.30;
+          } else if (option.upgradeType === "fireRate") {
+            existingWeapon.fireRate *= 1.25;
+          } else if (option.upgradeType === "range") {
+            existingWeapon.range *= 1.20;
+          } else if (option.upgradeType === "special") {
+            // Mejoras especiales según tipo de arma
+            if (existingWeapon.special === "spread") {
+              existingWeapon.damage *= 1.15; // Más pellets = más daño total
+            } else if (existingWeapon.special === "aoe") {
+              existingWeapon.damage *= 1.50; // Mayor radio
+            } else if (existingWeapon.special === "pierce") {
+              existingWeapon.damage *= 1.20; // Más perforaciones
+            }
+          }
         } else {
           // Nueva arma
           if (gameState.player.weapons.length < 3) {
@@ -1383,10 +1502,8 @@ const Index = () => {
         ctx.font = "14px system-ui";
         if (option.type === "weapon") {
           const w = data as Weapon;
-          if (option.isLevelUp) {
-            ctx.fillText(`+20% Daño`, x + cardW / 2, y + hover + 90);
-            ctx.fillText(`+20% Cadencia`, x + cardW / 2, y + hover + 110);
-            ctx.fillText(`+15% Alcance`, x + cardW / 2, y + hover + 130);
+        if (option.isLevelUp && option.description) {
+            ctx.fillText(option.description, x + cardW / 2, y + hover + 100);
           } else {
             ctx.fillText(`Daño: ${w.damage.toFixed(1)}`, x + cardW / 2, y + hover + 90);
             ctx.fillText(`Cadencia: ${w.fireRate.toFixed(1)}/s`, x + cardW / 2, y + hover + 110);
@@ -1394,15 +1511,8 @@ const Index = () => {
           }
         } else if (option.type === "tome") {
           const t = data as Tome;
-          if (option.isLevelUp) {
-            // Mostrar bonificación específica según el efecto
-            if (t.effect === "damage") ctx.fillText(`+15% Daño adicional`, x + cardW / 2, y + hover + 100);
-            else if (t.effect === "speed") ctx.fillText(`+10% Velocidad adicional`, x + cardW / 2, y + hover + 100);
-            else if (t.effect === "range") ctx.fillText(`+15% Alcance adicional`, x + cardW / 2, y + hover + 100);
-            else if (t.effect === "fireRate") ctx.fillText(`+15% Cadencia adicional`, x + cardW / 2, y + hover + 100);
-            else if (t.effect === "bounce") ctx.fillText(`+1 Rebote adicional`, x + cardW / 2, y + hover + 100);
-            else if (t.effect === "multishot") ctx.fillText(`+1 Proyectil adicional`, x + cardW / 2, y + hover + 100);
-            else if (t.effect === "xp") ctx.fillText(`+15% XP adicional`, x + cardW / 2, y + hover + 100);
+          if (option.isLevelUp && option.description) {
+            ctx.fillText(option.description, x + cardW / 2, y + hover + 100);
           } else {
             ctx.fillText(t.description, x + cardW / 2, y + hover + 100);
           }
