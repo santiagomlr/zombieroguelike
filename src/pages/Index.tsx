@@ -289,9 +289,9 @@ const Index = () => {
       time: 0,
       wave: 1,
       waveKills: 0,
-      waveEnemiesTotal: 15,
+      waveEnemiesTotal: 7, // Wave 1 empieza con 7
       waveEnemiesSpawned: 0,
-      maxConcurrentEnemies: 8,
+      maxConcurrentEnemies: 7,
       lastSpawn: 0,
       lastBossSpawn: 0,
       lastMiniBossSpawn: 0,
@@ -511,9 +511,9 @@ const Index = () => {
       gameState.time = 0;
       gameState.wave = 1;
       gameState.waveKills = 0;
-      gameState.waveEnemiesTotal = 15;
+      gameState.waveEnemiesTotal = 7; // Wave 1 empieza con 7 enemigos
       gameState.waveEnemiesSpawned = 0;
-      gameState.maxConcurrentEnemies = 8;
+      gameState.maxConcurrentEnemies = 7;
       gameState.lastSpawn = 0;
       gameState.lastMiniBossSpawn = 0;
       gameState.weaponCooldowns = {};
@@ -1749,44 +1749,24 @@ const Index = () => {
         // Reset first hit immune para la nueva wave
         gameState.player.stats.firstHitImmuneUsed = false;
         
-        // Configurar targets y caps específicos por wave
+        // Progresión lineal simple de enemigos por wave
         let waveTarget: number;
         let maxConcurrent: number;
         
-        switch(gameState.wave) {
-          case 1:
-            waveTarget = 15;
-            maxConcurrent = 8;
-            break;
-          case 2:
-            waveTarget = 12; // +1 boss = 13 total
-            maxConcurrent = 9;
-            break;
-          case 3:
-            waveTarget = 18;
-            maxConcurrent = 11;
-            break;
-          case 4:
-            waveTarget = 20;
-            maxConcurrent = 12;
-            break;
-          case 5:
-            waveTarget = 22;
-            maxConcurrent = 14;
-            break;
-          case 6:
-            waveTarget = 24;
-            maxConcurrent = 15;
-            break;
-          case 7:
-            waveTarget = 26;
-            maxConcurrent = 16;
-            break;
-          default:
-            // Wave 8+: Escalado progresivo
-            waveTarget = 26 + (gameState.wave - 7) * 3;
-            maxConcurrent = Math.min(25, 16 + (gameState.wave - 7));
-            break;
+        if (gameState.wave === 1) {
+          waveTarget = 7;  // Wave 1: 7 enemigos
+          maxConcurrent = 7;
+        } else if (gameState.wave === 2) {
+          waveTarget = 10; // Wave 2: 10 enemigos (incluye mini-boss)
+          maxConcurrent = 8;
+        } else if (gameState.wave % 5 === 0) {
+          // Waves múltiplos de 5: Boss fight
+          waveTarget = 7 + (gameState.wave - 1) * 3 + 1; // +1 por el boss
+          maxConcurrent = Math.min(15, 7 + Math.floor(gameState.wave / 2));
+        } else {
+          // Progresión lineal: +3 enemigos por wave
+          waveTarget = 7 + (gameState.wave - 1) * 3;
+          maxConcurrent = Math.min(15, 7 + Math.floor(gameState.wave / 2));
         }
         
         gameState.waveEnemiesTotal = waveTarget;
@@ -2028,19 +2008,16 @@ const Index = () => {
         }
       }
       
-      // Boss spawn cada 5 waves
-      if (gameState.wave % 5 === 0 && gameState.waveEnemiesSpawned === gameState.waveEnemiesTotal && gameState.enemies.length === 0) {
+      // Boss spawn cada 5 waves (ya incluido en el conteo del wave)
+      if (gameState.wave % 5 === 0 && gameState.waveEnemiesSpawned === gameState.waveEnemiesTotal - 1 && gameState.enemies.length === 0) {
         spawnBoss();
-        gameState.waveEnemiesTotal++;
+        gameState.waveEnemiesSpawned++;
       }
       
-      // Mini-boss spawn en waves específicas (2, 5, 8, etc.)
-      const shouldSpawnMiniBoss = (gameState.wave === 2 || (gameState.wave % 3 === 0 && gameState.wave % 5 !== 0)) && 
-                              gameState.waveEnemiesSpawned === gameState.waveEnemiesTotal;
-      if (shouldSpawnMiniBoss && gameState.enemies.length < gameState.maxConcurrentEnemies) {
+      // Mini-boss spawn en wave 2 (ya incluido en el conteo del wave)
+      if (gameState.wave === 2 && gameState.waveEnemiesSpawned === gameState.waveEnemiesTotal - 1 && gameState.enemies.length === 0) {
         spawnMiniBoss();
         gameState.waveEnemiesSpawned++;
-        gameState.waveEnemiesTotal++;
       }
 
       // Mover enemigos y aplicar efectos elementales
