@@ -1437,11 +1437,11 @@ const Index = () => {
                 dropXP(e.x + offsetX, e.y + offsetY, e.isMiniBoss ? 30 : (e.enemyType === "strong" ? 5 : e.enemyType === "medium" ? 3 : 2));
               }
               
-              // Drop de curación (15% de probabilidad)
+              // Drop de curación (5% de probabilidad - más raro)
               const healRoll = Math.random();
               const luckMultiplier = gameState.player.items.find((it: Item) => it.id === "luck") ? 1.5 : 1;
               
-              if (healRoll < 0.15 * luckMultiplier) {
+              if (healRoll < 0.05 * luckMultiplier) {
                 dropHeal(e.x, e.y);
               }
               
