@@ -178,8 +178,16 @@ const Index = () => {
   const [language, setLanguage] = useState<Language>("es");
   const gameStateRef = useRef<any>(null);
   const resetGameRef = useRef<(() => void) | null>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
   
   const t = translations[language];
+
+  // Enfocar overlay al entrar a Game Over
+  useEffect(() => {
+    if (gameOver) {
+      setTimeout(() => overlayRef.current?.focus(), 0);
+    }
+  }, [gameOver]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -240,7 +248,7 @@ const Index = () => {
       waveKills: 0,
       waveEnemiesTotal: 15,
       waveEnemiesSpawned: 0,
-      maxConcurrentEnemies: 30,
+      maxConcurrentEnemies: 8,
       lastSpawn: 0,
       lastBossSpawn: 0,
       lastMiniBossSpawn: 0,
@@ -380,7 +388,7 @@ const Index = () => {
       gameState.waveKills = 0;
       gameState.waveEnemiesTotal = 15;
       gameState.waveEnemiesSpawned = 0;
-      gameState.maxConcurrentEnemies = 30;
+      gameState.maxConcurrentEnemies = 8;
       gameState.lastSpawn = 0;
       gameState.lastMiniBossSpawn = 0;
       gameState.weaponCooldowns = {};
@@ -2546,6 +2554,8 @@ const Index = () => {
       
       {gameOver && (
         <div 
+          ref={overlayRef}
+          id="gameover-overlay"
           className="fixed inset-0 flex items-center justify-center bg-black/90 backdrop-blur-sm z-[999]"
           style={{ pointerEvents: 'auto' }}
           tabIndex={-1}
@@ -2559,6 +2569,14 @@ const Index = () => {
               <p className="text-3xl font-bold">{t.finalScore}: <span className="text-yellow-400">{score}</span></p>
               <p className="text-2xl">{t.finalLevel}: <span className="text-blue-400">{level}</span></p>
               <p className="text-xl">{t.finalWave}: <span className="text-purple-400">{gameStateRef.current?.wave || 1}</span></p>
+              <p className="text-xl">Tiempo: <span className="text-emerald-400">
+                {(() => {
+                  const secs = Math.floor(gameStateRef.current?.time || 0);
+                  const mm = String(Math.floor(secs / 60)).padStart(2, '0');
+                  const ss = String(secs % 60).padStart(2, '0');
+                  return `${mm}:${ss}`;
+                })()}
+              </span></p>
             </div>
             
             <div className="mt-8 p-6 bg-background/50 rounded-lg border border-primary/20">
@@ -2580,12 +2598,22 @@ const Index = () => {
             
             <div className="flex gap-4 justify-center mt-8">
               <button
+                autoFocus
                 onClick={() => {
                   resetGameRef.current?.();
                 }}
                 className="px-8 py-4 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xl font-bold transition-colors shadow-lg"
               >
                 {t.playAgain} (R / Enter)
+              </button>
+              <button
+                onClick={() => {
+                  setGameOver(false);
+                  if (gameStateRef.current) gameStateRef.current.state = 'paused';
+                }}
+                className="px-8 py-4 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xl font-bold transition-colors"
+              >
+                Cerrar
               </button>
             </div>
           </div>
