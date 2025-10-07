@@ -3662,7 +3662,7 @@ const Index = () => {
         ctx.globalAlpha = 1;
       }
       
-      // Wave notification - "✔ Wave X completada"
+      // Wave notification - Anuncio de la wave que viene
       if (gameState.waveNotification > 0) {
         const alpha = Math.min(1, gameState.waveNotification);
         const fadeOut = gameState.waveNotification < 1 ? gameState.waveNotification : 1;
@@ -3672,21 +3672,21 @@ const Index = () => {
         ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
         ctx.fillRect(0, H / 2 - 80, W, 160);
         
-        // Checkmark ✔
+        // Icono de wave
         const pulse = Math.sin(gameState.time * 8) * 0.2 + 0.8;
-        ctx.fillStyle = "#22c55e";
-        ctx.shadowColor = "#22c55e";
-        ctx.shadowBlur = 30 * pulse;
-        ctx.font = "bold 72px system-ui";
-        ctx.textAlign = "center";
-        ctx.fillText("✔", W / 2, H / 2 - 10);
-        
-        // Texto principal con glow
         ctx.fillStyle = "#a855f7";
         ctx.shadowColor = "#a855f7";
         ctx.shadowBlur = 30 * pulse;
-        ctx.font = "bold 48px system-ui";
-        ctx.fillText(`Wave ${gameState.wave - 1} completada`, W / 2, H / 2 + 50);
+        ctx.font = "bold 72px system-ui";
+        ctx.textAlign = "center";
+        ctx.fillText("⚡", W / 2, H / 2 - 10);
+        
+        // Texto principal con glow - Wave que viene
+        ctx.fillStyle = "#fbbf24";
+        ctx.shadowColor = "#fbbf24";
+        ctx.shadowBlur = 30 * pulse;
+        ctx.font = "bold 56px system-ui";
+        ctx.fillText(`WAVE ${gameState.wave}`, W / 2, H / 2 + 50);
         
         ctx.globalAlpha = 1;
         ctx.shadowBlur = 0;
