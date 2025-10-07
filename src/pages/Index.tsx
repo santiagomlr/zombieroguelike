@@ -235,7 +235,10 @@ const Index = () => {
       nextXP: 25,
       time: 0,
       wave: 1,
-      waveTimer: 0,
+      waveKills: 0,
+      waveEnemiesTotal: 15,
+      waveEnemiesSpawned: 0,
+      maxConcurrentEnemies: 30,
       lastSpawn: 0,
       lastBossSpawn: 0,
       lastMiniBossSpawn: 0,
@@ -1043,15 +1046,25 @@ const Index = () => {
       if (gameState.levelUpAnimation > 0) gameState.levelUpAnimation = Math.max(0, gameState.levelUpAnimation - dt * 2);
       if (gameState.upgradeAnimation > 0) gameState.upgradeAnimation = Math.max(0, gameState.upgradeAnimation - dt);
 
-      // Wave system - Waves más rápidas (30s)
-      gameState.waveTimer += dt;
-      const waveDuration = 30; // Duración de cada wave en segundos
-      if (gameState.waveTimer >= waveDuration) {
-        gameState.waveTimer = 0;
+      // Wave system basado en conteo de enemigos eliminados
+      if (gameState.waveKills >= gameState.waveEnemiesTotal) {
+        // Wave completada!
         gameState.wave++;
+        gameState.waveKills = 0;
+        gameState.waveEnemiesSpawned = 0;
+        
+        // Calcular presupuesto de enemigos para la nueva wave
+        // Progresión: Wave 1: 15, Wave 2: 20, Wave 3: 25, etc.
+        // Con mini-bosses incluidos ocasionalmente
+        const baseEnemies = 15 + (gameState.wave - 1) * 5;
+        const hasBoss = gameState.wave % 3 === 0; // Boss cada 3 waves
+        gameState.waveEnemiesTotal = hasBoss ? baseEnemies - 1 : baseEnemies;
+        
+        // Aumentar cap de enemigos concurrentes gradualmente
+        gameState.maxConcurrentEnemies = Math.min(50, 30 + gameState.wave * 2);
         
         // Animación de transición entre waves
-        gameState.waveNotification = 3; // Mostrar durante 3 segundos
+        gameState.waveNotification = 2; // Mostrar durante 2 segundos
         
         // Partículas de celebración de wave
         for (let i = 0; i < 30; i++) {
@@ -1066,6 +1079,9 @@ const Index = () => {
             size: 4,
           });
         }
+        
+        // Recompensa base por completar wave
+        collectXP(20 + gameState.wave * 5);
       }
       
       // Reducir timer de notificación de wave
@@ -1182,40 +1198,46 @@ const Index = () => {
       
       let spd = gameState.player.spd * gameState.player.stats.speedMultiplier;
       if (gameState.player.rageTimer > 0) spd *= 1.5; // Rage mode: +50% velocidad
-      gameState.player.x = Math.max(gameState.player.rad, Math.min(W - gameState.player.rad, gameState.player.x + vx * spd));
-      gameState.player.y = Math.max(gameState.player.rad, Math.min(H - gameState.player.rad, gameState.player.y + vy * spd));
+      
+      // Movimiento tentativo
+      let newX = gameState.player.x + vx * spd;
+      let newY = gameState.player.y + vy * spd;
+      
+      // Clamp a los límites del mapa
+      newX = Math.max(gameState.player.rad, Math.min(W - gameState.player.rad, newX));
+      newY = Math.max(gameState.player.rad, Math.min(H - gameState.player.rad, newY));
+      
+      gameState.player.x = newX;
+      gameState.player.y = newY;
 
-      // Spawn enemigos con dificultad de wave progresiva
+      // Spawn enemigos por lotes (burst controlado)
       gameState.lastSpawn += dt;
       
-      // Tasa de spawn dinámica según wave - MÁS RÁPIDO
-      let spawnRate: number;
-      if (gameState.wave <= 3) {
-        // Wave 1-3: spawn más rápido
-        spawnRate = Math.max(0.3, 0.8 - gameState.level * 0.05);
-      } else if (gameState.wave <= 6) {
-        // Wave 4-6: spawn moderado-rápido
-        spawnRate = Math.max(0.2, 0.6 - gameState.level * 0.05);
-      } else if (gameState.wave <= 10) {
-        // Wave 7-10: spawn muy rápido
-        spawnRate = Math.max(0.15, 0.5 - gameState.level * 0.05);
-      } else {
-        // Wave 10+: spawn caótico
-        const waveDifficulty = 1 + (gameState.wave - 10) * 0.15;
-        spawnRate = Math.max(0.1, (0.4 - gameState.level * 0.05) / waveDifficulty);
+      // Solo spawnear si no hemos alcanzado el total de enemigos para esta wave
+      // Y si no excedemos el cap de enemigos concurrentes
+      const canSpawn = gameState.waveEnemiesSpawned < gameState.waveEnemiesTotal && 
+                      gameState.enemies.length < gameState.maxConcurrentEnemies;
+      
+      if (canSpawn) {
+        // Tasa de spawn más rápida en bursts
+        const spawnRate = gameState.wave <= 3 ? 0.5 : 
+                         gameState.wave <= 6 ? 0.4 : 
+                         gameState.wave <= 10 ? 0.3 : 0.2;
+        
+        if (gameState.lastSpawn > spawnRate) {
+          spawnEnemy();
+          gameState.waveEnemiesSpawned++;
+          gameState.lastSpawn = 0;
+        }
       }
       
-      if (gameState.lastSpawn > spawnRate) {
-        spawnEnemy();
-        gameState.lastSpawn = 0;
-      }
-      
-      // Spawn mini-boss más frecuente en waves avanzadas - MÁS RÁPIDO
-      gameState.lastMiniBossSpawn += dt;
-      const miniBossInterval = gameState.wave <= 5 ? 25 : gameState.wave <= 10 ? 18 : 12;
-      if (gameState.lastMiniBossSpawn >= miniBossInterval) {
-        gameState.lastMiniBossSpawn = 0;
+      // Mini-boss spawn cada 3 waves (incluido en el presupuesto)
+      const shouldSpawnBoss = gameState.wave % 3 === 0 && 
+                             gameState.waveEnemiesSpawned === gameState.waveEnemiesTotal;
+      if (shouldSpawnBoss && gameState.enemies.length < gameState.maxConcurrentEnemies) {
         spawnMiniBoss();
+        gameState.waveEnemiesSpawned++;
+        gameState.waveEnemiesTotal++;
       }
 
       // Mover enemigos
@@ -1286,6 +1308,9 @@ const Index = () => {
 
             if (e.hp <= 0) {
               gameState.enemies.splice(i, 1);
+              
+              // Incrementar contador de muertes de la wave
+              gameState.waveKills++;
               
               // Puntos y XP según tipo de enemigo
               let points = 10;
@@ -1404,60 +1429,81 @@ const Index = () => {
         }
       }
 
-      // Colisión jugador-enemigo - Rage mode invulnerable
-      if (gameState.player.rageTimer <= 0) {
-        for (const e of gameState.enemies) {
-          if (Math.hypot(e.x - gameState.player.x, e.y - gameState.player.y) < e.rad + gameState.player.rad) {
-            if (gameState.player.ifr <= 0) {
-              if (gameState.player.shield > 0) {
-                gameState.player.shield--;
-                gameState.player.ifr = gameState.player.ifrDuration;
-                // Shield break particles
-                for (let j = 0; j < 12; j++) {
-                  const angle = (Math.PI * 2 * j) / 12;
-                  gameState.particles.push({
-                    x: gameState.player.x,
-                    y: gameState.player.y,
-                    vx: Math.cos(angle) * 6,
-                    vy: Math.sin(angle) * 6,
-                    life: 0.8,
-                    color: "#3b82f6",
-                    size: 3,
-                  });
-                }
-              } else {
-                gameState.player.hp = Math.max(0, gameState.player.hp - e.damage);
-                gameState.player.ifr = gameState.player.ifrDuration;
-                
-                // Hit particles
-                for (let j = 0; j < 10; j++) {
-                  const angle = (Math.PI * 2 * j) / 10;
-                  gameState.particles.push({
-                    x: gameState.player.x,
-                    y: gameState.player.y,
-                    vx: Math.cos(angle) * 4,
-                    vy: Math.sin(angle) * 4,
-                    life: 0.4,
-                    color: "#ef4444",
-                    size: 3,
-                  });
-                }
+      // Colisión jugador-enemigo con separación física - Rage mode invulnerable
+      for (const e of gameState.enemies) {
+        const dx = e.x - gameState.player.x;
+        const dy = e.y - gameState.player.y;
+        const d = Math.hypot(dx, dy);
+        const minDist = e.rad + gameState.player.rad;
+        
+        if (d < minDist) {
+          // Separación física (push)
+          if (d > 0) {
+            const overlap = minDist - d;
+            const nx = dx / d;
+            const ny = dy / d;
+            
+            // Empujar a ambos pero más al enemigo
+            gameState.player.x -= nx * overlap * 0.3;
+            gameState.player.y -= ny * overlap * 0.3;
+            e.x += nx * overlap * 0.7;
+            e.y += ny * overlap * 0.7;
+            
+            // Clamp player dentro del mapa después del empuje
+            gameState.player.x = Math.max(gameState.player.rad, Math.min(W - gameState.player.rad, gameState.player.x));
+            gameState.player.y = Math.max(gameState.player.rad, Math.min(H - gameState.player.rad, gameState.player.y));
+          }
+          
+          // Daño solo si no está en rage mode
+          if (gameState.player.rageTimer <= 0 && gameState.player.ifr <= 0) {
+            if (gameState.player.shield > 0) {
+              gameState.player.shield--;
+              gameState.player.ifr = gameState.player.ifrDuration;
+              // Shield break particles
+              for (let j = 0; j < 12; j++) {
+                const angle = (Math.PI * 2 * j) / 12;
+                gameState.particles.push({
+                  x: gameState.player.x,
+                  y: gameState.player.y,
+                  vx: Math.cos(angle) * 6,
+                  vy: Math.sin(angle) * 6,
+                  life: 0.8,
+                  color: "#3b82f6",
+                  size: 3,
+                });
               }
+            } else {
+              gameState.player.hp = Math.max(0, gameState.player.hp - e.damage);
+              gameState.player.ifr = gameState.player.ifrDuration;
               
-              if (gameState.player.hp <= 0) {
-                // Save score to leaderboard
-                const leaderboard = JSON.parse(localStorage.getItem("leaderboard") || "[]");
-                leaderboard.push({ score: gameState.score, level: gameState.level, wave: gameState.wave, date: new Date().toISOString() });
-                leaderboard.sort((a: any, b: any) => b.score - a.score);
-                localStorage.setItem("leaderboard", JSON.stringify(leaderboard.slice(0, 10)));
-                
-                playDeathSound();
-                setGameOver(true);
-                gameState.paused = true;
+              // Hit particles
+              for (let j = 0; j < 10; j++) {
+                const angle = (Math.PI * 2 * j) / 10;
+                gameState.particles.push({
+                  x: gameState.player.x,
+                  y: gameState.player.y,
+                  vx: Math.cos(angle) * 4,
+                  vy: Math.sin(angle) * 4,
+                  life: 0.4,
+                  color: "#ef4444",
+                  size: 3,
+                });
               }
-              
-              playHitSound();
             }
+            
+            if (gameState.player.hp <= 0) {
+              // Save score to leaderboard
+              const leaderboard = JSON.parse(localStorage.getItem("leaderboard") || "[]");
+              leaderboard.push({ score: gameState.score, level: gameState.level, wave: gameState.wave, date: new Date().toISOString() });
+              leaderboard.sort((a: any, b: any) => b.score - a.score);
+              localStorage.setItem("leaderboard", JSON.stringify(leaderboard.slice(0, 10)));
+              
+              playDeathSound();
+              setGameOver(true);
+              gameState.paused = true;
+            }
+            
+            playHitSound();
           }
         }
       }
@@ -1757,10 +1803,10 @@ const Index = () => {
         ctx.shadowBlur = 0;
       }
       
-      // Barra de progreso de Wave (abajo a la derecha, junto al Score)
-      const waveProgress = gameState.waveTimer / 30; // 30 segundos por wave
+      // Barra de progreso de Wave basada en kills (abajo a la derecha, junto al Score)
+      const waveProgress = Math.min(1, gameState.waveKills / gameState.waveEnemiesTotal);
       const waveBarW = 300;
-      const waveBarH = 20;
+      const waveBarH = 24;
       const waveBarX = W - waveBarW - 20;
       const waveBarY = 60;
       
@@ -1781,14 +1827,13 @@ const Index = () => {
         ctx.fillRect(waveBarX + 2, waveBarY + 2, progressW - 4, waveBarH - 4);
       }
       
-      // Texto de tiempo restante
-      const timeLeft = Math.ceil(30 - gameState.waveTimer);
+      // Texto de progreso de kills
       ctx.fillStyle = "#fff";
       ctx.font = "bold 14px system-ui";
       ctx.textAlign = "center";
       ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
       ctx.shadowBlur = 4;
-      ctx.fillText(`${timeLeft}s`, waveBarX + waveBarW / 2, waveBarY + waveBarH / 2 + 5);
+      ctx.fillText(`${gameState.waveKills} / ${gameState.waveEnemiesTotal}`, waveBarX + waveBarW / 2, waveBarY + waveBarH / 2 + 5);
       ctx.shadowBlur = 0;
 
       // Upgrade animation
