@@ -252,6 +252,7 @@ const Index = () => {
       levelUpAnimation: 0,
       upgradeAnimation: 0,
       xpBarRainbow: false,
+      waveNotification: 0,
       restartTimer: 0,
       restartHoldTime: 5,
       sounds: {
@@ -350,7 +351,7 @@ const Index = () => {
       // Multiplicador de HP por wave: +15% por cada wave
       const waveMultiplier = 1 + (gameState.wave - 1) * 0.15;
       
-      // Sistema de tipos de enemigos por color
+      // Sistema progresivo de enemigos según wave
       const roll = Math.random();
       let enemyType: "strong" | "medium" | "weak";
       let color: string;
@@ -359,30 +360,80 @@ const Index = () => {
       let rad: number;
       let spd: number;
       
-      if (roll < 0.2) {
-        // 20% Amarillo - Fuerte
-        enemyType = "strong";
-        color = "#fbbf24";
-        damage = 20;
-        baseHp = 8;
-        rad = 18;
-        spd = 0.9;
-      } else if (roll < 0.5) {
-        // 30% Morado - Medio
-        enemyType = "medium";
-        color = "#a855f7";
-        damage = 10;
-        baseHp = 5;
-        rad = 15;
-        spd = 1.1;
-      } else {
-        // 50% Verde - Débil
+      // Progresión dinámica de enemigos
+      if (gameState.wave <= 3) {
+        // Wave 1-3: SOLO verdes 🟢
         enemyType = "weak";
         color = "#22c55e";
         damage = 5;
         baseHp = 3;
         rad = 12;
         spd = 1.3;
+      } else if (gameState.wave <= 6) {
+        // Wave 4-6: mezcla verde (70%) y morado (30%)
+        if (roll < 0.7) {
+          enemyType = "weak";
+          color = "#22c55e";
+          damage = 5;
+          baseHp = 3;
+          rad = 12;
+          spd = 1.3;
+        } else {
+          enemyType = "medium";
+          color = "#a855f7";
+          damage = 10;
+          baseHp = 5;
+          rad = 15;
+          spd = 1.1;
+        }
+      } else if (gameState.wave <= 10) {
+        // Wave 7-10: morado predominante (60%), verde (30%), amarillo (10%)
+        if (roll < 0.6) {
+          enemyType = "medium";
+          color = "#a855f7";
+          damage = 10;
+          baseHp = 5;
+          rad = 15;
+          spd = 1.1;
+        } else if (roll < 0.9) {
+          enemyType = "weak";
+          color = "#22c55e";
+          damage = 5;
+          baseHp = 3;
+          rad = 12;
+          spd = 1.3;
+        } else {
+          enemyType = "strong";
+          color = "#fbbf24";
+          damage = 20;
+          baseHp = 8;
+          rad = 18;
+          spd = 0.9;
+        }
+      } else {
+        // Wave 10+: patrón dinámico - morado (50%), amarillo (30%), verde (20%)
+        if (roll < 0.5) {
+          enemyType = "medium";
+          color = "#a855f7";
+          damage = 10;
+          baseHp = 5;
+          rad = 15;
+          spd = 1.1;
+        } else if (roll < 0.8) {
+          enemyType = "strong";
+          color = "#fbbf24";
+          damage = 20;
+          baseHp = 8;
+          rad = 18;
+          spd = 0.9;
+        } else {
+          enemyType = "weak";
+          color = "#22c55e";
+          damage = 5;
+          baseHp = 3;
+          rad = 12;
+          spd = 1.3;
+        }
       }
       
       const scaledHp = Math.floor(baseHp * waveMultiplier);
@@ -997,6 +1048,28 @@ const Index = () => {
       if (gameState.waveTimer >= 60) {
         gameState.waveTimer = 0;
         gameState.wave++;
+        
+        // Animación de transición entre waves
+        gameState.waveNotification = 3; // Mostrar durante 3 segundos
+        
+        // Partículas de celebración de wave
+        for (let i = 0; i < 30; i++) {
+          const angle = (Math.PI * 2 * i) / 30;
+          gameState.particles.push({
+            x: W / 2,
+            y: H / 2,
+            vx: Math.cos(angle) * 8,
+            vy: Math.sin(angle) * 8,
+            life: 1.5,
+            color: "#a855f7",
+            size: 4,
+          });
+        }
+      }
+      
+      // Reducir timer de notificación de wave
+      if (gameState.waveNotification > 0) {
+        gameState.waveNotification = Math.max(0, gameState.waveNotification - dt);
       }
 
       // Hotspot spawning
@@ -1111,18 +1184,35 @@ const Index = () => {
       gameState.player.x = Math.max(gameState.player.rad, Math.min(W - gameState.player.rad, gameState.player.x + vx * spd));
       gameState.player.y = Math.max(gameState.player.rad, Math.min(H - gameState.player.rad, gameState.player.y + vy * spd));
 
-      // Spawn enemigos con dificultad de wave
+      // Spawn enemigos con dificultad de wave progresiva
       gameState.lastSpawn += dt;
-      const waveDifficulty = 1 + (gameState.wave - 1) * 0.2;
-      const spawnRate = Math.max(0.2, 1.2 - gameState.level * 0.05) / waveDifficulty;
+      
+      // Tasa de spawn dinámica según wave
+      let spawnRate: number;
+      if (gameState.wave <= 3) {
+        // Wave 1-3: spawn más lento, enemigos débiles
+        spawnRate = Math.max(0.5, 1.5 - gameState.level * 0.05);
+      } else if (gameState.wave <= 6) {
+        // Wave 4-6: spawn moderado
+        spawnRate = Math.max(0.3, 1.2 - gameState.level * 0.05);
+      } else if (gameState.wave <= 10) {
+        // Wave 7-10: spawn más rápido
+        spawnRate = Math.max(0.2, 0.9 - gameState.level * 0.05);
+      } else {
+        // Wave 10+: spawn muy rápido y caótico
+        const waveDifficulty = 1 + (gameState.wave - 10) * 0.15;
+        spawnRate = Math.max(0.15, (0.7 - gameState.level * 0.05) / waveDifficulty);
+      }
+      
       if (gameState.lastSpawn > spawnRate) {
         spawnEnemy();
         gameState.lastSpawn = 0;
       }
       
-      // Spawn mini-boss cada 30 segundos
+      // Spawn mini-boss más frecuente en waves avanzadas
       gameState.lastMiniBossSpawn += dt;
-      if (gameState.lastMiniBossSpawn >= 30) {
+      const miniBossInterval = gameState.wave <= 5 ? 40 : gameState.wave <= 10 ? 30 : 20;
+      if (gameState.lastMiniBossSpawn >= miniBossInterval) {
         gameState.lastMiniBossSpawn = 0;
         spawnMiniBoss();
       }
@@ -1641,6 +1731,46 @@ const Index = () => {
         ctx.fillText("LEVEL UP!", 0, 0);
         ctx.restore();
         ctx.globalAlpha = 1;
+      }
+      
+      // Wave notification
+      if (gameState.waveNotification > 0) {
+        const alpha = Math.min(1, gameState.waveNotification);
+        const fadeOut = gameState.waveNotification < 1 ? gameState.waveNotification : 1;
+        ctx.globalAlpha = fadeOut;
+        
+        // Fondo semitransparente
+        ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+        ctx.fillRect(0, H / 2 - 80, W, 160);
+        
+        // Texto principal con glow
+        const pulse = Math.sin(gameState.time * 8) * 0.2 + 0.8;
+        ctx.fillStyle = "#a855f7";
+        ctx.shadowColor = "#a855f7";
+        ctx.shadowBlur = 30 * pulse;
+        ctx.font = "bold 64px system-ui";
+        ctx.textAlign = "center";
+        ctx.fillText(`WAVE ${gameState.wave}`, W / 2, H / 2 - 10);
+        
+        // Subtítulo
+        ctx.shadowBlur = 0;
+        ctx.font = "bold 28px system-ui";
+        ctx.fillStyle = "#fbbf24";
+        
+        let subtitle = "";
+        if (gameState.wave <= 3) {
+          subtitle = "¡Calentamiento!";
+        } else if (gameState.wave <= 6) {
+          subtitle = "¡La cosa se pone seria!";
+        } else if (gameState.wave <= 10) {
+          subtitle = "¡Prepárate para la batalla!";
+        } else {
+          subtitle = "¡MODO SUPERVIVENCIA!";
+        }
+        
+        ctx.fillText(subtitle, W / 2, H / 2 + 40);
+        ctx.globalAlpha = 1;
+        ctx.shadowBlur = 0;
       }
 
       // Upgrade animation
