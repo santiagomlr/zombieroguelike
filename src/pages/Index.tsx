@@ -1901,24 +1901,28 @@ const Index = () => {
       ctx.strokeRect(hpBarX, hpBarY, hpBarW, hpBarH);
       
       // Barra de HP actual (roja)
-      const hpPercent = gameState.player.hp / gameState.player.maxhp;
-      const currentHpBarW = hpBarW * hpPercent;
+      const safeMaxHp = Math.max(1, Number(gameState.player.maxhp) || 1);
+      const hpPercentRaw = Number(gameState.player.hp) / safeMaxHp;
+      const hpPercent = Math.max(0, Math.min(1, Number.isFinite(hpPercentRaw) ? hpPercentRaw : 0));
+      const currentHpBarW = Math.max(0, hpBarW * hpPercent);
       
       // Gradiente para la barra de HP
-      const hpGradient = ctx.createLinearGradient(hpBarX, hpBarY, hpBarX + currentHpBarW, hpBarY);
-      if (hpPercent > 0.5) {
-        hpGradient.addColorStop(0, "#ef4444");
-        hpGradient.addColorStop(1, "#dc2626");
-      } else if (hpPercent > 0.25) {
-        hpGradient.addColorStop(0, "#f97316");
-        hpGradient.addColorStop(1, "#ea580c");
-      } else {
-        hpGradient.addColorStop(0, "#dc2626");
-        hpGradient.addColorStop(1, "#991b1b");
+      if (currentHpBarW > 0) {
+        const hpGradient = ctx.createLinearGradient(hpBarX, hpBarY, hpBarX + currentHpBarW, hpBarY);
+        if (hpPercent > 0.5) {
+          hpGradient.addColorStop(0, "#ef4444");
+          hpGradient.addColorStop(1, "#dc2626");
+        } else if (hpPercent > 0.25) {
+          hpGradient.addColorStop(0, "#f97316");
+          hpGradient.addColorStop(1, "#ea580c");
+        } else {
+          hpGradient.addColorStop(0, "#dc2626");
+          hpGradient.addColorStop(1, "#991b1b");
+        }
+        
+        ctx.fillStyle = hpGradient;
+        ctx.fillRect(hpBarX + 2, hpBarY + 2, currentHpBarW - 4, hpBarH - 4);
       }
-      
-      ctx.fillStyle = hpGradient;
-      ctx.fillRect(hpBarX + 2, hpBarY + 2, currentHpBarW - 4, hpBarH - 4);
       
       // Texto de HP en el centro
       ctx.fillStyle = "#fff";
