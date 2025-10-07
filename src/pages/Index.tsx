@@ -343,12 +343,18 @@ const Index = () => {
       else if (side === 2) { x = Math.random() * W; y = H + 30; }
       else { x = -30; y = Math.random() * H; }
       
+      // Multiplicador de HP por wave: +15% por cada wave
+      const waveMultiplier = 1 + (gameState.wave - 1) * 0.15;
+      
       const isElite = Math.random() < 0.1;
+      const baseHp = isElite ? 8 : 3;
+      const scaledHp = Math.floor(baseHp * waveMultiplier);
+      
       gameState.enemies.push({
         x, y,
         rad: isElite ? 20 : 14,
-        hp: isElite ? 8 : 3,
-        maxhp: isElite ? 8 : 3,
+        hp: scaledHp,
+        maxhp: scaledHp,
         spd: isElite ? 0.8 : 1.2,
         isElite,
         isMiniBoss: false,
@@ -364,11 +370,16 @@ const Index = () => {
       else if (side === 2) { x = Math.random() * W; y = H + 40; }
       else { x = -40; y = Math.random() * H; }
       
+      // Multiplicador de HP por wave: +15% por cada wave
+      const waveMultiplier = 1 + (gameState.wave - 1) * 0.15;
+      const baseHp = 25;
+      const scaledHp = Math.floor(baseHp * waveMultiplier);
+      
       gameState.enemies.push({
         x, y,
         rad: 28,
-        hp: 25,
-        maxhp: 25,
+        hp: scaledHp,
+        maxhp: scaledHp,
         spd: 1.0,
         isElite: false,
         isMiniBoss: true,
