@@ -1043,9 +1043,10 @@ const Index = () => {
       if (gameState.levelUpAnimation > 0) gameState.levelUpAnimation = Math.max(0, gameState.levelUpAnimation - dt * 2);
       if (gameState.upgradeAnimation > 0) gameState.upgradeAnimation = Math.max(0, gameState.upgradeAnimation - dt);
 
-      // Wave system
+      // Wave system - Waves más rápidas (30s)
       gameState.waveTimer += dt;
-      if (gameState.waveTimer >= 60) {
+      const waveDuration = 30; // Duración de cada wave en segundos
+      if (gameState.waveTimer >= waveDuration) {
         gameState.waveTimer = 0;
         gameState.wave++;
         
@@ -1187,21 +1188,21 @@ const Index = () => {
       // Spawn enemigos con dificultad de wave progresiva
       gameState.lastSpawn += dt;
       
-      // Tasa de spawn dinámica según wave
+      // Tasa de spawn dinámica según wave - MÁS RÁPIDO
       let spawnRate: number;
       if (gameState.wave <= 3) {
-        // Wave 1-3: spawn más lento, enemigos débiles
-        spawnRate = Math.max(0.5, 1.5 - gameState.level * 0.05);
+        // Wave 1-3: spawn más rápido
+        spawnRate = Math.max(0.3, 0.8 - gameState.level * 0.05);
       } else if (gameState.wave <= 6) {
-        // Wave 4-6: spawn moderado
-        spawnRate = Math.max(0.3, 1.2 - gameState.level * 0.05);
+        // Wave 4-6: spawn moderado-rápido
+        spawnRate = Math.max(0.2, 0.6 - gameState.level * 0.05);
       } else if (gameState.wave <= 10) {
-        // Wave 7-10: spawn más rápido
-        spawnRate = Math.max(0.2, 0.9 - gameState.level * 0.05);
+        // Wave 7-10: spawn muy rápido
+        spawnRate = Math.max(0.15, 0.5 - gameState.level * 0.05);
       } else {
-        // Wave 10+: spawn muy rápido y caótico
+        // Wave 10+: spawn caótico
         const waveDifficulty = 1 + (gameState.wave - 10) * 0.15;
-        spawnRate = Math.max(0.15, (0.7 - gameState.level * 0.05) / waveDifficulty);
+        spawnRate = Math.max(0.1, (0.4 - gameState.level * 0.05) / waveDifficulty);
       }
       
       if (gameState.lastSpawn > spawnRate) {
@@ -1209,9 +1210,9 @@ const Index = () => {
         gameState.lastSpawn = 0;
       }
       
-      // Spawn mini-boss más frecuente en waves avanzadas
+      // Spawn mini-boss más frecuente en waves avanzadas - MÁS RÁPIDO
       gameState.lastMiniBossSpawn += dt;
-      const miniBossInterval = gameState.wave <= 5 ? 40 : gameState.wave <= 10 ? 30 : 20;
+      const miniBossInterval = gameState.wave <= 5 ? 25 : gameState.wave <= 10 ? 18 : 12;
       if (gameState.lastMiniBossSpawn >= miniBossInterval) {
         gameState.lastMiniBossSpawn = 0;
         spawnMiniBoss();
@@ -1741,7 +1742,7 @@ const Index = () => {
         
         // Fondo semitransparente
         ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-        ctx.fillRect(0, H / 2 - 80, W, 160);
+        ctx.fillRect(0, H / 2 - 60, W, 120);
         
         // Texto principal con glow
         const pulse = Math.sin(gameState.time * 8) * 0.2 + 0.8;
@@ -1750,28 +1751,45 @@ const Index = () => {
         ctx.shadowBlur = 30 * pulse;
         ctx.font = "bold 64px system-ui";
         ctx.textAlign = "center";
-        ctx.fillText(`WAVE ${gameState.wave}`, W / 2, H / 2 - 10);
+        ctx.fillText(`WAVE ${gameState.wave}`, W / 2, H / 2 + 10);
         
-        // Subtítulo
-        ctx.shadowBlur = 0;
-        ctx.font = "bold 28px system-ui";
-        ctx.fillStyle = "#fbbf24";
-        
-        let subtitle = "";
-        if (gameState.wave <= 3) {
-          subtitle = "¡Calentamiento!";
-        } else if (gameState.wave <= 6) {
-          subtitle = "¡La cosa se pone seria!";
-        } else if (gameState.wave <= 10) {
-          subtitle = "¡Prepárate para la batalla!";
-        } else {
-          subtitle = "¡MODO SUPERVIVENCIA!";
-        }
-        
-        ctx.fillText(subtitle, W / 2, H / 2 + 40);
         ctx.globalAlpha = 1;
         ctx.shadowBlur = 0;
       }
+      
+      // Barra de progreso de Wave (abajo a la derecha, junto al Score)
+      const waveProgress = gameState.waveTimer / 30; // 30 segundos por wave
+      const waveBarW = 300;
+      const waveBarH = 20;
+      const waveBarX = W - waveBarW - 20;
+      const waveBarY = 60;
+      
+      // Fondo de la barra
+      ctx.fillStyle = "rgba(20, 25, 35, 0.9)";
+      ctx.fillRect(waveBarX, waveBarY, waveBarW, waveBarH);
+      ctx.strokeStyle = "#334155";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(waveBarX, waveBarY, waveBarW, waveBarH);
+      
+      // Progreso (gradiente morado)
+      const progressW = waveBarW * waveProgress;
+      if (progressW > 0) {
+        const gradient = ctx.createLinearGradient(waveBarX, waveBarY, waveBarX + progressW, waveBarY);
+        gradient.addColorStop(0, "#a855f7");
+        gradient.addColorStop(1, "#c084fc");
+        ctx.fillStyle = gradient;
+        ctx.fillRect(waveBarX + 2, waveBarY + 2, progressW - 4, waveBarH - 4);
+      }
+      
+      // Texto de tiempo restante
+      const timeLeft = Math.ceil(30 - gameState.waveTimer);
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 14px system-ui";
+      ctx.textAlign = "center";
+      ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+      ctx.shadowBlur = 4;
+      ctx.fillText(`${timeLeft}s`, waveBarX + waveBarW / 2, waveBarY + waveBarH / 2 + 5);
+      ctx.shadowBlur = 0;
 
       // Upgrade animation
       if (gameState.upgradeAnimation > 0) {
