@@ -2603,6 +2603,7 @@ const Index = () => {
                 isElite: false,
                 isMiniBoss: false,
                 isBoss: false,
+                isSummoned: true, // Marcado como invocado, no cuenta para la wave
                 color: "#a855f7",
                 specialType: null,
                 frozenTimer: 0,
@@ -2987,8 +2988,10 @@ const Index = () => {
                 }
               }
               
-              // Incrementar contador de muertes de la wave
-              gameState.waveKills++;
+              // Incrementar contador de muertes de la wave (solo si no es invocado)
+              if (!e.isSummoned) {
+                gameState.waveKills++;
+              }
               
               // Puntos y XP según tipo de enemigo
               let points = 10;
