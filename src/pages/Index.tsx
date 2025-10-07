@@ -1146,9 +1146,9 @@ const Index = () => {
         y,
         rad: isNegative ? 80 : 60, // Hotspots negativos son más grandes
         progress: 0,
-        required: 10, // 10 segundos para recompensa cuando está dentro
-        expirationTimer: 0, // Timer de caducación (45s)
-        maxExpiration: 45, // Se elimina si no llegas en 45s
+        required: isNegative ? 10 : 3, // Positivos: 3s para completar, Negativos: no aplica
+        expirationTimer: 0,
+        maxExpiration: isNegative ? 45 : 5, // Positivos: duran 5s, Negativos: 45s
         active: false,
         isNegative, // true = zona de peligro, false = zona positiva
       });
