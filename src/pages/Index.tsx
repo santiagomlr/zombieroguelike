@@ -207,6 +207,7 @@ const Index = () => {
   const [language, setLanguage] = useState<Language>("es");
   const gameStateRef = useRef<any>(null);
   const resetGameRef = useRef<(() => void) | null>(null);
+  const prerenderedLogosRef = useRef<{[key: string]: HTMLCanvasElement}>({});
   
   const t = translations[language];
 
@@ -243,6 +244,7 @@ const Index = () => {
         weapons: [WEAPONS[0]],
         tomes: [] as Tome[],
         items: [] as Item[],
+        itemFlags: {} as Record<string, boolean>,
         stats: {
           damageMultiplier: 1,
           speedMultiplier: 1,
@@ -273,6 +275,7 @@ const Index = () => {
       drops: [] as any[],
       particles: [] as any[],
       hotspots: [] as any[],
+      maxParticles: 200,
       score: 0,
       level: 1,
       xp: 0,
@@ -333,6 +336,20 @@ const Index = () => {
     enemyLogoImg.onload = () => {
       gameState.enemyLogo = enemyLogoImg;
       console.log('Enemy logo loaded successfully');
+      
+      // Pre-render colored enemy logos for performance
+      const colors = ['#22c55e', '#a855f7', '#fbbf24', '#16a34a', '#9333ea', '#f59e0b'];
+      colors.forEach(color => {
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = 60;
+        tempCanvas.height = 60;
+        const tempCtx = tempCanvas.getContext('2d')!;
+        tempCtx.drawImage(enemyLogoImg, 0, 0, 60, 60);
+        tempCtx.globalCompositeOperation = 'source-in';
+        tempCtx.fillStyle = color;
+        tempCtx.fillRect(0, 0, 60, 60);
+        prerenderedLogosRef.current[color] = tempCanvas;
+      });
     };
     enemyLogoImg.onerror = () => {
       console.error('Failed to load enemy logo');
@@ -458,6 +475,7 @@ const Index = () => {
       gameState.player.weapons = [{ ...WEAPONS[0] }];
       gameState.player.tomes = [];
       gameState.player.items = [];
+      gameState.player.itemFlags = {};
       gameState.player.stats = {
         damageMultiplier: 1,
         speedMultiplier: 1,
@@ -573,8 +591,9 @@ const Index = () => {
       else { x = -30; y = Math.random() * H; }
       
       // Horde Totem: +1 enemigo adicional spawn
-      const hordeTotem = gameState.player.items.find((it: Item) => it.id === "hordetotem");
+      const spawnCount = gameState.player.itemFlags.hordetotem ? 2 : 1;
       
+      for (let spawnIdx = 0; spawnIdx < spawnCount; spawnIdx++) {
       const roll = Math.random();
       let enemyType: "strong" | "medium" | "weak";
       let color: string;
@@ -775,6 +794,7 @@ const Index = () => {
         isMiniBoss: false,
         color,
       });
+      }
     }
     
     function spawnMiniBoss() {
@@ -879,17 +899,20 @@ const Index = () => {
         }
       }
       
-      // Partículas de disparo
-      for (let i = 0; i < 3; i++) {
-        gameState.particles.push({
-          x: gameState.player.x,
-          y: gameState.player.y,
-          vx: Math.cos(dir) * 2 + (Math.random() - 0.5),
-          vy: Math.sin(dir) * 2 + (Math.random() - 0.5),
-          life: 0.3,
-          color: weapon.color,
-          size: 2,
-        });
+      // Partículas de disparo con límite
+      if (gameState.particles.length < gameState.maxParticles) {
+        const particlesToAdd = Math.min(3, gameState.maxParticles - gameState.particles.length);
+        for (let i = 0; i < particlesToAdd; i++) {
+          gameState.particles.push({
+            x: gameState.player.x,
+            y: gameState.player.y,
+            vx: Math.cos(dir) * 2 + (Math.random() - 0.5),
+            vy: Math.sin(dir) * 2 + (Math.random() - 0.5),
+            life: 0.3,
+            color: weapon.color,
+            size: 2,
+          });
+        }
       }
       
       playShootSound();
@@ -997,18 +1020,20 @@ const Index = () => {
         gameState.player.rageTimer = duration;
       }
       
-      // Partículas de powerup
-      for (let i = 0; i < 20; i++) {
-        const angle = (Math.PI * 2 * i) / 20;
-        gameState.particles.push({
-          x: drop.x,
-          y: drop.y,
-          vx: Math.cos(angle) * 6,
-          vy: Math.sin(angle) * 6,
-          life: 0.8,
-          color: drop.color,
-          size: 4,
-        });
+      // Partículas de powerup con límite
+      if (gameState.particles.length < gameState.maxParticles - 20) {
+        for (let i = 0; i < 20; i++) {
+          const angle = (Math.PI * 2 * i) / 20;
+          gameState.particles.push({
+            x: drop.x,
+            y: drop.y,
+            vx: Math.cos(angle) * 6,
+            vy: Math.sin(angle) * 6,
+            life: 0.8,
+            color: drop.color,
+            size: 4,
+          });
+        }
       }
     }
 
@@ -1402,8 +1427,9 @@ const Index = () => {
         const item = option.data as Item;
         
         // Verificar que no esté duplicado
-        if (!gameState.player.items.find((it: Item) => it.id === item.id)) {
+        if (!gameState.player.itemFlags[item.id]) {
           gameState.player.items.push(item);
+          gameState.player.itemFlags[item.id] = true;
           
           // Aplicar efectos de ítems
           switch(item.effect) {
@@ -1916,18 +1942,20 @@ const Index = () => {
                   e2.hp -= b.damage * 0.5;
                 }
               }
-              // Partículas de explosión
-              for (let j = 0; j < 20; j++) {
-                const angle = (Math.PI * 2 * j) / 20;
-                gameState.particles.push({
-                  x: b.x,
-                  y: b.y,
-                  vx: Math.cos(angle) * 5,
-                  vy: Math.sin(angle) * 5,
-                  life: 0.6,
-                  color: "#a855f7",
-                  size: 3,
-                });
+              // Partículas de explosión con límite
+              if (gameState.particles.length < gameState.maxParticles - 20) {
+                for (let j = 0; j < 20; j++) {
+                  const angle = (Math.PI * 2 * j) / 20;
+                  gameState.particles.push({
+                    x: b.x,
+                    y: b.y,
+                    vx: Math.cos(angle) * 5,
+                    vy: Math.sin(angle) * 5,
+                    life: 0.6,
+                    color: "#a855f7",
+                    size: 3,
+                  });
+                }
               }
             }
 
@@ -1950,17 +1978,19 @@ const Index = () => {
               if (closestEnemy && closestDist < 200) {
                 b.dir = Math.atan2(closestEnemy.y - b.y, closestEnemy.x - b.x);
                 b.bounces--;
-                // Partículas de rebote
-                for (let j = 0; j < 5; j++) {
-                  gameState.particles.push({
-                    x: b.x,
-                    y: b.y,
-                    vx: (Math.random() - 0.5) * 3,
-                    vy: (Math.random() - 0.5) * 3,
-                    life: 0.3,
-                    color: b.color,
-                    size: 2,
-                  });
+                // Partículas de rebote con límite
+                if (gameState.particles.length < gameState.maxParticles - 5) {
+                  for (let j = 0; j < 5; j++) {
+                    gameState.particles.push({
+                      x: b.x,
+                      y: b.y,
+                      vx: (Math.random() - 0.5) * 3,
+                      vy: (Math.random() - 0.5) * 3,
+                      life: 0.3,
+                      color: b.color,
+                      size: 2,
+                    });
+                  }
                 }
               } else if (!b.pierce) {
                 b.life = 0;
@@ -2013,7 +2043,7 @@ const Index = () => {
                 let xpValue = e.isMiniBoss ? 30 : (e.enemyType === "strong" ? 5 : e.enemyType === "medium" ? 3 : 2);
                 
                 // Horde Totem: +2 XP por kill
-                if (gameState.player.items.find((it: Item) => it.id === "hordetotem")) {
+                if (gameState.player.itemFlags.hordetotem) {
                   xpValue += 2;
                 }
                 
@@ -2022,7 +2052,7 @@ const Index = () => {
               
               // Drop de curación (5% de probabilidad - más raro)
               const healRoll = Math.random();
-              const luckMultiplier = gameState.player.items.find((it: Item) => it.id === "luck") ? 1.5 : 1;
+              const luckMultiplier = gameState.player.itemFlags.luck ? 1.5 : 1;
               
               if (healRoll < 0.05 * luckMultiplier) {
                 dropHeal(e.x, e.y);
@@ -2042,7 +2072,7 @@ const Index = () => {
               }
               
               // Solar Gauntlet: cada 10 kills dispara proyectil masivo
-              if (gameState.player.items.find((it: Item) => it.id === "solargauntlet")) {
+              if (gameState.player.itemFlags.solargauntlet) {
                 gameState.player.stats.solarGauntletKills++;
                 if (gameState.player.stats.solarGauntletKills >= 10) {
                   gameState.player.stats.solarGauntletKills = 0;
@@ -2062,58 +2092,64 @@ const Index = () => {
                       aoe: false,
                     });
                   }
-                  // Efecto visual
-                  for (let j = 0; j < 30; j++) {
-                    const angle = (Math.PI * 2 * j) / 30;
-                    gameState.particles.push({
-                      x: gameState.player.x,
-                      y: gameState.player.y,
-                      vx: Math.cos(angle) * 10,
-                      vy: Math.sin(angle) * 10,
-                      life: 1,
-                      color: "#fbbf24",
-                      size: 5,
-                    });
+                  // Efecto visual con límite
+                  if (gameState.particles.length < gameState.maxParticles - 30) {
+                    for (let j = 0; j < 30; j++) {
+                      const angle = (Math.PI * 2 * j) / 30;
+                      gameState.particles.push({
+                        x: gameState.player.x,
+                        y: gameState.player.y,
+                        vx: Math.cos(angle) * 10,
+                        vy: Math.sin(angle) * 10,
+                        life: 1,
+                        color: "#fbbf24",
+                        size: 5,
+                      });
+                    }
                   }
                   playPowerupSound();
                 }
               }
               
               // Bloodstone: cada 30 kills recupera 5 HP
-              if (gameState.player.items.find((it: Item) => it.id === "bloodstone")) {
+              if (gameState.player.itemFlags.bloodstone) {
                 gameState.player.stats.bloodstoneKills++;
                 if (gameState.player.stats.bloodstoneKills >= 30) {
                   gameState.player.stats.bloodstoneKills = 0;
                   gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + 5);
-                  // Efecto visual de curación
-                  for (let j = 0; j < 12; j++) {
-                    const angle = (Math.PI * 2 * j) / 12;
-                    gameState.particles.push({
-                      x: gameState.player.x,
-                      y: gameState.player.y,
-                      vx: Math.cos(angle) * 4,
-                      vy: Math.sin(angle) * 4,
-                      life: 0.8,
-                      color: "#dc2626",
-                      size: 4,
-                    });
+                  // Efecto visual de curación con límite
+                  if (gameState.particles.length < gameState.maxParticles - 12) {
+                    for (let j = 0; j < 12; j++) {
+                      const angle = (Math.PI * 2 * j) / 12;
+                      gameState.particles.push({
+                        x: gameState.player.x,
+                        y: gameState.player.y,
+                        vx: Math.cos(angle) * 4,
+                        vy: Math.sin(angle) * 4,
+                        life: 0.8,
+                        color: "#dc2626",
+                        size: 4,
+                      });
+                    }
                   }
                 }
               }
               
               playHitSound();
 
-              // Partículas de muerte
-              for (let j = 0; j < 8; j++) {
-                gameState.particles.push({
-                  x: e.x,
-                  y: e.y,
-                  vx: (Math.random() - 0.5) * 4,
-                  vy: (Math.random() - 0.5) * 4,
-                  life: 0.8,
-                  color: e.color,
-                  size: e.rad / 3,
-                });
+              // Partículas de muerte con límite
+              if (gameState.particles.length < gameState.maxParticles - 8) {
+                for (let j = 0; j < 8; j++) {
+                  gameState.particles.push({
+                    x: e.x,
+                    y: e.y,
+                    vx: (Math.random() - 0.5) * 4,
+                    vy: (Math.random() - 0.5) * 4,
+                    life: 0.8,
+                    color: e.color,
+                    size: e.rad / 3,
+                  });
+                }
               }
               break;
             }
@@ -2145,18 +2181,20 @@ const Index = () => {
           } else if (g.type === "heal") {
             gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + g.val);
             playPowerupSound();
-            // Partículas de curación
-            for (let j = 0; j < 15; j++) {
-              const angle = (Math.PI * 2 * j) / 15;
-              gameState.particles.push({
-                x: gameState.player.x,
-                y: gameState.player.y,
-                vx: Math.cos(angle) * 3,
-                vy: Math.sin(angle) * 3,
-                life: 0.6,
-                color: "#22c55e",
-                size: 4,
-              });
+            // Partículas de curación con límite
+            if (gameState.particles.length < gameState.maxParticles - 15) {
+              for (let j = 0; j < 15; j++) {
+                const angle = (Math.PI * 2 * j) / 15;
+                gameState.particles.push({
+                  x: gameState.player.x,
+                  y: gameState.player.y,
+                  vx: Math.cos(angle) * 3,
+                  vy: Math.sin(angle) * 3,
+                  life: 0.6,
+                  color: "#22c55e",
+                  size: 4,
+                });
+              }
             }
           } else if (g.type === "powerup") {
             collectPowerup(g);
@@ -2193,39 +2231,43 @@ const Index = () => {
           // Daño solo si no está en rage mode
           if (gameState.player.rageTimer <= 0 && gameState.player.ifr <= 0) {
             // First Hit Immune: revisar si es el primer golpe de la wave
-            const hasFirstHitImmune = gameState.player.items.find((it: Item) => it.id === "ballistichelmet");
+            const hasFirstHitImmune = gameState.player.itemFlags.ballistichelmet;
             if (hasFirstHitImmune && !gameState.player.stats.firstHitImmuneUsed) {
               // Inmunidad al primer golpe
               gameState.player.stats.firstHitImmuneUsed = true;
               gameState.player.ifr = gameState.player.ifrDuration;
-              // Efecto visual de inmunidad
-              for (let j = 0; j < 15; j++) {
-                const angle = (Math.PI * 2 * j) / 15;
-                gameState.particles.push({
-                  x: gameState.player.x,
-                  y: gameState.player.y,
-                  vx: Math.cos(angle) * 8,
-                  vy: Math.sin(angle) * 8,
-                  life: 1,
-                  color: "#fbbf24",
-                  size: 4,
-                });
+              // Efecto visual de inmunidad con límite
+              if (gameState.particles.length < gameState.maxParticles - 15) {
+                for (let j = 0; j < 15; j++) {
+                  const angle = (Math.PI * 2 * j) / 15;
+                  gameState.particles.push({
+                    x: gameState.player.x,
+                    y: gameState.player.y,
+                    vx: Math.cos(angle) * 8,
+                    vy: Math.sin(angle) * 8,
+                    life: 1,
+                    color: "#fbbf24",
+                    size: 4,
+                  });
+                }
               }
             } else if (gameState.player.shield > 0) {
               gameState.player.shield--;
               gameState.player.ifr = gameState.player.ifrDuration;
-              // Shield break particles
-              for (let j = 0; j < 12; j++) {
-                const angle = (Math.PI * 2 * j) / 12;
-                gameState.particles.push({
-                  x: gameState.player.x,
-                  y: gameState.player.y,
-                  vx: Math.cos(angle) * 6,
-                  vy: Math.sin(angle) * 6,
-                  life: 0.8,
-                  color: "#3b82f6",
-                  size: 3,
-                });
+              // Shield break particles con límite
+              if (gameState.particles.length < gameState.maxParticles - 12) {
+                for (let j = 0; j < 12; j++) {
+                  const angle = (Math.PI * 2 * j) / 12;
+                  gameState.particles.push({
+                    x: gameState.player.x,
+                    y: gameState.player.y,
+                    vx: Math.cos(angle) * 6,
+                    vy: Math.sin(angle) * 6,
+                    life: 0.8,
+                    color: "#3b82f6",
+                    size: 3,
+                  });
+                }
               }
             } else {
               const safeCurrentHp = Number.isFinite(Number(gameState.player.hp)) ? Number(gameState.player.hp) : Number(gameState.player.maxhp) || 0;
@@ -2251,33 +2293,37 @@ const Index = () => {
                     enemy.hp -= gameState.player.stats.damageMultiplier * 5;
                   }
                 }
-                // Efecto visual de onda
-                for (let j = 0; j < 20; j++) {
-                  const angle = (Math.PI * 2 * j) / 20;
-                  gameState.particles.push({
-                    x: gameState.player.x,
-                    y: gameState.player.y,
-                    vx: Math.cos(angle) * 12,
-                    vy: Math.sin(angle) * 12,
-                    life: 0.8,
-                    color: "#a855f7",
-                    size: 4,
-                  });
+                // Efecto visual de onda con límite
+                if (gameState.particles.length < gameState.maxParticles - 20) {
+                  for (let j = 0; j < 20; j++) {
+                    const angle = (Math.PI * 2 * j) / 20;
+                    gameState.particles.push({
+                      x: gameState.player.x,
+                      y: gameState.player.y,
+                      vx: Math.cos(angle) * 12,
+                      vy: Math.sin(angle) * 12,
+                      life: 0.8,
+                      color: "#a855f7",
+                      size: 4,
+                    });
+                  }
                 }
               }
               
-              // Hit particles
-              for (let j = 0; j < 10; j++) {
-                const angle = (Math.PI * 2 * j) / 10;
-                gameState.particles.push({
-                  x: gameState.player.x,
-                  y: gameState.player.y,
-                  vx: Math.cos(angle) * 4,
-                  vy: Math.sin(angle) * 4,
-                  life: 0.4,
-                  color: "#ef4444",
-                  size: 3,
-                });
+              // Hit particles con límite
+              if (gameState.particles.length < gameState.maxParticles - 10) {
+                for (let j = 0; j < 10; j++) {
+                  const angle = (Math.PI * 2 * j) / 10;
+                  gameState.particles.push({
+                    x: gameState.player.x,
+                    y: gameState.player.y,
+                    vx: Math.cos(angle) * 4,
+                    vy: Math.sin(angle) * 4,
+                    life: 0.4,
+                    color: "#ef4444",
+                    size: 3,
+                  });
+                }
               }
             }
             
@@ -3064,27 +3110,25 @@ const Index = () => {
           // Dibujar el logo escalado al tamaño del enemigo
           const logoSize = e.rad * 2;
           
-          // Crear un canvas temporal para colorear el logo
-          const tempCanvas = document.createElement('canvas');
-          tempCanvas.width = logoSize;
-          tempCanvas.height = logoSize;
-          const tempCtx = tempCanvas.getContext('2d');
-          
-          if (tempCtx) {
-            // Dibujar el logo original
-            tempCtx.drawImage(
-              gameState.enemyLogo,
-              0, 0,
-              logoSize, logoSize
-            );
+          // Usar logo pre-renderizado si está disponible, sino crear temporalmente
+          const prerenderedLogo = prerenderedLogosRef.current[e.color];
+          if (prerenderedLogo) {
+            // Usar logo pre-renderizado (mucho más rápido)
+            ctx.drawImage(prerenderedLogo, -logoSize / 2, -logoSize / 2, logoSize, logoSize);
+          } else {
+            // Fallback: crear canvas temporal (para colores personalizados)
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = logoSize;
+            tempCanvas.height = logoSize;
+            const tempCtx = tempCanvas.getContext('2d');
             
-            // Aplicar color manteniendo la transparencia
-            tempCtx.globalCompositeOperation = 'source-in';
-            tempCtx.fillStyle = e.color;
-            tempCtx.fillRect(0, 0, logoSize, logoSize);
-            
-            // Dibujar el resultado final
-            ctx.drawImage(tempCanvas, -logoSize / 2, -logoSize / 2);
+            if (tempCtx) {
+              tempCtx.drawImage(gameState.enemyLogo, 0, 0, logoSize, logoSize);
+              tempCtx.globalCompositeOperation = 'source-in';
+              tempCtx.fillStyle = e.color;
+              tempCtx.fillRect(0, 0, logoSize, logoSize);
+              ctx.drawImage(tempCanvas, -logoSize / 2, -logoSize / 2);
+            }
           }
           
           ctx.shadowBlur = 0;
