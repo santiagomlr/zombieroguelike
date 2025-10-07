@@ -716,9 +716,11 @@ const Index = () => {
     function update(dt: number) {
       // Restart timer (works even when paused)
       if (gameState.keys["r"]) {
-        gameState.restartTimer += dt;
+        gameState.restartTimer = Math.min(gameState.restartHoldTime, gameState.restartTimer + dt);
         if (gameState.restartTimer >= gameState.restartHoldTime) {
-          window.location.reload();
+          // Force immediate reload
+          setTimeout(() => window.location.reload(), 0);
+          return; // Stop updating
         }
       } else {
         gameState.restartTimer = 0;
@@ -1503,7 +1505,7 @@ const Index = () => {
       
       // Restart hold indicator
       if (gameState.restartTimer > 0) {
-        const progress = gameState.restartTimer / gameState.restartHoldTime;
+        const progress = Math.min(1, gameState.restartTimer / gameState.restartHoldTime);
         const centerX = W / 2;
         const centerY = H / 2;
         const radius = 60;
@@ -1531,11 +1533,11 @@ const Index = () => {
         ctx.textAlign = "center";
         ctx.fillText("R", centerX, centerY + 8);
         
-        // Timer text
-        const remaining = Math.ceil(gameState.restartHoldTime - gameState.restartTimer);
+        // Timer text - prevent negative numbers
+        const remaining = Math.max(0, Math.ceil(gameState.restartHoldTime - gameState.restartTimer));
         ctx.font = "bold 18px system-ui";
         ctx.fillStyle = "#ef4444";
-        ctx.fillText(`${remaining}s`, centerX, centerY + 35);
+        ctx.fillText(remaining === 0 ? "0s" : `${remaining}s`, centerX, centerY + 35);
       }
 
       // Powerup indicators
