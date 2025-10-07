@@ -311,11 +311,123 @@ const Index = () => {
       setTimeout(() => playSound(600, 0.15, "sine", 0.25), 100);
     };
     
+    // 8-bit Background Music
+    let musicTimeout: number | null = null;
+    
+    const play8BitMusic = () => {
+      if (!gameState.audioContext || gameState.paused) return;
+      
+      // Melodía pegajosa estilo 8-bit (frecuencias en Hz)
+      // Basada en escala pentatónica para sonar arcade/retro
+      const melody = [
+        { note: 523.25, duration: 0.2 }, // C5
+        { note: 659.25, duration: 0.2 }, // E5
+        { note: 783.99, duration: 0.2 }, // G5
+        { note: 659.25, duration: 0.2 }, // E5
+        { note: 523.25, duration: 0.2 }, // C5
+        { note: 587.33, duration: 0.2 }, // D5
+        { note: 659.25, duration: 0.4 }, // E5
+        { note: 0, duration: 0.2 },      // Silencio
+        
+        { note: 392.00, duration: 0.2 }, // G4
+        { note: 523.25, duration: 0.2 }, // C5
+        { note: 659.25, duration: 0.2 }, // E5
+        { note: 523.25, duration: 0.2 }, // C5
+        { note: 392.00, duration: 0.2 }, // G4
+        { note: 440.00, duration: 0.2 }, // A4
+        { note: 523.25, duration: 0.4 }, // C5
+        { note: 0, duration: 0.2 },      // Silencio
+        
+        { note: 659.25, duration: 0.2 }, // E5
+        { note: 783.99, duration: 0.2 }, // G5
+        { note: 880.00, duration: 0.2 }, // A5
+        { note: 783.99, duration: 0.2 }, // G5
+        { note: 659.25, duration: 0.2 }, // E5
+        { note: 587.33, duration: 0.2 }, // D5
+        { note: 523.25, duration: 0.4 }, // C5
+        { note: 0, duration: 0.2 },      // Silencio
+        
+        { note: 523.25, duration: 0.2 }, // C5
+        { note: 392.00, duration: 0.2 }, // G4
+        { note: 523.25, duration: 0.2 }, // C5
+        { note: 659.25, duration: 0.2 }, // E5
+        { note: 523.25, duration: 0.2 }, // C5
+        { note: 440.00, duration: 0.2 }, // A4
+        { note: 392.00, duration: 0.4 }, // G4
+        { note: 0, duration: 0.4 },      // Silencio
+      ];
+      
+      let currentTime = gameState.audioContext.currentTime;
+      
+      melody.forEach((noteObj, i) => {
+        if (noteObj.note > 0) {
+          // Crear nota con onda cuadrada (sonido 8-bit clásico)
+          const osc = gameState.audioContext!.createOscillator();
+          const gain = gameState.audioContext!.createGain();
+          
+          osc.type = "square";
+          osc.frequency.value = noteObj.note;
+          
+          // Volumen más bajo para música de fondo
+          gain.gain.setValueAtTime(0.08, currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, currentTime + noteObj.duration);
+          
+          osc.connect(gain);
+          gain.connect(gameState.audioContext!.destination);
+          
+          osc.start(currentTime);
+          osc.stop(currentTime + noteObj.duration);
+        }
+        currentTime += noteObj.duration;
+      });
+      
+      // Loop: duración total de la melodía
+      const totalDuration = melody.reduce((sum, note) => sum + note.duration, 0);
+      musicTimeout = window.setTimeout(() => {
+        play8BitMusic();
+      }, totalDuration * 1000);
+    };
+    
+    // Iniciar música al comenzar el juego
+    const startMusic = () => {
+      if (gameState.audioContext?.state === 'suspended') {
+        gameState.audioContext.resume();
+      }
+      play8BitMusic();
+    };
+    
+    // Detener música
+    const stopMusic = () => {
+      if (musicTimeout !== null) {
+        clearTimeout(musicTimeout);
+        musicTimeout = null;
+      }
+    };
+    
+    // Iniciar música después de primer click (necesario por políticas de navegador)
+    let musicStarted = false;
+    const initMusicOnInteraction = () => {
+      if (!musicStarted) {
+        musicStarted = true;
+        startMusic();
+      }
+    };
+    
+    canvas.addEventListener('click', initMusicOnInteraction, { once: true });
+    window.addEventListener('keydown', initMusicOnInteraction, { once: true });
+    
     const handleKeyDown = (e: KeyboardEvent) => {
       gameState.keys[e.key.toLowerCase()] = true;
       if (e.key === "Escape") {
         gameState.paused = !gameState.paused;
         gameState.showPauseMenu = !gameState.showPauseMenu;
+        
+        // Pausar/reanudar música
+        if (gameState.paused) {
+          stopMusic();
+        } else if (musicStarted) {
+          play8BitMusic();
+        }
       }
       // R key start timer, no instant reload
     };
@@ -2243,6 +2355,7 @@ const Index = () => {
     requestAnimationFrame(gameLoop);
 
     return () => {
+      stopMusic();
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("resize", handleResize);
