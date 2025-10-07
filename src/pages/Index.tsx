@@ -574,7 +574,9 @@ const Index = () => {
       const options: Upgrade[] = [];
       const rarityRoll = Math.random();
       
-      const weaponsFull = gameState.player.weapons.length >= 3;
+      // Verificar si tiene pistola (reemplazable) o si slots están realmente llenos
+      const hasPistol = gameState.player.weapons.some((w: Weapon) => w.id === "pistol");
+      const weaponsFull = gameState.player.weapons.length >= 3 && !hasPistol;
       const tomesFull = gameState.player.tomes.length >= 3;
       
       for (let i = 0; i < 3; i++) {
@@ -587,7 +589,7 @@ const Index = () => {
         
         let type = roll < 0.4 ? "weapon" : roll < 0.7 ? "tome" : "item";
         
-        // Sistema de límites: Si armas y tomos están llenos, SOLO ofrecer upgrades
+        // Sistema de límites: Si armas y tomos están llenos (sin contar pistola), SOLO ofrecer upgrades
         if (weaponsFull && tomesFull) {
           type = roll < 0.5 ? "weapon" : "tome";
         } else if (weaponsFull && !tomesFull) {
@@ -600,7 +602,7 @@ const Index = () => {
         
         if (type === "weapon") {
           if (weaponsFull) {
-            // Si slots llenos, ofrecer mejora de nivel de arma existente
+            // Si slots llenos sin pistola, ofrecer mejora de nivel de arma existente
             const weaponIndex = Math.floor(Math.random() * gameState.player.weapons.length);
             const currentWeapon = gameState.player.weapons[weaponIndex];
             const upgradedWeapon = { ...currentWeapon };
@@ -612,7 +614,7 @@ const Index = () => {
               targetIndex: weaponIndex
             });
           } else {
-            // Si slots disponibles, ofrecer armas nuevas que NO tenga
+            // Si slots disponibles (o tiene pistola reemplazable), ofrecer armas nuevas que NO tenga
             const available = WEAPONS.filter(w => 
               (rarity === w.rarity || Math.random() < 0.3) && 
               !gameState.player.weapons.find((pw: Weapon) => pw.id === w.id)
@@ -680,7 +682,14 @@ const Index = () => {
         } else {
           // Nueva arma
           if (gameState.player.weapons.length < 3) {
+            // Tiene menos de 3 armas, agregar directamente
             gameState.player.weapons.push(weapon);
+          } else {
+            // Tiene 3 armas, buscar y reemplazar la pistola si existe
+            const pistolIndex = gameState.player.weapons.findIndex((w: Weapon) => w.id === "pistol");
+            if (pistolIndex !== -1) {
+              gameState.player.weapons[pistolIndex] = weapon;
+            }
           }
         }
       } else if (option.type === "tome") {
