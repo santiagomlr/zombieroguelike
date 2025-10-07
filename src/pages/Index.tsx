@@ -172,22 +172,13 @@ const rarityColors = {
 
 const Index = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [gameOver, setGameOver] = useState(false);
   const [score, setScore] = useState(0);
   const [level, setLevel] = useState(1);
   const [language, setLanguage] = useState<Language>("es");
   const gameStateRef = useRef<any>(null);
   const resetGameRef = useRef<(() => void) | null>(null);
-  const overlayRef = useRef<HTMLDivElement>(null);
   
   const t = translations[language];
-
-  // Enfocar overlay al entrar a Game Over
-  useEffect(() => {
-    if (gameOver) {
-      setTimeout(() => overlayRef.current?.focus(), 0);
-    }
-  }, [gameOver]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -393,20 +384,13 @@ const Index = () => {
       
       gameState.state = 'gameover';
       gameState.player.hp = 0;
-      setGameOver(true);
-      
-      // Save to leaderboard
-      const leaderboard = JSON.parse(localStorage.getItem("leaderboard") || "[]");
-      leaderboard.push({ 
-        score: gameState.score, 
-        level: gameState.level, 
-        wave: gameState.wave, 
-        date: new Date().toISOString() 
-      });
-      leaderboard.sort((a: any, b: any) => b.score - a.score);
-      localStorage.setItem("leaderboard", JSON.stringify(leaderboard.slice(0, 10)));
       
       playDeathSound();
+      
+      // Reiniciar automáticamente después de 2 segundos
+      setTimeout(() => {
+        resetGame();
+      }, 2000);
     }
     
     function resetGame() {
@@ -474,7 +458,6 @@ const Index = () => {
       // Actualizar React state
       setScore(0);
       setLevel(1);
-      setGameOver(false);
       
       // Cambiar a running
       gameState.state = 'running';
@@ -2568,23 +2551,28 @@ const Index = () => {
           // Dibujar el logo escalado al tamaño del enemigo
           const logoSize = e.rad * 2;
           
-          // Dibujar el logo en blanco
-          ctx.globalAlpha = 1;
-          ctx.drawImage(
-            gameState.enemyLogo,
-            -logoSize / 2,
-            -logoSize / 2,
-            logoSize,
-            logoSize
-          );
+          // Crear un canvas temporal para colorear el logo
+          const tempCanvas = document.createElement('canvas');
+          tempCanvas.width = logoSize;
+          tempCanvas.height = logoSize;
+          const tempCtx = tempCanvas.getContext('2d');
           
-          // Aplicar color usando multiply blend mode
-          ctx.globalCompositeOperation = 'multiply';
-          ctx.fillStyle = e.color;
-          ctx.fillRect(-logoSize / 2, -logoSize / 2, logoSize, logoSize);
-          
-          // Restaurar blend mode
-          ctx.globalCompositeOperation = 'source-over';
+          if (tempCtx) {
+            // Dibujar el logo original
+            tempCtx.drawImage(
+              gameState.enemyLogo,
+              0, 0,
+              logoSize, logoSize
+            );
+            
+            // Aplicar color manteniendo la transparencia
+            tempCtx.globalCompositeOperation = 'source-in';
+            tempCtx.fillStyle = e.color;
+            tempCtx.fillRect(0, 0, logoSize, logoSize);
+            
+            // Dibujar el resultado final
+            ctx.drawImage(tempCanvas, -logoSize / 2, -logoSize / 2);
+          }
           
           ctx.shadowBlur = 0;
           ctx.restore();
@@ -2984,75 +2972,6 @@ const Index = () => {
         className="absolute inset-0 w-full h-full"
         style={{ cursor: "crosshair" }}
       />
-      
-      {gameOver && (
-        <div 
-          ref={overlayRef}
-          id="gameover-overlay"
-          className="fixed inset-0 flex items-center justify-center bg-black/90 backdrop-blur-sm z-[999]"
-          style={{ pointerEvents: 'auto' }}
-          tabIndex={-1}
-        >
-          <div className="text-center space-y-6 p-8 max-w-2xl">
-            <h1 className="text-6xl font-bold text-red-500 animate-pulse drop-shadow-[0_0_30px_rgba(239,68,68,0.8)]">
-              {t.gameOver}
-            </h1>
-            
-            <div className="space-y-3 text-foreground">
-              <p className="text-3xl font-bold">{t.finalScore}: <span className="text-yellow-400">{score}</span></p>
-              <p className="text-2xl">{t.finalLevel}: <span className="text-blue-400">{level}</span></p>
-              <p className="text-xl">{t.finalWave}: <span className="text-purple-400">{gameStateRef.current?.wave || 1}</span></p>
-              <p className="text-xl">Tiempo: <span className="text-emerald-400">
-                {(() => {
-                  const secs = Math.floor(gameStateRef.current?.time || 0);
-                  const mm = String(Math.floor(secs / 60)).padStart(2, '0');
-                  const ss = String(secs % 60).padStart(2, '0');
-                  return `${mm}:${ss}`;
-                })()}
-              </span></p>
-            </div>
-            
-            <div className="mt-8 p-6 bg-background/50 rounded-lg border border-primary/20">
-              <h2 className="text-2xl font-bold text-primary mb-4">🏆 {t.leaderboard}</h2>
-              <div className="space-y-2">
-                {(() => {
-                  const leaderboard = JSON.parse(localStorage.getItem("leaderboard") || "[]");
-                  return leaderboard.slice(0, 5).map((entry: any, i: number) => (
-                    <div key={i} className="flex justify-between text-lg px-4 py-2 bg-background/30 rounded">
-                      <span className="text-muted-foreground">#{i + 1}</span>
-                      <span className="text-foreground font-semibold">{entry.score}</span>
-                      <span className="text-muted-foreground">LVL {entry.level}</span>
-                      <span className="text-muted-foreground">W{entry.wave}</span>
-                    </div>
-                  ));
-                })()}
-              </div>
-            </div>
-            
-            <div className="flex gap-4 justify-center mt-8">
-              <button
-                autoFocus
-                onClick={() => {
-                  resetGameRef.current?.();
-                }}
-                className="px-8 py-4 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xl font-bold transition-colors shadow-lg"
-              >
-                {t.playAgain} (R / Enter)
-              </button>
-              <button
-                onClick={() => {
-                  setGameOver(false);
-                  if (gameStateRef.current) gameStateRef.current.state = 'paused';
-                }}
-                className="px-8 py-4 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xl font-bold transition-colors"
-              >
-                Cerrar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      
     </div>
   );
 };
