@@ -295,6 +295,8 @@ const Index = () => {
       lastSpawn: 0,
       lastBossSpawn: 0,
       lastMiniBossSpawn: 0,
+      spawnCooldown: 0, // Cooldown de 3 segundos después de matar todos los enemigos
+      canSpawn: true, // Flag para controlar si se puede spawnar
       weaponCooldowns: {} as Record<string, number>,
       audioContext: null as AudioContext | null,
       keys: {} as Record<string, boolean>,
@@ -345,6 +347,7 @@ const Index = () => {
       musicNotification: "",
       musicNotificationTimer: 0,
       musicMuted: false,
+      musicVolume: 0.3, // Volumen de la música (0 a 1)
       sfxMuted: false,
       enemyLogo: null as HTMLImageElement | null,
     };
@@ -388,7 +391,7 @@ const Index = () => {
     function initMusic() {
       if (!gameState.music) {
         const audio = new Audio();
-        audio.volume = 0.3;
+        audio.volume = gameState.musicVolume;
         audio.loop = false;
         
         audio.addEventListener('ended', () => {
@@ -528,6 +531,8 @@ const Index = () => {
       gameState.waveEnemiesSpawned = 0;
       gameState.maxConcurrentEnemies = 12;
       gameState.lastSpawn = 0;
+      gameState.spawnCooldown = 0;
+      gameState.canSpawn = true;
       gameState.lastMiniBossSpawn = 0;
       gameState.weaponCooldowns = {};
       gameState.regenTimer = 0;
@@ -1757,6 +1762,26 @@ const Index = () => {
           gameState.sfxMuted = !gameState.sfxMuted;
         }
         
+        // Volume slider
+        const sliderY = toggleY + toggleBtnH + 20;
+        const sliderW = 330;
+        const sliderH = 8;
+        const sliderX = menuX + (menuW / 2) - sliderW / 2;
+        const handleRadius = 12;
+        
+        // Verificar si el click está en el slider o su handle
+        if (my >= sliderY - handleRadius && my <= sliderY + sliderH + handleRadius &&
+            mx >= sliderX - handleRadius && mx <= sliderX + sliderW + handleRadius) {
+          // Calcular nuevo volumen basado en la posición del click
+          const clickX = Math.max(sliderX, Math.min(sliderX + sliderW, mx));
+          gameState.musicVolume = (clickX - sliderX) / sliderW;
+          
+          // Actualizar volumen de la música
+          if (gameState.music) {
+            gameState.music.volume = gameState.musicVolume;
+          }
+        }
+        
         // Action buttons
         const btnW = 200;
         const btnH = 55;
@@ -2241,6 +2266,9 @@ const Index = () => {
           continue; // Skip player interaction
         }
         
+        // Danger zones permanentes desde wave 8
+        const isDangerZonePermanent = h.isNegative && gameState.wave >= 8;
+        
         if (d < h.rad) {
           h.active = true;
           
@@ -2300,11 +2328,15 @@ const Index = () => {
         } else {
           // Jugador FUERA
           h.active = false;
-          h.expirationTimer += dt;
           
-          // Si pasa el tiempo de caducación, eliminar
-          if (h.expirationTimer >= h.maxExpiration) {
-            gameState.hotspots.splice(i, 1);
+          // Solo incrementar timer de expiración si no es permanente
+          if (!isDangerZonePermanent) {
+            h.expirationTimer += dt;
+            
+            // Si pasa el tiempo de caducación, eliminar
+            if (h.expirationTimer >= h.maxExpiration) {
+              gameState.hotspots.splice(i, 1);
+            }
           }
         }
       }
@@ -2427,13 +2459,33 @@ const Index = () => {
       
       gameState.lastSpawn += dt;
       
-      // Solo spawnear enemigos normales si no hemos alcanzado el total
-      // Boss/Mini-boss NO cuentan en el límite concurrente
-      const normalEnemies = gameState.enemies.filter(e => !e.isBoss && !e.isMiniBoss).length;
-      const canSpawn = gameState.waveEnemiesSpawned < gameState.waveEnemiesTotal && 
-                      normalEnemies < gameState.maxConcurrentEnemies;
+      // Sistema de cooldown: Reducir el cooldown
+      if (gameState.spawnCooldown > 0) {
+        gameState.spawnCooldown = Math.max(0, gameState.spawnCooldown - dt);
+      }
       
-      if (canSpawn) {
+      // Verificar si todos los enemigos fueron eliminados
+      if (gameState.enemies.length === 0 && gameState.waveEnemiesSpawned > 0 && gameState.canSpawn) {
+        // Activar cooldown de 3 segundos
+        gameState.canSpawn = false;
+        gameState.spawnCooldown = 3;
+      }
+      
+      // Después del cooldown, permitir spawn de nuevo
+      if (!gameState.canSpawn && gameState.spawnCooldown === 0) {
+        gameState.canSpawn = true;
+      }
+      
+      // Solo spawnear enemigos normales si:
+      // 1. No hemos alcanzado el total de la wave
+      // 2. Hay cupo (normalEnemies < maxConcurrentEnemies)
+      // 3. El cooldown ha terminado (canSpawn = true)
+      const normalEnemies = gameState.enemies.filter(e => !e.isBoss && !e.isMiniBoss).length;
+      const canSpawnNow = gameState.waveEnemiesSpawned < gameState.waveEnemiesTotal && 
+                          normalEnemies < gameState.maxConcurrentEnemies &&
+                          gameState.canSpawn;
+      
+      if (canSpawnNow) {
         // Velocidad de spawn estilo COD Zombies - Spawns en bursts agresivos
         let spawnRate: number;
         
@@ -4884,6 +4936,48 @@ const Index = () => {
         ctx.strokeRect(toggleX2, toggleY, toggleBtnW, toggleBtnH);
         ctx.fillStyle = "#fff";
         ctx.fillText(gameState.sfxMuted ? "🔇 SFX" : "🔊 SFX", toggleX2 + toggleBtnW / 2, toggleY + toggleBtnH / 2 + 5);
+        
+        // Volume slider para música
+        const sliderY = toggleY + toggleBtnH + 20;
+        const sliderW = 330;
+        const sliderH = 8;
+        const sliderX = menuX + (menuW / 2) - sliderW / 2;
+        
+        // Label del slider
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 14px system-ui";
+        ctx.textAlign = "center";
+        ctx.fillText("🎚️ Volumen Música", menuX + menuW / 2, sliderY - 10);
+        
+        // Track del slider (fondo)
+        ctx.fillStyle = "rgba(50, 50, 50, 0.8)";
+        ctx.fillRect(sliderX, sliderY, sliderW, sliderH);
+        
+        // Fill del slider (progreso)
+        const fillW = sliderW * gameState.musicVolume;
+        const sliderGradient = ctx.createLinearGradient(sliderX, 0, sliderX + fillW, 0);
+        sliderGradient.addColorStop(0, "#a855f7");
+        sliderGradient.addColorStop(1, "#7c3aed");
+        ctx.fillStyle = sliderGradient;
+        ctx.fillRect(sliderX, sliderY, fillW, sliderH);
+        
+        // Handle del slider (círculo)
+        const handleX = sliderX + fillW;
+        const handleY = sliderY + sliderH / 2;
+        const handleRadius = 12;
+        
+        ctx.fillStyle = "#fff";
+        ctx.beginPath();
+        ctx.arc(handleX, handleY, handleRadius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#a855f7";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        
+        // Porcentaje del volumen
+        ctx.fillStyle = "#9ca3af";
+        ctx.font = "12px system-ui";
+        ctx.fillText(`${Math.round(gameState.musicVolume * 100)}%`, menuX + menuW / 2, sliderY + sliderH + 20);
         
         // === ACTION BUTTONS ===
         const btnW = 200;
