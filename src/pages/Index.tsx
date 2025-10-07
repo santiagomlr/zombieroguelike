@@ -1270,12 +1270,41 @@ const Index = () => {
           }
         }
       } else if (gameState.state === 'paused') {
+        const boxW = 400;
+        const boxH = 380;
+        const boxX = W / 2 - boxW / 2;
+        const boxY = H / 2 - 140;
+        
+        // Audio toggle buttons
+        const toggleBtnW = 160;
+        const toggleBtnH = 40;
+        const toggleX1 = boxX + 30;
+        const toggleX2 = boxX + boxW - toggleBtnW - 30;
+        const toggleY = boxY + 230;
+        
+        // Music button
+        if (mx >= toggleX1 && mx <= toggleX1 + toggleBtnW && my >= toggleY && my <= toggleY + toggleBtnH) {
+          gameState.musicMuted = !gameState.musicMuted;
+          if (gameState.music) {
+            if (gameState.musicMuted) {
+              gameState.music.pause();
+            } else {
+              gameState.music.play().catch(e => console.warn("Audio play failed:", e));
+            }
+          }
+        }
+        
+        // SFX button
+        if (mx >= toggleX2 && mx <= toggleX2 + toggleBtnW && my >= toggleY && my <= toggleY + toggleBtnH) {
+          gameState.sfxMuted = !gameState.sfxMuted;
+        }
+        
         const btnW = 180;
         const btnH = 50;
         const btnGap = 20;
         const continueX = W / 2 - btnW - btnGap / 2;
         const restartX = W / 2 + btnGap / 2;
-        const btnY = H / 2 + 220;
+        const btnY = H / 2 + 260;
         
         // Continue button
         if (mx >= continueX && mx <= continueX + btnW && my >= btnY && my <= btnY + btnH) {
@@ -2515,9 +2544,9 @@ const Index = () => {
         
         // Stats box
         const boxW = 400;
-        const boxH = 300;
+        const boxH = 380;
         const boxX = W / 2 - boxW / 2;
-        const boxY = H / 2 - 100;
+        const boxY = H / 2 - 140;
         
         ctx.fillStyle = "rgba(20, 25, 35, 0.95)";
         ctx.fillRect(boxX, boxY, boxW, boxH);
@@ -2548,13 +2577,40 @@ const Index = () => {
         statY += 30;
         ctx.fillText(`${t.tomes} ${gameState.player.tomes.length}/3`, statX, statY);
         
+        // Audio controls (toggle buttons)
+        statY += 50;
+        const toggleBtnW = 160;
+        const toggleBtnH = 40;
+        const toggleX1 = boxX + 30;
+        const toggleX2 = boxX + boxW - toggleBtnW - 30;
+        
+        // Music button
+        ctx.fillStyle = gameState.musicMuted ? "#ef4444" : "#22c55e";
+        ctx.fillRect(toggleX1, statY, toggleBtnW, toggleBtnH);
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(toggleX1, statY, toggleBtnW, toggleBtnH);
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 16px system-ui";
+        ctx.textAlign = "center";
+        ctx.fillText(gameState.musicMuted ? "🔇 Música" : "🎵 Música", toggleX1 + toggleBtnW / 2, statY + toggleBtnH / 2 + 5);
+        
+        // SFX button
+        ctx.fillStyle = gameState.sfxMuted ? "#ef4444" : "#22c55e";
+        ctx.fillRect(toggleX2, statY, toggleBtnW, toggleBtnH);
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(toggleX2, statY, toggleBtnW, toggleBtnH);
+        ctx.fillStyle = "#fff";
+        ctx.fillText(gameState.sfxMuted ? "🔇 SFX" : "🔊 SFX", toggleX2 + toggleBtnW / 2, statY + toggleBtnH / 2 + 5);
+        
         // Buttons
         const btnW = 180;
         const btnH = 50;
         const btnGap = 20;
         const continueX = W / 2 - btnW - btnGap / 2;
         const restartX = W / 2 + btnGap / 2;
-        const btnY = H / 2 + 220;
+        const btnY = H / 2 + 260;
         
         // Continue button
         ctx.fillStyle = "#22c55e";
@@ -2608,39 +2664,6 @@ const Index = () => {
         className="absolute inset-0 w-full h-full"
         style={{ cursor: "crosshair" }}
       />
-      
-      {/* Audio controls */}
-      <div className="absolute bottom-4 right-4 flex gap-2 z-10">
-        <button
-          onClick={() => {
-            if (gameStateRef.current) {
-              gameStateRef.current.musicMuted = !gameStateRef.current.musicMuted;
-              if (gameStateRef.current.music) {
-                if (gameStateRef.current.musicMuted) {
-                  gameStateRef.current.music.pause();
-                } else {
-                  gameStateRef.current.music.play().catch(e => console.warn("Audio play failed:", e));
-                }
-              }
-            }
-          }}
-          className="px-4 py-2 bg-primary/80 hover:bg-primary text-primary-foreground rounded-lg font-bold transition-colors"
-          title="Toggle Music"
-        >
-          {gameStateRef.current?.musicMuted ? "🔇 Música" : "🎵 Música"}
-        </button>
-        <button
-          onClick={() => {
-            if (gameStateRef.current) {
-              gameStateRef.current.sfxMuted = !gameStateRef.current.sfxMuted;
-            }
-          }}
-          className="px-4 py-2 bg-primary/80 hover:bg-primary text-primary-foreground rounded-lg font-bold transition-colors"
-          title="Toggle Sound Effects"
-        >
-          {gameStateRef.current?.sfxMuted ? "🔇 SFX" : "🔊 SFX"}
-        </button>
-      </div>
       
       {gameOver && (
         <div 
