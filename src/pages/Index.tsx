@@ -232,7 +232,7 @@ const Index = () => {
       score: 0,
       level: 1,
       xp: 0,
-      nextXP: 50,
+      nextXP: 25,
       time: 0,
       wave: 1,
       waveTimer: 0,
@@ -564,7 +564,19 @@ const Index = () => {
         gameState.xp -= gameState.nextXP;
         gameState.level++;
         setLevel(gameState.level);
-        gameState.nextXP = Math.floor(gameState.nextXP * 1.3 + 30);
+        
+        // Progresión de XP más suave al inicio
+        // Niveles 1-5: crecimiento lento (1.15x + 10)
+        // Niveles 6-10: crecimiento medio (1.2x + 15)
+        // Niveles 11+: crecimiento normal (1.3x + 25)
+        if (gameState.level <= 5) {
+          gameState.nextXP = Math.floor(gameState.nextXP * 1.15 + 10);
+        } else if (gameState.level <= 10) {
+          gameState.nextXP = Math.floor(gameState.nextXP * 1.2 + 15);
+        } else {
+          gameState.nextXP = Math.floor(gameState.nextXP * 1.3 + 25);
+        }
+        
         gameState.levelUpAnimation = 1;
         playLevelUpSound();
         showUpgradeScreen();
