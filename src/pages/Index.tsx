@@ -282,6 +282,8 @@ const Index = () => {
       music: null as HTMLAudioElement | null,
       musicNotification: "",
       musicNotificationTimer: 0,
+      musicMuted: false,
+      sfxMuted: false,
     };
 
     gameStateRef.current = gameState;
@@ -317,7 +319,10 @@ const Index = () => {
       
       const track = gameState.musicTracks[gameState.currentMusicIndex];
       gameState.music.src = track.path;
-      gameState.music.play().catch(e => console.warn("Audio play failed:", e));
+      
+      if (!gameState.musicMuted) {
+        gameState.music.play().catch(e => console.warn("Audio play failed:", e));
+      }
       
       // Mostrar notificación
       gameState.musicNotification = track.name;
@@ -335,7 +340,7 @@ const Index = () => {
     
     // Sound effect functions
     const playSound = (frequency: number, duration: number, type: OscillatorType = "sine", volume: number = 0.3) => {
-      if (!gameState.audioContext) return;
+      if (!gameState.audioContext || gameState.sfxMuted) return;
       const oscillator = gameState.audioContext.createOscillator();
       const gainNode = gameState.audioContext.createGain();
       
@@ -447,6 +452,8 @@ const Index = () => {
       gameState.xpBarRainbow = false;
       gameState.waveNotification = 0;
       gameState.musicNotificationTimer = 0;
+      gameState.musicMuted = false;
+      gameState.sfxMuted = false;
       gameState.restartTimer = 0;
       gameState.showUpgradeUI = false;
       gameState.upgradeOptions = [];
@@ -2601,6 +2608,39 @@ const Index = () => {
         className="absolute inset-0 w-full h-full"
         style={{ cursor: "crosshair" }}
       />
+      
+      {/* Audio controls */}
+      <div className="absolute top-4 right-4 flex gap-2 z-10">
+        <button
+          onClick={() => {
+            if (gameStateRef.current) {
+              gameStateRef.current.musicMuted = !gameStateRef.current.musicMuted;
+              if (gameStateRef.current.music) {
+                if (gameStateRef.current.musicMuted) {
+                  gameStateRef.current.music.pause();
+                } else {
+                  gameStateRef.current.music.play().catch(e => console.warn("Audio play failed:", e));
+                }
+              }
+            }
+          }}
+          className="px-4 py-2 bg-primary/80 hover:bg-primary text-primary-foreground rounded-lg font-bold transition-colors"
+          title="Toggle Music"
+        >
+          {gameStateRef.current?.musicMuted ? "🔇 Música" : "🎵 Música"}
+        </button>
+        <button
+          onClick={() => {
+            if (gameStateRef.current) {
+              gameStateRef.current.sfxMuted = !gameStateRef.current.sfxMuted;
+            }
+          }}
+          className="px-4 py-2 bg-primary/80 hover:bg-primary text-primary-foreground rounded-lg font-bold transition-colors"
+          title="Toggle Sound Effects"
+        >
+          {gameStateRef.current?.sfxMuted ? "🔇 SFX" : "🔊 SFX"}
+        </button>
+      </div>
       
       {gameOver && (
         <div 
