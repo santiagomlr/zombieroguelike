@@ -251,6 +251,7 @@ const Index = () => {
       hotspotTimer: 0,
       levelUpAnimation: 0,
       upgradeAnimation: 0,
+      xpBarRainbow: false,
       restartTimer: 0,
       restartHoldTime: 5,
       sounds: {
@@ -578,6 +579,7 @@ const Index = () => {
         }
         
         gameState.levelUpAnimation = 1;
+        gameState.xpBarRainbow = true; // Activar animación rainbow
         playLevelUpSound();
         showUpgradeScreen();
       }
@@ -925,6 +927,7 @@ const Index = () => {
 
       gameState.showUpgradeUI = false;
       gameState.paused = false;
+      gameState.xpBarRainbow = false; // Desactivar animación rainbow al cerrar menú
       gameState.upgradeOptions = [];
     }
 
@@ -1473,38 +1476,126 @@ const Index = () => {
         }
       }
       
-      // XP Bar
-      const xpBarW = 300;
-      const xpBarH = 12;
-      const xpBarX = 20;
-      const xpBarY = hpBarY + hpBarH + 12;
-      
-      ctx.fillStyle = "rgba(20, 25, 35, 0.9)";
-      ctx.fillRect(xpBarX, xpBarY, xpBarW, xpBarH);
-      ctx.strokeStyle = "#334155";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(xpBarX, xpBarY, xpBarW, xpBarH);
-      
-      const xpProgress = gameState.xp / gameState.nextXP;
-      ctx.fillStyle = "#06b6d4";
-      ctx.fillRect(xpBarX, xpBarY, xpBarW * xpProgress, xpBarH);
-      
-      // Level
-      ctx.fillStyle = "#fff";
-      ctx.font = "bold 16px system-ui";
+      // Level y Wave info (arriba derecha)
       ctx.textAlign = "left";
-      ctx.fillText(`Nivel ${gameState.level}`, xpBarX + xpBarW + 12, xpBarY + xpBarH - 2);
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 18px system-ui";
+      ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+      ctx.shadowBlur = 4;
+      ctx.fillText(`NIVEL ${gameState.level}`, 20, hpBarY + hpBarH + 30);
       
-      // Wave
       ctx.fillStyle = "#a855f7";
-      ctx.font = "bold 16px system-ui";
-      ctx.fillText(`Wave ${gameState.wave}`, xpBarX, xpBarY + xpBarH + 20);
+      ctx.fillText(`WAVE ${gameState.wave}`, 20, hpBarY + hpBarH + 55);
+      ctx.shadowBlur = 0;
       
       // Score
       ctx.textAlign = "right";
       ctx.fillStyle = "#fbbf24";
       ctx.font = "bold 24px system-ui";
+      ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+      ctx.shadowBlur = 4;
       ctx.fillText(`${gameState.score}`, W - 20, 40);
+      ctx.shadowBlur = 0;
+      
+      // ========== BARRA DE XP FULL-WIDTH (PARTE INFERIOR) ==========
+      const xpBarH = 40;
+      const xpBarY = H - xpBarH - 10;
+      const xpBarX = 20;
+      const xpBarW = W - 40;
+      const xpBarRadius = 20;
+      
+      // Fondo de la barra (redondeada)
+      ctx.fillStyle = "rgba(10, 15, 25, 0.85)";
+      ctx.beginPath();
+      ctx.roundRect(xpBarX, xpBarY, xpBarW, xpBarH, xpBarRadius);
+      ctx.fill();
+      
+      // Borde exterior con glow
+      ctx.strokeStyle = "rgba(100, 100, 120, 0.6)";
+      ctx.lineWidth = 2;
+      ctx.shadowColor = "rgba(100, 100, 255, 0.4)";
+      ctx.shadowBlur = 10;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      
+      // Progreso de XP
+      const xpProgress = Math.min(1, gameState.xp / gameState.nextXP);
+      const currentXpBarW = (xpBarW - 8) * xpProgress;
+      
+      if (currentXpBarW > 0) {
+        ctx.save();
+        
+        // Clip para bordes redondeados
+        ctx.beginPath();
+        ctx.roundRect(xpBarX + 4, xpBarY + 4, currentXpBarW, xpBarH - 8, xpBarRadius - 4);
+        ctx.clip();
+        
+        // Animación Rainbow cuando sube de nivel
+        if (gameState.xpBarRainbow) {
+          // Gradiente rainbow animado
+          const rainbowOffset = (gameState.time * 2) % 1;
+          const gradient = ctx.createLinearGradient(xpBarX, xpBarY, xpBarX + xpBarW, xpBarY);
+          
+          // Colores rainbow con offset animado
+          const colors = [
+            { stop: 0, color: "#ef4444" },    // Red
+            { stop: 0.17, color: "#f97316" }, // Orange
+            { stop: 0.33, color: "#fbbf24" }, // Yellow
+            { stop: 0.5, color: "#22c55e" },  // Green
+            { stop: 0.67, color: "#06b6d4" }, // Cyan
+            { stop: 0.83, color: "#3b82f6" }, // Blue
+            { stop: 1, color: "#a855f7" },    // Purple
+          ];
+          
+          colors.forEach(({ stop, color }) => {
+            const animatedStop = (stop + rainbowOffset) % 1;
+            gradient.addColorStop(animatedStop, color);
+          });
+          
+          // Agregar colores al final para seamless loop
+          colors.slice(0, 2).forEach(({ stop, color }) => {
+            const animatedStop = (stop + rainbowOffset + 1) % 1;
+            if (animatedStop < 1) {
+              gradient.addColorStop(animatedStop, color);
+            }
+          });
+          
+          ctx.fillStyle = gradient;
+          
+          // Glow effect pulsante
+          const pulse = Math.sin(gameState.time * 5) * 0.3 + 0.7;
+          ctx.shadowColor = "rgba(255, 255, 255, 0.8)";
+          ctx.shadowBlur = 20 * pulse;
+        } else {
+          // Gradiente normal (neón cyan-purple)
+          const gradient = ctx.createLinearGradient(xpBarX, xpBarY, xpBarX + currentXpBarW, xpBarY);
+          gradient.addColorStop(0, "#06b6d4");
+          gradient.addColorStop(0.5, "#3b82f6");
+          gradient.addColorStop(1, "#a855f7");
+          ctx.fillStyle = gradient;
+          
+          // Glow sutil
+          ctx.shadowColor = "#06b6d4";
+          ctx.shadowBlur = 15;
+        }
+        
+        ctx.fillRect(xpBarX + 4, xpBarY + 4, currentXpBarW, xpBarH - 8);
+        ctx.shadowBlur = 0;
+        ctx.restore();
+      }
+      
+      // Texto de XP centrado
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 20px system-ui";
+      ctx.textAlign = "center";
+      ctx.shadowColor = "rgba(0, 0, 0, 0.9)";
+      ctx.shadowBlur = 6;
+      ctx.fillText(
+        `XP: ${Math.floor(gameState.xp)} / ${gameState.nextXP}`,
+        xpBarX + xpBarW / 2,
+        xpBarY + xpBarH / 2 + 7
+      );
+      ctx.shadowBlur = 0;
 
       // Weapons display
       ctx.textAlign = "left";
