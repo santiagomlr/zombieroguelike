@@ -303,6 +303,8 @@ const Index = () => {
       regenTimer: 0,
       auraTimer: 0,
       hotspotTimer: 0,
+      dangerZoneTimer: 0,
+      inDangerZone: false,
       levelUpAnimation: 0,
       upgradeAnimation: 0,
       upgradeUIAnimation: 0,
@@ -518,6 +520,8 @@ const Index = () => {
       gameState.regenTimer = 0;
       gameState.auraTimer = 0;
       gameState.hotspotTimer = 0;
+      gameState.dangerZoneTimer = 0;
+      gameState.inDangerZone = false;
       gameState.levelUpAnimation = 0;
       gameState.upgradeAnimation = 0;
       gameState.xpBarRainbow = false;
@@ -1134,18 +1138,19 @@ const Index = () => {
       }
     }
 
-    function spawnHotspot() {
+    function spawnHotspot(isNegative = false) {
       const x = Math.random() * (W - 200) + 100;
       const y = Math.random() * (H - 200) + 100;
       gameState.hotspots.push({
         x,
         y,
-        rad: 60,
+        rad: isNegative ? 80 : 60, // Hotspots negativos son más grandes
         progress: 0,
         required: 10, // 10 segundos para recompensa cuando está dentro
         expirationTimer: 0, // Timer de caducación (45s)
         maxExpiration: 45, // Se elimina si no llegas en 45s
         active: false,
+        isNegative, // true = zona de peligro, false = zona positiva
       });
     }
 
@@ -1813,53 +1818,99 @@ const Index = () => {
         gameState.waveNotification = Math.max(0, gameState.waveNotification - dt);
       }
 
-      // Hotspot spawning
+      // Hotspot spawning (positivos)
       gameState.hotspotTimer += dt;
-      if (gameState.hotspotTimer >= 30 && gameState.hotspots.length < 2) {
+      if (gameState.hotspotTimer >= 30 && gameState.hotspots.filter(h => !h.isNegative).length < 2) {
         gameState.hotspotTimer = 0;
-        spawnHotspot();
+        spawnHotspot(false);
+      }
+      
+      // Danger Zone spawning (negativos) - cada 45s, máximo 1
+      if (gameState.wave >= 3 && gameState.hotspots.filter(h => h.isNegative).length === 0) {
+        if (Math.random() < 0.02 * dt) { // probabilidad por frame
+          spawnHotspot(true);
+        }
       }
 
-      // Hotspot logic - Timer de caducación (45s) vs Timer de recompensa (10s)
+      // Resetear flag de zona peligrosa
+      gameState.inDangerZone = false;
+
+      // Hotspot logic
       for (let i = gameState.hotspots.length - 1; i >= 0; i--) {
         const h = gameState.hotspots[i];
         const d = Math.hypot(h.x - gameState.player.x, h.y - gameState.player.y);
         
         if (d < h.rad) {
-          // Jugador DENTRO: cuenta para recompensa (10s)
           h.active = true;
-          h.progress += dt;
-          // NO incrementa timer de caducación
           
-          if (h.progress >= h.required) {
-            // ¡Recompensa!
-            collectXP(100);
-            gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + 2);
-            gameState.hotspots.splice(i, 1);
-            // Particles
-            for (let j = 0; j < 30; j++) {
-              const angle = (Math.PI * 2 * j) / 30;
+          if (h.isNegative) {
+            // HOTSPOT NEGATIVO (Zona de Peligro)
+            gameState.inDangerZone = true;
+            gameState.dangerZoneTimer += dt;
+            
+            // Daño continuo: 8 HP/s (sin activar invulnerabilidad)
+            gameState.player.hp -= 8 * dt;
+            
+            // Partículas de daño
+            if (Math.random() < 0.15 && gameState.particles.length < gameState.maxParticles) {
               gameState.particles.push({
-                x: h.x,
-                y: h.y,
-                vx: Math.cos(angle) * 8,
-                vy: Math.sin(angle) * 8,
-                life: 1,
-                color: "#fbbf24",
+                x: gameState.player.x + (Math.random() - 0.5) * 30,
+                y: gameState.player.y + (Math.random() - 0.5) * 30,
+                vx: (Math.random() - 0.5) * 2,
+                vy: -Math.random() * 3,
+                life: 0.8,
+                color: "#ef4444",
                 size: 4,
               });
             }
+            
+            // No incrementa timer de caducación mientras el jugador está dentro
+            h.progress += dt;
+            
+            // Check game over
+            if (gameState.player.hp <= 0) {
+              gameState.state = 'gameover';
+              gameState.gameOverTimer = 3;
+            }
+          } else {
+            // HOTSPOT POSITIVO (recompensa)
+            h.progress += dt;
+            
+            if (h.progress >= h.required) {
+              // ¡Recompensa!
+              collectXP(100);
+              gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + 2);
+              gameState.hotspots.splice(i, 1);
+              // Particles
+              for (let j = 0; j < 30; j++) {
+                const angle = (Math.PI * 2 * j) / 30;
+                gameState.particles.push({
+                  x: h.x,
+                  y: h.y,
+                  vx: Math.cos(angle) * 8,
+                  vy: Math.sin(angle) * 8,
+                  life: 1,
+                  color: "#fbbf24",
+                  size: 4,
+                });
+              }
+            }
           }
         } else {
-          // Jugador FUERA: cuenta timer de caducación (45s)
+          // Jugador FUERA
           h.active = false;
           h.expirationTimer += dt;
           
-          // Si pasa el tiempo de caducación, eliminar sin recompensa
+          // Si pasa el tiempo de caducación, eliminar
           if (h.expirationTimer >= h.maxExpiration) {
             gameState.hotspots.splice(i, 1);
           }
         }
+      }
+      
+      // Resetear timer si sale de la zona de peligro
+      if (!gameState.inDangerZone) {
+        gameState.dangerZoneTimer = 0;
       }
       
       // Temporary powerup timers
@@ -3551,52 +3602,102 @@ const Index = () => {
       for (const h of gameState.hotspots) {
         const pulse = Math.sin(gameState.time * 3) * 0.1 + 0.9;
         
-        // Outer circle
-        ctx.strokeStyle = h.active ? "#fbbf24" : "rgba(251, 191, 36, 0.5)";
-        ctx.lineWidth = 3;
-        ctx.setLineDash([10, 10]);
-        ctx.beginPath();
-        ctx.arc(h.x, h.y, h.rad, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        
-        // Progress circle (cuando está activo - progreso de recompensa)
-        if (h.active) {
-          ctx.strokeStyle = "#22c55e";
-          ctx.lineWidth = 6;
+        if (h.isNegative) {
+          // HOTSPOT NEGATIVO (Zona de Peligro)
+          const dangerPulse = Math.sin(gameState.time * 5) * 0.3 + 0.7;
+          
+          // Outer circle pulsante (rojo intenso)
+          const gradient = ctx.createRadialGradient(h.x, h.y, 0, h.x, h.y, h.rad);
+          gradient.addColorStop(0, "rgba(220, 38, 38, 0.3)");
+          gradient.addColorStop(0.7, "rgba(239, 68, 68, 0.2)");
+          gradient.addColorStop(1, "rgba(220, 38, 38, 0)");
+          ctx.fillStyle = gradient;
           ctx.beginPath();
-          ctx.arc(h.x, h.y, h.rad - 10, 0, (Math.PI * 2 * h.progress) / h.required);
-          ctx.stroke();
-        } else {
-          // Timer de caducación (cuando NO está activo)
-          const expirationProgress = h.expirationTimer / h.maxExpiration;
-          ctx.strokeStyle = "#ef4444";
+          ctx.arc(h.x, h.y, h.rad, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // Borde pulsante
+          ctx.strokeStyle = h.active ? `rgba(239, 68, 68, ${dangerPulse})` : "rgba(220, 38, 38, 0.6)";
           ctx.lineWidth = 4;
+          ctx.shadowColor = "#ef4444";
+          ctx.shadowBlur = 15 * dangerPulse;
+          ctx.setLineDash([8, 8]);
           ctx.beginPath();
-          ctx.arc(h.x, h.y, h.rad - 10, 0, Math.PI * 2 * expirationProgress);
+          ctx.arc(h.x, h.y, h.rad, 0, Math.PI * 2);
           ctx.stroke();
-        }
-        
-        // Center glow
-        ctx.fillStyle = `rgba(251, 191, 36, ${0.1 * pulse})`;
-        ctx.beginPath();
-        ctx.arc(h.x, h.y, h.rad * 0.6, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Time remaining text
-        if (h.active) {
-          // Mostrar tiempo para completar (10s)
-          ctx.fillStyle = "#22c55e";
-          ctx.font = "bold 20px system-ui";
-          ctx.textAlign = "center";
-          ctx.fillText(`${Math.ceil(h.required - h.progress)}s`, h.x, h.y + 5);
-        } else {
-          // Mostrar tiempo de caducación (45s)
-          const remaining = h.maxExpiration - h.expirationTimer;
+          ctx.setLineDash([]);
+          ctx.shadowBlur = 0;
+          
+          // Icono de peligro
           ctx.fillStyle = "#ef4444";
-          ctx.font = "bold 18px system-ui";
+          ctx.font = "bold 32px system-ui";
           ctx.textAlign = "center";
-          ctx.fillText(`${Math.ceil(remaining)}s`, h.x, h.y + 5);
+          ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+          ctx.shadowBlur = 8;
+          ctx.fillText("⚠️", h.x, h.y - 10);
+          ctx.shadowBlur = 0;
+          
+          // Texto de advertencia
+          ctx.fillStyle = "#fff";
+          ctx.font = "bold 14px system-ui";
+          ctx.fillText("DANGER ZONE", h.x, h.y + 25);
+          
+          // Timer de expiración
+          if (!h.active) {
+            const remaining = h.maxExpiration - h.expirationTimer;
+            ctx.fillStyle = "#fbbf24";
+            ctx.font = "bold 16px system-ui";
+            ctx.fillText(`${Math.ceil(remaining)}s`, h.x, h.y + 45);
+          }
+        } else {
+          // HOTSPOT POSITIVO (original)
+          // Outer circle
+          ctx.strokeStyle = h.active ? "#fbbf24" : "rgba(251, 191, 36, 0.5)";
+          ctx.lineWidth = 3;
+          ctx.setLineDash([10, 10]);
+          ctx.beginPath();
+          ctx.arc(h.x, h.y, h.rad, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          
+          // Progress circle (cuando está activo - progreso de recompensa)
+          if (h.active) {
+            ctx.strokeStyle = "#22c55e";
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.arc(h.x, h.y, h.rad - 10, 0, (Math.PI * 2 * h.progress) / h.required);
+            ctx.stroke();
+          } else {
+            // Timer de caducación (cuando NO está activo)
+            const expirationProgress = h.expirationTimer / h.maxExpiration;
+            ctx.strokeStyle = "#ef4444";
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(h.x, h.y, h.rad - 10, 0, Math.PI * 2 * expirationProgress);
+            ctx.stroke();
+          }
+          
+          // Center glow
+          ctx.fillStyle = `rgba(251, 191, 36, ${0.1 * pulse})`;
+          ctx.beginPath();
+          ctx.arc(h.x, h.y, h.rad * 0.6, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // Time remaining text
+          if (h.active) {
+            // Mostrar tiempo para completar (10s)
+            ctx.fillStyle = "#22c55e";
+            ctx.font = "bold 20px system-ui";
+            ctx.textAlign = "center";
+            ctx.fillText(`${Math.ceil(h.required - h.progress)}s`, h.x, h.y + 5);
+          } else {
+            // Mostrar tiempo de caducación (45s)
+            const remaining = h.maxExpiration - h.expirationTimer;
+            ctx.fillStyle = "#ef4444";
+            ctx.font = "bold 18px system-ui";
+            ctx.textAlign = "center";
+            ctx.fillText(`${Math.ceil(remaining)}s`, h.x, h.y + 5);
+          }
         }
       }
 
@@ -3928,6 +4029,23 @@ const Index = () => {
       
       drawHUD();
       drawUpgradeUI();
+      
+      // Danger Zone visual effect (pantalla parpadeante roja si está >0.5s en zona de peligro)
+      if (gameState.inDangerZone && gameState.dangerZoneTimer > 0.5) {
+        const flashIntensity = Math.sin(gameState.time * 8) * 0.2 + 0.3; // Parpadeo rápido
+        ctx.save();
+        
+        // Borde rojo alrededor de toda la pantalla
+        ctx.strokeStyle = `rgba(239, 68, 68, ${flashIntensity})`;
+        ctx.lineWidth = 15;
+        ctx.strokeRect(7.5, 7.5, W - 15, H - 15);
+        
+        // Overlay rojo sutil en toda la pantalla
+        ctx.fillStyle = `rgba(220, 38, 38, ${flashIntensity * 0.15})`;
+        ctx.fillRect(0, 0, W, H);
+        
+        ctx.restore();
+      }
       
       // Game Over overlay fade
       if (gameState.state === 'gameover') {
