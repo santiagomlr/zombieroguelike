@@ -143,13 +143,15 @@ const WEAPONS: Weapon[] = [
 ];
 
 const TOMES: Tome[] = [
-  { id: "power", name: "Tomo de Poder", description: "+50% Daño", effect: "damage", value: 1.5, rarity: "rare", color: "#f87171", level: 1 },
-  { id: "speed", name: "Tomo de Velocidad", description: "+30% Velocidad", effect: "speed", value: 1.3, rarity: "uncommon", color: "#22c55e", level: 1 },
-  { id: "range", name: "Tomo de Alcance", description: "+40% Alcance", effect: "range", value: 1.4, rarity: "uncommon", color: "#3b82f6", level: 1 },
-  { id: "fire", name: "Tomo de Cadencia", description: "+50% Cadencia", effect: "fireRate", value: 1.5, rarity: "rare", color: "#fbbf24", level: 1 },
-  { id: "bounce", name: "Tomo de Rebote", description: "+2 Rebotes", effect: "bounce", value: 2, rarity: "epic", color: "#a855f7", level: 1 },
+  { id: "power", name: "Tomo de Poder", description: "+10% Daño", effect: "damage", value: 1.1, rarity: "rare", color: "#f87171", level: 1 },
+  { id: "speed", name: "Tomo de Velocidad", description: "+5% Velocidad", effect: "speed", value: 1.05, rarity: "uncommon", color: "#22c55e", level: 1 },
+  { id: "bounce", name: "Tomo de Rebote", description: "+1 Rebote", effect: "bounce", value: 1, rarity: "epic", color: "#a855f7", level: 1 },
+  { id: "range", name: "Tomo de Alcance", description: "+10% Alcance", effect: "range", value: 1.1, rarity: "uncommon", color: "#3b82f6", level: 1 },
+  { id: "precision", name: "Tomo de Precisión", description: "+10% Precisión", effect: "precision", value: 1.1, rarity: "rare", color: "#8b5cf6", level: 1 },
   { id: "multi", name: "Tomo Múltiple", description: "+1 Proyectil", effect: "multishot", value: 1, rarity: "legendary", color: "#06b6d4", level: 1 },
-  { id: "xp", name: "Tomo de Experiencia", description: "+50% XP ganado", effect: "xp", value: 1.5, rarity: "rare", color: "#ec4899", level: 1 },
+  { id: "regen", name: "Tomo de Regeneración", description: "Regenera 1 HP cada 5s", effect: "regen", value: 1, rarity: "uncommon", color: "#10b981", level: 1 },
+  { id: "magnet", name: "Tomo de Magnetismo", description: "+10% Rango de imán", effect: "magnet", value: 1.1, rarity: "common", color: "#64748b", level: 1 },
+  { id: "fire", name: "Tomo de Cadencia", description: "+10% Cadencia", effect: "fireRate", value: 1.1, rarity: "rare", color: "#fbbf24", level: 1 },
 ];
 
 const ITEMS: Item[] = [
@@ -223,6 +225,11 @@ const Index = () => {
           auraRadius: 0,
           vampire: 0,
           xpMultiplier: 1,
+          precision: 0,
+          regenRate: 0,
+          regenInterval: 0,
+          magnetMultiplier: 1,
+          bounceOnEnemies: false,
         },
       },
       bullets: [] as any[],
@@ -425,6 +432,11 @@ const Index = () => {
         auraRadius: 0,
         vampire: 0,
         xpMultiplier: 1,
+        precision: 0,
+        regenRate: 0,
+        regenInterval: 0,
+        magnetMultiplier: 1,
+        bounceOnEnemies: false,
       };
       
       // Resetear juego
@@ -768,22 +780,29 @@ const Index = () => {
       const isAoe = weapon.special === "aoe";
       const isSpread = weapon.special === "spread";
       
+      // Aplicar dispersión reducida por precisión
+      const baseSpread = 0.15;
+      const spreadReduction = gameState.player.stats.precision > 0 ? (1 - gameState.player.stats.precision / 100) : 1;
+      const actualSpread = baseSpread * spreadReduction;
+      
       const shots = 1 + gameState.player.stats.multishot;
       for (let i = 0; i < shots; i++) {
-        const spreadAngle = (i - (shots - 1) / 2) * 0.15;
+        const spreadAngle = (i - (shots - 1) / 2) * actualSpread;
         const finalDir = dir + spreadAngle;
         
         if (isSpread) {
+          const spreadVariance = 0.3 * spreadReduction;
           for (let j = -1; j <= 1; j++) {
             gameState.bullets.push({
               x: gameState.player.x,
               y: gameState.player.y,
-              dir: finalDir + j * 0.3,
+              dir: finalDir + j * spreadVariance,
               spd: weapon.projectileSpeed,
               life: range / weapon.projectileSpeed / 60,
               damage,
               color: weapon.color,
               bounces: gameState.player.stats.bounces,
+              bounceOnEnemies: gameState.player.stats.bounceOnEnemies,
               pierce: false,
               aoe: false,
             });
@@ -798,6 +817,7 @@ const Index = () => {
             damage,
             color: weapon.color,
             bounces: gameState.player.stats.bounces,
+            bounceOnEnemies: gameState.player.stats.bounceOnEnemies,
             pierce: isPierce,
             aoe: isAoe,
           });
@@ -1198,23 +1218,83 @@ const Index = () => {
         if (option.isLevelUp && option.targetIndex !== undefined) {
           // Mejora de nivel de tomo existente
           const existingTome = gameState.player.tomes[option.targetIndex];
+          const currentLevel = existingTome.level;
           existingTome.level++;
           
-          // Aplicar bonificación según el efecto del tomo
+          // Aplicar bonificación según el efecto del tomo y su nivel específico
           if (existingTome.effect === "damage") {
-            gameState.player.stats.damageMultiplier *= 1.15; // +15% daño adicional
+            // +10% daño por nivel (sin límite)
+            gameState.player.stats.damageMultiplier *= 1.1;
+            existingTome.description = `+${existingTome.level * 10}% Daño`;
           } else if (existingTome.effect === "speed") {
-            gameState.player.stats.speedMultiplier *= 1.10; // +10% velocidad adicional
-          } else if (existingTome.effect === "range") {
-            gameState.player.stats.rangeMultiplier *= 1.15; // +15% alcance adicional
-          } else if (existingTome.effect === "fireRate") {
-            gameState.player.stats.fireRateMultiplier *= 1.15; // +15% cadencia adicional
+            // +5% velocidad por nivel (max 5 = 25%)
+            if (currentLevel < 5) {
+              gameState.player.stats.speedMultiplier *= 1.05;
+              existingTome.description = `+${existingTome.level * 5}% Velocidad`;
+            }
           } else if (existingTome.effect === "bounce") {
-            gameState.player.stats.bounces += 1; // +1 rebote
+            // +1 rebote por nivel (max 5 rebotes)
+            if (currentLevel < 5) {
+              gameState.player.stats.bounces += 1;
+              existingTome.description = `${gameState.player.stats.bounces} Rebotes`;
+              // Nivel 5: rebotan en enemigos también
+              if (existingTome.level >= 5) {
+                gameState.player.stats.bounceOnEnemies = true;
+                existingTome.description = `${gameState.player.stats.bounces} Rebotes + Enemigos`;
+              }
+            }
+          } else if (existingTome.effect === "range") {
+            // Niveles específicos: +10%, +25%, +40%, +60%, +80% (max 5)
+            if (currentLevel < 5) {
+              const rangeBonuses = [1.1, 1.25, 1.4, 1.6, 1.8]; // Multiplicadores acumulativos totales
+              const prevBonus = currentLevel > 0 ? rangeBonuses[currentLevel - 1] : 1;
+              const newBonus = rangeBonuses[currentLevel];
+              gameState.player.stats.rangeMultiplier = (gameState.player.stats.rangeMultiplier / prevBonus) * newBonus;
+              const percentages = [10, 25, 40, 60, 80];
+              existingTome.description = `+${percentages[currentLevel]}% Alcance`;
+            }
+          } else if (existingTome.effect === "precision") {
+            // +10% precisión por nivel, -10% dispersión por nivel (max 5 = 50%)
+            if (currentLevel < 5) {
+              gameState.player.stats.precision += 10;
+              existingTome.description = `+${gameState.player.stats.precision}% Precisión`;
+            }
           } else if (existingTome.effect === "multishot") {
-            gameState.player.stats.multishot += 1; // +1 proyectil
-          } else if (existingTome.effect === "xp") {
-            gameState.player.stats.xpMultiplier *= 1.15; // +15% XP adicional
+            // +1 proyectil por nivel (sin límite)
+            gameState.player.stats.multishot += 1;
+            existingTome.description = `+${gameState.player.stats.multishot + 1} Proyectiles`;
+          } else if (existingTome.effect === "regen") {
+            // Niveles específicos de regeneración
+            const regenLevels = [
+              { rate: 1, interval: 5 },   // LVL 1: 1 HP cada 5s
+              { rate: 1, interval: 4 },   // LVL 2: 1 HP cada 4s
+              { rate: 2, interval: 5 },   // LVL 3: 2 HP cada 5s
+              { rate: 2, interval: 4 },   // LVL 4: 2 HP cada 4s
+              { rate: 3, interval: 4 },   // LVL 5: 3 HP cada 4s
+            ];
+            if (currentLevel < regenLevels.length) {
+              const config = regenLevels[currentLevel];
+              gameState.player.stats.regenRate = config.rate;
+              gameState.player.stats.regenInterval = config.interval;
+              existingTome.description = `Regen ${config.rate} HP cada ${config.interval}s`;
+            } else {
+              // Más allá del nivel 5, continuar mejorando
+              const extraLevels = currentLevel - 4;
+              gameState.player.stats.regenRate = 3 + extraLevels;
+              existingTome.description = `Regen ${gameState.player.stats.regenRate} HP cada 4s`;
+            }
+          } else if (existingTome.effect === "magnet") {
+            // +10% por nivel hasta nivel 5 (80%)
+            if (currentLevel < 5) {
+              gameState.player.stats.magnetMultiplier *= 1.1;
+              const totalBonus = Math.round((gameState.player.stats.magnetMultiplier - 1) * 100);
+              existingTome.description = `+${totalBonus}% Rango imán`;
+            }
+          } else if (existingTome.effect === "fireRate") {
+            // +10% cadencia por nivel (sin límite)
+            gameState.player.stats.fireRateMultiplier *= 1.1;
+            const totalBonus = Math.round((gameState.player.stats.fireRateMultiplier - 1) * 100);
+            existingTome.description = `+${totalBonus}% Cadencia`;
           }
         } else {
           // Nuevo tomo
@@ -1222,13 +1302,26 @@ const Index = () => {
             gameState.player.tomes.push(tome);
             
             // Aplicar efecto inicial
-            if (tome.effect === "damage") gameState.player.stats.damageMultiplier *= tome.value;
-            if (tome.effect === "speed") gameState.player.stats.speedMultiplier *= tome.value;
-            if (tome.effect === "range") gameState.player.stats.rangeMultiplier *= tome.value;
-            if (tome.effect === "fireRate") gameState.player.stats.fireRateMultiplier *= tome.value;
-            if (tome.effect === "bounce") gameState.player.stats.bounces += tome.value;
-            if (tome.effect === "multishot") gameState.player.stats.multishot += tome.value;
-            if (tome.effect === "xp") gameState.player.stats.xpMultiplier *= tome.value;
+            if (tome.effect === "damage") {
+              gameState.player.stats.damageMultiplier *= tome.value;
+            } else if (tome.effect === "speed") {
+              gameState.player.stats.speedMultiplier *= tome.value;
+            } else if (tome.effect === "range") {
+              gameState.player.stats.rangeMultiplier *= tome.value;
+            } else if (tome.effect === "fireRate") {
+              gameState.player.stats.fireRateMultiplier *= tome.value;
+            } else if (tome.effect === "bounce") {
+              gameState.player.stats.bounces += tome.value;
+            } else if (tome.effect === "multishot") {
+              gameState.player.stats.multishot += tome.value;
+            } else if (tome.effect === "precision") {
+              gameState.player.stats.precision += 10;
+            } else if (tome.effect === "regen") {
+              gameState.player.stats.regenRate = 1;
+              gameState.player.stats.regenInterval = 5;
+            } else if (tome.effect === "magnet") {
+              gameState.player.stats.magnetMultiplier *= tome.value;
+            }
           }
         }
       } else if (option.type === "item") {
@@ -1502,12 +1595,20 @@ const Index = () => {
         gameState.player.rageTimer = Math.max(0, gameState.player.rageTimer - dt);
       }
 
-      // Regeneración
-      if (gameState.player.items.find((it: Item) => it.id === "regen")) {
+      // Regeneración del tomo
+      if (gameState.player.stats.regenRate > 0 && gameState.player.stats.regenInterval > 0) {
         gameState.regenTimer += dt;
-        if (gameState.regenTimer >= 10) {
+        if (gameState.regenTimer >= gameState.player.stats.regenInterval) {
           gameState.regenTimer = 0;
-          gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + 5);
+          gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + gameState.player.stats.regenRate);
+        }
+      }
+      
+      // Regeneración del item (si lo tiene)
+      if (gameState.player.items.find((it: Item) => it.id === "regen")) {
+        // El item de regeneración es adicional al tomo
+        if (gameState.regenTimer >= 10) {
+          gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + 1);
         }
       }
 
@@ -1668,7 +1769,43 @@ const Index = () => {
               }
             }
 
-            if (!b.pierce) b.life = 0;
+            // Rebote en enemigos (si bounceOnEnemies está activado)
+            if (b.bounceOnEnemies && b.bounces > 0) {
+              // Buscar el enemigo más cercano que no sea el actual
+              let closestEnemy = null;
+              let closestDist = Infinity;
+              for (const e2 of gameState.enemies) {
+                if (e2 !== e) {
+                  const dist = Math.hypot(e2.x - b.x, e2.y - b.y);
+                  if (dist < closestDist) {
+                    closestDist = dist;
+                    closestEnemy = e2;
+                  }
+                }
+              }
+              
+              // Si hay un enemigo cercano, dirigir la bala hacia él
+              if (closestEnemy && closestDist < 200) {
+                b.dir = Math.atan2(closestEnemy.y - b.y, closestEnemy.x - b.x);
+                b.bounces--;
+                // Partículas de rebote
+                for (let j = 0; j < 5; j++) {
+                  gameState.particles.push({
+                    x: b.x,
+                    y: b.y,
+                    vx: (Math.random() - 0.5) * 3,
+                    vy: (Math.random() - 0.5) * 3,
+                    life: 0.3,
+                    color: b.color,
+                    size: 2,
+                  });
+                }
+              } else if (!b.pierce) {
+                b.life = 0;
+              }
+            } else if (!b.pierce) {
+              b.life = 0;
+            }
 
             if (e.hp <= 0) {
               gameState.enemies.splice(i, 1);
@@ -1762,10 +1899,11 @@ const Index = () => {
         const dy = gameState.player.y - g.y;
         const d = Math.hypot(dx, dy) || 1;
         
-        // Magnet temporal aumenta el rango
-        const magnetRange = gameState.player.tempMagnetTimer > 0 
-          ? gameState.player.magnet * 2 
-          : gameState.player.magnet;
+        // Magnet: aplicar multiplicadores del tomo y del powerup temporal
+        let magnetRange = gameState.player.magnet * gameState.player.stats.magnetMultiplier;
+        if (gameState.player.tempMagnetTimer > 0) {
+          magnetRange *= 2; // Powerup temporal duplica el rango
+        }
         
         if (d < magnetRange) {
           g.x += (dx / d) * 5;
