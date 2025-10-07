@@ -1928,7 +1928,7 @@ const Index = () => {
           const canAddEvent = gameState.wave >= 8 || !gameState.environmentalEvent;
           
           if (canAddEvent) {
-            const events = ["storm", "fog", "eclipse", "rain"] as const;
+            const events = ["storm", "fog", "rain"] as const;
             const newEvent = events[Math.floor(Math.random() * events.length)];
             
             // Si ya hay un evento, guardar para mostrar ambos (wave 8+)
@@ -2132,20 +2132,15 @@ const Index = () => {
               }
               break;
               
-            case "eclipse":
-              // 🌑 ECLIPSE: Reduce rango de visión (efecto visual oscuro)
-              // El efecto es principalmente visual, se renderiza en el canvas
-              break;
-              
             case "rain":
               // ☢️ LLUVIA RADIACTIVA: Enemigos ganan velocidad en zonas específicas
-              // Crear zonas radiactivas tipo negative hotspots
-              if (Math.random() < 0.01 && gameState.hotspots.filter(h => h.isRadioactive).length < 3) {
-                const x = Math.random() * (W - 200) + 100;
-                const y = Math.random() * (H - 200) + 100;
+              // Crear zonas radiactivas tipo negative hotspots - MUY GRANDES
+              if (Math.random() < 0.01 && gameState.hotspots.filter(h => h.isRadioactive).length < 2) {
+                const x = Math.random() * (W - 600) + 300;
+                const y = Math.random() * (H - 600) + 300;
                 gameState.hotspots.push({
                   x, y,
-                  rad: 100,
+                  rad: 300,
                   progress: 0,
                   required: 0,
                   expirationTimer: 0,
@@ -3715,8 +3710,7 @@ const Index = () => {
         const eventTexts = {
           storm: "⚡ TORMENTA: Zona móvil circular causa 10 HP/s de daño",
           fog: "🌫️ NIEBLA TÓXICA: Zonas verdes causan 5 HP/s y limitan movimiento",
-          eclipse: "🌑 ECLIPSE: Oscuridad reduce rango de visión drásticamente",
-          rain: "☢️ LLUVIA RADIACTIVA: Enemigos ganan +50% velocidad en zonas púrpuras"
+          rain: "☢️ LLUVIA RADIACTIVA: Enemigos ganan +50% velocidad en zonas púrpuras gigantes"
         };
         
         // Construir texto: mostrar ambos eventos si están activos (wave 8+)
@@ -4160,15 +4154,6 @@ const Index = () => {
       
       if (gameState.environmentalEvent) {
         switch (gameState.environmentalEvent) {
-          case "eclipse":
-            // 🌑 ECLIPSE: Oscuridad con vignette
-            const vignetteGradient = ctx.createRadialGradient(W / 2, H / 2, 200, W / 2, H / 2, Math.max(W, H) * 0.8);
-            vignetteGradient.addColorStop(0, "rgba(0, 0, 0, 0)");
-            vignetteGradient.addColorStop(1, "rgba(0, 0, 0, 0.7)");
-            ctx.fillStyle = vignetteGradient;
-            ctx.fillRect(0, 0, W, H);
-            break;
-            
           case "rain":
             // ☢️ LLUVIA RADIACTIVA: No hay overlay global, solo partículas
             break;
