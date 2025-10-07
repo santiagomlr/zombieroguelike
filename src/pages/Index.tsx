@@ -258,6 +258,7 @@ const Index = () => {
       waveNotification: 0,
       restartTimer: 0,
       restartHoldTime: 5,
+      gameOverTimer: 0,
       sounds: {
         shoot: new Audio(),
         hit: new Audio(),
@@ -384,13 +385,10 @@ const Index = () => {
       
       gameState.state = 'gameover';
       gameState.player.hp = 0;
+      gameState.gameOverTimer = 1.0; // 1 segundo para auto-reinicio
       
       playDeathSound();
-      
-      // Reiniciar automáticamente después de 2 segundos
-      setTimeout(() => {
-        resetGame();
-      }, 2000);
+      console.log('Game Over: auto-restart in 1s');
     }
     
     function resetGame() {
@@ -458,6 +456,9 @@ const Index = () => {
       // Actualizar React state
       setScore(0);
       setLevel(1);
+      
+      // Reset timers/flags
+      gameState.gameOverTimer = 0;
       
       // Cambiar a running
       gameState.state = 'running';
@@ -1329,6 +1330,15 @@ const Index = () => {
       // Music notification timer
       if (gameState.musicNotificationTimer > 0) {
         gameState.musicNotificationTimer = Math.max(0, gameState.musicNotificationTimer - dt);
+      }
+
+      // Game Over auto-restart timer
+      if (gameState.state === 'gameover') {
+        gameState.gameOverTimer = Math.max(0, gameState.gameOverTimer - dt);
+        if (gameState.gameOverTimer === 0) {
+          resetGame();
+        }
+        return;
       }
       
       // Solo actualizar lógica del juego si está corriendo
@@ -2702,6 +2712,15 @@ const Index = () => {
       
       drawHUD();
       drawUpgradeUI();
+      
+      // Game Over overlay fade
+      if (gameState.state === 'gameover') {
+        const alpha = Math.min(0.85, 1 - Math.max(0, gameState.gameOverTimer));
+        ctx.save();
+        ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
       
       // Pause menu
       if (gameState.state === 'paused' && !gameState.showUpgradeUI) {
