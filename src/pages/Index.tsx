@@ -1732,19 +1732,23 @@ const Index = () => {
           }
         }
       } else if (gameState.state === 'paused' && !gameState.showUpgradeUI) {
-        // Pause menu click handler
-        const menuW = 600;
-        const menuH = 700;
+        // Pause menu click handler - ACTUALIZADO para nuevo tamaño
+        const menuW = 700;
+        const menuH = 900;
         const menuX = W / 2 - menuW / 2;
         const menuY = H / 2 - menuH / 2;
+        const centerX = menuX + menuW / 2;
         
-        // Volume slider (arriba de los botones)
-        let contentY = menuY + menuH - 220 + 30; // Posición después del header AUDIO
-        const sliderW = 400;
-        const sliderH = 10;
-        const sliderX = menuX + (menuW / 2) - sliderW / 2;
-        const sliderY = contentY + 20; // 20px después del label
-        const handleRadius = 14;
+        // Volume slider (centrado y más grande)
+        let contentY = menuY + 110 + 15 + 30 + 35 + 35 + 35 + 35 + 35 + 20 + 15 + 30 + 28; // Aproximación a la posición de audio
+        // Calcular mejor la posición después de inventario
+        contentY = menuY + menuH - 340; // Posición estimada de la sección AUDIO
+        
+        const sliderW = 500;
+        const sliderH = 12;
+        const sliderX = centerX - sliderW / 2;
+        const sliderY = contentY + 50; // Después del título de AUDIO
+        const handleRadius = 16;
         
         // Verificar si el click está en el slider o su handle
         if (my >= sliderY - handleRadius && my <= sliderY + sliderH + handleRadius &&
@@ -1759,13 +1763,13 @@ const Index = () => {
           }
         }
         
-        // Audio toggle buttons (debajo del slider)
-        const toggleBtnW = 180;
-        const toggleBtnH = 50;
-        const toggleGap = 20;
-        const toggleX1 = menuX + (menuW / 2) - toggleBtnW - toggleGap / 2;
-        const toggleX2 = menuX + (menuW / 2) + toggleGap / 2;
-        const toggleY = sliderY + 40; // 40px después del slider
+        // Audio toggle buttons (centrados y más grandes)
+        const toggleBtnW = 220;
+        const toggleBtnH = 55;
+        const toggleGap = 30;
+        const toggleX1 = centerX - toggleBtnW - toggleGap / 2;
+        const toggleX2 = centerX + toggleGap / 2;
+        const toggleY = sliderY + 50; // 50px después del slider
         
         // Music button
         if (mx >= toggleX1 && mx <= toggleX1 + toggleBtnW && my >= toggleY && my <= toggleY + toggleBtnH) {
@@ -1784,13 +1788,13 @@ const Index = () => {
           gameState.sfxMuted = !gameState.sfxMuted;
         }
         
-        // Action buttons
-        const btnW = 200;
-        const btnH = 55;
-        const btnGap = 30;
-        const continueX = menuX + (menuW / 2) - btnW - btnGap / 2;
-        const restartX = menuX + (menuW / 2) + btnGap / 2;
-        const btnY = menuY + menuH - 80;
+        // Action buttons (más grandes y centrados)
+        const btnW = 240;
+        const btnH = 60;
+        const btnGap = 40;
+        const continueX = centerX - btnW - btnGap / 2;
+        const restartX = centerX + btnGap / 2;
+        const btnY = menuY + menuH - 90;
         
         // Continue button
         if (mx >= continueX && mx <= continueX + btnW && my >= btnY && my <= btnY + btnH) {
@@ -4745,9 +4749,9 @@ const Index = () => {
         ctx.fillStyle = "rgba(0, 0, 0, 0.85)";
         ctx.fillRect(0, 0, W, H);
         
-        // Menu container
-        const menuW = 600;
-        const menuH = 700;
+        // Menu container - MÁS GRANDE para mejor espaciado
+        const menuW = 700;
+        const menuH = 900;
         const menuX = W / 2 - menuW / 2;
         const menuY = H / 2 - menuH / 2;
         
@@ -4775,47 +4779,62 @@ const Index = () => {
         ctx.fillText(t.paused, W / 2, menuY + 60);
         ctx.shadowBlur = 0;
         
-        // Content area
-        let contentY = menuY + 100;
-        const leftCol = menuX + 40;
-        const rightCol = menuX + menuW / 2 + 20;
-        const lineHeight = 32;
+        // Content area con mejor espaciado
+        let contentY = menuY + 110;
+        const leftCol = menuX + 50;
+        const rightCol = menuX + menuW / 2 + 30;
+        const centerX = menuX + menuW / 2;
+        const lineHeight = 35; // Aumentado para más espacio
+        
+        // Función helper para dibujar separador
+        const drawSeparator = (y: number) => {
+          ctx.strokeStyle = "rgba(251, 191, 36, 0.3)";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(menuX + 40, y);
+          ctx.lineTo(menuX + menuW - 40, y);
+          ctx.stroke();
+        };
         
         // === BASIC STATS SECTION ===
-        ctx.fillStyle = "#fff";
-        ctx.font = "bold 20px system-ui";
+        ctx.fillStyle = "#fbbf24";
+        ctx.font = "bold 24px system-ui";
         ctx.textAlign = "left";
         ctx.fillText("📊 ESTADÍSTICAS", leftCol, contentY);
-        contentY += 35;
+        contentY += 15;
+        drawSeparator(contentY);
+        contentY += 30;
         
-        ctx.font = "16px system-ui";
-        ctx.fillStyle = "#9ca3af";
+        ctx.font = "18px system-ui";
+        ctx.fillStyle = "#d1d5db";
         
-        // HP with bar
+        // HP with bar - más grande y destacado
         ctx.fillText(`HP:`, leftCol, contentY);
-        const hpBarX = leftCol + 70;
-        const hpBarW = 180;
-        const hpBarH = 18;
+        const hpBarX = leftCol + 50;
+        const hpBarW = 200;
+        const hpBarH = 24;
         const hpPercent = Math.max(0, Math.min(1, (Number(gameState.player.hp) || 0) / (Number(gameState.player.maxhp) || 1)));
         
         ctx.fillStyle = "rgba(50, 50, 50, 0.8)";
-        ctx.fillRect(hpBarX, contentY - 12, hpBarW, hpBarH);
+        ctx.fillRect(hpBarX, contentY - 16, hpBarW, hpBarH);
         
         const hpGradient = ctx.createLinearGradient(hpBarX, 0, hpBarX + hpBarW * hpPercent, 0);
         hpGradient.addColorStop(0, "#ef4444");
         hpGradient.addColorStop(1, "#f87171");
         ctx.fillStyle = hpGradient;
-        ctx.fillRect(hpBarX, contentY - 12, hpBarW * hpPercent, hpBarH);
+        ctx.fillRect(hpBarX, contentY - 16, hpBarW * hpPercent, hpBarH);
         
         ctx.fillStyle = "#fff";
-        ctx.font = "bold 14px system-ui";
+        ctx.font = "bold 16px system-ui";
         ctx.textAlign = "center";
         ctx.fillText(`${gameState.player.hp} / ${gameState.player.maxhp}`, hpBarX + hpBarW / 2, contentY + 1);
         
-        contentY += lineHeight;
-        ctx.font = "16px system-ui";
+        contentY += lineHeight + 5;
+        ctx.font = "18px system-ui";
         ctx.textAlign = "left";
-        ctx.fillStyle = "#9ca3af";
+        ctx.fillStyle = "#d1d5db";
+        
+        // Stats en dos columnas con mejor espaciado
         ctx.fillText(`${t.level}: ${gameState.level}`, leftCol, contentY);
         ctx.fillText(`Score: ${gameState.score}`, rightCol, contentY);
         contentY += lineHeight;
@@ -4828,12 +4847,16 @@ const Index = () => {
         contentY += lineHeight + 20;
         
         // === COMBAT STATS SECTION ===
-        ctx.fillStyle = "#fff";
-        ctx.font = "bold 20px system-ui";
+        ctx.fillStyle = "#fbbf24";
+        ctx.font = "bold 24px system-ui";
         ctx.fillText("⚔️ COMBATE", leftCol, contentY);
-        contentY += 35;
+        contentY += 15;
+        drawSeparator(contentY);
+        contentY += 30;
         
-        ctx.font = "16px system-ui";
+        ctx.font = "17px system-ui";
+        
+        // Stats principales siempre visibles
         ctx.fillStyle = "#f87171";
         const dmgMult = ((gameState.player.stats.damageMultiplier - 1) * 100).toFixed(0);
         ctx.fillText(`💥 Daño: +${dmgMult}%`, leftCol, contentY);
@@ -4852,97 +4875,106 @@ const Index = () => {
         ctx.fillText(`🔫 Cadencia: +${fireMult}%`, rightCol, contentY);
         contentY += lineHeight;
         
+        // Stats especiales (solo si aplican)
+        let specialStatsY = contentY;
         if (gameState.player.stats.bounces > 0) {
           ctx.fillStyle = "#a855f7";
-          ctx.fillText(`🔄 Rebotes: ${gameState.player.stats.bounces}`, leftCol, contentY);
-          contentY += lineHeight;
+          ctx.fillText(`🔄 Rebotes: ${gameState.player.stats.bounces}`, leftCol, specialStatsY);
+          specialStatsY += lineHeight;
         }
         
         if (gameState.player.stats.multishot > 0) {
           ctx.fillStyle = "#06b6d4";
-          ctx.fillText(`📌 Proyectiles: +${gameState.player.stats.multishot}`, leftCol, contentY);
-          contentY += lineHeight;
+          ctx.fillText(`📌 Proyectiles: +${gameState.player.stats.multishot}`, leftCol, specialStatsY);
+          specialStatsY += lineHeight;
         }
         
         if (gameState.player.stats.vampire > 0) {
           ctx.fillStyle = "#ec4899";
-          ctx.fillText(`🩸 Vampirismo: ${(gameState.player.stats.vampire * 100).toFixed(0)}%`, leftCol, contentY);
+          ctx.fillText(`🩸 Vampirismo: ${(gameState.player.stats.vampire * 100).toFixed(0)}%`, rightCol, contentY);
           contentY += lineHeight;
         }
         
         if (gameState.player.stats.auraRadius > 0) {
           ctx.fillStyle = "#f87171";
-          ctx.fillText(`🔥 Aura de Fuego: ${gameState.player.stats.auraRadius}px`, leftCol, contentY);
-          contentY += lineHeight;
+          ctx.fillText(`🔥 Aura: ${gameState.player.stats.auraRadius}px`, rightCol, specialStatsY - lineHeight);
         }
         
         const xpMult = ((gameState.player.stats.xpMultiplier - 1) * 100).toFixed(0);
         if (gameState.player.stats.xpMultiplier > 1) {
           ctx.fillStyle = "#ec4899";
-          ctx.fillText(`✨ Exp: +${xpMult}%`, rightCol, contentY - lineHeight * 2);
+          ctx.fillText(`✨ Exp: +${xpMult}%`, rightCol, specialStatsY);
         }
         
-        contentY += 10;
+        contentY = Math.max(contentY, specialStatsY) + 20;
         
         // === INVENTORY SECTION ===
-        ctx.fillStyle = "#fff";
-        ctx.font = "bold 20px system-ui";
+        ctx.fillStyle = "#fbbf24";
+        ctx.font = "bold 24px system-ui";
         ctx.fillText("🎒 INVENTARIO", leftCol, contentY);
-        contentY += 35;
-        
-        ctx.font = "15px system-ui";
-        ctx.fillStyle = "#9ca3af";
-        ctx.fillText(`${t.weapons} ${gameState.player.weapons.length}/3`, leftCol, contentY);
-        ctx.fillText(`${t.tomes} ${gameState.player.tomes.length}/3`, rightCol, contentY);
-        contentY += 25;
-        
-        // Weapons list
-        gameState.player.weapons.forEach((w: Weapon, i: number) => {
-          ctx.fillStyle = w.color;
-          ctx.fillText(`• ${w.name} (Lv.${w.level})`, leftCol + 10, contentY + i * 22);
-        });
-        
-        // Tomes list
-        gameState.player.tomes.forEach((tome: Tome, i: number) => {
-          ctx.fillStyle = tome.color;
-          ctx.fillText(`• ${tome.name} (Lv.${tome.level})`, rightCol + 10, contentY + i * 22);
-        });
-        
-        contentY = menuY + menuH - 220;
-        
-        // === AUDIO CONTROLS SECTION ===
-        ctx.fillStyle = "#fff";
-        ctx.font = "bold 20px system-ui";
-        ctx.textAlign = "left";
-        ctx.fillText("🎧 AUDIO", leftCol, contentY);
+        contentY += 15;
+        drawSeparator(contentY);
         contentY += 30;
         
-        // Volume slider para música
-        const sliderW = 400;
-        const sliderH = 10;
-        const sliderX = menuX + (menuW / 2) - sliderW / 2;
+        ctx.font = "16px system-ui";
+        ctx.fillStyle = "#9ca3af";
+        ctx.fillText(`${t.weapons}: ${gameState.player.weapons.length}/3`, leftCol, contentY);
+        ctx.fillText(`${t.tomes}: ${gameState.player.tomes.length}/3`, rightCol, contentY);
+        contentY += 28;
+        
+        // Weapons y tomes más compactos
+        const maxItems = Math.max(gameState.player.weapons.length, gameState.player.tomes.length);
+        for (let i = 0; i < maxItems; i++) {
+          if (i < gameState.player.weapons.length) {
+            const w = gameState.player.weapons[i];
+            ctx.fillStyle = w.color;
+            ctx.fillText(`• ${w.name} (Lv.${w.level})`, leftCol + 10, contentY);
+          }
+          if (i < gameState.player.tomes.length) {
+            const tome = gameState.player.tomes[i];
+            ctx.fillStyle = tome.color;
+            ctx.fillText(`• ${tome.name} (Lv.${tome.level})`, rightCol + 10, contentY);
+          }
+          contentY += 26;
+        }
+        
+        contentY += 15;
+        
+        // === AUDIO CONTROLS SECTION ===
+        ctx.fillStyle = "#fbbf24";
+        ctx.font = "bold 24px system-ui";
+        ctx.textAlign = "left";
+        ctx.fillText("🎧 AUDIO", leftCol, contentY);
+        contentY += 15;
+        drawSeparator(contentY);
+        contentY += 35;
+        
+        // Volume slider para música con mejor espaciado
+        const sliderW = 500;
+        const sliderH = 12;
+        const sliderX = centerX - sliderW / 2;
         const sliderY = contentY;
         
         // Label del slider con icono
         ctx.fillStyle = "#fbbf24";
-        ctx.font = "bold 16px system-ui";
+        ctx.font = "bold 18px system-ui";
         ctx.textAlign = "left";
-        ctx.fillText("🎚️ Volumen Música", sliderX, sliderY - 5);
+        ctx.fillText("🎚️ Volumen Música", sliderX, sliderY - 8);
         
         // Porcentaje del volumen (derecha del label)
         ctx.fillStyle = "#a855f7";
-        ctx.font = "bold 16px system-ui";
+        ctx.font = "bold 18px system-ui";
         ctx.textAlign = "right";
-        ctx.fillText(`${Math.round(gameState.musicVolume * 100)}%`, sliderX + sliderW, sliderY - 5);
+        ctx.fillText(`${Math.round(gameState.musicVolume * 100)}%`, sliderX + sliderW, sliderY - 8);
         
-        contentY += 20;
+        contentY += 25;
         
         // Track del slider (fondo con sombra)
         ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
         ctx.shadowBlur = 8;
         ctx.fillStyle = "rgba(30, 30, 40, 0.9)";
         ctx.beginPath();
-        ctx.roundRect(sliderX, contentY, sliderW, sliderH, 5);
+        ctx.roundRect(sliderX, contentY, sliderW, sliderH, 6);
         ctx.fill();
         ctx.shadowBlur = 0;
         
@@ -4954,34 +4986,34 @@ const Index = () => {
         sliderGradient.addColorStop(1, "#fbbf24");
         ctx.fillStyle = sliderGradient;
         ctx.beginPath();
-        ctx.roundRect(sliderX, contentY, fillW, sliderH, 5);
+        ctx.roundRect(sliderX, contentY, fillW, sliderH, 6);
         ctx.fill();
         
         // Handle del slider (círculo con glow)
         const handleX = sliderX + fillW;
         const handleY = contentY + sliderH / 2;
-        const handleRadius = 14;
+        const handleRadius = 16;
         
         ctx.shadowColor = "#a855f7";
-        ctx.shadowBlur = 15;
+        ctx.shadowBlur = 20;
         ctx.fillStyle = "#fff";
         ctx.beginPath();
         ctx.arc(handleX, handleY, handleRadius, 0, Math.PI * 2);
         ctx.fill();
         
         ctx.strokeStyle = "#a855f7";
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 4;
         ctx.stroke();
         ctx.shadowBlur = 0;
         
-        contentY += 40;
+        contentY += 50;
         
-        // Audio toggle buttons con mejor diseño
-        const toggleBtnW = 180;
-        const toggleBtnH = 50;
-        const toggleGap = 20;
-        const toggleX1 = menuX + (menuW / 2) - toggleBtnW - toggleGap / 2;
-        const toggleX2 = menuX + (menuW / 2) + toggleGap / 2;
+        // Audio toggle buttons con mejor diseño y espaciado
+        const toggleBtnW = 220;
+        const toggleBtnH = 55;
+        const toggleGap = 30;
+        const toggleX1 = centerX - toggleBtnW - toggleGap / 2;
+        const toggleX2 = centerX + toggleGap / 2;
         const toggleY = contentY;
         
         // Music button con gradiente
@@ -4995,20 +5027,20 @@ const Index = () => {
         }
         ctx.fillStyle = musicGradient;
         ctx.beginPath();
-        ctx.roundRect(toggleX1, toggleY, toggleBtnW, toggleBtnH, 8);
+        ctx.roundRect(toggleX1, toggleY, toggleBtnW, toggleBtnH, 10);
         ctx.fill();
         
         ctx.strokeStyle = "#fff";
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 3;
         ctx.shadowColor = gameState.musicMuted ? "#dc2626" : "#10b981";
-        ctx.shadowBlur = 12;
+        ctx.shadowBlur = 15;
         ctx.stroke();
         ctx.shadowBlur = 0;
         
         ctx.fillStyle = "#fff";
-        ctx.font = "bold 18px system-ui";
+        ctx.font = "bold 20px system-ui";
         ctx.textAlign = "center";
-        ctx.fillText(gameState.musicMuted ? "🔇 Música" : "🎵 Música", toggleX1 + toggleBtnW / 2, toggleY + toggleBtnH / 2 + 6);
+        ctx.fillText(gameState.musicMuted ? "🔇 Música" : "🎵 Música", toggleX1 + toggleBtnW / 2, toggleY + toggleBtnH / 2 + 7);
         
         // SFX button con gradiente
         const sfxGradient = ctx.createLinearGradient(toggleX2, toggleY, toggleX2, toggleY + toggleBtnH);
@@ -5021,53 +5053,63 @@ const Index = () => {
         }
         ctx.fillStyle = sfxGradient;
         ctx.beginPath();
-        ctx.roundRect(toggleX2, toggleY, toggleBtnW, toggleBtnH, 8);
+        ctx.roundRect(toggleX2, toggleY, toggleBtnW, toggleBtnH, 10);
         ctx.fill();
         
         ctx.strokeStyle = "#fff";
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 3;
         ctx.shadowColor = gameState.sfxMuted ? "#dc2626" : "#10b981";
-        ctx.shadowBlur = 12;
+        ctx.shadowBlur = 15;
         ctx.stroke();
         ctx.shadowBlur = 0;
         
         ctx.fillStyle = "#fff";
-        ctx.fillText(gameState.sfxMuted ? "🔇 SFX" : "🔊 SFX", toggleX2 + toggleBtnW / 2, toggleY + toggleBtnH / 2 + 6);
+        ctx.fillText(gameState.sfxMuted ? "🔇 SFX" : "🔊 SFX", toggleX2 + toggleBtnW / 2, toggleY + toggleBtnH / 2 + 7);
         
-        // === ACTION BUTTONS ===
-        const btnW = 200;
-        const btnH = 55;
-        const btnGap = 30;
-        const continueX = menuX + (menuW / 2) - btnW - btnGap / 2;
-        const restartX = menuX + (menuW / 2) + btnGap / 2;
-        const btnY = menuY + menuH - 80;
+        // === ACTION BUTTONS === (con más espacio desde arriba)
+        const btnW = 240;
+        const btnH = 60;
+        const btnGap = 40;
+        const continueX = centerX - btnW - btnGap / 2;
+        const restartX = centerX + btnGap / 2;
+        const btnY = menuY + menuH - 90;
         
-        // Continue button (green)
+        // Continue button (green) con mejor diseño
         const continueGradient = ctx.createLinearGradient(continueX, btnY, continueX, btnY + btnH);
         continueGradient.addColorStop(0, "#22c55e");
         continueGradient.addColorStop(1, "#16a34a");
         ctx.fillStyle = continueGradient;
-        ctx.fillRect(continueX, btnY, btnW, btnH);
+        ctx.beginPath();
+        ctx.roundRect(continueX, btnY, btnW, btnH, 10);
+        ctx.fill();
         ctx.strokeStyle = "#fff";
         ctx.lineWidth = 3;
         ctx.shadowColor = "#22c55e";
-        ctx.shadowBlur = 15;
-        ctx.strokeRect(continueX, btnY, btnW, btnH);
+        ctx.shadowBlur = 20;
+        ctx.stroke();
         ctx.shadowBlur = 0;
         ctx.fillStyle = "#fff";
-        ctx.font = "bold 22px system-ui";
+        ctx.font = "bold 24px system-ui";
         ctx.textAlign = "center";
-        ctx.fillText("▶ " + t.continue, continueX + btnW / 2, btnY + btnH / 2 + 8);
+        ctx.fillText("▶ " + t.continue, continueX + btnW / 2, btnY + btnH / 2 + 9);
         
-        // Restart button (red)
+        // Restart button (red) con mejor diseño
         const restartGradient = ctx.createLinearGradient(restartX, btnY, restartX, btnY + btnH);
         restartGradient.addColorStop(0, "#ef4444");
         restartGradient.addColorStop(1, "#dc2626");
         ctx.fillStyle = restartGradient;
-        ctx.fillRect(restartX, btnY, btnW, btnH);
+        ctx.beginPath();
+        ctx.roundRect(restartX, btnY, btnW, btnH, 10);
+        ctx.fill();
         ctx.strokeStyle = "#fff";
         ctx.lineWidth = 3;
         ctx.shadowColor = "#ef4444";
+        ctx.shadowBlur = 20;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 24px system-ui";
+        ctx.fillText("🔄 " + t.restart, restartX + btnW / 2, btnY + btnH / 2 + 9);
         ctx.shadowBlur = 15;
         ctx.strokeRect(restartX, btnY, btnW, btnH);
         ctx.shadowBlur = 0;
