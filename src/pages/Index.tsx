@@ -6455,7 +6455,7 @@ const Index = () => {
             ctx.textAlign = "center";
             ctx.shadowColor = "#fbbf24";
             ctx.shadowBlur = 10;
-            ctx.fillText("⚡ Desarrollado por", centerX, contentY + 10);
+            ctx.fillText("⚡ Creado por", centerX, contentY + 10);
             ctx.shadowBlur = 0;
             
             // Logo Vela Digital
@@ -6465,11 +6465,6 @@ const Index = () => {
             ctx.shadowBlur = 25;
             ctx.fillText("Vela Digital", centerX, contentY + 60);
             ctx.shadowBlur = 0;
-            
-            // Subtítulo
-            ctx.fillStyle = "#9ca3af";
-            ctx.font = "18px system-ui";
-            ctx.fillText("Creado con Lovable", centerX, contentY + 95);
             
             // Continue & Restart Buttons (al final del tab)
             contentY = menuY + menuH - 85;
