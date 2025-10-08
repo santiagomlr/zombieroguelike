@@ -175,7 +175,7 @@ const ITEMS: Item[] = [
   { id: "combatglasses", name: "Gafas de Combate", description: "+10% precisión", effect: "precisionitem", rarity: "rare", color: "#3b82f6" },
   { id: "reinforcedpants", name: "Pantalones Reforzados", description: "-5% daño recibido", effect: "damagereduction", rarity: "rare", color: "#3b82f6" },
   { id: "bouncegloves", name: "Guantes de Rebote", description: "+1 rebote", effect: "bounceitem", rarity: "rare", color: "#3b82f6" },
-  { id: "extrabag", name: "Mochila Extra", description: "+capacidad drops", effect: "dropcapacity", rarity: "rare", color: "#3b82f6" },
+  // ELIMINADO: extrabag (dropcapacity no implementado)
   { id: "energyclock", name: "Reloj de Energía", description: "+10% cadencia global", effect: "globalfirerate", rarity: "rare", color: "#3b82f6" },
   { id: "ballistichelmet", name: "Casco Balístico", description: "Inmunidad 1er golpe/wave", effect: "firsthitimmune", rarity: "rare", color: "#3b82f6" },
   
@@ -241,7 +241,7 @@ const Index = () => {
         maxhp: 100,
         shield: 0,
         ifr: 0,
-        ifrDuration: 2,
+        ifrDuration: 0.5, // Cooldown de invulnerabilidad después de golpe (0.5s)
         magnet: 120,
         rageTimer: 0,
         tempMagnetTimer: 0,
@@ -313,7 +313,7 @@ const Index = () => {
       xpBarRainbow: false,
       waveNotification: 0,
       restartTimer: 0,
-      restartHoldTime: 5,
+      restartHoldTime: 2, // 2 segundos para reiniciar sosteniendo R
       gameOverTimer: 0,
       showAudioSettings: false, // Control para mostrar/ocultar panel de audio
       // Sistema de Eventos Ambientales (vinculado a waves)
@@ -327,7 +327,9 @@ const Index = () => {
       lightningTimer: 0,
       fogOpacity: 0,
       fogZones: [] as Array<{ x: number; y: number; width: number; height: number }>,
+      fogWarningZones: [] as Array<{ x: number; y: number; width: number; height: number; warningTime: number }>, // Warning para niebla
       stormZone: null as { x: number; y: number; radius: number; vx: number; vy: number } | null,
+      meleeCooldown: 0, // Cooldown de golpe melee
       sounds: {
         shoot: new Audio(),
         hit: new Audio(),
@@ -560,6 +562,7 @@ const Index = () => {
       gameState.lightningTimer = 0;
       gameState.fogOpacity = 0;
       gameState.fogZones = [];
+      gameState.fogWarningZones = [];
       gameState.stormZone = null;
       
       // Actualizar React state
@@ -579,10 +582,15 @@ const Index = () => {
     const handleKeyDown = (e: KeyboardEvent) => {
       gameState.keys[e.key.toLowerCase()] = true;
       
-      // Game Over: R o Enter para reiniciar
-      if (gameState.state === 'gameover' && (e.key.toLowerCase() === 'r' || e.key === 'Enter')) {
+      // Game Over: Enter para reiniciar inmediatamente
+      if (gameState.state === 'gameover' && e.key === 'Enter') {
         resetGame();
         return;
+      }
+      
+      // Running: Sostener R para reiniciar (modo hold)
+      if (gameState.state === 'running' && e.key.toLowerCase() === 'r') {
+        // R key ya está siendo presionada, no hacer nada aquí
       }
       
       // Escape para pausar/reanudar (solo en running o paused)
@@ -1627,9 +1635,7 @@ const Index = () => {
             case "bounceitem":
               gameState.player.stats.bounces += 1;
               break;
-            case "dropcapacity":
-              // Efecto pasivo, no modifica stats directamente
-              break;
+            // dropcapacity eliminado - no estaba implementado
             case "globalfirerate":
               gameState.player.stats.fireRateMultiplier *= 1.1;
               break;
@@ -1845,6 +1851,17 @@ const Index = () => {
       if (gameState.musicNotificationTimer > 0) {
         gameState.musicNotificationTimer = Math.max(0, gameState.musicNotificationTimer - dt);
       }
+      
+      // Hold R para reiniciar (solo durante running)
+      if (gameState.state === 'running' && gameState.keys['r']) {
+        gameState.restartTimer += dt;
+        if (gameState.restartTimer >= gameState.restartHoldTime) {
+          resetGame();
+          gameState.restartTimer = 0;
+        }
+      } else {
+        gameState.restartTimer = 0;
+      }
 
       // Game Over auto-restart timer
       if (gameState.state === 'gameover') {
@@ -1988,7 +2005,11 @@ const Index = () => {
           gameState.eventNotification = 0;
           gameState.fogOpacity = 0;
           gameState.fogZones = [];
+          gameState.fogWarningZones = []; // Limpiar warnings también
           gameState.stormZone = null;
+          
+          // FIX: Limpiar TODOS los hotspots radiactivos (lluvia radiactiva)
+          gameState.hotspots = gameState.hotspots.filter(h => !h.isRadioactive);
         }
         
         // Reset flag para permitir nuevo evento en la siguiente wave
@@ -2030,6 +2051,7 @@ const Index = () => {
           gameState.eventNotification = 5; // 5 segundos de aviso antes de que empiece
           gameState.fogOpacity = 0;
           gameState.fogZones = [];
+          gameState.fogWarningZones = [];
           gameState.stormZone = null;
           gameState.eventActivatedThisWave = true; // Marcar que ya se activó en esta wave
         }
@@ -2095,8 +2117,9 @@ const Index = () => {
               const dy = gameState.player.y - gameState.stormZone.y;
               const distToPlayer = Math.hypot(dx, dy);
               
-              // Velocidad base muy lenta (sigue al jugador suavemente)
-              const baseSpeed = 20; // Muy lento
+              // Velocidad base AUMENTADA (sigue al jugador más rápidamente)
+              const baseSpeed = 60; // Aumentado de 20 a 60
+              const maxSpeed = 120; // Aumentado de 40 a 120
               
               // Componente hacia el jugador (80% del tiempo)
               const followStrength = Math.random() < 0.8 ? 1 : 0;
@@ -2143,7 +2166,6 @@ const Index = () => {
               
               // Limitar velocidad máxima
               const stormSpeed = Math.hypot(gameState.stormZone.vx, gameState.stormZone.vy);
-              const maxSpeed = 40; // Velocidad máxima baja
               if (stormSpeed > maxSpeed) {
                 gameState.stormZone.vx = (gameState.stormZone.vx / stormSpeed) * maxSpeed;
                 gameState.stormZone.vy = (gameState.stormZone.vy / stormSpeed) * maxSpeed;
@@ -2189,17 +2211,35 @@ const Index = () => {
               break;
               
             case "fog":
-              // 🌫️ NIEBLA TÓXICA: 1 zona rectangular que limita movimiento
-              // Crear zona de niebla si no existe (solo 1)
-              if (gameState.fogZones.length === 0 && intensity > 0.3) {
+              // 🌫️ NIEBLA TÓXICA: Warning antes de aparecer, luego 1 zona rectangular
+              // Fase 1: Warning zones (mostrar dónde aparecerá)
+              if (gameState.fogWarningZones.length === 0 && intensity < 0.3) {
                 const width = 250 + Math.random() * 150;
                 const height = 200 + Math.random() * 100;
-                gameState.fogZones.push({
+                gameState.fogWarningZones.push({
                   x: Math.random() * (W - width),
                   y: Math.random() * (H - height),
                   width,
                   height,
+                  warningTime: 0,
                 });
+              }
+              
+              // Actualizar warning timer
+              if (gameState.fogWarningZones.length > 0) {
+                gameState.fogWarningZones[0].warningTime += dt;
+              }
+              
+              // Fase 2: Crear zona de niebla real después del warning
+              if (gameState.fogZones.length === 0 && intensity > 0.3 && gameState.fogWarningZones.length > 0) {
+                const warning = gameState.fogWarningZones[0];
+                gameState.fogZones.push({
+                  x: warning.x,
+                  y: warning.y,
+                  width: warning.width,
+                  height: warning.height,
+                });
+                gameState.fogWarningZones = []; // Limpiar warnings
               }
               
               // Fade in niebla
@@ -4229,6 +4269,36 @@ const Index = () => {
       // EFECTOS AMBIENTALES - Renderizado
       // ═══════════════════════════════════════════════════════════
       
+      // Renderizar WARNING zones de niebla (antes de aparecer)
+      if (gameState.environmentalEvent === "fog" && gameState.fogWarningZones.length > 0) {
+        for (const warning of gameState.fogWarningZones) {
+          const warningPulse = Math.sin(gameState.time * 5) * 0.3 + 0.7;
+          
+          // Fondo rojo semitransparente
+          ctx.fillStyle = `rgba(239, 68, 68, ${0.2 * warningPulse})`;
+          ctx.fillRect(warning.x, warning.y, warning.width, warning.height);
+          
+          // Borde rojo pulsante
+          ctx.strokeStyle = `rgba(239, 68, 68, ${warningPulse})`;
+          ctx.lineWidth = 4;
+          ctx.shadowColor = "#ef4444";
+          ctx.shadowBlur = 20 * warningPulse;
+          ctx.setLineDash([15, 15]);
+          ctx.strokeRect(warning.x, warning.y, warning.width, warning.height);
+          ctx.setLineDash([]);
+          ctx.shadowBlur = 0;
+          
+          // Texto de warning
+          ctx.fillStyle = `rgba(239, 68, 68, ${warningPulse})`;
+          ctx.font = "bold 32px system-ui";
+          ctx.textAlign = "center";
+          ctx.shadowColor = "#ef4444";
+          ctx.shadowBlur = 15;
+          ctx.fillText("⚠️ NIEBLA ENTRANTE", warning.x + warning.width / 2, warning.y + warning.height / 2);
+          ctx.shadowBlur = 0;
+        }
+      }
+      
       // Renderizar zonas de niebla (solo si el evento está activo y con intensidad)
       if (gameState.environmentalEvent === "fog" && gameState.fogZones.length > 0 && 
           (gameState.eventPhase === "fadein" || gameState.eventPhase === "active" || gameState.eventPhase === "fadeout")) {
@@ -4600,8 +4670,8 @@ const Index = () => {
           ctx.restore();
         }
         
-        // HP bar para todos los enemigos
-        const barW = e.rad * 2;
+        // HP bar para todos los enemigos (FIX: tamaño consistente)
+        const barW = e.rad * 2; // Ancho fijo basado en radio
         const barH = e.isBoss ? 8 : e.isMiniBoss ? 6 : e.isElite ? 5 : 3;
         const barX = e.x - barW / 2;
         const barY = e.y - e.rad - (e.isBoss ? 35 : 10);
@@ -4609,8 +4679,11 @@ const Index = () => {
         ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
         ctx.fillRect(barX, barY, barW, barH);
         
+        // Ancho de la barra de HP actual (proporcional al HP)
+        const hpBarWidth = barW * Math.max(0, Math.min(1, e.hp / e.maxhp));
+        
         ctx.fillStyle = e.isBoss ? "#dc2626" : e.isMiniBoss ? "#fbbf24" : e.isElite ? "#f87171" : "#34d399";
-        ctx.fillRect(barX, barY, barW * (e.hp / e.maxhp), barH);
+        ctx.fillRect(barX, barY, hpBarWidth, barH);
         
         // Fase del boss
         if (e.isBoss) {
