@@ -2126,33 +2126,25 @@ const Index = () => {
         
         // Reset flag para permitir nuevo evento en la siguiente wave
         gameState.eventActivatedThisWave = false;
-      }
-      
-      // Reducir timer de notificación de wave
-      if (gameState.waveNotification > 0) {
-        gameState.waveNotification = Math.max(0, gameState.waveNotification - dt);
-      }
-      
-      // ═══════════════════════════════════════════════════════════
-      // ACTIVACIÓN DE EVENTOS AMBIENTALES (Basado en probabilidad)
-      // ═══════════════════════════════════════════════════════════
-      // Solo se puede activar 1 evento por wave, con probabilidad creciente
-      if (!gameState.eventActivatedThisWave && !gameState.environmentalEvent && gameState.state === 'running') {
+        
+        // ═══════════════════════════════════════════════════════════
+        // ACTIVACIÓN DE EVENTOS AMBIENTALES AL INICIO DE WAVE
+        // ═══════════════════════════════════════════════════════════
+        // Solo se puede activar 1 evento por wave, con probabilidad creciente
         // Calcular probabilidad según wave actual (MUCHO MÁS BAJAS)
         let eventProbability = 0;
         if (gameState.wave >= 1 && gameState.wave <= 5) {
-          eventProbability = 0.01; // 1% en waves 1-5 (era 5%)
+          eventProbability = 0.01; // 1% en waves 1-5
         } else if (gameState.wave >= 6 && gameState.wave <= 10) {
-          eventProbability = 0.03; // 3% en waves 6-10 (era 15%)
+          eventProbability = 0.03; // 3% en waves 6-10
         } else if (gameState.wave >= 11 && gameState.wave <= 15) {
-          eventProbability = 0.06; // 6% en waves 11-15 (era 30%)
+          eventProbability = 0.06; // 6% en waves 11-15
         } else if (gameState.wave >= 16) {
-          eventProbability = 0.10; // 10% en waves 16+ (era 45%)
+          eventProbability = 0.10; // 10% en waves 16+
         }
         
-        // Intentar activar evento con la probabilidad calculada (se chequea cada frame, muy rápido)
-        // Para evitar múltiples activaciones, solo intentamos 1 vez por segundo
-        if (Math.random() < eventProbability * dt) { // dt hace que sea proporcional al tiempo
+        // Intentar activar evento con la probabilidad calculada (UNA VEZ al inicio de la wave)
+        if (Math.random() < eventProbability) {
           const events = ["storm", "fog", "rain"] as const;
           const newEvent = events[Math.floor(Math.random() * events.length)];
           
@@ -2167,6 +2159,11 @@ const Index = () => {
           gameState.stormZone = null;
           gameState.eventActivatedThisWave = true; // Marcar que ya se activó en esta wave
         }
+      }
+      
+      // Reducir timer de notificación de wave
+      if (gameState.waveNotification > 0) {
+        gameState.waveNotification = Math.max(0, gameState.waveNotification - dt);
       }
       
       // ═══════════════════════════════════════════════════════════
