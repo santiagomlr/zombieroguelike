@@ -32,6 +32,14 @@ interface Translations {
   stats: string;
   continue: string;
   paused: string;
+  tutorial: {
+    move: string;
+    aim: string;
+    shoot: string;
+    sprint: string;
+    pause: string;
+    survival: string;
+  };
 }
 
 const translations: Record<Language, Translations> = {
@@ -63,6 +71,14 @@ const translations: Record<Language, Translations> = {
     stats: "Estadísticas",
     continue: "Continuar",
     paused: "PAUSA",
+    tutorial: {
+      move: "Usa WASD para moverte",
+      aim: "Mueve el ratón para apuntar",
+      shoot: "Click izquierdo para disparar",
+      sprint: "Mantén SPACE para correr (consume stamina)",
+      pause: "Presiona ESC para pausar",
+      survival: "Sobrevive eliminando enemigos",
+    },
   },
   en: {
     levelUp: "LEVEL UP!",
@@ -92,6 +108,14 @@ const translations: Record<Language, Translations> = {
     stats: "Stats",
     continue: "Continue",
     paused: "PAUSED",
+    tutorial: {
+      move: "Use WASD to move",
+      aim: "Move mouse to aim",
+      shoot: "Left click to shoot",
+      sprint: "Hold SPACE to sprint (uses stamina)",
+      pause: "Press ESC to pause",
+      survival: "Survive by eliminating enemies",
+    },
   },
 };
 
@@ -213,6 +237,8 @@ const Index = () => {
   const [score, setScore] = useState(0);
   const [level, setLevel] = useState(1);
   const [language, setLanguage] = useState<Language>("es");
+  const [tutorialStep, setTutorialStep] = useState(0);
+  const [tutorialCompleted, setTutorialCompleted] = useState(false);
   const gameStateRef = useRef<any>(null);
   const resetGameRef = useRef<(() => void) | null>(null);
   const prerenderedLogosRef = useRef<{[key: string]: HTMLCanvasElement}>({});
@@ -245,6 +271,7 @@ const Index = () => {
         stamina: 100,
         maxStamina: 100,
         isSprinting: false,
+        shotsFired: 0,
         shield: 0,
         ifr: 0,
         ifrDuration: 0.5, // Cooldown de invulnerabilidad después de golpe (0.5s)
@@ -362,6 +389,8 @@ const Index = () => {
       targetMusicVolume: 0.3, // Volumen objetivo para animación suave
       sfxMuted: false,
       enemyLogo: null as HTMLImageElement | null,
+      tutorialActive: false,
+      tutorialStartTime: 0,
     };
 
     gameStateRef.current = gameState;
@@ -515,6 +544,7 @@ const Index = () => {
       gameState.player.stamina = 100;
       gameState.player.maxStamina = 100;
       gameState.player.isSprinting = false;
+      gameState.player.shotsFired = 0;
       gameState.player.shield = 0;
       gameState.player.ifr = 0;
       gameState.player.magnet = 120;
@@ -593,6 +623,12 @@ const Index = () => {
       gameState.fogZones = [];
       gameState.fogWarningZones = [];
       gameState.stormZone = null;
+      
+      // Reset tutorial
+      gameState.tutorialActive = true;
+      gameState.tutorialStartTime = performance.now();
+      setTutorialStep(0);
+      setTutorialCompleted(false);
       
       // Actualizar React state
       setScore(0);
@@ -1058,6 +1094,9 @@ const Index = () => {
     }
 
     function shootWeapon(weapon: Weapon, target: any) {
+      // Incrementar contador de disparos para el tutorial
+      gameState.player.shotsFired = (gameState.player.shotsFired || 0) + 1;
+      
       const range = weapon.range * gameState.player.stats.rangeMultiplier;
       let baseDamage = weapon.damage * gameState.player.stats.damageMultiplier;
       
@@ -1985,6 +2024,45 @@ const Index = () => {
       
       // Solo actualizar lógica del juego si está corriendo
       if (gameState.state !== 'running') return;
+
+      // ═══════════════════════════════════════════════════════════
+      // TUTORIAL - Avanzar paso cuando se cumplan condiciones
+      // ═══════════════════════════════════════════════════════════
+      if (gameState.tutorialActive && !tutorialCompleted && gameState.wave === 1) {
+        const timeInTutorial = (performance.now() - gameState.tutorialStartTime) / 1000;
+        const { w, a, s, d } = gameState.keys;
+        
+        // Paso 0: Movimiento (WASD)
+        if (tutorialStep === 0 && (w || a || s || d)) {
+          setTutorialStep(1);
+        }
+        
+        // Paso 1: Apuntar (auto-avanza después de 2s)
+        if (tutorialStep === 1 && timeInTutorial > 3) {
+          setTutorialStep(2);
+        }
+        
+        // Paso 2: Disparar
+        if (tutorialStep === 2 && gameState.player.shotsFired > 0) {
+          setTutorialStep(3);
+        }
+        
+        // Paso 3: Sprint
+        if (tutorialStep === 3 && gameState.player.isSprinting) {
+          setTutorialStep(4);
+        }
+        
+        // Paso 4: Pausa (auto-avanza después de mostrar)
+        if (tutorialStep === 4 && timeInTutorial > 10) {
+          setTutorialStep(5);
+        }
+        
+        // Paso 5: Objetivo final (auto-completa)
+        if (tutorialStep === 5 && timeInTutorial > 13) {
+          setTutorialCompleted(true);
+          gameState.tutorialActive = false;
+        }
+      }
 
       // ═══════════════════════════════════════════════════════════
       // SISTEMA DE OLEADAS (WAVES) - Estilo Call of Duty Zombies
@@ -5850,8 +5928,137 @@ const Index = () => {
         className="absolute inset-0 w-full h-full"
         style={{ cursor: "crosshair" }}
       />
+      
+      {/* TUTORIAL INTERACTIVO */}
+      {gameStateRef.current?.tutorialActive && !tutorialCompleted && gameStateRef.current?.wave === 1 && (
+        <div className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center">
+          {/* Overlay oscuro sutil */}
+          <div className="absolute inset-0 bg-black/40 pointer-events-none" />
+          
+          {/* Tutorial card */}
+          <div className="relative bg-card/95 backdrop-blur-sm border-2 border-primary/50 rounded-lg p-6 max-w-md mx-4 shadow-2xl animate-scale-in">
+            {/* Progress bar */}
+            <div className="absolute top-0 left-0 right-0 h-1 bg-muted rounded-t-lg overflow-hidden">
+              <div 
+                className="h-full bg-primary transition-all duration-300"
+                style={{ width: `${((tutorialStep + 1) / 6) * 100}%` }}
+              />
+            </div>
+            
+            {/* Paso 0: Movimiento */}
+            {tutorialStep === 0 && (
+              <div className="space-y-4 animate-fade-in">
+                <h3 className="text-xl font-bold text-primary mb-3">
+                  {t.tutorial.move}
+                </h3>
+                <div className="flex justify-center gap-2">
+                  <KeyButton keyLabel="W" isActive={gameStateRef.current?.keys.w || false} />
+                </div>
+                <div className="flex justify-center gap-2">
+                  <KeyButton keyLabel="A" isActive={gameStateRef.current?.keys.a || false} />
+                  <KeyButton keyLabel="S" isActive={gameStateRef.current?.keys.s || false} />
+                  <KeyButton keyLabel="D" isActive={gameStateRef.current?.keys.d || false} />
+                </div>
+              </div>
+            )}
+            
+            {/* Paso 1: Apuntar */}
+            {tutorialStep === 1 && (
+              <div className="space-y-4 animate-fade-in">
+                <h3 className="text-xl font-bold text-primary mb-3">
+                  {t.tutorial.aim}
+                </h3>
+                <div className="flex justify-center">
+                  <div className="w-20 h-24 border-2 border-primary/50 rounded-lg bg-muted/30 flex items-center justify-center relative">
+                    <div className="w-12 h-16 border border-primary/30 rounded-md" />
+                    <div className="absolute top-2 w-3 h-3 bg-primary rounded-full animate-pulse" />
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Paso 2: Disparar */}
+            {tutorialStep === 2 && (
+              <div className="space-y-4 animate-fade-in">
+                <h3 className="text-xl font-bold text-primary mb-3">
+                  {t.tutorial.shoot}
+                </h3>
+                <div className="flex justify-center">
+                  <div className="w-20 h-24 border-2 border-primary/50 rounded-lg bg-muted/30 flex items-center justify-center relative">
+                    <div className="w-12 h-16 border border-primary/30 rounded-md" />
+                    <div className="absolute top-2 w-8 h-8 bg-primary/20 border-2 border-primary rounded-full flex items-center justify-center transition-transform">
+                      <span className="text-xs font-bold">L</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Paso 3: Sprint */}
+            {tutorialStep === 3 && (
+              <div className="space-y-4 animate-fade-in">
+                <h3 className="text-xl font-bold text-primary mb-3">
+                  {t.tutorial.sprint}
+                </h3>
+                <div className="flex justify-center">
+                  <KeyButton 
+                    keyLabel="SPACE" 
+                    isActive={gameStateRef.current?.player.isSprinting || false}
+                    className="px-16"
+                  />
+                </div>
+              </div>
+            )}
+            
+            {/* Paso 4: Pausa */}
+            {tutorialStep === 4 && (
+              <div className="space-y-4 animate-fade-in">
+                <h3 className="text-xl font-bold text-primary mb-3">
+                  {t.tutorial.pause}
+                </h3>
+                <div className="flex justify-center">
+                  <KeyButton keyLabel="ESC" isActive={false} className="px-8" />
+                </div>
+              </div>
+            )}
+            
+            {/* Paso 5: Objetivo */}
+            {tutorialStep === 5 && (
+              <div className="space-y-4 animate-fade-in">
+                <h3 className="text-2xl font-bold text-primary mb-3">
+                  {t.tutorial.survival}
+                </h3>
+                <p className="text-muted-foreground text-center">
+                  {language === 'es' ? '¡Buena suerte!' : 'Good luck!'}
+                </p>
+              </div>
+            )}
+            
+            {/* Step indicator */}
+            <div className="mt-4 text-center text-sm text-muted-foreground">
+              {tutorialStep + 1} / 6
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
+// Componente de tecla animada para el tutorial
+const KeyButton = ({ keyLabel, isActive, className = "" }: { keyLabel: string; isActive: boolean; className?: string }) => (
+  <div 
+    className={`
+      px-4 py-3 border-2 rounded-md font-bold text-sm transition-all duration-150
+      ${isActive 
+        ? 'bg-primary text-primary-foreground border-primary scale-95 shadow-lg shadow-primary/50' 
+        : 'bg-muted/50 text-foreground border-border scale-100'
+      }
+      ${className}
+    `}
+  >
+    {keyLabel}
+  </div>
+);
 
 export default Index;
