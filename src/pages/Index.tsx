@@ -1179,11 +1179,12 @@ const Index = () => {
       });
     }
     
-    function dropPowerup(x: number, y: number, type: "magnet" | "shield" | "rage") {
+    function dropPowerup(x: number, y: number, type: "magnet" | "shield" | "rage" | "speed") {
       const powerupData = {
         magnet: { color: "#10b981", rarity: "uncommon" as Rarity, duration: 10 },
         shield: { color: "#3b82f6", rarity: "rare" as Rarity, duration: 15 },
         rage: { color: "#ef4444", rarity: "epic" as Rarity, duration: 8 },
+        speed: { color: "#fbbf24", rarity: "common" as Rarity, duration: 0 }, // duration 0 porque es permanente
       };
       
       const data = powerupData[type];
@@ -1229,8 +1230,10 @@ const Index = () => {
       const type = drop.powerupType;
       let duration = drop.duration;
       
-      // Aplicar bonus de duración de powerups
-      duration *= gameState.player.stats.powerupDuration;
+      // Aplicar bonus de duración de powerups (solo para powerups temporales)
+      if (duration > 0) {
+        duration *= gameState.player.stats.powerupDuration;
+      }
       
       playPowerupSound();
       
@@ -1241,6 +1244,9 @@ const Index = () => {
         gameState.player.shield = Math.min(3, gameState.player.shield + 1);
       } else if (type === "rage") {
         gameState.player.rageTimer = duration;
+      } else if (type === "speed") {
+        // Incrementar velocidad permanentemente en 1%, máximo 200% (2.0x)
+        gameState.player.stats.speedMultiplier = Math.min(2.0, gameState.player.stats.speedMultiplier + 0.01);
       }
       
       // Partículas de powerup con límite
@@ -3375,7 +3381,7 @@ const Index = () => {
               // Drop temporal con probabilidad
               if (Math.random() < dropChance) {
                 const roll = Math.random();
-                const powerupType = roll < 0.4 ? "magnet" : roll < 0.7 ? "shield" : "rage";
+                const powerupType = roll < 0.3 ? "magnet" : roll < 0.5 ? "shield" : roll < 0.65 ? "rage" : "speed";
                 dropPowerup(e.x, e.y, powerupType);
               }
 
