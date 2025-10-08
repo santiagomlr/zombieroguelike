@@ -343,7 +343,7 @@ const Index = () => {
         { name: "Electronic Dreams", path: "/audio/Electronic_Dreams.mp3" },
         { name: "That Song", path: "/audio/Fobee_-_That_Song.mp3" },
         { name: "Upbeat Sports Bass", path: "/audio/MGM_-_Upbeat_Sports_Bass.mp3" },
-        { name: "Track Full", path: "/audio/Track_Full.mp3" },
+        { name: "Luxury House Loop", path: "/audio/Track_Full.mp3" },
         { name: "Cool Funky Jazz Loop", path: "/audio/Cool_Funky_Jazz_Loop.mp3" },
       ],
       currentMusicIndex: 0,
