@@ -34,10 +34,6 @@ interface Translations {
   paused: string;
   tutorial: {
     move: string;
-    collectXP: string;
-    choosePowerup: string;
-    sprint: string;
-    ready: string;
   };
 }
 
@@ -72,10 +68,6 @@ const translations: Record<Language, Translations> = {
     paused: "PAUSA",
     tutorial: {
       move: "Usa WASD para moverte",
-      collectXP: "Recoge el XP para subir de nivel",
-      choosePowerup: "Elige una mejora para empezar",
-      sprint: "SPACE para correr (consume stamina)",
-      ready: "¡Tutorial completado! Comenzando Wave 2...",
     },
   },
   en: {
@@ -108,10 +100,6 @@ const translations: Record<Language, Translations> = {
     paused: "PAUSED",
     tutorial: {
       move: "Use WASD to move",
-      collectXP: "Collect XP to level up",
-      choosePowerup: "Choose an upgrade to start",
-      sprint: "SPACE to sprint (uses stamina)",
-      ready: "Tutorial completed! Starting Wave 2...",
     },
   },
 };
@@ -386,8 +374,8 @@ const Index = () => {
       targetMusicVolume: 0.3, // Volumen objetivo para animación suave
       sfxMuted: false,
       enemyLogo: null as HTMLImageElement | null,
-      tutorialActive: false,
-      tutorialStartTime: 0,
+      tutorialActive: localStorage.getItem("gameHasTutorial") !== "completed",
+      tutorialStartTime: performance.now(),
     };
 
     gameStateRef.current = gameState;
@@ -2025,58 +2013,16 @@ const Index = () => {
       // ═══════════════════════════════════════════════════════════
       // TUTORIAL - Wave 1 como tutorial obligatorio
       // ═══════════════════════════════════════════════════════════
+      // Tutorial simplificado: solo mostrar WASD
       if (gameState.tutorialActive && !tutorialCompleted && gameState.wave === 1) {
         const { w, a, s, d } = gameState.keys;
+        const timeInTutorial = (performance.now() - gameState.tutorialStartTime) / 1000;
         
-        // Paso 0: Movimiento (WASD) - Dropear XP cuando se mueva
-        if (tutorialStep === 0 && (w || a || s || d)) {
-          setTutorialStep(1);
-          gameState.tutorialStartTime = performance.now(); // Reset timer para el siguiente paso
-          // Dropear XP cerca del jugador para el siguiente paso
-          const angle = Math.random() * Math.PI * 2;
-          const distance = 80 + Math.random() * 50;
-          dropXP(
-            gameState.player.x + Math.cos(angle) * distance,
-            gameState.player.y + Math.sin(angle) * distance,
-            15 // Suficiente para subir de nivel
-          );
-        }
-        
-        // Paso 1: Recolectar XP (cuando suba XP)
-        if (tutorialStep === 1 && gameState.xp > 0) {
-          setTutorialStep(2);
-          gameState.tutorialStartTime = performance.now();
-        }
-        
-        // Paso 2: Elegir powerup (cuando cierre el menú de upgrade)
-        if (tutorialStep === 2 && !gameState.showUpgradeUI && gameState.level > 1) {
-          setTutorialStep(3);
-          gameState.tutorialStartTime = performance.now();
-        }
-        
-        // Paso 3: Mostrar info de sprint brevemente
-        if (tutorialStep === 3) {
-          const timeInStep = (performance.now() - gameState.tutorialStartTime) / 1000;
-          if (timeInStep > 3) { // Después de 3s mostrando sprint
-            setTutorialStep(4);
-            gameState.tutorialStartTime = performance.now();
-          }
-        }
-        
-        // Paso 4: Tutorial completado, preparar Wave 2
-        if (tutorialStep === 4) {
-          const timeInStep = (performance.now() - gameState.tutorialStartTime) / 1000;
-          if (timeInStep > 2) { // Después de 2s mostrando mensaje final
-            setTutorialCompleted(true);
-            gameState.tutorialActive = false;
-            // Avanzar a Wave 2 con countdown
-            gameState.wave = 2;
-            gameState.waveKills = 0;
-            gameState.waveEnemiesSpawned = 0;
-            gameState.waveEnemiesTotal = 15; // Wave 2 target
-            gameState.maxConcurrentEnemies = 13;
-            gameState.countdownTimer = 3; // Countdown 3-2-1
-          }
+        // Completar después de 5 segundos O cuando presione WASD
+        if (timeInTutorial > 5 || w || a || s || d) {
+          setTutorialCompleted(true);
+          localStorage.setItem("gameHasTutorial", "completed");
+          gameState.tutorialActive = false;
         }
       }
 
@@ -5949,96 +5895,26 @@ const Index = () => {
         style={{ cursor: "crosshair" }}
       />
       
-      {/* TUTORIAL INTERACTIVO */}
+      {/* TUTORIAL SIMPLIFICADO */}
       {gameStateRef.current?.tutorialActive && !tutorialCompleted && gameStateRef.current?.wave === 1 && (
         <div className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center">
           {/* Overlay oscuro sutil */}
-          <div className="absolute inset-0 bg-black/40 pointer-events-none" />
+          <div className="absolute inset-0 bg-black/30 pointer-events-none" />
           
           {/* Tutorial card */}
-          <div className="relative bg-card/95 backdrop-blur-sm border-2 border-primary/50 rounded-lg p-6 max-w-md mx-4 shadow-2xl animate-scale-in">
-            {/* Progress bar */}
-            <div className="absolute top-0 left-0 right-0 h-1 bg-muted rounded-t-lg overflow-hidden">
-              <div 
-                className="h-full bg-primary transition-all duration-300"
-                style={{ width: `${((tutorialStep + 1) / 6) * 100}%` }}
-              />
-            </div>
-            
-            {/* Paso 0: Movimiento */}
-            {tutorialStep === 0 && (
-              <div className="space-y-4 animate-fade-in">
-                <h3 className="text-xl font-bold text-primary mb-3">
-                  {t.tutorial.move}
-                </h3>
-                <div className="flex justify-center gap-2">
-                  <KeyButton keyLabel="W" isActive={gameStateRef.current?.keys.w || false} />
-                </div>
-                <div className="flex justify-center gap-2">
-                  <KeyButton keyLabel="A" isActive={gameStateRef.current?.keys.a || false} />
-                  <KeyButton keyLabel="S" isActive={gameStateRef.current?.keys.s || false} />
-                  <KeyButton keyLabel="D" isActive={gameStateRef.current?.keys.d || false} />
-                </div>
+          <div className="relative bg-card/95 backdrop-blur-sm border-2 border-primary/50 rounded-lg p-8 max-w-md mx-4 shadow-2xl animate-scale-in">
+            <div className="space-y-6 animate-fade-in">
+              <h3 className="text-2xl font-bold text-primary text-center">
+                {t.tutorial.move}
+              </h3>
+              <div className="flex justify-center gap-2">
+                <KeyButton keyLabel="W" isActive={gameStateRef.current?.keys.w || false} />
               </div>
-            )}
-            
-            {/* Paso 1: Recolectar XP */}
-            {tutorialStep === 1 && (
-              <div className="space-y-4 animate-fade-in">
-                <h3 className="text-xl font-bold text-primary mb-3">
-                  {t.tutorial.collectXP}
-                </h3>
-                <div className="flex justify-center">
-                  <div className="w-16 h-16 bg-cyan-500/20 border-2 border-cyan-500 rounded-full flex items-center justify-center animate-pulse">
-                    <span className="text-3xl">💎</span>
-                  </div>
-                </div>
+              <div className="flex justify-center gap-2">
+                <KeyButton keyLabel="A" isActive={gameStateRef.current?.keys.a || false} />
+                <KeyButton keyLabel="S" isActive={gameStateRef.current?.keys.s || false} />
+                <KeyButton keyLabel="D" isActive={gameStateRef.current?.keys.d || false} />
               </div>
-            )}
-            
-            {/* Paso 2: Elegir powerup */}
-            {tutorialStep === 2 && (
-              <div className="space-y-4 animate-fade-in">
-                <h3 className="text-xl font-bold text-primary mb-3">
-                  {t.tutorial.choosePowerup}
-                </h3>
-                <div className="flex justify-center">
-                  <div className="text-6xl animate-bounce">⬆️</div>
-                </div>
-              </div>
-            )}
-            
-            {/* Paso 3: Info de Sprint */}
-            {tutorialStep === 3 && (
-              <div className="space-y-4 animate-fade-in">
-                <h3 className="text-xl font-bold text-primary mb-3">
-                  {t.tutorial.sprint}
-                </h3>
-                <div className="flex justify-center">
-                  <KeyButton 
-                    keyLabel="SPACE" 
-                    isActive={gameStateRef.current?.player.isSprinting || false}
-                    className="px-16"
-                  />
-                </div>
-              </div>
-            )}
-            
-            {/* Paso 4: Tutorial completado */}
-            {tutorialStep === 4 && (
-              <div className="space-y-4 animate-fade-in">
-                <h3 className="text-2xl font-bold text-primary mb-3">
-                  {t.tutorial.ready}
-                </h3>
-                <div className="flex justify-center">
-                  <div className="text-6xl animate-pulse">✅</div>
-                </div>
-              </div>
-            )}
-            
-            {/* Step indicator */}
-            <div className="mt-4 text-center text-sm text-muted-foreground">
-              {tutorialStep + 1} / 5
             </div>
           </div>
         </div>
