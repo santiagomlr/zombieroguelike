@@ -21,6 +21,7 @@ interface Translations {
   movement: string;
   restart: string;
   pause: string;
+  sprint: string;
   autoShoot: string;
   gameOver: string;
   finalScore: string;
@@ -51,6 +52,7 @@ const translations: Record<Language, Translations> = {
     movement: "WASD - Movimiento",
     restart: "R - Reiniciar",
     pause: "ESC - Pausa",
+    sprint: "SPACE - Correr",
     autoShoot: "Disparo automático",
     gameOver: "GAME OVER",
     finalScore: "Puntuación",
@@ -79,6 +81,7 @@ const translations: Record<Language, Translations> = {
     movement: "WASD - Movement",
     restart: "R - Restart",
     pause: "ESC - Pause",
+    sprint: "SPACE - Sprint",
     autoShoot: "Auto Shoot",
     gameOver: "GAME OVER",
     finalScore: "Score",
@@ -239,6 +242,9 @@ const Index = () => {
         rad: 16,
         hp: 100,
         maxhp: 100,
+        stamina: 100,
+        maxStamina: 100,
+        isSprinting: false,
         shield: 0,
         ifr: 0,
         ifrDuration: 0.5, // Cooldown de invulnerabilidad después de golpe (0.5s)
@@ -506,6 +512,9 @@ const Index = () => {
       gameState.player.y = H / 2;
       gameState.player.hp = 100;
       gameState.player.maxhp = 100;
+      gameState.player.stamina = 100;
+      gameState.player.maxStamina = 100;
+      gameState.player.isSprinting = false;
       gameState.player.shield = 0;
       gameState.player.ifr = 0;
       gameState.player.magnet = 120;
@@ -2564,6 +2573,27 @@ const Index = () => {
       if (gameState.player.rageTimer > 0) {
         gameState.player.rageTimer = Math.max(0, gameState.player.rageTimer - dt);
       }
+      
+      // Sprint system (Spacebar)
+      const isMoving = gameState.keys["w"] || gameState.keys["a"] || gameState.keys["s"] || gameState.keys["d"] ||
+                       gameState.keys["arrowup"] || gameState.keys["arrowleft"] || gameState.keys["arrowdown"] || gameState.keys["arrowright"];
+      
+      if (gameState.keys[" "] && isMoving && gameState.player.stamina > 0) {
+        // Sprint activado
+        gameState.player.isSprinting = true;
+        gameState.player.stamina = Math.max(0, gameState.player.stamina - 30 * dt); // Consume 30 stamina/segundo
+      } else {
+        // Sprint desactivado, regenerar stamina
+        gameState.player.isSprinting = false;
+        if (gameState.player.stamina < gameState.player.maxStamina) {
+          gameState.player.stamina = Math.min(gameState.player.maxStamina, gameState.player.stamina + 20 * dt); // Regenera 20 stamina/segundo
+        }
+      }
+      
+      // Si se acabó la stamina, forzar desactivar sprint
+      if (gameState.player.stamina <= 0) {
+        gameState.player.isSprinting = false;
+      }
 
       // Regeneración del tomo
       if (gameState.player.stats.regenRate > 0 && gameState.player.stats.regenInterval > 0) {
@@ -2619,6 +2649,7 @@ const Index = () => {
       
       let spd = gameState.player.spd * gameState.player.stats.speedMultiplier;
       if (gameState.player.rageTimer > 0) spd *= 1.5; // Rage mode: +50% velocidad
+      if (gameState.player.isSprinting) spd *= 1.7; // Sprint: +70% velocidad
       
       // Movimiento tentativo
       let newX = gameState.player.x + vx * spd;
@@ -3846,17 +3877,60 @@ const Index = () => {
         }
       }
       
-      // Level info (arriba izquierda, debajo de HP)
+      // Stamina Bar (debajo de la HP bar)
+      const staminaBarX = 20;
+      const staminaBarY = hpBarY + hpBarH + 8;
+      const staminaBarW = 300;
+      const staminaBarH = 20;
+      
+      // Fondo de la barra de stamina
+      ctx.fillStyle = "rgba(20, 25, 35, 0.9)";
+      ctx.fillRect(staminaBarX, staminaBarY, staminaBarW, staminaBarH);
+      ctx.strokeStyle = "#334155";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(staminaBarX, staminaBarY, staminaBarW, staminaBarH);
+      
+      // Barra de stamina actual (amarilla/verde)
+      const staminaPercent = Math.max(0, Math.min(1, gameState.player.stamina / gameState.player.maxStamina));
+      const currentStaminaBarW = Math.max(0, staminaBarW * staminaPercent);
+      
+      if (currentStaminaBarW > 0) {
+        const staminaGradient = ctx.createLinearGradient(staminaBarX, staminaBarY, staminaBarX + currentStaminaBarW, staminaBarY);
+        staminaGradient.addColorStop(0, "#22c55e");
+        staminaGradient.addColorStop(1, "#16a34a");
+        ctx.fillStyle = staminaGradient;
+        ctx.fillRect(staminaBarX + 1, staminaBarY + 1, currentStaminaBarW - 2, staminaBarH - 2);
+      }
+      
+      // Texto de stamina
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 12px system-ui";
+      ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+      ctx.shadowBlur = 4;
+      ctx.fillText(`STAMINA ${Math.floor(gameState.player.stamina)}`, staminaBarX + staminaBarW / 2, staminaBarY + staminaBarH / 2 + 4);
+      ctx.shadowBlur = 0;
+      
+      // Indicador de sprint activo
+      if (gameState.player.isSprinting) {
+        ctx.globalAlpha = 0.6 + Math.sin(gameState.time * 10) * 0.4;
+        ctx.strokeStyle = "#22c55e";
+        ctx.lineWidth = 3;
+        ctx.strokeRect(staminaBarX - 2, staminaBarY - 2, staminaBarW + 4, staminaBarH + 4);
+        ctx.globalAlpha = 1;
+      }
+      
+      // Level info (arriba izquierda, debajo de stamina)
       ctx.textAlign = "left";
       ctx.fillStyle = "#fff";
       ctx.font = "bold 18px system-ui";
       ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
       ctx.shadowBlur = 4;
-      ctx.fillText(`NIVEL ${gameState.level}`, 20, hpBarY + hpBarH + 30);
+      ctx.fillText(`NIVEL ${gameState.level}`, 20, staminaBarY + staminaBarH + 22);
       ctx.shadowBlur = 0;
       
       // Wave counter (debajo del nivel)
-      const waveY = hpBarY + hpBarH + 55;
+      const waveY = staminaBarY + staminaBarH + 47;
       ctx.fillStyle = "#a855f7";
       ctx.font = "bold 16px system-ui";
       ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
