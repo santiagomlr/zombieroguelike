@@ -2033,15 +2033,19 @@ const Index = () => {
             
             contentY += aimBtnH + 40;
             
-            // Audio Settings Button
-            const audioBtnW = 350;
-            const audioBtnH = 55;
-            const audioBtnX = centerX - audioBtnW / 2;
-            const audioBtnY = contentY;
+            // Audio Settings - Sliders interactivos
+            contentY += aimBtnH + 50;
+            const sliderW = 600;
+            const sliderH = 6;
+            const sliderX2 = menuX + 40;
+            const sliderSpacing = 50;
             
-            if (mx >= audioBtnX && mx <= audioBtnX + audioBtnW && my >= audioBtnY && my <= audioBtnY + audioBtnH) {
-              gameState.showAudioSettings = true;
-              return;
+            // Music Volume Slider clickable area
+            if (my >= contentY && my <= contentY + 20) {
+              const clickX = mx - sliderX2;
+              if (clickX >= 0 && clickX <= sliderW) {
+                gameState.targetMusicVolume = Math.max(0, Math.min(1, clickX / sliderW));
+              }
             }
           }
           
@@ -6302,8 +6306,6 @@ const Index = () => {
               { icon: "🔴", color: "#ef4444", name: "Bomber", desc: "Explota al impactar" },
               { icon: "⚡", color: "#60a5fa", name: "Rápido", desc: "Muy veloz, bajo HP" },
               { icon: "🛡️", color: "#94a3b8", name: "Tank", desc: "Alto HP, lento, resistente" },
-              { icon: "🔵", color: "#3b82f6", name: "Mini-Boss", desc: "Aparece cada 5 waves" },
-              { icon: "💀", color: "#9333ea", name: "BOSS", desc: "Cada 5 waves, muy peligroso" },
             ];
             
             for (const enemy of enemies) {
@@ -6764,100 +6766,37 @@ const Index = () => {
               ctx.shadowBlur = 0;
             }
             
-            contentY += aimBtnH + 40;
+            contentY += aimBtnH + 50;
             
-            // Wiki Button
-            const wikiBtnW = 350;
-            const wikiBtnH = 55;
-            const wikiBtnX = centerX - wikiBtnW / 2;
+            // === AUDIO SETTINGS (SLIDER DIRECTO) ===
+            ctx.fillStyle = "#fbbf24";
+            ctx.font = "bold 18px system-ui";
+            ctx.textAlign = "left";
+            ctx.fillText("🔊 Audio", leftCol, contentY);
+            contentY += 35;
             
-            // Gradiente mejorado con glow
-            const wikiGradient = ctx.createLinearGradient(wikiBtnX, contentY, wikiBtnX, contentY + wikiBtnH);
-            wikiGradient.addColorStop(0, "#3b82f6");
-            wikiGradient.addColorStop(0.5, "#2563eb");
-            wikiGradient.addColorStop(1, "#1e40af");
-            ctx.fillStyle = wikiGradient;
-            ctx.shadowColor = "#3b82f6";
-            ctx.shadowBlur = 25;
-            ctx.beginPath();
-            ctx.roundRect(wikiBtnX, contentY, wikiBtnW, wikiBtnH, 12);
-            ctx.fill();
+            const sliderW2 = 600;
+            const sliderH2 = 6;
+            const sliderX2 = leftCol;
             
-            // Borde brillante
-            ctx.strokeStyle = "#60a5fa";
-            ctx.lineWidth = 2;
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = "#3b82f6";
-            ctx.stroke();
-            ctx.shadowBlur = 0;
+            // Music Volume Slider
+            ctx.fillStyle = "rgba(255,255,255,0.8)";
+            ctx.font = "15px system-ui";
+            ctx.textAlign = "left";
+            ctx.fillText("🎵 Música", sliderX2, contentY);
+            ctx.textAlign = "right";
+            ctx.fillText(`${Math.round(gameState.musicVolume * 100)}%`, sliderX2 + sliderW2, contentY);
             
-            // Highlight superior
-            ctx.save();
-            ctx.globalAlpha = 0.3;
-            const wikiHighlight = ctx.createLinearGradient(wikiBtnX, contentY, wikiBtnX, contentY + wikiBtnH / 3);
-            wikiHighlight.addColorStop(0, "rgba(255, 255, 255, 0.8)");
-            wikiHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
-            ctx.fillStyle = wikiHighlight;
-            ctx.beginPath();
-            ctx.roundRect(wikiBtnX + 3, contentY + 3, wikiBtnW - 6, wikiBtnH / 3, 9);
-            ctx.fill();
-            ctx.restore();
+            ctx.fillStyle = "rgba(50, 50, 70, 0.9)";
+            ctx.fillRect(sliderX2, contentY + 8, sliderW2, sliderH2);
             
-            ctx.fillStyle = "#fff";
-            ctx.font = "bold 22px system-ui";
-            ctx.textAlign = "center";
-            ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
-            ctx.shadowBlur = 4;
-            ctx.fillText("📚 Wiki del Juego", wikiBtnX + wikiBtnW / 2, contentY + wikiBtnH / 2 + 8);
-            ctx.shadowBlur = 0;
+            const musicFill2 = sliderW2 * gameState.musicVolume;
+            const musicGradient2 = ctx.createLinearGradient(sliderX2, 0, sliderX2 + musicFill2, 0);
+            musicGradient2.addColorStop(0, "#3b82f6");
+            musicGradient2.addColorStop(1, "#2563eb");
+            ctx.fillStyle = musicGradient2;
+            ctx.fillRect(sliderX2, contentY + 8, musicFill2, sliderH2);
             
-            contentY += wikiBtnH + 15;
-            
-            // Audio Settings Button
-            const audioBtnW = 350;
-            const audioBtnH = 55;
-            const audioBtnX = centerX - audioBtnW / 2;
-            
-            // Gradiente mejorado
-            const audioGradient = ctx.createLinearGradient(audioBtnX, contentY, audioBtnX, contentY + audioBtnH);
-            audioGradient.addColorStop(0, "#a855f7");
-            audioGradient.addColorStop(0.5, "#9333ea");
-            audioGradient.addColorStop(1, "#7e22ce");
-            ctx.fillStyle = audioGradient;
-            ctx.shadowColor = "#a855f7";
-            ctx.shadowBlur = 25;
-            ctx.beginPath();
-            ctx.roundRect(audioBtnX, contentY, audioBtnW, audioBtnH, 12);
-            ctx.fill();
-            
-            // Borde brillante
-            ctx.strokeStyle = "#c084fc";
-            ctx.lineWidth = 2;
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = "#a855f7";
-            ctx.stroke();
-            ctx.shadowBlur = 0;
-            
-            // Highlight superior
-            ctx.save();
-            ctx.globalAlpha = 0.3;
-            const audioHighlight = ctx.createLinearGradient(audioBtnX, contentY, audioBtnX, contentY + audioBtnH / 3);
-            audioHighlight.addColorStop(0, "rgba(255, 255, 255, 0.8)");
-            audioHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
-            ctx.fillStyle = audioHighlight;
-            ctx.beginPath();
-            ctx.roundRect(audioBtnX + 3, contentY + 3, audioBtnW - 6, audioBtnH / 3, 9);
-            ctx.fill();
-            ctx.restore();
-            
-            ctx.fillStyle = "#fff";
-            ctx.font = "bold 22px system-ui";
-            ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
-            ctx.shadowBlur = 4;
-            ctx.fillText("🎧 Audio Settings", audioBtnX + audioBtnW / 2, contentY + audioBtnH / 2 + 8);
-            ctx.shadowBlur = 0;
-            
-            contentY += audioBtnH + 30;
             
             // Continue & Restart Buttons
             const btnW = 250;
