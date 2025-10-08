@@ -315,6 +315,7 @@ const Index = () => {
       restartTimer: 0,
       restartHoldTime: 2, // 2 segundos para reiniciar sosteniendo R
       gameOverTimer: 0,
+      countdownTimer: 0, // Countdown 3-2-1 al reanudar desde pausa
       showAudioSettings: false, // Control para mostrar/ocultar panel de audio
       // Sistema de Eventos Ambientales (vinculado a waves)
       environmentalEvent: null as "storm" | "fog" | "rain" | null,
@@ -415,6 +416,7 @@ const Index = () => {
       
       const track = gameState.musicTracks[gameState.currentMusicIndex];
       gameState.music.src = track.path;
+      gameState.music.volume = gameState.musicMuted ? 0 : gameState.musicVolume;
       
       if (!gameState.musicMuted) {
         gameState.music.play().catch(e => console.warn("Audio play failed:", e));
@@ -619,8 +621,9 @@ const Index = () => {
       if (e.key === "Escape" && gameState.state !== 'gameover') {
         if (gameState.state === 'running') {
           gameState.state = 'paused';
-        } else if (gameState.state === 'paused') {
-          gameState.state = 'running';
+        } else if (gameState.state === 'paused' && !gameState.showUpgradeUI) {
+          // Iniciar countdown de 3 segundos
+          gameState.countdownTimer = 3;
         }
       }
     };
@@ -1874,7 +1877,8 @@ const Index = () => {
           
           // Continue button
           if (mx >= continueX && mx <= continueX + btnW && my >= btnY && my <= btnY + btnH) {
-            gameState.state = 'running';
+            // Iniciar countdown en lugar de reanudar directamente
+            gameState.countdownTimer = 3;
             gameState.showAudioSettings = false;
           }
           
@@ -1958,6 +1962,16 @@ const Index = () => {
       // Game Over - no hacer nada, esperar input del usuario
       if (gameState.state === 'gameover') {
         return;
+      }
+      
+      // Countdown timer después de pausa
+      if (gameState.countdownTimer > 0) {
+        gameState.countdownTimer -= dt;
+        if (gameState.countdownTimer <= 0) {
+          gameState.countdownTimer = 0;
+          gameState.state = 'running';
+        }
+        return; // No actualizar lógica del juego durante countdown
       }
       
       // Solo actualizar lógica del juego si está corriendo
@@ -5693,6 +5707,27 @@ const Index = () => {
           ctx.fillStyle = "#fff";
           ctx.fillText("🔄 " + t.restart, restartX + btnW / 2, btnY + btnH / 2 + 9);
         }
+        
+        ctx.restore();
+      }
+      
+      // Countdown después de pausa
+      if (gameState.countdownTimer > 0) {
+        ctx.save();
+        ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+        ctx.fillRect(0, 0, W, H);
+        
+        const countdownNumber = Math.ceil(gameState.countdownTimer);
+        const scale = 1 - (gameState.countdownTimer - Math.floor(gameState.countdownTimer)); // Efecto de escala
+        
+        // Número del countdown con glow
+        ctx.fillStyle = "#fbbf24";
+        ctx.font = `bold ${120 * (1 + scale * 0.3)}px system-ui`;
+        ctx.textAlign = "center";
+        ctx.shadowColor = "#fbbf24";
+        ctx.shadowBlur = 40;
+        ctx.fillText(countdownNumber.toString(), W / 2, H / 2 + 20);
+        ctx.shadowBlur = 0;
         
         ctx.restore();
       }
