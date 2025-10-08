@@ -315,15 +315,14 @@ const Index = () => {
       restartTimer: 0,
       restartHoldTime: 5,
       gameOverTimer: 0,
-      // Sistema de Eventos Ambientales
+      // Sistema de Eventos Ambientales (vinculado a waves)
       environmentalEvent: null as "storm" | "fog" | "rain" | null,
-      secondaryEvent: null as "storm" | "fog" | "rain" | null,
       eventNotification: 0,
       eventDuration: 0,
       eventTimer: 0,
       eventPhase: "none" as "none" | "notification" | "fadein" | "active" | "fadeout",
       eventIntensity: 0, // 0 a 1 para fade in/out
-      nextEventWave: 4, // Primera wave con evento ambiental (wave 4)
+      eventActivatedThisWave: false, // Control: solo 1 evento por wave
       lightningTimer: 0,
       fogOpacity: 0,
       fogZones: [] as Array<{ x: number; y: number; width: number; height: number }>,
@@ -551,13 +550,12 @@ const Index = () => {
       gameState.showUpgradeUI = false;
       gameState.upgradeOptions = [];
       gameState.environmentalEvent = null;
-      gameState.secondaryEvent = null;
       gameState.eventNotification = 0;
       gameState.eventDuration = 0;
       gameState.eventTimer = 0;
       gameState.eventPhase = "none";
       gameState.eventIntensity = 0;
-      gameState.nextEventWave = 4;
+      gameState.eventActivatedThisWave = false;
       gameState.lightningTimer = 0;
       gameState.fogOpacity = 0;
       gameState.fogZones = [];
@@ -1954,46 +1952,61 @@ const Index = () => {
         collectXP(20 + gameState.wave * 5);
         
         // ═══════════════════════════════════════════════════════════
-        // SISTEMA DE EVENTOS AMBIENTALES
+        // LIMPIAR EVENTOS AL FINALIZAR WAVE
         // ═══════════════════════════════════════════════════════════
-        // Activar evento ambiental en waves específicas: 4, 7, 10, 13, 16, 19...
-        // Patrón: wave 4, luego cada 3 waves (7, 10, 13, 16...)
-        if (gameState.wave >= gameState.nextEventWave) {
-          // Verificar si ya hay un evento activo (solo importante antes de wave 8)
-          const canAddEvent = gameState.wave >= 8 || !gameState.environmentalEvent;
-          
-          if (canAddEvent) {
-            const events = ["storm", "fog", "rain"] as const;
-            const newEvent = events[Math.floor(Math.random() * events.length)];
-            
-            // Si ya hay un evento, guardar para mostrar ambos (wave 8+)
-            if (gameState.environmentalEvent && gameState.wave >= 8) {
-              gameState.secondaryEvent = newEvent;
-            } else {
-              gameState.environmentalEvent = newEvent;
-              gameState.eventPhase = "notification";
-              gameState.eventIntensity = 0;
-              gameState.eventTimer = 0;
-              gameState.eventNotification = 5; // 5 segundos de aviso antes de que empiece
-              gameState.fogOpacity = 0;
-              gameState.fogZones = [];
-              gameState.stormZone = null;
-            }
-          }
-          
-          // Próximo evento: calcular según el patrón
-          // Wave 4 -> 7 (diferencia 3), 7 -> 10 (diferencia 3), luego cada 3
-          if (gameState.nextEventWave === 4) {
-            gameState.nextEventWave = 7;
-          } else {
-            gameState.nextEventWave = gameState.wave + 3;
-          }
+        // Cuando una wave termina, todos los eventos se detienen inmediatamente
+        if (gameState.environmentalEvent) {
+          gameState.environmentalEvent = null;
+          gameState.eventPhase = "none";
+          gameState.eventIntensity = 0;
+          gameState.eventNotification = 0;
+          gameState.fogOpacity = 0;
+          gameState.fogZones = [];
+          gameState.stormZone = null;
         }
+        
+        // Reset flag para permitir nuevo evento en la siguiente wave
+        gameState.eventActivatedThisWave = false;
       }
       
       // Reducir timer de notificación de wave
       if (gameState.waveNotification > 0) {
         gameState.waveNotification = Math.max(0, gameState.waveNotification - dt);
+      }
+      
+      // ═══════════════════════════════════════════════════════════
+      // ACTIVACIÓN DE EVENTOS AMBIENTALES (Basado en probabilidad)
+      // ═══════════════════════════════════════════════════════════
+      // Solo se puede activar 1 evento por wave, con probabilidad creciente
+      if (!gameState.eventActivatedThisWave && !gameState.environmentalEvent && gameState.state === 'running') {
+        // Calcular probabilidad según wave actual
+        let eventProbability = 0;
+        if (gameState.wave >= 1 && gameState.wave <= 5) {
+          eventProbability = 0.05; // 5% en waves 1-5
+        } else if (gameState.wave >= 6 && gameState.wave <= 10) {
+          eventProbability = 0.15; // 15% en waves 6-10
+        } else if (gameState.wave >= 11 && gameState.wave <= 15) {
+          eventProbability = 0.30; // 30% en waves 11-15
+        } else if (gameState.wave >= 16) {
+          eventProbability = 0.45; // 45% en waves 16+
+        }
+        
+        // Intentar activar evento con la probabilidad calculada (se chequea cada frame, muy rápido)
+        // Para evitar múltiples activaciones, solo intentamos 1 vez por segundo
+        if (Math.random() < eventProbability * dt) { // dt hace que sea proporcional al tiempo
+          const events = ["storm", "fog", "rain"] as const;
+          const newEvent = events[Math.floor(Math.random() * events.length)];
+          
+          gameState.environmentalEvent = newEvent;
+          gameState.eventPhase = "notification";
+          gameState.eventIntensity = 0;
+          gameState.eventTimer = 0;
+          gameState.eventNotification = 5; // 5 segundos de aviso antes de que empiece
+          gameState.fogOpacity = 0;
+          gameState.fogZones = [];
+          gameState.stormZone = null;
+          gameState.eventActivatedThisWave = true; // Marcar que ya se activó en esta wave
+        }
       }
       
       // ═══════════════════════════════════════════════════════════
@@ -2021,22 +2034,16 @@ const Index = () => {
           }
         }
         
-        // Verificar si la wave terminó (evento termina inmediatamente al final de la wave)
-        if (gameState.waveKills >= gameState.waveEnemiesTotal && (gameState.eventPhase === "active" || gameState.eventPhase === "fadein")) {
-          // Evento terminado inmediatamente
-          gameState.environmentalEvent = gameState.secondaryEvent;
-          gameState.secondaryEvent = null;
+        // Verificar si la wave terminó (evento termina inmediatamente)
+        if (gameState.waveKills >= gameState.waveEnemiesTotal) {
+          // Limpiar todos los eventos inmediatamente
+          gameState.environmentalEvent = null;
           gameState.fogOpacity = 0;
           gameState.fogZones = [];
           gameState.stormZone = null;
           gameState.eventPhase = "none";
           gameState.eventIntensity = 0;
-          
-          // Si todavía hay un evento, reiniciar
-          if (gameState.environmentalEvent) {
-            gameState.eventPhase = "notification";
-            gameState.eventNotification = 5;
-          }
+          gameState.eventNotification = 0;
         }
         
         // Aplicar efectos solo en fase active
@@ -3804,11 +3811,8 @@ const Index = () => {
           rain: "☢️ ALERTA: Lluvia radiactiva inminente..."
         };
         
-        // Construir texto: mostrar ambos eventos si están activos (wave 8+)
-        let eventText = gameState.environmentalEvent ? eventTexts[gameState.environmentalEvent] : "";
-        if (gameState.secondaryEvent) {
-          eventText += " | " + eventTexts[gameState.secondaryEvent];
-        }
+        // Mostrar texto del evento actual
+        const eventText = gameState.environmentalEvent ? eventTexts[gameState.environmentalEvent] : "";
         
         ctx.fillStyle = "#fff";
         ctx.font = "bold 20px system-ui";
