@@ -377,6 +377,9 @@ const Index = () => {
       enemyLogo: null as HTMLImageElement | null,
       tutorialActive: localStorage.getItem("gameHasTutorial") !== "completed",
       tutorialStartTime: performance.now(),
+      aimMode: (localStorage.getItem("aimMode") || "closest") as "closest" | "smart" | "weakest" | "strongest",
+      showWiki: false,
+      gameOverAnimationTimer: 0,
     };
 
     gameStateRef.current = gameState;
@@ -1065,18 +1068,96 @@ const Index = () => {
     }
 
     function nearestEnemy() {
-      let best = null;
-      let bestDist = 1e9;
-      for (const e of gameState.enemies) {
-        const onScreen = e.x >= -50 && e.x <= W + 50 && e.y >= -50 && e.y <= H + 50;
-        if (!onScreen) continue;
-        const d = Math.hypot(e.x - gameState.player.x, e.y - gameState.player.y);
-        if (d < bestDist) {
-          bestDist = d;
-          best = e;
-        }
+      const onScreenEnemies = gameState.enemies.filter((e: any) => 
+        e.x >= -50 && e.x <= W + 50 && e.y >= -50 && e.y <= H + 50
+      );
+      
+      if (onScreenEnemies.length === 0) return null;
+      
+      // Aplicar el modo de aim seleccionado
+      switch (gameState.aimMode) {
+        case "closest":
+          // Más cercano (default)
+          let closest = null;
+          let closestDist = 1e9;
+          for (const e of onScreenEnemies) {
+            const d = Math.hypot(e.x - gameState.player.x, e.y - gameState.player.y);
+            if (d < closestDist) {
+              closestDist = d;
+              closest = e;
+            }
+          }
+          return closest;
+          
+        case "smart":
+          // Smart Aim: prioriza por tipo, daño y dirección
+          let bestScore = -1;
+          let smartTarget = null;
+          const playerDir = { x: Math.cos(gameState.time), y: Math.sin(gameState.time) }; // Dirección aproximada del jugador
+          
+          for (const e of onScreenEnemies) {
+            const dist = Math.hypot(e.x - gameState.player.x, e.y - gameState.player.y);
+            const distScore = Math.max(0, 1 - dist / 500); // 0-1, más cerca = mejor
+            
+            // Prioridad por tipo
+            let typeScore = 0;
+            if (e.isBoss) typeScore = 1.0;
+            else if (e.isMiniBoss) typeScore = 0.8;
+            else if (e.specialType === "explosive") typeScore = 0.9; // Priorizar bombers
+            else if (e.isElite) typeScore = 0.7;
+            else if (e.specialType) typeScore = 0.6;
+            else if (e.enemyType === "strong") typeScore = 0.5;
+            else if (e.enemyType === "medium") typeScore = 0.3;
+            else typeScore = 0.1;
+            
+            // Prioridad por daño
+            const damageScore = Math.min(1, (e.damage || 0) / 50); // Normalizar daño
+            
+            // Dirección: priorizar enemigos frente al jugador
+            const toEnemy = { 
+              x: e.x - gameState.player.x, 
+              y: e.y - gameState.player.y 
+            };
+            const toEnemyLen = Math.hypot(toEnemy.x, toEnemy.y) || 1;
+            const dirScore = 0.5; // Por ahora neutral, se puede mejorar con dirección real del jugador
+            
+            // Score combinado
+            const totalScore = typeScore * 0.4 + damageScore * 0.3 + distScore * 0.2 + dirScore * 0.1;
+            
+            if (totalScore > bestScore) {
+              bestScore = totalScore;
+              smartTarget = e;
+            }
+          }
+          return smartTarget;
+          
+        case "weakest":
+          // Más débil (menos HP)
+          let weakest = null;
+          let lowestHp = 1e9;
+          for (const e of onScreenEnemies) {
+            if (e.hp < lowestHp) {
+              lowestHp = e.hp;
+              weakest = e;
+            }
+          }
+          return weakest;
+          
+        case "strongest":
+          // Más fuerte (más HP)
+          let strongest = null;
+          let highestHp = -1;
+          for (const e of onScreenEnemies) {
+            if (e.hp > highestHp) {
+              highestHp = e.hp;
+              strongest = e;
+            }
+          }
+          return strongest;
+          
+        default:
+          return onScreenEnemies[0];
       }
-      return best;
     }
 
     function shootWeapon(weapon: Weapon, target: any) {
@@ -1834,7 +1915,23 @@ const Index = () => {
         }
       } else if (gameState.state === 'paused' && !gameState.showUpgradeUI && gameState.countdownTimer <= 0) {
         // Pause menu click handler - NUEVO DISEÑO (NO durante countdown)
-        if (gameState.showAudioSettings) {
+        if (gameState.showWiki) {
+          // CLICKS EN PANEL DE WIKI
+          const wikiW = 700;
+          const wikiH = 600;
+          const wikiX = W / 2 - wikiW / 2;
+          const wikiY = H / 2 - wikiH / 2;
+          
+          // Back button
+          const backBtnW = 280;
+          const backBtnH = 60;
+          const backBtnX = wikiX + wikiW / 2 - backBtnW / 2;
+          const backBtnY = wikiY + wikiH - 80;
+          
+          if (mx >= backBtnX && mx <= backBtnX + backBtnW && my >= backBtnY && my <= backBtnY + backBtnH) {
+            gameState.showWiki = false;
+          }
+        } else if (gameState.showAudioSettings) {
           // CLICKS EN PANEL DE AUDIO SETTINGS
           const audioW = 600;
           const audioH = 450;
@@ -1893,19 +1990,50 @@ const Index = () => {
         } else {
           // CLICKS EN MENU PRINCIPAL
           const menuW = 650;
-          const menuH = 700;
+          const menuH = 750;
           const menuX = W / 2 - menuW / 2;
           const menuY = H / 2 - menuH / 2;
           const centerX = menuX + menuW / 2;
+          
+          // Wiki Button
+          const wikiBtnW = 350;
+          const wikiBtnH = 55;
+          const wikiBtnX = centerX - wikiBtnW / 2;
+          const wikiBtnY = menuY + menuH - 280;
+          
+          if (mx >= wikiBtnX && mx <= wikiBtnX + wikiBtnW && my >= wikiBtnY && my <= wikiBtnY + wikiBtnH) {
+            gameState.showWiki = true;
+            return;
+          }
           
           // Audio Settings Button
           const audioBtnW = 350;
           const audioBtnH = 55;
           const audioBtnX = centerX - audioBtnW / 2;
-          const audioBtnY = menuY + menuH - 230;
+          const audioBtnY = menuY + menuH - 215;
           
           if (mx >= audioBtnX && mx <= audioBtnX + audioBtnW && my >= audioBtnY && my <= audioBtnY + audioBtnH) {
             gameState.showAudioSettings = true;
+          }
+          
+          // Aim Mode Selector (4 botones compactos)
+          const aimBtnW = 150;
+          const aimBtnH = 45;
+          const aimGap = 10;
+          const aimY = menuY + menuH - 360;
+          const aimModes = [
+            { mode: "closest", label: "🎯 Cercano", x: menuX + 25 },
+            { mode: "smart", label: "🧠 Smart", x: menuX + 25 + aimBtnW + aimGap },
+            { mode: "weakest", label: "💔 Débil", x: menuX + 25 + (aimBtnW + aimGap) * 2 },
+            { mode: "strongest", label: "💪 Fuerte", x: menuX + 25 + (aimBtnW + aimGap) * 3 },
+          ];
+          
+          for (const { mode, label, x } of aimModes) {
+            if (mx >= x && mx <= x + aimBtnW && my >= aimY && my <= aimY + aimBtnH) {
+              gameState.aimMode = mode as any;
+              localStorage.setItem("aimMode", mode);
+              return;
+            }
           }
           
           // Continue & Restart buttons
@@ -2000,8 +2128,10 @@ const Index = () => {
         gameState.restartTimer = 0;
       }
 
-      // Game Over - no hacer nada, esperar input del usuario
+      // Game Over - seguir corriendo el tiempo durante la animación
       if (gameState.state === 'gameover') {
+        gameState.gameOverAnimationTimer += dt;
+        gameState.time += dt; // El tiempo sigue corriendo
         return;
       }
       
@@ -5316,11 +5446,52 @@ const Index = () => {
       // GAME OVER SCREEN
       if (gameState.state === 'gameover') {
         ctx.save();
-        ctx.fillStyle = "rgba(0, 0, 0, 0.9)";
+        
+        // Fade in del overlay (primeros 2 segundos)
+        const fadeAlpha = Math.min(0.9, gameState.gameOverAnimationTimer / 2);
+        ctx.fillStyle = `rgba(0, 0, 0, ${fadeAlpha})`;
         ctx.fillRect(0, 0, W, H);
         
+        // Mostrar mensaje dramático los primeros 3 segundos
+        if (gameState.gameOverAnimationTimer < 3) {
+          const messageAlpha = Math.min(1, gameState.gameOverAnimationTimer / 1);
+          const pulse = Math.sin(gameState.time * 3) * 0.2 + 0.8;
+          
+          ctx.globalAlpha = messageAlpha;
+          ctx.fillStyle = "#ef4444";
+          ctx.font = "bold 48px system-ui";
+          ctx.textAlign = "center";
+          ctx.shadowColor = "#ef4444";
+          ctx.shadowBlur = 30 * pulse;
+          ctx.fillText("Has caído en la horda...", W / 2, H / 2 - 80);
+          ctx.shadowBlur = 0;
+          
+          // Mostrar tiempo sobrevivido después de 1.5s
+          if (gameState.gameOverAnimationTimer > 1.5) {
+            const timeAlpha = Math.min(1, (gameState.gameOverAnimationTimer - 1.5) / 1);
+            ctx.globalAlpha = timeAlpha;
+            const time = Math.floor(gameState.time);
+            const mm = String(Math.floor(time / 60)).padStart(2, '0');
+            const ss = String(time % 60).padStart(2, '0');
+            ctx.fillStyle = "#fbbf24";
+            ctx.font = "bold 56px system-ui";
+            ctx.shadowColor = "#fbbf24";
+            ctx.shadowBlur = 20 * pulse;
+            ctx.fillText(`Tiempo sobrevivido: ${mm}:${ss}`, W / 2, H / 2 + 20);
+            ctx.shadowBlur = 0;
+          }
+          
+          ctx.globalAlpha = 1;
+          ctx.restore();
+          return; // No mostrar el panel hasta después de 3 segundos
+        }
+        
+        // Panel de resultados (aparece después de 3 segundos)
+        const panelAlpha = Math.min(1, (gameState.gameOverAnimationTimer - 3) / 1);
+        ctx.globalAlpha = panelAlpha;
+        
         const menuW = 700;
-        const menuH = 650;
+        const menuH = 700;
         const menuX = W / 2 - menuW / 2;
         const menuY = H / 2 - menuH / 2;
         
@@ -5435,6 +5606,11 @@ const Index = () => {
         ctx.textAlign = "center";
         ctx.fillText("🔄 " + t.playAgain, btnX + btnW / 2, btnY + btnH / 2 + 12);
         
+        // Hint de teclas
+        ctx.fillStyle = "rgba(156, 163, 175, 0.8)";
+        ctx.font = "18px system-ui";
+        ctx.fillText("Presiona R o Enter para reiniciar", W / 2, menuY + menuH - 25);
+        
         ctx.restore();
       }
       
@@ -5444,8 +5620,155 @@ const Index = () => {
         ctx.fillStyle = "rgba(0, 0, 0, 0.85)";
         ctx.fillRect(0, 0, W, H);
         
-        // Si se muestra el panel de audio settings
-        if (gameState.showAudioSettings) {
+        // Si se muestra la Wiki
+        if (gameState.showWiki) {
+          // PANEL DE WIKI
+          const wikiW = 700;
+          const wikiH = 600;
+          const wikiX = W / 2 - wikiW / 2;
+          const wikiY = H / 2 - wikiH / 2;
+          
+          // Background
+          const wikiBg = ctx.createLinearGradient(wikiX, wikiY, wikiX, wikiY + wikiH);
+          wikiBg.addColorStop(0, "rgba(15, 20, 30, 0.98)");
+          wikiBg.addColorStop(1, "rgba(25, 30, 40, 0.98)");
+          ctx.fillStyle = wikiBg;
+          ctx.fillRect(wikiX, wikiY, wikiW, wikiH);
+          
+          // Border
+          ctx.strokeStyle = "#a855f7";
+          ctx.lineWidth = 3;
+          ctx.shadowColor = "#a855f7";
+          ctx.shadowBlur = 20;
+          ctx.strokeRect(wikiX, wikiY, wikiW, wikiH);
+          ctx.shadowBlur = 0;
+          
+          // Title
+          ctx.fillStyle = "#a855f7";
+          ctx.font = "bold 36px system-ui";
+          ctx.textAlign = "center";
+          ctx.fillText("📚 Wiki del Juego", wikiX + wikiW / 2, wikiY + 45);
+          
+          let contentY = wikiY + 80;
+          const leftMargin = wikiX + 30;
+          
+          // Sección 1: Add-ons / Mejoras
+          ctx.fillStyle = "#fbbf24";
+          ctx.font = "bold 20px system-ui";
+          ctx.textAlign = "left";
+          ctx.fillText("🎁 Add-ons / Mejoras", leftMargin, contentY);
+          contentY += 25;
+          
+          ctx.font = "14px system-ui";
+          const addons = [
+            { name: "Lucky Clover", rarity: "rare", color: "#3b82f6", desc: "+15% drop rate" },
+            { name: "Power Core", rarity: "epic", color: "#a855f7", desc: "+25% daño de arma" },
+            { name: "Blood Totem", rarity: "legendary", color: "#fbbf24", desc: "Drena 2% HP/s a enemigos" },
+          ];
+          
+          for (const addon of addons) {
+            ctx.fillStyle = addon.color;
+            ctx.fillText(`• ${addon.name}`, leftMargin + 10, contentY);
+            ctx.fillStyle = "#9ca3af";
+            ctx.fillText(`(${addon.desc})`, leftMargin + 180, contentY);
+            contentY += 20;
+          }
+          
+          contentY += 10;
+          
+          // Sección 2: Pickups
+          ctx.fillStyle = "#fbbf24";
+          ctx.font = "bold 20px system-ui";
+          ctx.fillText("💎 Pickups", leftMargin, contentY);
+          contentY += 25;
+          
+          ctx.font = "14px system-ui";
+          const pickups = [
+            { icon: "💎", name: "Gema azul", desc: "XP" },
+            { icon: "❤️", name: "Corazón rojo", desc: "+20 HP" },
+            { icon: "⭐", name: "Ítem dorado", desc: "Mejora única" },
+          ];
+          
+          for (const pickup of pickups) {
+            ctx.fillStyle = "#fff";
+            ctx.fillText(`${pickup.icon} ${pickup.name}`, leftMargin + 10, contentY);
+            ctx.fillStyle = "#9ca3af";
+            ctx.fillText(`→ ${pickup.desc}`, leftMargin + 220, contentY);
+            contentY += 22;
+          }
+          
+          contentY += 10;
+          
+          // Sección 3: Tipos de enemigos
+          ctx.fillStyle = "#fbbf24";
+          ctx.font = "bold 20px system-ui";
+          ctx.fillText("👾 Tipos de Enemigos", leftMargin, contentY);
+          contentY += 25;
+          
+          ctx.font = "13px system-ui";
+          const enemies = [
+            { icon: "🟢", name: "Verde", desc: "Común, lento, daño leve" },
+            { icon: "🟣", name: "Morado", desc: "Intermedio, rápido, daño medio" },
+            { icon: "🟡", name: "Amarillo", desc: "Élite, fuerte, más HP" },
+            { icon: "🔴", name: "Bomber", desc: "Explota al impactar" },
+            { icon: "⚡", name: "Rápido", desc: "Muy veloz, bajo HP" },
+            { icon: "🛡️", name: "Tank", desc: "Alto HP, lento" },
+          ];
+          
+          for (const enemy of enemies) {
+            ctx.fillStyle = "#fff";
+            ctx.fillText(`${enemy.icon} ${enemy.name}`, leftMargin + 10, contentY);
+            ctx.fillStyle = "#9ca3af";
+            ctx.fillText(`— ${enemy.desc}`, leftMargin + 150, contentY);
+            contentY += 20;
+          }
+          
+          contentY += 15;
+          
+          // Sección 4: Créditos
+          ctx.save();
+          // Fondo especial para créditos
+          const creditsBg = ctx.createLinearGradient(wikiX, contentY - 10, wikiX, contentY + 60);
+          creditsBg.addColorStop(0, "rgba(0, 0, 0, 0.3)");
+          creditsBg.addColorStop(1, "rgba(0, 0, 0, 0.6)");
+          ctx.fillStyle = creditsBg;
+          ctx.fillRect(wikiX + 20, contentY - 10, wikiW - 40, 70);
+          ctx.restore();
+          
+          ctx.fillStyle = "#fbbf24";
+          ctx.font = "bold 24px system-ui";
+          ctx.textAlign = "center";
+          ctx.fillText("⚡ Desarrollado por", wikiX + wikiW / 2, contentY + 15);
+          
+          ctx.fillStyle = "#fff";
+          ctx.font = "bold 32px system-ui";
+          ctx.shadowColor = "#a855f7";
+          ctx.shadowBlur = 15;
+          ctx.fillText("Vela Digital", wikiX + wikiW / 2, contentY + 50);
+          ctx.shadowBlur = 0;
+          
+          // Back button
+          const backBtnW = 280;
+          const backBtnH = 60;
+          const backBtnX = wikiX + wikiW / 2 - backBtnW / 2;
+          const backBtnY = wikiY + wikiH - 80;
+          
+          const backGradient = ctx.createLinearGradient(backBtnX, backBtnY, backBtnX, backBtnY + backBtnH);
+          backGradient.addColorStop(0, "#6b7280");
+          backGradient.addColorStop(1, "#4b5563");
+          ctx.fillStyle = backGradient;
+          ctx.beginPath();
+          ctx.roundRect(backBtnX, backBtnY, backBtnW, backBtnH, 12);
+          ctx.fill();
+          ctx.strokeStyle = "#fff";
+          ctx.lineWidth = 3;
+          ctx.stroke();
+          ctx.fillStyle = "#fff";
+          ctx.font = "bold 24px system-ui";
+          ctx.textAlign = "center";
+          ctx.fillText("← Volver", backBtnX + backBtnW / 2, backBtnY + backBtnH / 2 + 9);
+          
+        } else if (gameState.showAudioSettings) {
           // PANEL DE AUDIO SETTINGS
           const audioW = 600;
           const audioH = 450;
@@ -5612,7 +5935,7 @@ const Index = () => {
         } else {
           // MENU PRINCIPAL DE PAUSA
           const menuW = 650;
-          const menuH = 700;
+          const menuH = 750;
           const menuX = W / 2 - menuW / 2;
           const menuY = H / 2 - menuH / 2;
           
@@ -5770,7 +6093,83 @@ const Index = () => {
           }
           
           // === BOTONES ===
-          contentY = menuY + menuH - 230;
+          contentY = menuY + menuH - 280;
+          
+          // === AIM MODE SELECTOR ===
+          ctx.fillStyle = "#fbbf24";
+          ctx.font = "bold 18px system-ui";
+          ctx.textAlign = "left";
+          ctx.fillText("🎯 Modo de Aim:", leftCol, contentY);
+          contentY += 35;
+          
+          // 4 botones compactos para aim mode
+          const aimBtnW = 145;
+          const aimBtnH = 45;
+          const aimGap = 10;
+          const aimModes = [
+            { mode: "closest", label: "Cercano", x: menuX + 25 },
+            { mode: "smart", label: "Smart", x: menuX + 25 + aimBtnW + aimGap },
+            { mode: "weakest", label: "Débil", x: menuX + 25 + (aimBtnW + aimGap) * 2 },
+            { mode: "strongest", label: "Fuerte", x: menuX + 25 + (aimBtnW + aimGap) * 3 },
+          ];
+          
+          for (const { mode, label, x } of aimModes) {
+            const isSelected = gameState.aimMode === mode;
+            const btnGradient = ctx.createLinearGradient(x, contentY - aimBtnH, x, contentY);
+            if (isSelected) {
+              btnGradient.addColorStop(0, "#a855f7");
+              btnGradient.addColorStop(1, "#7c3aed");
+            } else {
+              btnGradient.addColorStop(0, "#4b5563");
+              btnGradient.addColorStop(1, "#374151");
+            }
+            ctx.fillStyle = btnGradient;
+            ctx.beginPath();
+            ctx.roundRect(x, contentY - aimBtnH, aimBtnW, aimBtnH, 8);
+            ctx.fill();
+            
+            if (isSelected) {
+              ctx.strokeStyle = "#fff";
+              ctx.lineWidth = 2;
+              ctx.shadowColor = "#a855f7";
+              ctx.shadowBlur = 10;
+              ctx.stroke();
+              ctx.shadowBlur = 0;
+            }
+            
+            ctx.fillStyle = "#fff";
+            ctx.font = "bold 14px system-ui";
+            ctx.textAlign = "center";
+            ctx.fillText(label, x + aimBtnW / 2, contentY - aimBtnH / 2 + 5);
+          }
+          
+          contentY += 25;
+          
+          // Wiki Button
+          const wikiBtnW = 350;
+          const wikiBtnH = 55;
+          const wikiBtnX = centerX - wikiBtnW / 2;
+          const wikiBtnY = contentY;
+          
+          const wikiGradient = ctx.createLinearGradient(wikiBtnX, wikiBtnY, wikiBtnX, wikiBtnY + wikiBtnH);
+          wikiGradient.addColorStop(0, "#3b82f6");
+          wikiGradient.addColorStop(1, "#2563eb");
+          ctx.fillStyle = wikiGradient;
+          ctx.beginPath();
+          ctx.roundRect(wikiBtnX, wikiBtnY, wikiBtnW, wikiBtnH, 10);
+          ctx.fill();
+          ctx.strokeStyle = "#fff";
+          ctx.lineWidth = 3;
+          ctx.shadowColor = "#3b82f6";
+          ctx.shadowBlur = 15;
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = "#fff";
+          ctx.font = "bold 22px system-ui";
+          ctx.textAlign = "center";
+          ctx.fillText("📚 Wiki del Juego", wikiBtnX + wikiBtnW / 2, wikiBtnY + wikiBtnH / 2 + 8);
+          
+          contentY += wikiBtnH + 15;
           
           // Audio Settings Button
           const audioBtnW = 350;
@@ -5804,7 +6203,7 @@ const Index = () => {
           const btnGap = 30;
           const continueX = centerX - btnW - btnGap / 2;
           const restartX = centerX + btnGap / 2;
-          const btnY = contentY;
+          const btnY = contentY + audioBtnH + 20;
           
           // Continue button
           const continueGradient = ctx.createLinearGradient(continueX, btnY, continueX, btnY + btnH);
