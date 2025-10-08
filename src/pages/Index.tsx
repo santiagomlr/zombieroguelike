@@ -1923,11 +1923,11 @@ const Index = () => {
           const wikiX = W / 2 - wikiW / 2;
           const wikiY = H / 2 - wikiH / 2;
           
-          // Back button
-          const backBtnW = 280;
-          const backBtnH = 60;
+          // Back button (ajustado para nuevo tamaño)
+          const backBtnW = 300;
+          const backBtnH = 65;
           const backBtnX = wikiX + wikiW / 2 - backBtnW / 2;
-          const backBtnY = wikiY + wikiH - 80;
+          const backBtnY = wikiY + wikiH - 85;
           
           if (mx >= backBtnX && mx <= backBtnX + backBtnW && my >= backBtnY && my <= backBtnY + backBtnH) {
             gameState.showWiki = false;
@@ -1978,11 +1978,11 @@ const Index = () => {
             gameState.sfxMuted = !gameState.sfxMuted;
           }
           
-          // Back button
-          const backBtnW = 280;
-          const backBtnH = 60;
+          // Back button (ajustado para nuevas coordenadas)
+          const backBtnW = 300;
+          const backBtnH = 65;
           const backBtnX = centerX - backBtnW / 2;
-          const backBtnY = audioY + audioH - 90;
+          const backBtnY = audioY + audioH - 95;
           
           if (mx >= backBtnX && mx <= backBtnX + backBtnW && my >= backBtnY && my <= backBtnY + backBtnH) {
             gameState.showAudioSettings = false;
@@ -5675,128 +5675,167 @@ const Index = () => {
           
           // Title
           ctx.fillStyle = "#a855f7";
-          ctx.font = "bold 36px system-ui";
+          ctx.font = "bold 42px system-ui";
           ctx.textAlign = "center";
-          ctx.fillText("📚 Wiki del Juego", wikiX + wikiW / 2, wikiY + 45);
+          ctx.shadowColor = "#a855f7";
+          ctx.shadowBlur = 15;
+          ctx.fillText("📚 Wiki del Juego", wikiX + wikiW / 2, wikiY + 50);
+          ctx.shadowBlur = 0;
           
-          let contentY = wikiY + 80;
-          const leftMargin = wikiX + 30;
+          let contentY = wikiY + 95;
+          const leftMargin = wikiX + 35;
           
-          // Sección 1: Add-ons / Mejoras
+          // Sección 1: Pickups (Objetos que se dropean)
           ctx.fillStyle = "#fbbf24";
-          ctx.font = "bold 20px system-ui";
+          ctx.font = "bold 24px system-ui";
           ctx.textAlign = "left";
-          ctx.fillText("🎁 Add-ons / Mejoras", leftMargin, contentY);
-          contentY += 25;
-          
-          ctx.font = "14px system-ui";
-          const addons = [
-            { name: "Lucky Clover", rarity: "rare", color: "#3b82f6", desc: "+15% drop rate" },
-            { name: "Power Core", rarity: "epic", color: "#a855f7", desc: "+25% daño de arma" },
-            { name: "Blood Totem", rarity: "legendary", color: "#fbbf24", desc: "Drena 2% HP/s a enemigos" },
-          ];
-          
-          for (const addon of addons) {
-            ctx.fillStyle = addon.color;
-            ctx.fillText(`• ${addon.name}`, leftMargin + 10, contentY);
-            ctx.fillStyle = "#9ca3af";
-            ctx.fillText(`(${addon.desc})`, leftMargin + 180, contentY);
-            contentY += 20;
-          }
-          
-          contentY += 10;
-          
-          // Sección 2: Pickups
-          ctx.fillStyle = "#fbbf24";
-          ctx.font = "bold 20px system-ui";
+          ctx.shadowColor = "#fbbf24";
+          ctx.shadowBlur = 8;
           ctx.fillText("💎 Pickups", leftMargin, contentY);
-          contentY += 25;
+          ctx.shadowBlur = 0;
+          contentY += 30;
           
-          ctx.font = "14px system-ui";
+          ctx.font = "16px system-ui";
           const pickups = [
-            { icon: "💎", name: "Gema azul", desc: "XP" },
-            { icon: "❤️", name: "Corazón rojo", desc: "+20 HP" },
-            { icon: "⭐", name: "Ítem dorado", desc: "Mejora única" },
+            { icon: "💎", color: "#3b82f6", name: "Gema de XP", desc: "Sube tu nivel" },
+            { icon: "❤️", color: "#ef4444", name: "Corazón", desc: "+20 HP de curación" },
+            { icon: "⭐", color: "#fbbf24", name: "Powerup", desc: "Mejora temporal (escudo, magneto, etc.)" },
           ];
           
           for (const pickup of pickups) {
+            ctx.fillStyle = pickup.color;
+            ctx.fillText(pickup.icon, leftMargin + 10, contentY);
             ctx.fillStyle = "#fff";
-            ctx.fillText(`${pickup.icon} ${pickup.name}`, leftMargin + 10, contentY);
+            ctx.font = "bold 16px system-ui";
+            ctx.fillText(pickup.name, leftMargin + 40, contentY);
             ctx.fillStyle = "#9ca3af";
-            ctx.fillText(`→ ${pickup.desc}`, leftMargin + 220, contentY);
-            contentY += 22;
-          }
-          
-          contentY += 10;
-          
-          // Sección 3: Tipos de enemigos
-          ctx.fillStyle = "#fbbf24";
-          ctx.font = "bold 20px system-ui";
-          ctx.fillText("👾 Tipos de Enemigos", leftMargin, contentY);
-          contentY += 25;
-          
-          ctx.font = "13px system-ui";
-          const enemies = [
-            { icon: "🟢", name: "Verde", desc: "Común, lento, daño leve" },
-            { icon: "🟣", name: "Morado", desc: "Intermedio, rápido, daño medio" },
-            { icon: "🟡", name: "Amarillo", desc: "Élite, fuerte, más HP" },
-            { icon: "🔴", name: "Bomber", desc: "Explota al impactar" },
-            { icon: "⚡", name: "Rápido", desc: "Muy veloz, bajo HP" },
-            { icon: "🛡️", name: "Tank", desc: "Alto HP, lento" },
-          ];
-          
-          for (const enemy of enemies) {
-            ctx.fillStyle = "#fff";
-            ctx.fillText(`${enemy.icon} ${enemy.name}`, leftMargin + 10, contentY);
-            ctx.fillStyle = "#9ca3af";
-            ctx.fillText(`— ${enemy.desc}`, leftMargin + 150, contentY);
-            contentY += 20;
+            ctx.font = "15px system-ui";
+            ctx.fillText(`— ${pickup.desc}`, leftMargin + 200, contentY);
+            contentY += 26;
           }
           
           contentY += 15;
           
+          // Sección 2: Sistema de Mejoras
+          ctx.fillStyle = "#fbbf24";
+          ctx.font = "bold 24px system-ui";
+          ctx.shadowColor = "#fbbf24";
+          ctx.shadowBlur = 8;
+          ctx.fillText("⚡ Sistema de Mejoras", leftMargin, contentY);
+          ctx.shadowBlur = 0;
+          contentY += 30;
+          
+          ctx.font = "15px system-ui";
+          ctx.fillStyle = "#d1d5db";
+          ctx.fillText("Al subir de nivel, elige entre 3 tipos de mejoras:", leftMargin + 10, contentY);
+          contentY += 28;
+          
+          const upgradeTypes = [
+            { icon: "🔫", color: "#f87171", name: "ARMAS", desc: "Pistola, Escopeta, SMG, Láser, etc." },
+            { icon: "📖", color: "#a855f7", name: "TOMOS", desc: "Poder, Velocidad, Rebote, Multi-shot" },
+            { icon: "🎒", color: "#fbbf24", name: "ÍTEMS", desc: "Pasivos permanentes y únicos" },
+          ];
+          
+          for (const type of upgradeTypes) {
+            ctx.fillStyle = type.color;
+            ctx.font = "bold 16px system-ui";
+            ctx.fillText(`${type.icon} ${type.name}:`, leftMargin + 20, contentY);
+            ctx.fillStyle = "#9ca3af";
+            ctx.font = "14px system-ui";
+            ctx.fillText(type.desc, leftMargin + 170, contentY);
+            contentY += 24;
+          }
+          
+          contentY += 20;
+          
+          // Sección 3: Tipos de enemigos
+          ctx.fillStyle = "#fbbf24";
+          ctx.font = "bold 24px system-ui";
+          ctx.shadowColor = "#fbbf24";
+          ctx.shadowBlur = 8;
+          ctx.fillText("👾 Tipos de Enemigos", leftMargin, contentY);
+          ctx.shadowBlur = 0;
+          contentY += 30;
+          
+          ctx.font = "15px system-ui";
+          const enemies = [
+            { icon: "🟢", color: "#22c55e", name: "Normal", desc: "Común, equilibrado" },
+            { icon: "🟣", color: "#a855f7", name: "Rápido", desc: "Muy veloz, bajo HP" },
+            { icon: "🟡", color: "#fbbf24", name: "Tank", desc: "Alto HP, lento, resistente" },
+            { icon: "🔴", color: "#ef4444", name: "Bomber", desc: "Explota al morir" },
+            { icon: "🔵", color: "#3b82f6", name: "Mini-Boss", desc: "Aparece cada 5 waves" },
+            { icon: "💀", color: "#9333ea", name: "BOSS", desc: "Cada 5 waves, muy peligroso" },
+          ];
+          
+          for (const enemy of enemies) {
+            ctx.fillStyle = enemy.color;
+            ctx.font = "bold 15px system-ui";
+            ctx.fillText(`${enemy.icon} ${enemy.name}`, leftMargin + 15, contentY);
+            ctx.fillStyle = "#9ca3af";
+            ctx.font = "14px system-ui";
+            ctx.fillText(`— ${enemy.desc}`, leftMargin + 180, contentY);
+            contentY += 24;
+          }
+          
+          contentY += 20;
+          
           // Sección 4: Créditos
           ctx.save();
-          // Fondo especial para créditos
-          const creditsBg = ctx.createLinearGradient(wikiX, contentY - 10, wikiX, contentY + 60);
-          creditsBg.addColorStop(0, "rgba(0, 0, 0, 0.3)");
-          creditsBg.addColorStop(1, "rgba(0, 0, 0, 0.6)");
+          // Fondo especial para créditos con gradiente mejorado
+          const creditsBg = ctx.createLinearGradient(wikiX, contentY - 15, wikiX, contentY + 75);
+          creditsBg.addColorStop(0, "rgba(168, 85, 247, 0.15)");
+          creditsBg.addColorStop(0.5, "rgba(251, 191, 36, 0.1)");
+          creditsBg.addColorStop(1, "rgba(0, 0, 0, 0.5)");
           ctx.fillStyle = creditsBg;
-          ctx.fillRect(wikiX + 20, contentY - 10, wikiW - 40, 70);
+          ctx.fillRect(wikiX + 25, contentY - 15, wikiW - 50, 80);
+          
+          // Borde del panel de créditos
+          ctx.strokeStyle = "rgba(168, 85, 247, 0.4)";
+          ctx.lineWidth = 2;
+          ctx.strokeRect(wikiX + 25, contentY - 15, wikiW - 50, 80);
           ctx.restore();
           
           ctx.fillStyle = "#fbbf24";
-          ctx.font = "bold 24px system-ui";
+          ctx.font = "bold 20px system-ui";
           ctx.textAlign = "center";
-          ctx.fillText("⚡ Desarrollado por", wikiX + wikiW / 2, contentY + 15);
+          ctx.shadowColor = "#fbbf24";
+          ctx.shadowBlur = 8;
+          ctx.fillText("⚡ Desarrollado por", wikiX + wikiW / 2, contentY + 12);
+          ctx.shadowBlur = 0;
           
           ctx.fillStyle = "#fff";
-          ctx.font = "bold 32px system-ui";
+          ctx.font = "bold 36px system-ui";
           ctx.shadowColor = "#a855f7";
-          ctx.shadowBlur = 15;
+          ctx.shadowBlur = 20;
           ctx.fillText("Vela Digital", wikiX + wikiW / 2, contentY + 50);
           ctx.shadowBlur = 0;
           
-          // Back button
-          const backBtnW = 280;
-          const backBtnH = 60;
+          // Back button mejorado
+          const backBtnW = 300;
+          const backBtnH = 65;
           const backBtnX = wikiX + wikiW / 2 - backBtnW / 2;
-          const backBtnY = wikiY + wikiH - 80;
+          const backBtnY = wikiY + wikiH - 85;
           
           const backGradient = ctx.createLinearGradient(backBtnX, backBtnY, backBtnX, backBtnY + backBtnH);
-          backGradient.addColorStop(0, "#6b7280");
-          backGradient.addColorStop(1, "#4b5563");
+          backGradient.addColorStop(0, "#7c3aed");
+          backGradient.addColorStop(1, "#5b21b6");
           ctx.fillStyle = backGradient;
           ctx.beginPath();
-          ctx.roundRect(backBtnX, backBtnY, backBtnW, backBtnH, 12);
+          ctx.roundRect(backBtnX, backBtnY, backBtnW, backBtnH, 14);
           ctx.fill();
+          
+          // Borde con glow
           ctx.strokeStyle = "#fff";
           ctx.lineWidth = 3;
+          ctx.shadowColor = "#a855f7";
+          ctx.shadowBlur = 20;
           ctx.stroke();
+          ctx.shadowBlur = 0;
+          
           ctx.fillStyle = "#fff";
-          ctx.font = "bold 24px system-ui";
+          ctx.font = "bold 26px system-ui";
           ctx.textAlign = "center";
-          ctx.fillText("← Volver", backBtnX + backBtnW / 2, backBtnY + backBtnH / 2 + 9);
+          ctx.fillText("← Volver", backBtnX + backBtnW / 2, backBtnY + backBtnH / 2 + 10);
           
         } else if (gameState.showAudioSettings) {
           // PANEL DE AUDIO SETTINGS
@@ -5893,74 +5932,137 @@ const Index = () => {
           const toggleX1 = centerX - toggleBtnW - toggleGap / 2;
           const toggleX2 = centerX + toggleGap / 2;
           
-          // Music button
+          // Music button - mejorado
           const musicGradient = ctx.createLinearGradient(toggleX1, audioContentY, toggleX1, audioContentY + toggleBtnH);
           if (gameState.musicMuted) {
             musicGradient.addColorStop(0, "#dc2626");
+            musicGradient.addColorStop(0.5, "#b91c1c");
             musicGradient.addColorStop(1, "#991b1b");
           } else {
             musicGradient.addColorStop(0, "#10b981");
-            musicGradient.addColorStop(1, "#059669");
+            musicGradient.addColorStop(0.5, "#059669");
+            musicGradient.addColorStop(1, "#047857");
           }
           ctx.fillStyle = musicGradient;
+          
+          ctx.shadowColor = gameState.musicMuted ? "#dc2626" : "#10b981";
+          ctx.shadowBlur = 25;
           ctx.beginPath();
           ctx.roundRect(toggleX1, audioContentY, toggleBtnW, toggleBtnH, 12);
           ctx.fill();
-          ctx.strokeStyle = "#fff";
-          ctx.lineWidth = 3;
-          ctx.shadowColor = gameState.musicMuted ? "#dc2626" : "#10b981";
-          ctx.shadowBlur = 15;
+          
+          ctx.strokeStyle = gameState.musicMuted ? "#f87171" : "#34d399";
+          ctx.lineWidth = 2;
+          ctx.shadowBlur = 20;
           ctx.stroke();
           ctx.shadowBlur = 0;
+          
+          // Highlight
+          ctx.save();
+          ctx.globalAlpha = 0.3;
+          const musicHighlight = ctx.createLinearGradient(toggleX1, audioContentY, toggleX1, audioContentY + toggleBtnH / 3);
+          musicHighlight.addColorStop(0, "rgba(255, 255, 255, 0.7)");
+          musicHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
+          ctx.fillStyle = musicHighlight;
+          ctx.beginPath();
+          ctx.roundRect(toggleX1 + 3, audioContentY + 3, toggleBtnW - 6, toggleBtnH / 3, 9);
+          ctx.fill();
+          ctx.restore();
+          
           ctx.fillStyle = "#fff";
           ctx.font = "bold 22px system-ui";
           ctx.textAlign = "center";
+          ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+          ctx.shadowBlur = 4;
           ctx.fillText(gameState.musicMuted ? "🔇 Música" : "🎵 Música", toggleX1 + toggleBtnW / 2, audioContentY + toggleBtnH / 2 + 8);
+          ctx.shadowBlur = 0;
           
-          // SFX button
+          // SFX button - mejorado
           const sfxGradient = ctx.createLinearGradient(toggleX2, audioContentY, toggleX2, audioContentY + toggleBtnH);
           if (gameState.sfxMuted) {
             sfxGradient.addColorStop(0, "#dc2626");
+            sfxGradient.addColorStop(0.5, "#b91c1c");
             sfxGradient.addColorStop(1, "#991b1b");
           } else {
             sfxGradient.addColorStop(0, "#10b981");
-            sfxGradient.addColorStop(1, "#059669");
+            sfxGradient.addColorStop(0.5, "#059669");
+            sfxGradient.addColorStop(1, "#047857");
           }
           ctx.fillStyle = sfxGradient;
+          
+          ctx.shadowColor = gameState.sfxMuted ? "#dc2626" : "#10b981";
+          ctx.shadowBlur = 25;
           ctx.beginPath();
           ctx.roundRect(toggleX2, audioContentY, toggleBtnW, toggleBtnH, 12);
           ctx.fill();
-          ctx.strokeStyle = "#fff";
-          ctx.lineWidth = 3;
-          ctx.shadowColor = gameState.sfxMuted ? "#dc2626" : "#10b981";
-          ctx.shadowBlur = 15;
+          
+          ctx.strokeStyle = gameState.sfxMuted ? "#f87171" : "#34d399";
+          ctx.lineWidth = 2;
+          ctx.shadowBlur = 20;
           ctx.stroke();
           ctx.shadowBlur = 0;
-          ctx.fillStyle = "#fff";
-          ctx.fillText(gameState.sfxMuted ? "🔇 SFX" : "🔊 SFX", toggleX2 + toggleBtnW / 2, audioContentY + toggleBtnH / 2 + 8);
           
-          // Back button
-          const backBtnW = 280;
-          const backBtnH = 60;
+          // Highlight
+          ctx.save();
+          ctx.globalAlpha = 0.3;
+          const sfxHighlight = ctx.createLinearGradient(toggleX2, audioContentY, toggleX2, audioContentY + toggleBtnH / 3);
+          sfxHighlight.addColorStop(0, "rgba(255, 255, 255, 0.7)");
+          sfxHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
+          ctx.fillStyle = sfxHighlight;
+          ctx.beginPath();
+          ctx.roundRect(toggleX2 + 3, audioContentY + 3, toggleBtnW - 6, toggleBtnH / 3, 9);
+          ctx.fill();
+          ctx.restore();
+          
+          ctx.fillStyle = "#fff";
+          ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+          ctx.shadowBlur = 4;
+          ctx.fillText(gameState.sfxMuted ? "🔇 SFX" : "🔊 SFX", toggleX2 + toggleBtnW / 2, audioContentY + toggleBtnH / 2 + 8);
+          ctx.shadowBlur = 0;
+          
+          // Back button - mejorado
+          const backBtnW = 300;
+          const backBtnH = 65;
           const backBtnX = centerX - backBtnW / 2;
-          const backBtnY = audioY + audioH - 90;
+          const backBtnY = audioY + audioH - 95;
           
           const backGradient = ctx.createLinearGradient(backBtnX, backBtnY, backBtnX, backBtnY + backBtnH);
-          backGradient.addColorStop(0, "#6b7280");
-          backGradient.addColorStop(1, "#4b5563");
+          backGradient.addColorStop(0, "#7c3aed");
+          backGradient.addColorStop(0.5, "#6d28d9");
+          backGradient.addColorStop(1, "#5b21b6");
           ctx.fillStyle = backGradient;
+          
+          ctx.shadowColor = "#a855f7";
+          ctx.shadowBlur = 30;
           ctx.beginPath();
-          ctx.roundRect(backBtnX, backBtnY, backBtnW, backBtnH, 12);
+          ctx.roundRect(backBtnX, backBtnY, backBtnW, backBtnH, 14);
           ctx.fill();
-          ctx.strokeStyle = "#fff";
-          ctx.lineWidth = 3;
-          ctx.shadowColor = "#6b7280";
-          ctx.shadowBlur = 15;
+          
+          ctx.strokeStyle = "#c084fc";
+          ctx.lineWidth = 2;
+          ctx.shadowBlur = 20;
           ctx.stroke();
           ctx.shadowBlur = 0;
+          
+          // Highlight
+          ctx.save();
+          ctx.globalAlpha = 0.3;
+          const backHighlight = ctx.createLinearGradient(backBtnX, backBtnY, backBtnX, backBtnY + backBtnH / 3);
+          backHighlight.addColorStop(0, "rgba(255, 255, 255, 0.7)");
+          backHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
+          ctx.fillStyle = backHighlight;
+          ctx.beginPath();
+          ctx.roundRect(backBtnX + 3, backBtnY + 3, backBtnW - 6, backBtnH / 3, 11);
+          ctx.fill();
+          ctx.restore();
+          
           ctx.fillStyle = "#fff";
-          ctx.font = "bold 24px system-ui";
-          ctx.fillText("← Volver", backBtnX + backBtnW / 2, backBtnY + backBtnH / 2 + 9);
+          ctx.font = "bold 26px system-ui";
+          ctx.textAlign = "center";
+          ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+          ctx.shadowBlur = 4;
+          ctx.fillText("← Volver", backBtnX + backBtnW / 2, backBtnY + backBtnH / 2 + 10);
+          ctx.shadowBlur = 0;
           
         } else {
           // MENU PRINCIPAL DE PAUSA
@@ -6007,45 +6109,112 @@ const Index = () => {
           const mainTabGradient = ctx.createLinearGradient(mainTabX, tabY, mainTabX, tabY + tabBtnH);
           if (gameState.pauseMenuTab === "main") {
             mainTabGradient.addColorStop(0, "#fbbf24");
-            mainTabGradient.addColorStop(1, "#f59e0b");
+            mainTabGradient.addColorStop(0.5, "#f59e0b");
+            mainTabGradient.addColorStop(1, "#d97706");
           } else {
             mainTabGradient.addColorStop(0, "#4b5563");
-            mainTabGradient.addColorStop(1, "#374151");
+            mainTabGradient.addColorStop(0.5, "#374151");
+            mainTabGradient.addColorStop(1, "#1f2937");
           }
           ctx.fillStyle = mainTabGradient;
-          ctx.beginPath();
-          ctx.roundRect(mainTabX, tabY, tabBtnW, tabBtnH, 8);
-          ctx.fill();
+          
           if (gameState.pauseMenuTab === "main") {
-            ctx.strokeStyle = "#fff";
+            ctx.shadowColor = "#fbbf24";
+            ctx.shadowBlur = 20;
+          }
+          
+          ctx.beginPath();
+          ctx.roundRect(mainTabX, tabY, tabBtnW, tabBtnH, 10);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          
+          if (gameState.pauseMenuTab === "main") {
+            ctx.strokeStyle = "#fde047";
             ctx.lineWidth = 2;
+            ctx.shadowColor = "#fbbf24";
+            ctx.shadowBlur = 15;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            
+            // Highlight superior
+            ctx.save();
+            ctx.globalAlpha = 0.3;
+            const mainHighlight = ctx.createLinearGradient(mainTabX, tabY, mainTabX, tabY + tabBtnH / 3);
+            mainHighlight.addColorStop(0, "rgba(255, 255, 255, 0.7)");
+            mainHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
+            ctx.fillStyle = mainHighlight;
+            ctx.beginPath();
+            ctx.roundRect(mainTabX + 2, tabY + 2, tabBtnW - 4, tabBtnH / 3, 8);
+            ctx.fill();
+            ctx.restore();
+          } else {
+            ctx.strokeStyle = "#6b7280";
+            ctx.lineWidth = 1;
             ctx.stroke();
           }
+          
           ctx.fillStyle = "#fff";
-          ctx.font = "bold 18px system-ui";
+          ctx.font = gameState.pauseMenuTab === "main" ? "bold 18px system-ui" : "16px system-ui";
           ctx.textAlign = "center";
+          ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+          ctx.shadowBlur = 3;
           ctx.fillText("⚙️ Menú", mainTabX + tabBtnW / 2, tabY + tabBtnH / 2 + 6);
+          ctx.shadowBlur = 0;
           
           // Stats Tab
           const statsTabGradient = ctx.createLinearGradient(statsTabX, tabY, statsTabX, tabY + tabBtnH);
           if (gameState.pauseMenuTab === "stats") {
             statsTabGradient.addColorStop(0, "#fbbf24");
-            statsTabGradient.addColorStop(1, "#f59e0b");
+            statsTabGradient.addColorStop(0.5, "#f59e0b");
+            statsTabGradient.addColorStop(1, "#d97706");
           } else {
             statsTabGradient.addColorStop(0, "#4b5563");
-            statsTabGradient.addColorStop(1, "#374151");
+            statsTabGradient.addColorStop(0.5, "#374151");
+            statsTabGradient.addColorStop(1, "#1f2937");
           }
           ctx.fillStyle = statsTabGradient;
-          ctx.beginPath();
-          ctx.roundRect(statsTabX, tabY, tabBtnW, tabBtnH, 8);
-          ctx.fill();
+          
           if (gameState.pauseMenuTab === "stats") {
-            ctx.strokeStyle = "#fff";
+            ctx.shadowColor = "#fbbf24";
+            ctx.shadowBlur = 20;
+          }
+          
+          ctx.beginPath();
+          ctx.roundRect(statsTabX, tabY, tabBtnW, tabBtnH, 10);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          
+          if (gameState.pauseMenuTab === "stats") {
+            ctx.strokeStyle = "#fde047";
             ctx.lineWidth = 2;
+            ctx.shadowColor = "#fbbf24";
+            ctx.shadowBlur = 15;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            
+            // Highlight superior
+            ctx.save();
+            ctx.globalAlpha = 0.3;
+            const statsHighlight = ctx.createLinearGradient(statsTabX, tabY, statsTabX, tabY + tabBtnH / 3);
+            statsHighlight.addColorStop(0, "rgba(255, 255, 255, 0.7)");
+            statsHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
+            ctx.fillStyle = statsHighlight;
+            ctx.beginPath();
+            ctx.roundRect(statsTabX + 2, tabY + 2, tabBtnW - 4, tabBtnH / 3, 8);
+            ctx.fill();
+            ctx.restore();
+          } else {
+            ctx.strokeStyle = "#6b7280";
+            ctx.lineWidth = 1;
             ctx.stroke();
           }
+          
           ctx.fillStyle = "#fff";
+          ctx.font = gameState.pauseMenuTab === "stats" ? "bold 18px system-ui" : "16px system-ui";
+          ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+          ctx.shadowBlur = 3;
           ctx.fillText("📊 Stats", statsTabX + tabBtnW / 2, tabY + tabBtnH / 2 + 6);
+          ctx.shadowBlur = 0;
           
           // === CONTENIDO SEGÚN TAB ===
           if (gameState.pauseMenuTab === "stats") {
@@ -6202,32 +6371,63 @@ const Index = () => {
             
             for (const { mode, label, x } of aimModes) {
               const isSelected = gameState.aimMode === mode;
+              
+              // Gradiente mejorado
               const btnGradient = ctx.createLinearGradient(x, contentY, x, contentY + aimBtnH);
               if (isSelected) {
                 btnGradient.addColorStop(0, "#a855f7");
-                btnGradient.addColorStop(1, "#7c3aed");
+                btnGradient.addColorStop(0.5, "#9333ea");
+                btnGradient.addColorStop(1, "#7e22ce");
               } else {
                 btnGradient.addColorStop(0, "#4b5563");
-                btnGradient.addColorStop(1, "#374151");
+                btnGradient.addColorStop(0.5, "#374151");
+                btnGradient.addColorStop(1, "#1f2937");
               }
               ctx.fillStyle = btnGradient;
+              
+              // Sombra solo para seleccionado
+              if (isSelected) {
+                ctx.shadowColor = "#a855f7";
+                ctx.shadowBlur = 20;
+              }
+              
               ctx.beginPath();
-              ctx.roundRect(x, contentY, aimBtnW, aimBtnH, 8);
+              ctx.roundRect(x, contentY, aimBtnW, aimBtnH, 10);
               ctx.fill();
+              ctx.shadowBlur = 0;
               
               if (isSelected) {
-                ctx.strokeStyle = "#fff";
+                ctx.strokeStyle = "#c084fc";
                 ctx.lineWidth = 2;
                 ctx.shadowColor = "#a855f7";
-                ctx.shadowBlur = 10;
+                ctx.shadowBlur = 15;
                 ctx.stroke();
                 ctx.shadowBlur = 0;
+                
+                // Highlight superior
+                ctx.save();
+                ctx.globalAlpha = 0.3;
+                const highlight = ctx.createLinearGradient(x, contentY, x, contentY + aimBtnH / 3);
+                highlight.addColorStop(0, "rgba(255, 255, 255, 0.6)");
+                highlight.addColorStop(1, "rgba(255, 255, 255, 0)");
+                ctx.fillStyle = highlight;
+                ctx.beginPath();
+                ctx.roundRect(x + 2, contentY + 2, aimBtnW - 4, aimBtnH / 3, 8);
+                ctx.fill();
+                ctx.restore();
+              } else {
+                ctx.strokeStyle = "#6b7280";
+                ctx.lineWidth = 1;
+                ctx.stroke();
               }
               
               ctx.fillStyle = "#fff";
-              ctx.font = "bold 14px system-ui";
+              ctx.font = isSelected ? "bold 15px system-ui" : "14px system-ui";
               ctx.textAlign = "center";
+              ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+              ctx.shadowBlur = 3;
               ctx.fillText(label, x + aimBtnW / 2, contentY + aimBtnH / 2 + 5);
+              ctx.shadowBlur = 0;
             }
             
             contentY += aimBtnH + 40;
@@ -6237,23 +6437,45 @@ const Index = () => {
             const wikiBtnH = 55;
             const wikiBtnX = centerX - wikiBtnW / 2;
             
+            // Gradiente mejorado con glow
             const wikiGradient = ctx.createLinearGradient(wikiBtnX, contentY, wikiBtnX, contentY + wikiBtnH);
             wikiGradient.addColorStop(0, "#3b82f6");
-            wikiGradient.addColorStop(1, "#2563eb");
+            wikiGradient.addColorStop(0.5, "#2563eb");
+            wikiGradient.addColorStop(1, "#1e40af");
             ctx.fillStyle = wikiGradient;
-            ctx.beginPath();
-            ctx.roundRect(wikiBtnX, contentY, wikiBtnW, wikiBtnH, 10);
-            ctx.fill();
-            ctx.strokeStyle = "#fff";
-            ctx.lineWidth = 3;
             ctx.shadowColor = "#3b82f6";
+            ctx.shadowBlur = 25;
+            ctx.beginPath();
+            ctx.roundRect(wikiBtnX, contentY, wikiBtnW, wikiBtnH, 12);
+            ctx.fill();
+            
+            // Borde brillante
+            ctx.strokeStyle = "#60a5fa";
+            ctx.lineWidth = 2;
             ctx.shadowBlur = 15;
+            ctx.shadowColor = "#3b82f6";
             ctx.stroke();
             ctx.shadowBlur = 0;
+            
+            // Highlight superior
+            ctx.save();
+            ctx.globalAlpha = 0.3;
+            const wikiHighlight = ctx.createLinearGradient(wikiBtnX, contentY, wikiBtnX, contentY + wikiBtnH / 3);
+            wikiHighlight.addColorStop(0, "rgba(255, 255, 255, 0.8)");
+            wikiHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
+            ctx.fillStyle = wikiHighlight;
+            ctx.beginPath();
+            ctx.roundRect(wikiBtnX + 3, contentY + 3, wikiBtnW - 6, wikiBtnH / 3, 9);
+            ctx.fill();
+            ctx.restore();
+            
             ctx.fillStyle = "#fff";
             ctx.font = "bold 22px system-ui";
             ctx.textAlign = "center";
+            ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+            ctx.shadowBlur = 4;
             ctx.fillText("📚 Wiki del Juego", wikiBtnX + wikiBtnW / 2, contentY + wikiBtnH / 2 + 8);
+            ctx.shadowBlur = 0;
             
             contentY += wikiBtnH + 15;
             
@@ -6262,22 +6484,44 @@ const Index = () => {
             const audioBtnH = 55;
             const audioBtnX = centerX - audioBtnW / 2;
             
+            // Gradiente mejorado
             const audioGradient = ctx.createLinearGradient(audioBtnX, contentY, audioBtnX, contentY + audioBtnH);
             audioGradient.addColorStop(0, "#a855f7");
-            audioGradient.addColorStop(1, "#7c3aed");
+            audioGradient.addColorStop(0.5, "#9333ea");
+            audioGradient.addColorStop(1, "#7e22ce");
             ctx.fillStyle = audioGradient;
-            ctx.beginPath();
-            ctx.roundRect(audioBtnX, contentY, audioBtnW, audioBtnH, 10);
-            ctx.fill();
-            ctx.strokeStyle = "#fff";
-            ctx.lineWidth = 3;
             ctx.shadowColor = "#a855f7";
+            ctx.shadowBlur = 25;
+            ctx.beginPath();
+            ctx.roundRect(audioBtnX, contentY, audioBtnW, audioBtnH, 12);
+            ctx.fill();
+            
+            // Borde brillante
+            ctx.strokeStyle = "#c084fc";
+            ctx.lineWidth = 2;
             ctx.shadowBlur = 15;
+            ctx.shadowColor = "#a855f7";
             ctx.stroke();
             ctx.shadowBlur = 0;
+            
+            // Highlight superior
+            ctx.save();
+            ctx.globalAlpha = 0.3;
+            const audioHighlight = ctx.createLinearGradient(audioBtnX, contentY, audioBtnX, contentY + audioBtnH / 3);
+            audioHighlight.addColorStop(0, "rgba(255, 255, 255, 0.8)");
+            audioHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
+            ctx.fillStyle = audioHighlight;
+            ctx.beginPath();
+            ctx.roundRect(audioBtnX + 3, contentY + 3, audioBtnW - 6, audioBtnH / 3, 9);
+            ctx.fill();
+            ctx.restore();
+            
             ctx.fillStyle = "#fff";
             ctx.font = "bold 22px system-ui";
+            ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+            ctx.shadowBlur = 4;
             ctx.fillText("🎧 Audio Settings", audioBtnX + audioBtnW / 2, contentY + audioBtnH / 2 + 8);
+            ctx.shadowBlur = 0;
             
             contentY += audioBtnH + 30;
             
@@ -6288,41 +6532,82 @@ const Index = () => {
             const continueX = centerX - btnW - btnGap / 2;
             const restartX = centerX + btnGap / 2;
             
-            // Continue button
+            // Continue button - mejorado
             const continueGradient = ctx.createLinearGradient(continueX, contentY, continueX, contentY + btnH);
             continueGradient.addColorStop(0, "#22c55e");
-            continueGradient.addColorStop(1, "#16a34a");
+            continueGradient.addColorStop(0.5, "#16a34a");
+            continueGradient.addColorStop(1, "#15803d");
             ctx.fillStyle = continueGradient;
-            ctx.beginPath();
-            ctx.roundRect(continueX, contentY, btnW, btnH, 10);
-            ctx.fill();
-            ctx.strokeStyle = "#fff";
-            ctx.lineWidth = 3;
             ctx.shadowColor = "#22c55e";
+            ctx.shadowBlur = 30;
+            ctx.beginPath();
+            ctx.roundRect(continueX, contentY, btnW, btnH, 12);
+            ctx.fill();
+            
+            ctx.strokeStyle = "#4ade80";
+            ctx.lineWidth = 2;
             ctx.shadowBlur = 20;
+            ctx.shadowColor = "#22c55e";
             ctx.stroke();
             ctx.shadowBlur = 0;
+            
+            // Highlight
+            ctx.save();
+            ctx.globalAlpha = 0.3;
+            const continueHighlight = ctx.createLinearGradient(continueX, contentY, continueX, contentY + btnH / 3);
+            continueHighlight.addColorStop(0, "rgba(255, 255, 255, 0.8)");
+            continueHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
+            ctx.fillStyle = continueHighlight;
+            ctx.beginPath();
+            ctx.roundRect(continueX + 3, contentY + 3, btnW - 6, btnH / 3, 9);
+            ctx.fill();
+            ctx.restore();
+            
             ctx.fillStyle = "#fff";
             ctx.font = "bold 24px system-ui";
             ctx.textAlign = "center";
+            ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+            ctx.shadowBlur = 4;
             ctx.fillText("▶ " + t.continue, continueX + btnW / 2, contentY + btnH / 2 + 9);
+            ctx.shadowBlur = 0;
             
-            // Restart button
+            // Restart button - mejorado
             const restartGradient = ctx.createLinearGradient(restartX, contentY, restartX, contentY + btnH);
             restartGradient.addColorStop(0, "#ef4444");
-            restartGradient.addColorStop(1, "#dc2626");
+            restartGradient.addColorStop(0.5, "#dc2626");
+            restartGradient.addColorStop(1, "#b91c1c");
             ctx.fillStyle = restartGradient;
-            ctx.beginPath();
-            ctx.roundRect(restartX, contentY, btnW, btnH, 10);
-            ctx.fill();
-            ctx.strokeStyle = "#fff";
-            ctx.lineWidth = 3;
             ctx.shadowColor = "#ef4444";
+            ctx.shadowBlur = 30;
+            ctx.beginPath();
+            ctx.roundRect(restartX, contentY, btnW, btnH, 12);
+            ctx.fill();
+            
+            ctx.strokeStyle = "#f87171";
+            ctx.lineWidth = 2;
             ctx.shadowBlur = 20;
+            ctx.shadowColor = "#ef4444";
             ctx.stroke();
             ctx.shadowBlur = 0;
+            
+            // Highlight
+            ctx.save();
+            ctx.globalAlpha = 0.3;
+            const restartHighlight = ctx.createLinearGradient(restartX, contentY, restartX, contentY + btnH / 3);
+            restartHighlight.addColorStop(0, "rgba(255, 255, 255, 0.8)");
+            restartHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
+            ctx.fillStyle = restartHighlight;
+            ctx.beginPath();
+            ctx.roundRect(restartX + 3, contentY + 3, btnW - 6, btnH / 3, 9);
+            ctx.fill();
+            ctx.restore();
+            
             ctx.fillStyle = "#fff";
+            ctx.font = "bold 24px system-ui";
+            ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+            ctx.shadowBlur = 4;
             ctx.fillText("🔄 " + t.restart, restartX + btnW / 2, contentY + btnH / 2 + 9);
+            ctx.shadowBlur = 0;
           }
         }
         
