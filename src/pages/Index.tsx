@@ -2015,8 +2015,8 @@ const Index = () => {
           }
         }
         
-        // Verificar si la wave cambió (evento termina al final de la wave)
-        if (gameState.waveKills >= gameState.waveEnemiesTotal && gameState.eventPhase === "active") {
+        // Verificar si la wave terminó (evento termina al final de la wave)
+        if (gameState.waveKills >= gameState.waveEnemiesTotal && (gameState.eventPhase === "active" || gameState.eventPhase === "fadein")) {
           gameState.eventPhase = "fadeout";
         }
         
@@ -3777,9 +3777,15 @@ const Index = () => {
         ctx.shadowBlur = 0;
       }
       
-      // ⚠️ BARRA DE NOTIFICACIÓN AMBIENTAL - Estilo Noticiero
-      if (gameState.eventNotification > 0 && gameState.eventPhase === "notification") {
-        const notifAlpha = Math.min(1, gameState.eventNotification / 2);
+      // ⚠️ BARRA DE NOTIFICACIÓN AMBIENTAL - Estilo Noticiero (visible durante todo el evento)
+      if (gameState.eventPhase !== "none") {
+        // Calcular opacidad según la fase del evento
+        let notifAlpha = 1;
+        if (gameState.eventPhase === "notification") {
+          notifAlpha = Math.min(1, gameState.eventNotification / 2);
+        } else if (gameState.eventPhase === "fadeout") {
+          notifAlpha = gameState.eventIntensity; // Fade out con el evento
+        }
         ctx.globalAlpha = notifAlpha;
         
         // Barra superior roja de alerta
