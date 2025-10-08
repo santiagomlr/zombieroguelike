@@ -1738,12 +1738,34 @@ const Index = () => {
         const menuX = W / 2 - menuW / 2;
         const menuY = H / 2 - menuH / 2;
         
-        // Audio toggle buttons
-        const toggleBtnW = 160;
-        const toggleBtnH = 45;
-        const toggleX1 = menuX + (menuW / 2) - toggleBtnW - 10;
-        const toggleX2 = menuX + (menuW / 2) + 10;
-        const toggleY = menuY + menuH - 180;
+        // Volume slider (arriba de los botones)
+        let contentY = menuY + menuH - 220 + 30; // Posición después del header AUDIO
+        const sliderW = 400;
+        const sliderH = 10;
+        const sliderX = menuX + (menuW / 2) - sliderW / 2;
+        const sliderY = contentY + 20; // 20px después del label
+        const handleRadius = 14;
+        
+        // Verificar si el click está en el slider o su handle
+        if (my >= sliderY - handleRadius && my <= sliderY + sliderH + handleRadius &&
+            mx >= sliderX - handleRadius && mx <= sliderX + sliderW + handleRadius) {
+          // Calcular nuevo volumen basado en la posición del click
+          const clickX = Math.max(sliderX, Math.min(sliderX + sliderW, mx));
+          gameState.musicVolume = (clickX - sliderX) / sliderW;
+          
+          // Actualizar volumen de la música
+          if (gameState.music) {
+            gameState.music.volume = gameState.musicVolume;
+          }
+        }
+        
+        // Audio toggle buttons (debajo del slider)
+        const toggleBtnW = 180;
+        const toggleBtnH = 50;
+        const toggleGap = 20;
+        const toggleX1 = menuX + (menuW / 2) - toggleBtnW - toggleGap / 2;
+        const toggleX2 = menuX + (menuW / 2) + toggleGap / 2;
+        const toggleY = sliderY + 40; // 40px después del slider
         
         // Music button
         if (mx >= toggleX1 && mx <= toggleX1 + toggleBtnW && my >= toggleY && my <= toggleY + toggleBtnH) {
@@ -1760,26 +1782,6 @@ const Index = () => {
         // SFX button
         if (mx >= toggleX2 && mx <= toggleX2 + toggleBtnW && my >= toggleY && my <= toggleY + toggleBtnH) {
           gameState.sfxMuted = !gameState.sfxMuted;
-        }
-        
-        // Volume slider
-        const sliderY = toggleY + toggleBtnH + 20;
-        const sliderW = 330;
-        const sliderH = 8;
-        const sliderX = menuX + (menuW / 2) - sliderW / 2;
-        const handleRadius = 12;
-        
-        // Verificar si el click está en el slider o su handle
-        if (my >= sliderY - handleRadius && my <= sliderY + sliderH + handleRadius &&
-            mx >= sliderX - handleRadius && mx <= sliderX + sliderW + handleRadius) {
-          // Calcular nuevo volumen basado en la posición del click
-          const clickX = Math.max(sliderX, Math.min(sliderX + sliderW, mx));
-          gameState.musicVolume = (clickX - sliderX) / sliderW;
-          
-          // Actualizar volumen de la música
-          if (gameState.music) {
-            gameState.music.volume = gameState.musicVolume;
-          }
         }
         
         // Action buttons
@@ -4906,76 +4908,131 @@ const Index = () => {
           ctx.fillText(`• ${tome.name} (Lv.${tome.level})`, rightCol + 10, contentY + i * 22);
         });
         
-        contentY = menuY + menuH - 180;
+        contentY = menuY + menuH - 220;
         
-        // === AUDIO CONTROLS ===
-        const toggleBtnW = 160;
-        const toggleBtnH = 45;
-        const toggleX1 = menuX + (menuW / 2) - toggleBtnW - 10;
-        const toggleX2 = menuX + (menuW / 2) + 10;
-        const toggleY = contentY;
-        
-        // Music button
-        ctx.fillStyle = gameState.musicMuted ? "#ef4444" : "#22c55e";
-        ctx.fillRect(toggleX1, toggleY, toggleBtnW, toggleBtnH);
-        ctx.strokeStyle = "#fff";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(toggleX1, toggleY, toggleBtnW, toggleBtnH);
+        // === AUDIO CONTROLS SECTION ===
         ctx.fillStyle = "#fff";
-        ctx.font = "bold 16px system-ui";
-        ctx.textAlign = "center";
-        ctx.fillText(gameState.musicMuted ? "🔇 Música" : "🎵 Música", toggleX1 + toggleBtnW / 2, toggleY + toggleBtnH / 2 + 5);
-        
-        // SFX button
-        ctx.fillStyle = gameState.sfxMuted ? "#ef4444" : "#22c55e";
-        ctx.fillRect(toggleX2, toggleY, toggleBtnW, toggleBtnH);
-        ctx.strokeStyle = "#fff";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(toggleX2, toggleY, toggleBtnW, toggleBtnH);
-        ctx.fillStyle = "#fff";
-        ctx.fillText(gameState.sfxMuted ? "🔇 SFX" : "🔊 SFX", toggleX2 + toggleBtnW / 2, toggleY + toggleBtnH / 2 + 5);
+        ctx.font = "bold 20px system-ui";
+        ctx.textAlign = "left";
+        ctx.fillText("🎧 AUDIO", leftCol, contentY);
+        contentY += 30;
         
         // Volume slider para música
-        const sliderY = toggleY + toggleBtnH + 20;
-        const sliderW = 330;
-        const sliderH = 8;
+        const sliderW = 400;
+        const sliderH = 10;
         const sliderX = menuX + (menuW / 2) - sliderW / 2;
+        const sliderY = contentY;
         
-        // Label del slider
-        ctx.fillStyle = "#fff";
-        ctx.font = "bold 14px system-ui";
-        ctx.textAlign = "center";
-        ctx.fillText("🎚️ Volumen Música", menuX + menuW / 2, sliderY - 10);
+        // Label del slider con icono
+        ctx.fillStyle = "#fbbf24";
+        ctx.font = "bold 16px system-ui";
+        ctx.textAlign = "left";
+        ctx.fillText("🎚️ Volumen Música", sliderX, sliderY - 5);
         
-        // Track del slider (fondo)
-        ctx.fillStyle = "rgba(50, 50, 50, 0.8)";
-        ctx.fillRect(sliderX, sliderY, sliderW, sliderH);
+        // Porcentaje del volumen (derecha del label)
+        ctx.fillStyle = "#a855f7";
+        ctx.font = "bold 16px system-ui";
+        ctx.textAlign = "right";
+        ctx.fillText(`${Math.round(gameState.musicVolume * 100)}%`, sliderX + sliderW, sliderY - 5);
         
-        // Fill del slider (progreso)
-        const fillW = sliderW * gameState.musicVolume;
+        contentY += 20;
+        
+        // Track del slider (fondo con sombra)
+        ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = "rgba(30, 30, 40, 0.9)";
+        ctx.beginPath();
+        ctx.roundRect(sliderX, contentY, sliderW, sliderH, 5);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        
+        // Fill del slider (progreso con gradiente)
+        const fillW = Math.max(sliderH, sliderW * gameState.musicVolume);
         const sliderGradient = ctx.createLinearGradient(sliderX, 0, sliderX + fillW, 0);
         sliderGradient.addColorStop(0, "#a855f7");
-        sliderGradient.addColorStop(1, "#7c3aed");
+        sliderGradient.addColorStop(0.5, "#ec4899");
+        sliderGradient.addColorStop(1, "#fbbf24");
         ctx.fillStyle = sliderGradient;
-        ctx.fillRect(sliderX, sliderY, fillW, sliderH);
+        ctx.beginPath();
+        ctx.roundRect(sliderX, contentY, fillW, sliderH, 5);
+        ctx.fill();
         
-        // Handle del slider (círculo)
+        // Handle del slider (círculo con glow)
         const handleX = sliderX + fillW;
-        const handleY = sliderY + sliderH / 2;
-        const handleRadius = 12;
+        const handleY = contentY + sliderH / 2;
+        const handleRadius = 14;
         
+        ctx.shadowColor = "#a855f7";
+        ctx.shadowBlur = 15;
         ctx.fillStyle = "#fff";
         ctx.beginPath();
         ctx.arc(handleX, handleY, handleRadius, 0, Math.PI * 2);
         ctx.fill();
+        
         ctx.strokeStyle = "#a855f7";
         ctx.lineWidth = 3;
         ctx.stroke();
+        ctx.shadowBlur = 0;
         
-        // Porcentaje del volumen
-        ctx.fillStyle = "#9ca3af";
-        ctx.font = "12px system-ui";
-        ctx.fillText(`${Math.round(gameState.musicVolume * 100)}%`, menuX + menuW / 2, sliderY + sliderH + 20);
+        contentY += 40;
+        
+        // Audio toggle buttons con mejor diseño
+        const toggleBtnW = 180;
+        const toggleBtnH = 50;
+        const toggleGap = 20;
+        const toggleX1 = menuX + (menuW / 2) - toggleBtnW - toggleGap / 2;
+        const toggleX2 = menuX + (menuW / 2) + toggleGap / 2;
+        const toggleY = contentY;
+        
+        // Music button con gradiente
+        const musicGradient = ctx.createLinearGradient(toggleX1, toggleY, toggleX1, toggleY + toggleBtnH);
+        if (gameState.musicMuted) {
+          musicGradient.addColorStop(0, "#dc2626");
+          musicGradient.addColorStop(1, "#991b1b");
+        } else {
+          musicGradient.addColorStop(0, "#10b981");
+          musicGradient.addColorStop(1, "#059669");
+        }
+        ctx.fillStyle = musicGradient;
+        ctx.beginPath();
+        ctx.roundRect(toggleX1, toggleY, toggleBtnW, toggleBtnH, 8);
+        ctx.fill();
+        
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 2;
+        ctx.shadowColor = gameState.musicMuted ? "#dc2626" : "#10b981";
+        ctx.shadowBlur = 12;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 18px system-ui";
+        ctx.textAlign = "center";
+        ctx.fillText(gameState.musicMuted ? "🔇 Música" : "🎵 Música", toggleX1 + toggleBtnW / 2, toggleY + toggleBtnH / 2 + 6);
+        
+        // SFX button con gradiente
+        const sfxGradient = ctx.createLinearGradient(toggleX2, toggleY, toggleX2, toggleY + toggleBtnH);
+        if (gameState.sfxMuted) {
+          sfxGradient.addColorStop(0, "#dc2626");
+          sfxGradient.addColorStop(1, "#991b1b");
+        } else {
+          sfxGradient.addColorStop(0, "#10b981");
+          sfxGradient.addColorStop(1, "#059669");
+        }
+        ctx.fillStyle = sfxGradient;
+        ctx.beginPath();
+        ctx.roundRect(toggleX2, toggleY, toggleBtnW, toggleBtnH, 8);
+        ctx.fill();
+        
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 2;
+        ctx.shadowColor = gameState.sfxMuted ? "#dc2626" : "#10b981";
+        ctx.shadowBlur = 12;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        
+        ctx.fillStyle = "#fff";
+        ctx.fillText(gameState.sfxMuted ? "🔇 SFX" : "🔊 SFX", toggleX2 + toggleBtnW / 2, toggleY + toggleBtnH / 2 + 6);
         
         // === ACTION BUTTONS ===
         const btnW = 200;
