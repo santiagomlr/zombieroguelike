@@ -1,221 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-
-// Tipos
-type Rarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
-type Language = "es" | "en";
-
-interface Translations {
-  levelUp: string;
-  chooseUpgrade: string;
-  weapon: string;
-  tome: string;
-  item: string;
-  damage: string;
-  fireRate: string;
-  range: string;
-  level: string;
-  wave: string;
-  weapons: string;
-  tomes: string;
-  items: string;
-  movement: string;
-  restart: string;
-  pause: string;
-  sprint: string;
-  autoShoot: string;
-  gameOver: string;
-  finalScore: string;
-  finalLevel: string;
-  finalWave: string;
-  playAgain: string;
-  leaderboard: string;
-  stats: string;
-  continue: string;
-  paused: string;
-  tutorial: {
-    move: string;
-  };
-}
-
-const translations: Record<Language, Translations> = {
-  es: {
-    levelUp: "¡SUBISTE DE NIVEL!",
-    chooseUpgrade: "Elige una mejora:",
-    weapon: "ARMA",
-    tome: "TOMO",
-    item: "ÍTEM",
-    damage: "Daño",
-    fireRate: "Cadencia",
-    range: "Alcance",
-    level: "Nivel",
-    wave: "Wave",
-    weapons: "Armas:",
-    tomes: "Tomos:",
-    items: "Ítems:",
-    movement: "WASD - Movimiento",
-    restart: "R - Reiniciar",
-    pause: "ESC - Pausa",
-    sprint: "SPACE - Correr",
-    autoShoot: "Disparo automático",
-    gameOver: "GAME OVER",
-    finalScore: "Puntuación",
-    finalLevel: "Nivel alcanzado",
-    finalWave: "Wave alcanzado",
-    playAgain: "Jugar de nuevo",
-    leaderboard: "TOP 10",
-    stats: "Estadísticas",
-    continue: "Continuar",
-    paused: "PAUSA",
-    tutorial: {
-      move: "Usa WASD para moverte",
-    },
-  },
-  en: {
-    levelUp: "LEVEL UP!",
-    chooseUpgrade: "Choose an upgrade:",
-    weapon: "WEAPON",
-    tome: "TOME",
-    item: "ITEM",
-    damage: "Damage",
-    fireRate: "Fire Rate",
-    range: "Range",
-    level: "Level",
-    wave: "Wave",
-    weapons: "Weapons:",
-    tomes: "Tomes:",
-    items: "Items:",
-    movement: "WASD - Movement",
-    restart: "R - Restart",
-    pause: "ESC - Pause",
-    sprint: "SPACE - Sprint",
-    autoShoot: "Auto Shoot",
-    gameOver: "GAME OVER",
-    finalScore: "Score",
-    finalLevel: "Level Reached",
-    finalWave: "Wave Reached",
-    playAgain: "Play Again",
-    leaderboard: "TOP 10",
-    stats: "Stats",
-    continue: "Continue",
-    paused: "PAUSED",
-    tutorial: {
-      move: "Use WASD to move",
-    },
-  },
-};
-
-interface Weapon {
-  id: string;
-  name: string;
-  damage: number;
-  fireRate: number;
-  range: number;
-  projectileSpeed: number;
-  rarity: Rarity;
-  color: string;
-  special?: string;
-  level: number;
-}
-
-interface Tome {
-  id: string;
-  name: string;
-  description: string;
-  effect: string;
-  value: number;
-  rarity: Rarity;
-  color: string;
-  level: number;
-}
-
-interface Item {
-  id: string;
-  name: string;
-  description: string;
-  effect: string;
-  rarity: Rarity;
-  color: string;
-}
-
-interface Upgrade {
-  type: "weapon" | "tome" | "item";
-  data: Weapon | Tome | Item;
-  rarity: Rarity;
-  isLevelUp?: boolean;
-  targetIndex?: number;
-  upgradeType?: "damage" | "fireRate" | "range" | "special" | "effect";
-  description?: string;
-}
-
-const WEAPONS: Weapon[] = [
-  { id: "pistol", name: "Pistola", damage: 1, fireRate: 2, range: 250, projectileSpeed: 8, rarity: "common", color: "#9ca3af", level: 1 },
-  { id: "shotgun", name: "Escopeta", damage: 3, fireRate: 0.8, range: 180, projectileSpeed: 6, rarity: "uncommon", color: "#22c55e", special: "spread", level: 1 },
-  { id: "smg", name: "SMG", damage: 0.7, fireRate: 6, range: 200, projectileSpeed: 10, rarity: "rare", color: "#3b82f6", level: 1 },
-  { id: "rocket", name: "Lanzacohetes", damage: 8, fireRate: 0.5, range: 350, projectileSpeed: 5, rarity: "epic", color: "#a855f7", special: "aoe", level: 1 },
-  { id: "laser", name: "Láser", damage: 2, fireRate: 4, range: 400, projectileSpeed: 15, rarity: "epic", color: "#06b6d4", special: "pierce", level: 1 },
-  { id: "railgun", name: "Railgun", damage: 12, fireRate: 0.3, range: 500, projectileSpeed: 20, rarity: "legendary", color: "#fbbf24", special: "pierce", level: 1 },
-  { id: "minigun", name: "Minigun", damage: 0.5, fireRate: 10, range: 220, projectileSpeed: 12, rarity: "legendary", color: "#f87171", special: "rapid", level: 1 },
-  // Nuevas armas elementales
-  { id: "electric", name: "Arma Eléctrica", damage: 1.5, fireRate: 3, range: 300, projectileSpeed: 10, rarity: "epic", color: "#60a5fa", special: "chain", level: 1 },
-  { id: "flamethrower", name: "Lanzallamas", damage: 0.8, fireRate: 8, range: 150, projectileSpeed: 6, rarity: "rare", color: "#fb923c", special: "fire", level: 1 },
-  { id: "frostbow", name: "Arco Congelante", damage: 1.2, fireRate: 2, range: 350, projectileSpeed: 9, rarity: "epic", color: "#38bdf8", special: "freeze", level: 1 },
-  { id: "homing", name: "Misil Teledirigido", damage: 4, fireRate: 1, range: 400, projectileSpeed: 7, rarity: "legendary", color: "#f472b6", special: "homing", level: 1 },
-];
-
-const TOMES: Tome[] = [
-  { id: "power", name: "Tomo de Poder", description: "+10% Daño", effect: "damage", value: 1.1, rarity: "rare", color: "#f87171", level: 1 },
-  { id: "speed", name: "Tomo de Velocidad", description: "+5% Velocidad", effect: "speed", value: 1.05, rarity: "uncommon", color: "#22c55e", level: 1 },
-  { id: "bounce", name: "Tomo de Rebote", description: "+1 Rebote (Enemigos)", effect: "bounce", value: 1, rarity: "epic", color: "#a855f7", level: 1 },
-  { id: "range", name: "Tomo de Alcance", description: "+10% Alcance", effect: "range", value: 1.1, rarity: "uncommon", color: "#3b82f6", level: 1 },
-  { id: "precision", name: "Tomo de Precisión", description: "+10% Precisión", effect: "precision", value: 1.1, rarity: "rare", color: "#8b5cf6", level: 1 },
-  { id: "multi", name: "Tomo Múltiple", description: "+1 Proyectil", effect: "multishot", value: 1, rarity: "legendary", color: "#06b6d4", level: 1 },
-  { id: "regen", name: "Tomo de Regeneración", description: "Regenera 1 HP cada 5s", effect: "regen", value: 1, rarity: "uncommon", color: "#10b981", level: 1 },
-  { id: "magnet", name: "Tomo de Magnetismo", description: "+10% Rango de imán", effect: "magnet", value: 1.1, rarity: "common", color: "#64748b", level: 1 },
-  { id: "fire", name: "Tomo de Cadencia", description: "+10% Cadencia", effect: "fireRate", value: 1.1, rarity: "rare", color: "#fbbf24", level: 1 },
-];
-
-const ITEMS: Item[] = [
-  // Común
-  { id: "windboots", name: "Botas de Viento", description: "+5% velocidad", effect: "speedboost", rarity: "common", color: "#9ca3af" },
-  { id: "fastgloves", name: "Guantes Rápidos", description: "+5% cadencia", effect: "firerateitem", rarity: "common", color: "#9ca3af" },
-  { id: "lightvest", name: "Chaleco Ligero", description: "+10 HP máximo", effect: "maxhp10", rarity: "common", color: "#9ca3af" },
-  { id: "tacticalbelt", name: "Cinturón Táctico", description: "+10% magnetismo", effect: "magnetitem", rarity: "common", color: "#9ca3af" },
-  { id: "oldclock", name: "Reloj Antiguo", description: "+5% duración powerups", effect: "powerupduration", rarity: "common", color: "#9ca3af" },
-  { id: "rustyring", name: "Anillo Oxidado", description: "+10 XP por kill", effect: "xpbonus", rarity: "common", color: "#9ca3af" },
-  
-  // Raro
-  { id: "combatglasses", name: "Gafas de Combate", description: "+10% precisión", effect: "precisionitem", rarity: "rare", color: "#3b82f6" },
-  { id: "reinforcedpants", name: "Pantalones Reforzados", description: "-5% daño recibido", effect: "damagereduction", rarity: "rare", color: "#3b82f6" },
-  { id: "bouncegloves", name: "Guantes de Rebote", description: "+1 rebote", effect: "bounceitem", rarity: "rare", color: "#3b82f6" },
-  // ELIMINADO: extrabag (dropcapacity no implementado)
-  { id: "energyclock", name: "Reloj de Energía", description: "+10% cadencia global", effect: "globalfirerate", rarity: "rare", color: "#3b82f6" },
-  { id: "ballistichelmet", name: "Casco Balístico", description: "Inmunidad 1er golpe/wave", effect: "firsthitimmune", rarity: "rare", color: "#3b82f6" },
-  
-  // Épico
-  { id: "jetboots", name: "Botas Jet", description: "+15% velocidad", effect: "jetspeed", rarity: "epic", color: "#a855f7" },
-  { id: "reactiveshield", name: "Escudo Reactivo", description: "Onda empuja enemigos", effect: "reactiveshield", rarity: "epic", color: "#a855f7" },
-  { id: "chaosamuleto", name: "Amuleto del Caos", description: "Daño +10% a +50%", effect: "chaosdamage", rarity: "epic", color: "#a855f7" },
-  { id: "ironmedal", name: "Medalla de Hierro", description: "+15% HP máximo", effect: "maxhp15", rarity: "epic", color: "#a855f7" },
-  { id: "heavyvest", name: "Chaleco Pesado", description: "-10% velocidad, -25% daño", effect: "heavyarmor", rarity: "epic", color: "#a855f7" },
-  { id: "plasmafragment", name: "Fragmento de Plasma", description: "+1 rebote +15% alcance", effect: "plasmafrag", rarity: "epic", color: "#a855f7" },
-  
-  // Legendario
-  { id: "voidcore", name: "Núcleo del Vacío", description: "XP Doble", effect: "doublexp", rarity: "legendary", color: "#fbbf24" },
-  { id: "solargauntlet", name: "Guantelete Solar", description: "Proyectil cada 10 kills", effect: "solargauntlet", rarity: "legendary", color: "#fbbf24" },
-  { id: "infernalengine", name: "Motor Infernal", description: "+25% velocidad +20% daño, +10% daño recibido", effect: "infernalengine", rarity: "legendary", color: "#fbbf24" },
-  { id: "bloodstone", name: "Piedra de Sangre", description: "5 HP cada 30 kills", effect: "bloodstone", rarity: "legendary", color: "#fbbf24" },
-  { id: "hordetotem", name: "Tótem de la Horda", description: "+1 enemigo spawn, +2 XP/kill", effect: "hordetotem", rarity: "legendary", color: "#fbbf24" },
-  { id: "artificialheart", name: "Corazón Artificial", description: "+50 HP permanente", effect: "artificialheart", rarity: "legendary", color: "#fbbf24" },
-  { id: "infinitylens", name: "Lente del Infinito", description: "+10% todos los stats", effect: "infinitylens", rarity: "legendary", color: "#fbbf24" },
-];
-
-const rarityColors = {
-  common: "#9ca3af",
-  uncommon: "#22c55e",
-  rare: "#3b82f6",
-  epic: "#a855f7",
-  legendary: "#fbbf24",
-};
+import { ITEMS, TOMES, WEAPONS, rarityColors, translations } from "@/lib/game/data";
+import { Item, Language, Tome, Upgrade, Weapon } from "@/lib/game/types";
 
 const Index = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -236,6 +21,8 @@ const Index = () => {
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+
+    let animationFrameId = 0;
 
     let W = window.innerWidth;
     let H = window.innerHeight;
@@ -264,7 +51,7 @@ const Index = () => {
         rageTimer: 0,
         tempMagnetTimer: 0,
         tempShieldTimer: 0,
-        weapons: [WEAPONS[0]],
+        weapons: [{ ...WEAPONS[0] }],
         tomes: [] as Tome[],
         items: [] as Item[],
         itemFlags: {} as Record<string, boolean>,
@@ -1790,21 +1577,21 @@ const Index = () => {
     }
 
     // Click handler para upgrades, pause menu y botón de música
-    canvas.addEventListener("click", (e) => {
+    function handleCanvasClick(e: MouseEvent) {
       const rect = canvas.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
-      
+
       // Botón de cambiar canción (solo cuando el juego está corriendo)
       if (gameState.state === 'running') {
         const musicBtnW = 160;
         const musicBtnH = 45;
         const musicBtnX = W - musicBtnW - 20;
         const musicBtnY = H - musicBtnH - 70;
-        
-        if (mx >= musicBtnX && mx <= musicBtnX + musicBtnW && 
+
+        if (mx >= musicBtnX && mx <= musicBtnX + musicBtnW &&
             my >= musicBtnY && my <= musicBtnY + musicBtnH) {
-          
+
           // Si la música no ha iniciado, iniciarla
           if (!gameState.musicStarted) {
             gameState.musicStarted = true;
@@ -1817,14 +1604,14 @@ const Index = () => {
           return;
         }
       }
-      
+
       if (gameState.showUpgradeUI) {
         const cardW = 280;
         const cardH = 220;
         const gap = 40;
         const startX = W / 2 - (cardW * 1.5 + gap);
         const startY = H / 2 - cardH / 2 + 20;
-        
+
         for (let i = 0; i < 3; i++) {
           const cx = startX + i * (cardW + gap);
           if (mx >= cx && mx <= cx + cardW && my >= startY && my <= startY + cardH) {
@@ -1841,20 +1628,20 @@ const Index = () => {
           const audioX = W / 2 - audioW / 2;
           const audioY = H / 2 - audioH / 2;
           const centerX = audioX + audioW / 2;
-          
+
           // Volume slider
           const sliderX = audioX + 80;
           const sliderW = 440;
           const sliderH = 14;
           const sliderY = audioY + 120 + 35;
           const handleRadius = 18;
-          
+
           if (my >= sliderY - handleRadius && my <= sliderY + sliderH + handleRadius &&
               mx >= sliderX - handleRadius && mx <= sliderX + sliderW + handleRadius) {
             const clickX = Math.max(sliderX, Math.min(sliderX + sliderW, mx));
             gameState.targetMusicVolume = (clickX - sliderX) / sliderW; // Establecer volumen objetivo para transición suave
           }
-          
+
           // Toggle buttons
           const toggleBtnW = 240;
           const toggleBtnH = 60;
@@ -1862,7 +1649,7 @@ const Index = () => {
           const toggleX1 = centerX - toggleBtnW - toggleGap / 2;
           const toggleX2 = centerX + toggleGap / 2;
           const toggleY = sliderY + 70;
-          
+
           // Music button
           if (mx >= toggleX1 && mx <= toggleX1 + toggleBtnW && my >= toggleY && my <= toggleY + toggleBtnH) {
             gameState.musicMuted = !gameState.musicMuted;
@@ -1870,26 +1657,26 @@ const Index = () => {
               if (gameState.musicMuted) {
                 gameState.music.pause();
               } else {
-                gameState.music.play().catch(e => console.warn("Audio play failed:", e));
+                gameState.music.play().catch(err => console.warn("Audio play failed:", err));
               }
             }
           }
-          
+
           // SFX button
           if (mx >= toggleX2 && mx <= toggleX2 + toggleBtnW && my >= toggleY && my <= toggleY + toggleBtnH) {
             gameState.sfxMuted = !gameState.sfxMuted;
           }
-          
+
           // Back button
           const backBtnW = 280;
           const backBtnH = 60;
           const backBtnX = centerX - backBtnW / 2;
           const backBtnY = audioY + audioH - 90;
-          
+
           if (mx >= backBtnX && mx <= backBtnX + backBtnW && my >= backBtnY && my <= backBtnY + backBtnH) {
             gameState.showAudioSettings = false;
           }
-          
+
         } else {
           // CLICKS EN MENU PRINCIPAL
           const menuW = 650;
@@ -1897,17 +1684,17 @@ const Index = () => {
           const menuX = W / 2 - menuW / 2;
           const menuY = H / 2 - menuH / 2;
           const centerX = menuX + menuW / 2;
-          
+
           // Audio Settings Button
           const audioBtnW = 350;
           const audioBtnH = 55;
           const audioBtnX = centerX - audioBtnW / 2;
           const audioBtnY = menuY + menuH - 230;
-          
+
           if (mx >= audioBtnX && mx <= audioBtnX + audioBtnW && my >= audioBtnY && my <= audioBtnY + audioBtnH) {
             gameState.showAudioSettings = true;
           }
-          
+
           // Continue & Restart buttons
           const btnW = 250;
           const btnH = 60;
@@ -1915,14 +1702,14 @@ const Index = () => {
           const continueX = centerX - btnW - btnGap / 2;
           const restartX = centerX + btnGap / 2;
           const btnY = audioBtnY + audioBtnH + 20;
-          
+
           // Continue button
           if (mx >= continueX && mx <= continueX + btnW && my >= btnY && my <= btnY + btnH) {
             // Iniciar countdown en lugar de reanudar directamente
             gameState.countdownTimer = 3;
             gameState.showAudioSettings = false;
           }
-          
+
           // Restart button
           if (mx >= restartX && mx <= restartX + btnW && my >= btnY && my <= btnY + btnH) {
             resetGame();
@@ -1935,12 +1722,12 @@ const Index = () => {
         const menuH = 650;
         const menuX = W / 2 - menuW / 2;
         const menuY = H / 2 - menuH / 2;
-        
+
         const btnW = 400;
         const btnH = 70;
         const btnX = W / 2 - btnW / 2;
         const btnY = menuY + menuH - 120;
-        
+
         if (mx >= btnX && mx <= btnX + btnW && my >= btnY && my <= btnY + btnH) {
           if (gameState.gameOverMusic) {
             gameState.gameOverMusic.pause();
@@ -1949,7 +1736,9 @@ const Index = () => {
           resetGame();
         }
       }
-    });
+    }
+
+    canvas.addEventListener("click", handleCanvasClick);
 
     function update(dt: number) {
       // Actualizar tiempo siempre (necesario para animaciones)
@@ -5872,14 +5661,14 @@ const Index = () => {
     function gameLoop(timestamp: number) {
       const dt = Math.min(0.033, (timestamp - lastTime) / 1000 || 0);
       lastTime = timestamp;
-      
+
       update(dt);
       draw();
-      
-      requestAnimationFrame(gameLoop);
+
+      animationFrameId = requestAnimationFrame(gameLoop);
     }
 
-    requestAnimationFrame(gameLoop);
+    animationFrameId = requestAnimationFrame(gameLoop);
 
     // Prevenir scroll y gestos en dispositivos móviles
     const preventScroll = (e: TouchEvent) => {
@@ -5899,10 +5688,27 @@ const Index = () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("resize", handleResize);
+      canvas.removeEventListener("click", handleCanvasClick);
       document.removeEventListener('touchmove', preventScroll);
       document.removeEventListener('gesturestart', preventGesture);
       document.removeEventListener('gesturechange', preventGesture);
       document.removeEventListener('gestureend', preventGesture);
+      cancelAnimationFrame(animationFrameId);
+      resetGameRef.current = null;
+      gameStateRef.current = null;
+      if (gameState.music) {
+        gameState.music.pause();
+      }
+      if (gameState.gameOverMusic) {
+        gameState.gameOverMusic.pause();
+      }
+      if (gameState.audioContext) {
+        try {
+          gameState.audioContext.close();
+        } catch (err) {
+          console.warn("Error closing audio context", err);
+        }
+      }
     };
   }, []);
 
