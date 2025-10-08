@@ -3435,7 +3435,7 @@ const Index = () => {
       
       // HP Bar - Barra horizontal con valor numérico
       const hpBarX = 20;
-      const hpBarY = 20;
+      const hpBarY = 70; // Movido más abajo para no chocar con el anuncio del evento
       const hpBarW = 300;
       const hpBarH = 32;
       
