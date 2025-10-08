@@ -315,6 +315,7 @@ const Index = () => {
       restartTimer: 0,
       restartHoldTime: 5,
       gameOverTimer: 0,
+      showAudioSettings: false, // Control para mostrar/ocultar panel de audio
       // Sistema de Eventos Ambientales (vinculado a waves)
       environmentalEvent: null as "storm" | "fog" | "rain" | null,
       eventNotification: 0,
@@ -1730,78 +1731,103 @@ const Index = () => {
           }
         }
       } else if (gameState.state === 'paused' && !gameState.showUpgradeUI) {
-        // Pause menu click handler - ACTUALIZADO para nuevo tamaño
-        const menuW = 700;
-        const menuH = 900;
-        const menuX = W / 2 - menuW / 2;
-        const menuY = H / 2 - menuH / 2;
-        const centerX = menuX + menuW / 2;
-        
-        // Volume slider (centrado y más grande)
-        let contentY = menuY + 110 + 15 + 30 + 35 + 35 + 35 + 35 + 35 + 20 + 15 + 30 + 28; // Aproximación a la posición de audio
-        // Calcular mejor la posición después de inventario
-        contentY = menuY + menuH - 340; // Posición estimada de la sección AUDIO
-        
-        const sliderW = 500;
-        const sliderH = 12;
-        const sliderX = centerX - sliderW / 2;
-        const sliderY = contentY + 50; // Después del título de AUDIO
-        const handleRadius = 16;
-        
-        // Verificar si el click está en el slider o su handle
-        if (my >= sliderY - handleRadius && my <= sliderY + sliderH + handleRadius &&
-            mx >= sliderX - handleRadius && mx <= sliderX + sliderW + handleRadius) {
-          // Calcular nuevo volumen basado en la posición del click
-          const clickX = Math.max(sliderX, Math.min(sliderX + sliderW, mx));
-          gameState.musicVolume = (clickX - sliderX) / sliderW;
+        // Pause menu click handler - NUEVO DISEÑO
+        if (gameState.showAudioSettings) {
+          // CLICKS EN PANEL DE AUDIO SETTINGS
+          const audioW = 600;
+          const audioH = 450;
+          const audioX = W / 2 - audioW / 2;
+          const audioY = H / 2 - audioH / 2;
+          const centerX = audioX + audioW / 2;
           
-          // Actualizar volumen de la música
-          if (gameState.music) {
-            gameState.music.volume = gameState.musicVolume;
-          }
-        }
-        
-        // Audio toggle buttons (centrados y más grandes)
-        const toggleBtnW = 220;
-        const toggleBtnH = 55;
-        const toggleGap = 30;
-        const toggleX1 = centerX - toggleBtnW - toggleGap / 2;
-        const toggleX2 = centerX + toggleGap / 2;
-        const toggleY = sliderY + 50; // 50px después del slider
-        
-        // Music button
-        if (mx >= toggleX1 && mx <= toggleX1 + toggleBtnW && my >= toggleY && my <= toggleY + toggleBtnH) {
-          gameState.musicMuted = !gameState.musicMuted;
-          if (gameState.music) {
-            if (gameState.musicMuted) {
-              gameState.music.pause();
-            } else {
-              gameState.music.play().catch(e => console.warn("Audio play failed:", e));
+          // Volume slider
+          const sliderX = audioX + 80;
+          const sliderW = 440;
+          const sliderH = 14;
+          const sliderY = audioY + 120 + 35;
+          const handleRadius = 18;
+          
+          if (my >= sliderY - handleRadius && my <= sliderY + sliderH + handleRadius &&
+              mx >= sliderX - handleRadius && mx <= sliderX + sliderW + handleRadius) {
+            const clickX = Math.max(sliderX, Math.min(sliderX + sliderW, mx));
+            gameState.musicVolume = (clickX - sliderX) / sliderW;
+            if (gameState.music) {
+              gameState.music.volume = gameState.musicVolume;
             }
           }
-        }
-        
-        // SFX button
-        if (mx >= toggleX2 && mx <= toggleX2 + toggleBtnW && my >= toggleY && my <= toggleY + toggleBtnH) {
-          gameState.sfxMuted = !gameState.sfxMuted;
-        }
-        
-        // Action buttons (más grandes y centrados)
-        const btnW = 240;
-        const btnH = 60;
-        const btnGap = 40;
-        const continueX = centerX - btnW - btnGap / 2;
-        const restartX = centerX + btnGap / 2;
-        const btnY = menuY + menuH - 90;
-        
-        // Continue button
-        if (mx >= continueX && mx <= continueX + btnW && my >= btnY && my <= btnY + btnH) {
-          gameState.state = 'running';
-        }
-        
-        // Restart button
-        if (mx >= restartX && mx <= restartX + btnW && my >= btnY && my <= btnY + btnH) {
-          resetGame();
+          
+          // Toggle buttons
+          const toggleBtnW = 240;
+          const toggleBtnH = 60;
+          const toggleGap = 30;
+          const toggleX1 = centerX - toggleBtnW - toggleGap / 2;
+          const toggleX2 = centerX + toggleGap / 2;
+          const toggleY = sliderY + 70;
+          
+          // Music button
+          if (mx >= toggleX1 && mx <= toggleX1 + toggleBtnW && my >= toggleY && my <= toggleY + toggleBtnH) {
+            gameState.musicMuted = !gameState.musicMuted;
+            if (gameState.music) {
+              if (gameState.musicMuted) {
+                gameState.music.pause();
+              } else {
+                gameState.music.play().catch(e => console.warn("Audio play failed:", e));
+              }
+            }
+          }
+          
+          // SFX button
+          if (mx >= toggleX2 && mx <= toggleX2 + toggleBtnW && my >= toggleY && my <= toggleY + toggleBtnH) {
+            gameState.sfxMuted = !gameState.sfxMuted;
+          }
+          
+          // Back button
+          const backBtnW = 280;
+          const backBtnH = 60;
+          const backBtnX = centerX - backBtnW / 2;
+          const backBtnY = audioY + audioH - 90;
+          
+          if (mx >= backBtnX && mx <= backBtnX + backBtnW && my >= backBtnY && my <= backBtnY + backBtnH) {
+            gameState.showAudioSettings = false;
+          }
+          
+        } else {
+          // CLICKS EN MENU PRINCIPAL
+          const menuW = 650;
+          const menuH = 700;
+          const menuX = W / 2 - menuW / 2;
+          const menuY = H / 2 - menuH / 2;
+          const centerX = menuX + menuW / 2;
+          
+          // Audio Settings Button
+          const audioBtnW = 350;
+          const audioBtnH = 55;
+          const audioBtnX = centerX - audioBtnW / 2;
+          const audioBtnY = menuY + menuH - 230;
+          
+          if (mx >= audioBtnX && mx <= audioBtnX + audioBtnW && my >= audioBtnY && my <= audioBtnY + audioBtnH) {
+            gameState.showAudioSettings = true;
+          }
+          
+          // Continue & Restart buttons
+          const btnW = 250;
+          const btnH = 60;
+          const btnGap = 30;
+          const continueX = centerX - btnW - btnGap / 2;
+          const restartX = centerX + btnGap / 2;
+          const btnY = audioBtnY + audioBtnH + 20;
+          
+          // Continue button
+          if (mx >= continueX && mx <= continueX + btnW && my >= btnY && my <= btnY + btnH) {
+            gameState.state = 'running';
+            gameState.showAudioSettings = false;
+          }
+          
+          // Restart button
+          if (mx >= restartX && mx <= restartX + btnW && my >= btnY && my <= btnY + btnH) {
+            resetGame();
+            gameState.showAudioSettings = false;
+          }
         }
       }
     });
@@ -4747,382 +4773,413 @@ const Index = () => {
         ctx.restore();
       }
       
-      // Pause menu
+      // Pause menu - REDISEÑADO
       if (gameState.state === 'paused' && !gameState.showUpgradeUI) {
         ctx.save();
         ctx.fillStyle = "rgba(0, 0, 0, 0.85)";
         ctx.fillRect(0, 0, W, H);
         
-        // Menu container - MÁS GRANDE para mejor espaciado
-        const menuW = 700;
-        const menuH = 900;
-        const menuX = W / 2 - menuW / 2;
-        const menuY = H / 2 - menuH / 2;
-        
-        // Background with gradient
-        const bgGradient = ctx.createLinearGradient(menuX, menuY, menuX, menuY + menuH);
-        bgGradient.addColorStop(0, "rgba(15, 20, 30, 0.98)");
-        bgGradient.addColorStop(1, "rgba(25, 30, 40, 0.98)");
-        ctx.fillStyle = bgGradient;
-        ctx.fillRect(menuX, menuY, menuW, menuH);
-        
-        // Border with glow
-        ctx.strokeStyle = "#fbbf24";
-        ctx.lineWidth = 3;
-        ctx.shadowColor = "#fbbf24";
-        ctx.shadowBlur = 20;
-        ctx.strokeRect(menuX, menuY, menuW, menuH);
-        ctx.shadowBlur = 0;
-        
-        // Title
-        ctx.fillStyle = "#fbbf24";
-        ctx.font = "bold 48px system-ui";
-        ctx.textAlign = "center";
-        ctx.shadowColor = "#fbbf24";
-        ctx.shadowBlur = 10;
-        ctx.fillText(t.paused, W / 2, menuY + 60);
-        ctx.shadowBlur = 0;
-        
-        // Content area con mejor espaciado
-        let contentY = menuY + 110;
-        const leftCol = menuX + 50;
-        const rightCol = menuX + menuW / 2 + 30;
-        const centerX = menuX + menuW / 2;
-        const lineHeight = 35; // Aumentado para más espacio
-        
-        // Función helper para dibujar separador
-        const drawSeparator = (y: number) => {
-          ctx.strokeStyle = "rgba(251, 191, 36, 0.3)";
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(menuX + 40, y);
-          ctx.lineTo(menuX + menuW - 40, y);
-          ctx.stroke();
-        };
-        
-        // === BASIC STATS SECTION ===
-        ctx.fillStyle = "#fbbf24";
-        ctx.font = "bold 24px system-ui";
-        ctx.textAlign = "left";
-        ctx.fillText("📊 ESTADÍSTICAS", leftCol, contentY);
-        contentY += 15;
-        drawSeparator(contentY);
-        contentY += 30;
-        
-        ctx.font = "18px system-ui";
-        ctx.fillStyle = "#d1d5db";
-        
-        // HP with bar - más grande y destacado
-        ctx.fillText(`HP:`, leftCol, contentY);
-        const hpBarX = leftCol + 50;
-        const hpBarW = 200;
-        const hpBarH = 24;
-        const hpPercent = Math.max(0, Math.min(1, (Number(gameState.player.hp) || 0) / (Number(gameState.player.maxhp) || 1)));
-        
-        ctx.fillStyle = "rgba(50, 50, 50, 0.8)";
-        ctx.fillRect(hpBarX, contentY - 16, hpBarW, hpBarH);
-        
-        const hpGradient = ctx.createLinearGradient(hpBarX, 0, hpBarX + hpBarW * hpPercent, 0);
-        hpGradient.addColorStop(0, "#ef4444");
-        hpGradient.addColorStop(1, "#f87171");
-        ctx.fillStyle = hpGradient;
-        ctx.fillRect(hpBarX, contentY - 16, hpBarW * hpPercent, hpBarH);
-        
-        ctx.fillStyle = "#fff";
-        ctx.font = "bold 16px system-ui";
-        ctx.textAlign = "center";
-        ctx.fillText(`${gameState.player.hp} / ${gameState.player.maxhp}`, hpBarX + hpBarW / 2, contentY + 1);
-        
-        contentY += lineHeight + 5;
-        ctx.font = "18px system-ui";
-        ctx.textAlign = "left";
-        ctx.fillStyle = "#d1d5db";
-        
-        // Stats en dos columnas con mejor espaciado
-        ctx.fillText(`${t.level}: ${gameState.level}`, leftCol, contentY);
-        ctx.fillText(`Score: ${gameState.score}`, rightCol, contentY);
-        contentY += lineHeight;
-        ctx.fillText(`${t.wave}: ${gameState.wave}`, leftCol, contentY);
-        
-        const time = Math.floor(gameState.time);
-        const mm = String(Math.floor(time / 60)).padStart(2, '0');
-        const ss = String(time % 60).padStart(2, '0');
-        ctx.fillText(`Tiempo: ${mm}:${ss}`, rightCol, contentY);
-        contentY += lineHeight + 20;
-        
-        // === COMBAT STATS SECTION ===
-        ctx.fillStyle = "#fbbf24";
-        ctx.font = "bold 24px system-ui";
-        ctx.fillText("⚔️ COMBATE", leftCol, contentY);
-        contentY += 15;
-        drawSeparator(contentY);
-        contentY += 30;
-        
-        ctx.font = "17px system-ui";
-        
-        // Stats principales siempre visibles
-        ctx.fillStyle = "#f87171";
-        const dmgMult = ((gameState.player.stats.damageMultiplier - 1) * 100).toFixed(0);
-        ctx.fillText(`💥 Daño: +${dmgMult}%`, leftCol, contentY);
-        
-        ctx.fillStyle = "#22c55e";
-        const spdMult = ((gameState.player.stats.speedMultiplier - 1) * 100).toFixed(0);
-        ctx.fillText(`⚡ Velocidad: +${spdMult}%`, rightCol, contentY);
-        contentY += lineHeight;
-        
-        ctx.fillStyle = "#3b82f6";
-        const rangeMult = ((gameState.player.stats.rangeMultiplier - 1) * 100).toFixed(0);
-        ctx.fillText(`🎯 Alcance: +${rangeMult}%`, leftCol, contentY);
-        
-        ctx.fillStyle = "#fbbf24";
-        const fireMult = ((gameState.player.stats.fireRateMultiplier - 1) * 100).toFixed(0);
-        ctx.fillText(`🔫 Cadencia: +${fireMult}%`, rightCol, contentY);
-        contentY += lineHeight;
-        
-        // Stats especiales (solo si aplican)
-        let specialStatsY = contentY;
-        if (gameState.player.stats.bounces > 0) {
+        // Si se muestra el panel de audio settings
+        if (gameState.showAudioSettings) {
+          // PANEL DE AUDIO SETTINGS
+          const audioW = 600;
+          const audioH = 450;
+          const audioX = W / 2 - audioW / 2;
+          const audioY = H / 2 - audioH / 2;
+          
+          // Background con gradiente
+          const audioBg = ctx.createLinearGradient(audioX, audioY, audioX, audioY + audioH);
+          audioBg.addColorStop(0, "rgba(20, 25, 35, 0.98)");
+          audioBg.addColorStop(1, "rgba(30, 35, 45, 0.98)");
+          ctx.fillStyle = audioBg;
+          ctx.fillRect(audioX, audioY, audioW, audioH);
+          
+          // Border con glow
+          ctx.strokeStyle = "#a855f7";
+          ctx.lineWidth = 3;
+          ctx.shadowColor = "#a855f7";
+          ctx.shadowBlur = 20;
+          ctx.strokeRect(audioX, audioY, audioW, audioH);
+          ctx.shadowBlur = 0;
+          
+          // Title
           ctx.fillStyle = "#a855f7";
-          ctx.fillText(`🔄 Rebotes: ${gameState.player.stats.bounces}`, leftCol, specialStatsY);
-          specialStatsY += lineHeight;
-        }
-        
-        if (gameState.player.stats.multishot > 0) {
-          ctx.fillStyle = "#06b6d4";
-          ctx.fillText(`📌 Proyectiles: +${gameState.player.stats.multishot}`, leftCol, specialStatsY);
-          specialStatsY += lineHeight;
-        }
-        
-        if (gameState.player.stats.vampire > 0) {
-          ctx.fillStyle = "#ec4899";
-          ctx.fillText(`🩸 Vampirismo: ${(gameState.player.stats.vampire * 100).toFixed(0)}%`, rightCol, contentY);
-          contentY += lineHeight;
-        }
-        
-        if (gameState.player.stats.auraRadius > 0) {
-          ctx.fillStyle = "#f87171";
-          ctx.fillText(`🔥 Aura: ${gameState.player.stats.auraRadius}px`, rightCol, specialStatsY - lineHeight);
-        }
-        
-        const xpMult = ((gameState.player.stats.xpMultiplier - 1) * 100).toFixed(0);
-        if (gameState.player.stats.xpMultiplier > 1) {
-          ctx.fillStyle = "#ec4899";
-          ctx.fillText(`✨ Exp: +${xpMult}%`, rightCol, specialStatsY);
-        }
-        
-        contentY = Math.max(contentY, specialStatsY) + 20;
-        
-        // === INVENTORY SECTION ===
-        ctx.fillStyle = "#fbbf24";
-        ctx.font = "bold 24px system-ui";
-        ctx.fillText("🎒 INVENTARIO", leftCol, contentY);
-        contentY += 15;
-        drawSeparator(contentY);
-        contentY += 30;
-        
-        ctx.font = "16px system-ui";
-        ctx.fillStyle = "#9ca3af";
-        ctx.fillText(`${t.weapons}: ${gameState.player.weapons.length}/3`, leftCol, contentY);
-        ctx.fillText(`${t.tomes}: ${gameState.player.tomes.length}/3`, rightCol, contentY);
-        contentY += 28;
-        
-        // Weapons y tomes más compactos
-        const maxItems = Math.max(gameState.player.weapons.length, gameState.player.tomes.length);
-        for (let i = 0; i < maxItems; i++) {
-          if (i < gameState.player.weapons.length) {
-            const w = gameState.player.weapons[i];
-            ctx.fillStyle = w.color;
-            ctx.fillText(`• ${w.name} (Lv.${w.level})`, leftCol + 10, contentY);
+          ctx.font = "bold 42px system-ui";
+          ctx.textAlign = "center";
+          ctx.shadowColor = "#a855f7";
+          ctx.shadowBlur = 10;
+          ctx.fillText("🎧 Audio Settings", W / 2, audioY + 60);
+          ctx.shadowBlur = 0;
+          
+          let audioContentY = audioY + 120;
+          
+          // === VOLUME SLIDER ===
+          ctx.fillStyle = "#fbbf24";
+          ctx.font = "bold 22px system-ui";
+          ctx.textAlign = "left";
+          const sliderX = audioX + 80;
+          ctx.fillText("🎚️ Volumen Música", sliderX, audioContentY);
+          
+          // Porcentaje
+          ctx.fillStyle = "#a855f7";
+          ctx.textAlign = "right";
+          const sliderW = 440;
+          ctx.fillText(`${Math.round(gameState.musicVolume * 100)}%`, sliderX + sliderW, audioContentY);
+          
+          audioContentY += 35;
+          
+          // Track del slider
+          const sliderH = 14;
+          ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+          ctx.shadowBlur = 8;
+          ctx.fillStyle = "rgba(30, 30, 40, 0.9)";
+          ctx.beginPath();
+          ctx.roundRect(sliderX, audioContentY, sliderW, sliderH, 7);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          
+          // Fill del slider
+          const fillW = Math.max(sliderH, sliderW * gameState.musicVolume);
+          const sliderGradient = ctx.createLinearGradient(sliderX, 0, sliderX + fillW, 0);
+          sliderGradient.addColorStop(0, "#a855f7");
+          sliderGradient.addColorStop(0.5, "#ec4899");
+          sliderGradient.addColorStop(1, "#fbbf24");
+          ctx.fillStyle = sliderGradient;
+          ctx.beginPath();
+          ctx.roundRect(sliderX, audioContentY, fillW, sliderH, 7);
+          ctx.fill();
+          
+          // Handle del slider
+          const handleX = sliderX + fillW;
+          const handleY = audioContentY + sliderH / 2;
+          const handleRadius = 18;
+          
+          ctx.shadowColor = "#a855f7";
+          ctx.shadowBlur = 20;
+          ctx.fillStyle = "#fff";
+          ctx.beginPath();
+          ctx.arc(handleX, handleY, handleRadius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = "#a855f7";
+          ctx.lineWidth = 4;
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+          
+          audioContentY += 70;
+          
+          // === TOGGLE BUTTONS ===
+          const toggleBtnW = 240;
+          const toggleBtnH = 60;
+          const toggleGap = 30;
+          const centerX = audioX + audioW / 2;
+          const toggleX1 = centerX - toggleBtnW - toggleGap / 2;
+          const toggleX2 = centerX + toggleGap / 2;
+          
+          // Music button
+          const musicGradient = ctx.createLinearGradient(toggleX1, audioContentY, toggleX1, audioContentY + toggleBtnH);
+          if (gameState.musicMuted) {
+            musicGradient.addColorStop(0, "#dc2626");
+            musicGradient.addColorStop(1, "#991b1b");
+          } else {
+            musicGradient.addColorStop(0, "#10b981");
+            musicGradient.addColorStop(1, "#059669");
           }
-          if (i < gameState.player.tomes.length) {
-            const tome = gameState.player.tomes[i];
-            ctx.fillStyle = tome.color;
-            ctx.fillText(`• ${tome.name} (Lv.${tome.level})`, rightCol + 10, contentY);
+          ctx.fillStyle = musicGradient;
+          ctx.beginPath();
+          ctx.roundRect(toggleX1, audioContentY, toggleBtnW, toggleBtnH, 12);
+          ctx.fill();
+          ctx.strokeStyle = "#fff";
+          ctx.lineWidth = 3;
+          ctx.shadowColor = gameState.musicMuted ? "#dc2626" : "#10b981";
+          ctx.shadowBlur = 15;
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = "#fff";
+          ctx.font = "bold 22px system-ui";
+          ctx.textAlign = "center";
+          ctx.fillText(gameState.musicMuted ? "🔇 Música" : "🎵 Música", toggleX1 + toggleBtnW / 2, audioContentY + toggleBtnH / 2 + 8);
+          
+          // SFX button
+          const sfxGradient = ctx.createLinearGradient(toggleX2, audioContentY, toggleX2, audioContentY + toggleBtnH);
+          if (gameState.sfxMuted) {
+            sfxGradient.addColorStop(0, "#dc2626");
+            sfxGradient.addColorStop(1, "#991b1b");
+          } else {
+            sfxGradient.addColorStop(0, "#10b981");
+            sfxGradient.addColorStop(1, "#059669");
           }
+          ctx.fillStyle = sfxGradient;
+          ctx.beginPath();
+          ctx.roundRect(toggleX2, audioContentY, toggleBtnW, toggleBtnH, 12);
+          ctx.fill();
+          ctx.strokeStyle = "#fff";
+          ctx.lineWidth = 3;
+          ctx.shadowColor = gameState.sfxMuted ? "#dc2626" : "#10b981";
+          ctx.shadowBlur = 15;
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = "#fff";
+          ctx.fillText(gameState.sfxMuted ? "🔇 SFX" : "🔊 SFX", toggleX2 + toggleBtnW / 2, audioContentY + toggleBtnH / 2 + 8);
+          
+          // Back button
+          const backBtnW = 280;
+          const backBtnH = 60;
+          const backBtnX = centerX - backBtnW / 2;
+          const backBtnY = audioY + audioH - 90;
+          
+          const backGradient = ctx.createLinearGradient(backBtnX, backBtnY, backBtnX, backBtnY + backBtnH);
+          backGradient.addColorStop(0, "#6b7280");
+          backGradient.addColorStop(1, "#4b5563");
+          ctx.fillStyle = backGradient;
+          ctx.beginPath();
+          ctx.roundRect(backBtnX, backBtnY, backBtnW, backBtnH, 12);
+          ctx.fill();
+          ctx.strokeStyle = "#fff";
+          ctx.lineWidth = 3;
+          ctx.shadowColor = "#6b7280";
+          ctx.shadowBlur = 15;
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = "#fff";
+          ctx.font = "bold 24px system-ui";
+          ctx.fillText("← Volver", backBtnX + backBtnW / 2, backBtnY + backBtnH / 2 + 9);
+          
+        } else {
+          // MENU PRINCIPAL DE PAUSA
+          const menuW = 650;
+          const menuH = 700;
+          const menuX = W / 2 - menuW / 2;
+          const menuY = H / 2 - menuH / 2;
+          
+          // Background with gradient
+          const bgGradient = ctx.createLinearGradient(menuX, menuY, menuX, menuY + menuH);
+          bgGradient.addColorStop(0, "rgba(15, 20, 30, 0.98)");
+          bgGradient.addColorStop(1, "rgba(25, 30, 40, 0.98)");
+          ctx.fillStyle = bgGradient;
+          ctx.fillRect(menuX, menuY, menuW, menuH);
+          
+          // Border with glow
+          ctx.strokeStyle = "#fbbf24";
+          ctx.lineWidth = 3;
+          ctx.shadowColor = "#fbbf24";
+          ctx.shadowBlur = 20;
+          ctx.strokeRect(menuX, menuY, menuW, menuH);
+          ctx.shadowBlur = 0;
+          
+          // Title
+          ctx.fillStyle = "#fbbf24";
+          ctx.font = "bold 48px system-ui";
+          ctx.textAlign = "center";
+          ctx.shadowColor = "#fbbf24";
+          ctx.shadowBlur = 10;
+          ctx.fillText(t.paused, W / 2, menuY + 60);
+          ctx.shadowBlur = 0;
+          
+          let contentY = menuY + 120;
+          const leftCol = menuX + 50;
+          const rightCol = menuX + menuW / 2 + 30;
+          const centerX = menuX + menuW / 2;
+          
+          // Separador helper
+          const drawSeparator = (y: number) => {
+            ctx.strokeStyle = "rgba(251, 191, 36, 0.2)";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(menuX + 40, y);
+            ctx.lineTo(menuX + menuW - 40, y);
+            ctx.stroke();
+          };
+          
+          // === ESTADÍSTICAS ===
+          ctx.fillStyle = "#fbbf24";
+          ctx.font = "bold 22px system-ui";
+          ctx.textAlign = "left";
+          ctx.fillText("📊 Estadísticas", leftCol, contentY);
+          contentY += 10;
+          drawSeparator(contentY);
+          contentY += 25;
+          
+          ctx.font = "17px system-ui";
+          ctx.fillStyle = "#d1d5db";
+          ctx.fillText(`${t.level}: ${gameState.level}`, leftCol, contentY);
+          ctx.fillText(`Score: ${gameState.score}`, rightCol, contentY);
           contentY += 26;
+          ctx.fillText(`${t.wave}: ${gameState.wave}`, leftCol, contentY);
+          const time = Math.floor(gameState.time);
+          const mm = String(Math.floor(time / 60)).padStart(2, '0');
+          const ss = String(time % 60).padStart(2, '0');
+          ctx.fillText(`Tiempo: ${mm}:${ss}`, rightCol, contentY);
+          contentY += 26;
+          
+          // HP Bar compacta
+          ctx.fillText(`HP:`, leftCol, contentY);
+          const hpBarX = leftCol + 45;
+          const hpBarW = 180;
+          const hpBarH = 20;
+          const hpPercent = Math.max(0, Math.min(1, (Number(gameState.player.hp) || 0) / (Number(gameState.player.maxhp) || 1)));
+          ctx.fillStyle = "rgba(50, 50, 50, 0.8)";
+          ctx.fillRect(hpBarX, contentY - 14, hpBarW, hpBarH);
+          const hpGradient = ctx.createLinearGradient(hpBarX, 0, hpBarX + hpBarW * hpPercent, 0);
+          hpGradient.addColorStop(0, "#ef4444");
+          hpGradient.addColorStop(1, "#f87171");
+          ctx.fillStyle = hpGradient;
+          ctx.fillRect(hpBarX, contentY - 14, hpBarW * hpPercent, hpBarH);
+          ctx.fillStyle = "#fff";
+          ctx.font = "bold 13px system-ui";
+          ctx.textAlign = "center";
+          ctx.fillText(`${gameState.player.hp}/${gameState.player.maxhp}`, hpBarX + hpBarW / 2, contentY);
+          contentY += 35;
+          
+          // === COMBATE ===
+          ctx.fillStyle = "#fbbf24";
+          ctx.font = "bold 22px system-ui";
+          ctx.textAlign = "left";
+          ctx.fillText("⚔️ Combate", leftCol, contentY);
+          contentY += 10;
+          drawSeparator(contentY);
+          contentY += 25;
+          
+          ctx.font = "16px system-ui";
+          const dmgMult = ((gameState.player.stats.damageMultiplier - 1) * 100).toFixed(0);
+          const spdMult = ((gameState.player.stats.speedMultiplier - 1) * 100).toFixed(0);
+          const rangeMult = ((gameState.player.stats.rangeMultiplier - 1) * 100).toFixed(0);
+          const fireMult = ((gameState.player.stats.fireRateMultiplier - 1) * 100).toFixed(0);
+          
+          ctx.fillStyle = "#f87171";
+          ctx.fillText(`💥 Daño: +${dmgMult}%`, leftCol, contentY);
+          ctx.fillStyle = "#22c55e";
+          ctx.fillText(`⚡ Velocidad: +${spdMult}%`, rightCol, contentY);
+          contentY += 26;
+          ctx.fillStyle = "#3b82f6";
+          ctx.fillText(`🎯 Alcance: +${rangeMult}%`, leftCol, contentY);
+          ctx.fillStyle = "#fbbf24";
+          ctx.fillText(`🔫 Cadencia: +${fireMult}%`, rightCol, contentY);
+          contentY += 26;
+          
+          // Stats especiales compactos
+          if (gameState.player.stats.bounces > 0) {
+            ctx.fillStyle = "#a855f7";
+            ctx.fillText(`🔄 Rebotes: ${gameState.player.stats.bounces}`, leftCol, contentY);
+            contentY += 26;
+          }
+          if (gameState.player.stats.multishot > 0) {
+            ctx.fillStyle = "#06b6d4";
+            ctx.fillText(`📌 Proyectiles: +${gameState.player.stats.multishot}`, leftCol, contentY);
+            contentY += 26;
+          }
+          if (gameState.player.stats.vampire > 0) {
+            ctx.fillStyle = "#ec4899";
+            ctx.fillText(`🩸 Vampirismo: ${(gameState.player.stats.vampire * 100).toFixed(0)}%`, leftCol, contentY);
+            contentY += 26;
+          }
+          contentY += 10;
+          
+          // === INVENTARIO ===
+          ctx.fillStyle = "#fbbf24";
+          ctx.font = "bold 22px system-ui";
+          ctx.fillText("🎒 Inventario", leftCol, contentY);
+          contentY += 10;
+          drawSeparator(contentY);
+          contentY += 25;
+          
+          ctx.font = "15px system-ui";
+          ctx.fillStyle = "#9ca3af";
+          ctx.fillText(`${t.weapons}: ${gameState.player.weapons.length}/3`, leftCol, contentY);
+          ctx.fillText(`${t.tomes}: ${gameState.player.tomes.length}/3`, rightCol, contentY);
+          contentY += 22;
+          
+          // Items en paralelo
+          const maxItems = Math.max(gameState.player.weapons.length, gameState.player.tomes.length, 1);
+          for (let i = 0; i < maxItems; i++) {
+            if (i < gameState.player.weapons.length) {
+              const w = gameState.player.weapons[i];
+              ctx.fillStyle = w.color;
+              ctx.fillText(`• ${w.name} (Lv.${w.level})`, leftCol + 10, contentY);
+            }
+            if (i < gameState.player.tomes.length) {
+              const tome = gameState.player.tomes[i];
+              ctx.fillStyle = tome.color;
+              ctx.fillText(`• ${tome.name} (Lv.${tome.level})`, rightCol + 10, contentY);
+            }
+            contentY += 22;
+          }
+          
+          // === BOTONES ===
+          contentY = menuY + menuH - 230;
+          
+          // Audio Settings Button
+          const audioBtnW = 350;
+          const audioBtnH = 55;
+          const audioBtnX = centerX - audioBtnW / 2;
+          const audioBtnY = contentY;
+          
+          const audioGradient = ctx.createLinearGradient(audioBtnX, audioBtnY, audioBtnX, audioBtnY + audioBtnH);
+          audioGradient.addColorStop(0, "#a855f7");
+          audioGradient.addColorStop(1, "#7c3aed");
+          ctx.fillStyle = audioGradient;
+          ctx.beginPath();
+          ctx.roundRect(audioBtnX, audioBtnY, audioBtnW, audioBtnH, 10);
+          ctx.fill();
+          ctx.strokeStyle = "#fff";
+          ctx.lineWidth = 3;
+          ctx.shadowColor = "#a855f7";
+          ctx.shadowBlur = 15;
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = "#fff";
+          ctx.font = "bold 22px system-ui";
+          ctx.textAlign = "center";
+          ctx.fillText("🎧 Audio Settings", audioBtnX + audioBtnW / 2, audioBtnY + audioBtnH / 2 + 8);
+          
+          contentY += audioBtnH + 20;
+          
+          // Continue & Restart Buttons
+          const btnW = 250;
+          const btnH = 60;
+          const btnGap = 30;
+          const continueX = centerX - btnW - btnGap / 2;
+          const restartX = centerX + btnGap / 2;
+          const btnY = contentY;
+          
+          // Continue button
+          const continueGradient = ctx.createLinearGradient(continueX, btnY, continueX, btnY + btnH);
+          continueGradient.addColorStop(0, "#22c55e");
+          continueGradient.addColorStop(1, "#16a34a");
+          ctx.fillStyle = continueGradient;
+          ctx.beginPath();
+          ctx.roundRect(continueX, btnY, btnW, btnH, 10);
+          ctx.fill();
+          ctx.strokeStyle = "#fff";
+          ctx.lineWidth = 3;
+          ctx.shadowColor = "#22c55e";
+          ctx.shadowBlur = 20;
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = "#fff";
+          ctx.font = "bold 24px system-ui";
+          ctx.fillText("▶ " + t.continue, continueX + btnW / 2, btnY + btnH / 2 + 9);
+          
+          // Restart button
+          const restartGradient = ctx.createLinearGradient(restartX, btnY, restartX, btnY + btnH);
+          restartGradient.addColorStop(0, "#ef4444");
+          restartGradient.addColorStop(1, "#dc2626");
+          ctx.fillStyle = restartGradient;
+          ctx.beginPath();
+          ctx.roundRect(restartX, btnY, btnW, btnH, 10);
+          ctx.fill();
+          ctx.strokeStyle = "#fff";
+          ctx.lineWidth = 3;
+          ctx.shadowColor = "#ef4444";
+          ctx.shadowBlur = 20;
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = "#fff";
+          ctx.fillText("🔄 " + t.restart, restartX + btnW / 2, btnY + btnH / 2 + 9);
         }
-        
-        contentY += 15;
-        
-        // === AUDIO CONTROLS SECTION ===
-        ctx.fillStyle = "#fbbf24";
-        ctx.font = "bold 24px system-ui";
-        ctx.textAlign = "left";
-        ctx.fillText("🎧 AUDIO", leftCol, contentY);
-        contentY += 15;
-        drawSeparator(contentY);
-        contentY += 35;
-        
-        // Volume slider para música con mejor espaciado
-        const sliderW = 500;
-        const sliderH = 12;
-        const sliderX = centerX - sliderW / 2;
-        const sliderY = contentY;
-        
-        // Label del slider con icono
-        ctx.fillStyle = "#fbbf24";
-        ctx.font = "bold 18px system-ui";
-        ctx.textAlign = "left";
-        ctx.fillText("🎚️ Volumen Música", sliderX, sliderY - 8);
-        
-        // Porcentaje del volumen (derecha del label)
-        ctx.fillStyle = "#a855f7";
-        ctx.font = "bold 18px system-ui";
-        ctx.textAlign = "right";
-        ctx.fillText(`${Math.round(gameState.musicVolume * 100)}%`, sliderX + sliderW, sliderY - 8);
-        
-        contentY += 25;
-        
-        // Track del slider (fondo con sombra)
-        ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
-        ctx.shadowBlur = 8;
-        ctx.fillStyle = "rgba(30, 30, 40, 0.9)";
-        ctx.beginPath();
-        ctx.roundRect(sliderX, contentY, sliderW, sliderH, 6);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-        
-        // Fill del slider (progreso con gradiente)
-        const fillW = Math.max(sliderH, sliderW * gameState.musicVolume);
-        const sliderGradient = ctx.createLinearGradient(sliderX, 0, sliderX + fillW, 0);
-        sliderGradient.addColorStop(0, "#a855f7");
-        sliderGradient.addColorStop(0.5, "#ec4899");
-        sliderGradient.addColorStop(1, "#fbbf24");
-        ctx.fillStyle = sliderGradient;
-        ctx.beginPath();
-        ctx.roundRect(sliderX, contentY, fillW, sliderH, 6);
-        ctx.fill();
-        
-        // Handle del slider (círculo con glow)
-        const handleX = sliderX + fillW;
-        const handleY = contentY + sliderH / 2;
-        const handleRadius = 16;
-        
-        ctx.shadowColor = "#a855f7";
-        ctx.shadowBlur = 20;
-        ctx.fillStyle = "#fff";
-        ctx.beginPath();
-        ctx.arc(handleX, handleY, handleRadius, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.strokeStyle = "#a855f7";
-        ctx.lineWidth = 4;
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-        
-        contentY += 50;
-        
-        // Audio toggle buttons con mejor diseño y espaciado
-        const toggleBtnW = 220;
-        const toggleBtnH = 55;
-        const toggleGap = 30;
-        const toggleX1 = centerX - toggleBtnW - toggleGap / 2;
-        const toggleX2 = centerX + toggleGap / 2;
-        const toggleY = contentY;
-        
-        // Music button con gradiente
-        const musicGradient = ctx.createLinearGradient(toggleX1, toggleY, toggleX1, toggleY + toggleBtnH);
-        if (gameState.musicMuted) {
-          musicGradient.addColorStop(0, "#dc2626");
-          musicGradient.addColorStop(1, "#991b1b");
-        } else {
-          musicGradient.addColorStop(0, "#10b981");
-          musicGradient.addColorStop(1, "#059669");
-        }
-        ctx.fillStyle = musicGradient;
-        ctx.beginPath();
-        ctx.roundRect(toggleX1, toggleY, toggleBtnW, toggleBtnH, 10);
-        ctx.fill();
-        
-        ctx.strokeStyle = "#fff";
-        ctx.lineWidth = 3;
-        ctx.shadowColor = gameState.musicMuted ? "#dc2626" : "#10b981";
-        ctx.shadowBlur = 15;
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-        
-        ctx.fillStyle = "#fff";
-        ctx.font = "bold 20px system-ui";
-        ctx.textAlign = "center";
-        ctx.fillText(gameState.musicMuted ? "🔇 Música" : "🎵 Música", toggleX1 + toggleBtnW / 2, toggleY + toggleBtnH / 2 + 7);
-        
-        // SFX button con gradiente
-        const sfxGradient = ctx.createLinearGradient(toggleX2, toggleY, toggleX2, toggleY + toggleBtnH);
-        if (gameState.sfxMuted) {
-          sfxGradient.addColorStop(0, "#dc2626");
-          sfxGradient.addColorStop(1, "#991b1b");
-        } else {
-          sfxGradient.addColorStop(0, "#10b981");
-          sfxGradient.addColorStop(1, "#059669");
-        }
-        ctx.fillStyle = sfxGradient;
-        ctx.beginPath();
-        ctx.roundRect(toggleX2, toggleY, toggleBtnW, toggleBtnH, 10);
-        ctx.fill();
-        
-        ctx.strokeStyle = "#fff";
-        ctx.lineWidth = 3;
-        ctx.shadowColor = gameState.sfxMuted ? "#dc2626" : "#10b981";
-        ctx.shadowBlur = 15;
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-        
-        ctx.fillStyle = "#fff";
-        ctx.fillText(gameState.sfxMuted ? "🔇 SFX" : "🔊 SFX", toggleX2 + toggleBtnW / 2, toggleY + toggleBtnH / 2 + 7);
-        
-        // === ACTION BUTTONS === (con más espacio desde arriba)
-        const btnW = 240;
-        const btnH = 60;
-        const btnGap = 40;
-        const continueX = centerX - btnW - btnGap / 2;
-        const restartX = centerX + btnGap / 2;
-        const btnY = menuY + menuH - 90;
-        
-        // Continue button (green) con mejor diseño
-        const continueGradient = ctx.createLinearGradient(continueX, btnY, continueX, btnY + btnH);
-        continueGradient.addColorStop(0, "#22c55e");
-        continueGradient.addColorStop(1, "#16a34a");
-        ctx.fillStyle = continueGradient;
-        ctx.beginPath();
-        ctx.roundRect(continueX, btnY, btnW, btnH, 10);
-        ctx.fill();
-        ctx.strokeStyle = "#fff";
-        ctx.lineWidth = 3;
-        ctx.shadowColor = "#22c55e";
-        ctx.shadowBlur = 20;
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = "#fff";
-        ctx.font = "bold 24px system-ui";
-        ctx.textAlign = "center";
-        ctx.fillText("▶ " + t.continue, continueX + btnW / 2, btnY + btnH / 2 + 9);
-        
-        // Restart button (red) con mejor diseño
-        const restartGradient = ctx.createLinearGradient(restartX, btnY, restartX, btnY + btnH);
-        restartGradient.addColorStop(0, "#ef4444");
-        restartGradient.addColorStop(1, "#dc2626");
-        ctx.fillStyle = restartGradient;
-        ctx.beginPath();
-        ctx.roundRect(restartX, btnY, btnW, btnH, 10);
-        ctx.fill();
-        ctx.strokeStyle = "#fff";
-        ctx.lineWidth = 3;
-        ctx.shadowColor = "#ef4444";
-        ctx.shadowBlur = 20;
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = "#fff";
-        ctx.font = "bold 24px system-ui";
-        ctx.fillText("🔄 " + t.restart, restartX + btnW / 2, btnY + btnH / 2 + 9);
-        ctx.shadowBlur = 15;
-        ctx.strokeRect(restartX, btnY, btnW, btnH);
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = "#fff";
-        ctx.fillText("🔄 " + t.restart, restartX + btnW / 2, btnY + btnH / 2 + 8);
         
         ctx.restore();
       }
-    }
+    } // Cierre de función draw()
 
     // Game loop
     let lastTime = 0;
