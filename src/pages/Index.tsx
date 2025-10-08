@@ -242,6 +242,17 @@ const Index = () => {
     canvas.width = W;
     canvas.height = H;
 
+    const createBackgroundOrbs = (count = 20) =>
+      Array.from({ length: count }, () => ({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        radius: Math.random() * 90 + 40,
+        speed: Math.random() * 20 + 10,
+        drift: (Math.random() - 0.5) * 0.6,
+        hue: 200 + Math.random() * 80,
+        alpha: 0.05 + Math.random() * 0.12,
+      }));
+
     const gameState = {
       state: 'running' as 'running' | 'paused' | 'gameover',
       player: {
@@ -298,6 +309,7 @@ const Index = () => {
       drops: [] as any[],
       particles: [] as any[],
       hotspots: [] as any[],
+      playerTrail: [] as any[],
       maxParticles: 200,
       bosses: [] as any[],
       score: 0,
@@ -316,6 +328,16 @@ const Index = () => {
       spawnCooldown: 0, // Cooldown de 3 segundos después de matar todos los enemigos
       canSpawn: true, // Flag para controlar si se puede spawnar
       weaponCooldowns: {} as Record<string, number>,
+      camera: {
+        offsetX: 0,
+        offsetY: 0,
+        targetOffsetX: 0,
+        targetOffsetY: 0,
+        shake: 0,
+        shakeX: 0,
+        shakeY: 0,
+        tilt: 0,
+      },
       audioContext: null as AudioContext | null,
       keys: {} as Record<string, boolean>,
       showUpgradeUI: false,
@@ -348,6 +370,7 @@ const Index = () => {
       fogZones: [] as Array<{ x: number; y: number; width: number; height: number }>,
       fogWarningZones: [] as Array<{ x: number; y: number; width: number; height: number; warningTime: number }>, // Warning para niebla
       stormZone: null as { x: number; y: number; radius: number; vx: number; vy: number } | null,
+      backgroundOrbs: createBackgroundOrbs(24),
       meleeCooldown: 0, // Cooldown de golpe melee
       explosionMarks: [] as Array<{ x: number; y: number; radius: number; life: number }>, // Marcas de explosión en el suelo
       sounds: {
@@ -452,26 +475,69 @@ const Index = () => {
     initMusic();
     
     // Sound effect functions
-    const playSound = (frequency: number, duration: number, type: OscillatorType = "sine", volume: number = 0.3) => {
+    const playSound = (
+      frequency: number,
+      duration: number,
+      type: OscillatorType = "sine",
+      volume: number = 0.3,
+      detune: number = 30
+    ) => {
       if (!gameState.audioContext || gameState.sfxMuted) return;
-      const oscillator = gameState.audioContext.createOscillator();
-      const gainNode = gameState.audioContext.createGain();
-      
+      const audioCtx = gameState.audioContext;
+      const now = audioCtx.currentTime;
+
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      const filter = audioCtx.createBiquadFilter();
+
       oscillator.type = type;
-      oscillator.frequency.setValueAtTime(frequency, gameState.audioContext.currentTime);
-      
-      gainNode.gain.setValueAtTime(volume, gameState.audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, gameState.audioContext.currentTime + duration);
-      
-      oscillator.connect(gainNode);
-      gainNode.connect(gameState.audioContext.destination);
-      
-      oscillator.start();
-      oscillator.stop(gameState.audioContext.currentTime + duration);
+      const jitter = (Math.random() - 0.5) * detune;
+      oscillator.frequency.setValueAtTime(Math.max(20, frequency + jitter), now);
+
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(Math.max(200, frequency * 6), now);
+      filter.Q.setValueAtTime(6, now);
+
+      gainNode.gain.setValueAtTime(volume, now);
+      gainNode.gain.exponentialRampToValueAtTime(Math.max(0.001, volume * 0.05), now + duration);
+
+      oscillator.connect(filter);
+      filter.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+
+      oscillator.start(now);
+      oscillator.stop(now + duration + 0.05);
     };
-    
-    const playShootSound = () => playSound(200, 0.1, "square", 0.2);
-    const playHitSound = () => playSound(100, 0.15, "sawtooth", 0.2);
+
+    const playShootSound = (weapon?: Weapon) => {
+      const rarityBoost = weapon?.rarity === "legendary" ? 0.1 : weapon?.rarity === "epic" ? 0.05 : 0;
+      const baseFrequency = weapon
+        ? weapon.special === "aoe"
+          ? 160
+          : weapon.special === "pierce"
+            ? 260
+            : weapon.special === "rapid"
+              ? 280
+              : weapon.special === "laser"
+                ? 360
+                : weapon.special === "fire"
+                  ? 220
+                  : weapon.special === "freeze"
+                    ? 300
+                    : weapon.special === "chain"
+                      ? 240
+                      : 210
+        : 210;
+      const waveform: OscillatorType = weapon?.special === "laser"
+        ? "sawtooth"
+        : weapon?.special === "fire"
+          ? "triangle"
+          : weapon?.special === "freeze"
+            ? "sine"
+            : "square";
+      playSound(baseFrequency, 0.12 + (weapon?.fireRate || 0) * 0.01, waveform, 0.2 + rarityBoost, 40);
+    };
+    const playHitSound = () => playSound(120, 0.18, "sawtooth", 0.22, 25);
     const playLevelUpSound = () => {
       playSound(300, 0.1, "sine", 0.3);
       setTimeout(() => playSound(400, 0.1, "sine", 0.3), 100);
@@ -485,6 +551,11 @@ const Index = () => {
       playSound(400, 0.1, "sine", 0.25);
       setTimeout(() => playSound(500, 0.1, "sine", 0.25), 50);
       setTimeout(() => playSound(600, 0.15, "sine", 0.25), 100);
+    };
+
+    const addScreenShake = (strength: number) => {
+      if (!gameState.camera) return;
+      gameState.camera.shake = Math.min(12, gameState.camera.shake + strength);
     };
     
     // Game state management
@@ -521,7 +592,23 @@ const Index = () => {
       gameState.drops.length = 0;
       gameState.particles.length = 0;
       gameState.hotspots.length = 0;
-      
+      gameState.playerTrail.length = 0;
+
+      if (gameState.camera) {
+        gameState.camera.offsetX = 0;
+        gameState.camera.offsetY = 0;
+        gameState.camera.targetOffsetX = 0;
+        gameState.camera.targetOffsetY = 0;
+        gameState.camera.shake = 0;
+        gameState.camera.shakeX = 0;
+        gameState.camera.shakeY = 0;
+        gameState.camera.tilt = 0;
+      }
+
+      if (gameState.backgroundOrbs) {
+        gameState.backgroundOrbs = createBackgroundOrbs(gameState.backgroundOrbs.length || 24);
+      }
+
       // Resetear jugador
       gameState.player.x = W / 2;
       gameState.player.y = H / 2;
@@ -671,6 +758,9 @@ const Index = () => {
       if (gameState.player) {
         gameState.player.x = Math.min(gameState.player.x, W - 50);
         gameState.player.y = Math.min(gameState.player.y, H - 50);
+      }
+      if (gameState.backgroundOrbs) {
+        gameState.backgroundOrbs = createBackgroundOrbs(gameState.backgroundOrbs.length || 24);
       }
     };
 
@@ -1175,7 +1265,7 @@ const Index = () => {
         }
       }
       
-      playShootSound();
+      playShootSound(weapon);
     }
 
     function autoShoot(dt: number) {
@@ -1955,6 +2045,32 @@ const Index = () => {
       // Actualizar tiempo siempre (necesario para animaciones)
       gameState.time += dt;
 
+      const camera = gameState.camera;
+      if (camera) {
+        if (camera.shake > 0) {
+          camera.shake = Math.max(0, camera.shake - dt * 6);
+          const intensity = camera.shake * camera.shake * 0.3;
+          camera.shakeX = (Math.random() - 0.5) * intensity;
+          camera.shakeY = (Math.random() - 0.5) * intensity;
+        } else {
+          camera.shakeX *= 0.85;
+          camera.shakeY *= 0.85;
+        }
+      }
+
+      if (gameState.backgroundOrbs) {
+        for (const orb of gameState.backgroundOrbs) {
+          orb.y += orb.speed * dt;
+          orb.x += orb.drift;
+          if (orb.y - orb.radius > H) {
+            orb.y = -orb.radius;
+            orb.x = Math.random() * W;
+          }
+          if (orb.x < -orb.radius) orb.x = W + orb.radius;
+          if (orb.x > W + orb.radius) orb.x = -orb.radius;
+        }
+      }
+
       // Animations que deben correr siempre
       if (gameState.levelUpAnimation > 0) gameState.levelUpAnimation = Math.max(0, gameState.levelUpAnimation - dt * 2);
       if (gameState.upgradeAnimation > 0) gameState.upgradeAnimation = Math.max(0, gameState.upgradeAnimation - dt);
@@ -2334,6 +2450,7 @@ const Index = () => {
               const distToStorm = Math.hypot(gameState.player.x - gameState.stormZone.x, gameState.player.y - gameState.stormZone.y);
               if (distToStorm < gameState.stormZone.radius) {
                 gameState.player.hp -= 10 * dt * intensity; // 10 HP/s escalado por intensidad
+                addScreenShake(4 * intensity);
                 if (gameState.player.hp <= 0) {
                   gameState.state = 'gameover';
                   gameState.gameOverTimer = 3;
@@ -2419,6 +2536,7 @@ const Index = () => {
               // Daño aumentado si está en zona de niebla (escalado por intensidad)
               if (inFogZone) {
                 gameState.player.hp -= 5 * dt * intensity; // 5 HP/s escalado por intensidad
+                addScreenShake(2.5 * intensity);
                 if (gameState.player.hp <= 0) {
                   gameState.state = 'gameover';
                   gameState.gameOverTimer = 3;
@@ -2537,10 +2655,11 @@ const Index = () => {
             // HOTSPOT NEGATIVO (Zona de Peligro)
             gameState.inDangerZone = true;
             gameState.dangerZoneTimer += dt;
-            
+
             // Daño continuo: 8 HP/s (sin activar invulnerabilidad)
             gameState.player.hp -= 8 * dt;
-            
+            addScreenShake(3);
+
             // Partículas de daño
             if (Math.random() < 0.15 && gameState.particles.length < gameState.maxParticles) {
               gameState.particles.push({
@@ -2687,6 +2806,9 @@ const Index = () => {
 
       if (gameState.player.ifr > 0) gameState.player.ifr = Math.max(0, gameState.player.ifr - dt);
 
+      const prevX = gameState.player.x;
+      const prevY = gameState.player.y;
+
       // Movimiento (WASD o flechas)
       let vx = (gameState.keys["d"] || gameState.keys["arrowright"] ? 1 : 0) - (gameState.keys["a"] || gameState.keys["arrowleft"] ? 1 : 0);
       let vy = (gameState.keys["s"] || gameState.keys["arrowdown"] ? 1 : 0) - (gameState.keys["w"] || gameState.keys["arrowup"] ? 1 : 0);
@@ -2723,9 +2845,39 @@ const Index = () => {
       // Clamp a los límites del mapa
       newX = Math.max(gameState.player.rad, Math.min(W - gameState.player.rad, newX));
       newY = Math.max(gameState.player.rad, Math.min(H - gameState.player.rad, newY));
-      
+
       gameState.player.x = newX;
       gameState.player.y = newY;
+      const dx = gameState.player.x - prevX;
+      const dy = gameState.player.y - prevY;
+      gameState.player.vx = dx;
+      gameState.player.vy = dy;
+
+      if (camera) {
+        const smoothing = Math.min(1, dt * 8);
+        const targetOffsetX = -dx * 8;
+        const targetOffsetY = -dy * 8;
+        camera.targetOffsetX = targetOffsetX;
+        camera.targetOffsetY = targetOffsetY;
+        camera.offsetX += (camera.targetOffsetX - camera.offsetX) * smoothing;
+        camera.offsetY += (camera.targetOffsetY - camera.offsetY) * smoothing;
+        const targetTilt = Math.max(-0.2, Math.min(0.2, -dx * 0.02));
+        camera.tilt += (targetTilt - camera.tilt) * Math.min(1, dt * 6);
+      }
+
+      const moveMagnitude = Math.hypot(dx, dy);
+      if (moveMagnitude > 0.2) {
+        gameState.playerTrail.push({
+          x: gameState.player.x,
+          y: gameState.player.y,
+          life: 0.35,
+          maxLife: 0.35,
+          angle: Math.atan2(dy, dx || 0.0001),
+        });
+        if (gameState.playerTrail.length > 20) {
+          gameState.playerTrail.shift();
+        }
+      }
 
       // ═══════════════════════════════════════════════════════════
       // SISTEMA DE SPAWN DE ENEMIGOS - Estilo COD Zombies
@@ -3354,6 +3506,7 @@ const Index = () => {
                   if (gameState.player.ifr <= 0 && gameState.player.shield === 0) {
                     gameState.player.hp -= 10;
                     gameState.player.ifr = gameState.player.ifrDuration;
+                    addScreenShake(7);
                   }
                 }
                 // Partículas de explosión grande
@@ -3711,6 +3864,7 @@ const Index = () => {
             } else if (gameState.player.shield > 0) {
               gameState.player.shield--;
               gameState.player.ifr = gameState.player.ifrDuration;
+              addScreenShake(3);
               // Shield break particles con límite
               if (gameState.particles.length < gameState.maxParticles - 12) {
                 for (let j = 0; j < 12; j++) {
@@ -3737,6 +3891,7 @@ const Index = () => {
               const nextHp = Math.max(0, Math.min(Number(gameState.player.maxhp) || 0, safeCurrentHp - dmg));
               gameState.player.hp = nextHp;
               gameState.player.ifr = gameState.player.ifrDuration;
+              addScreenShake(Math.min(10, 4 + dmg * 0.2));
               
               // Escudo Reactivo: empuja enemigos
               if (gameState.player.stats.reactiveShieldActive) {
@@ -3802,8 +3957,10 @@ const Index = () => {
             if (gameState.player.ifr <= 0) {
               if (gameState.player.shield > 0) {
                 gameState.player.shield--;
+                addScreenShake(2);
               } else {
                 gameState.player.hp -= b.damage;
+                addScreenShake(5);
               }
               gameState.player.ifr = gameState.player.ifrDuration;
               
@@ -3836,6 +3993,14 @@ const Index = () => {
             b.x += nx * overlap / 2;
             b.y += ny * overlap / 2;
           }
+        }
+      }
+
+      for (let i = gameState.playerTrail.length - 1; i >= 0; i--) {
+        const trail = gameState.playerTrail[i];
+        trail.life -= dt;
+        if (trail.life <= 0) {
+          gameState.playerTrail.splice(i, 1);
         }
       }
 
@@ -4623,14 +4788,95 @@ const Index = () => {
     function draw() {
       ctx.clearRect(0, 0, W, H);
       
-      // Fondo
-      const gradient = ctx.createRadialGradient(W / 2, H / 3, 0, W / 2, H / 3, Math.max(W, H));
-      gradient.addColorStop(0, "#0f1729");
-      gradient.addColorStop(0.5, "#0a0f1a");
-      gradient.addColorStop(1, "#060a10");
-      ctx.fillStyle = gradient;
+      const cameraState = gameState.camera ?? {
+        offsetX: 0,
+        offsetY: 0,
+        targetOffsetX: 0,
+        targetOffsetY: 0,
+        shake: 0,
+        shakeX: 0,
+        shakeY: 0,
+        tilt: 0,
+      };
+      const worldOffsetX = (cameraState.offsetX || 0) + (cameraState.shakeX || 0);
+      const worldOffsetY = (cameraState.offsetY || 0) + (cameraState.shakeY || 0);
+
+      // Fondo mejorado con gradientes dinámicos
+      const baseGradient = ctx.createLinearGradient(0, 0, 0, H);
+      baseGradient.addColorStop(0, "#0b1120");
+      baseGradient.addColorStop(0.45, "#070b16");
+      baseGradient.addColorStop(1, "#020617");
+      ctx.fillStyle = baseGradient;
       ctx.fillRect(0, 0, W, H);
-      
+
+      const radialGlow = ctx.createRadialGradient(
+        W / 2,
+        H / 2,
+        Math.min(W, H) * 0.15,
+        W / 2,
+        H / 2,
+        Math.max(W, H)
+      );
+      radialGlow.addColorStop(0, "rgba(8, 145, 178, 0.25)");
+      radialGlow.addColorStop(0.7, "rgba(15, 23, 42, 0.5)");
+      radialGlow.addColorStop(1, "rgba(2, 6, 23, 0.85)");
+      ctx.fillStyle = radialGlow;
+      ctx.fillRect(0, 0, W, H);
+
+      if (gameState.backgroundOrbs) {
+        ctx.save();
+        ctx.globalCompositeOperation = "screen";
+        for (const orb of gameState.backgroundOrbs) {
+          const pulse = Math.sin(gameState.time * 0.6 + orb.hue) * 0.3 + 0.7;
+          const px = orb.x + worldOffsetX * 0.2;
+          const py = orb.y + worldOffsetY * 0.2;
+          const orbGradient = ctx.createRadialGradient(px, py, 0, px, py, orb.radius);
+          orbGradient.addColorStop(0, `hsla(${orb.hue}, 80%, 60%, ${orb.alpha * pulse})`);
+          orbGradient.addColorStop(1, "hsla(0, 0%, 0%, 0)");
+          ctx.fillStyle = orbGradient;
+          ctx.fillRect(px - orb.radius, py - orb.radius, orb.radius * 2, orb.radius * 2);
+        }
+        ctx.restore();
+      }
+
+      ctx.save();
+      ctx.translate(W / 2, H / 2);
+      ctx.rotate(cameraState.tilt || 0);
+      ctx.translate(-W / 2, -H / 2);
+      ctx.translate(worldOffsetX, worldOffsetY);
+
+      const gridSpacing = 160;
+      const gridOffsetX = -((gameState.time * 20) % gridSpacing);
+      const gridOffsetY = -((gameState.time * 14) % gridSpacing);
+
+      ctx.save();
+      ctx.strokeStyle = "rgba(100, 116, 139, 0.08)";
+      ctx.lineWidth = 1;
+      for (let x = gridOffsetX - gridSpacing * 2; x <= W + gridSpacing * 2; x += gridSpacing) {
+        ctx.beginPath();
+        ctx.moveTo(x, -gridSpacing * 2);
+        ctx.lineTo(x, H + gridSpacing * 2);
+        ctx.stroke();
+      }
+      for (let y = gridOffsetY - gridSpacing * 2; y <= H + gridSpacing * 2; y += gridSpacing) {
+        ctx.beginPath();
+        ctx.moveTo(-gridSpacing * 2, y);
+        ctx.lineTo(W + gridSpacing * 2, y);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      ctx.save();
+      ctx.fillStyle = "rgba(148, 163, 184, 0.08)";
+      for (let x = gridOffsetX - gridSpacing * 2; x <= W + gridSpacing * 2; x += gridSpacing) {
+        for (let y = gridOffsetY - gridSpacing * 2; y <= H + gridSpacing * 2; y += gridSpacing) {
+          ctx.beginPath();
+          ctx.arc(x, y, 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      ctx.restore();
+
       // Marcas de explosión en el suelo (quemadura)
       for (const mark of gameState.explosionMarks) {
         const alpha = mark.life / 3; // Fade out gradual
@@ -4955,14 +5201,17 @@ const Index = () => {
       }
       
       // Partículas
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
       for (const p of gameState.particles) {
         ctx.fillStyle = p.color;
-        ctx.globalAlpha = p.life;
+        ctx.globalAlpha = Math.max(0, Math.min(1, p.life));
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         ctx.fill();
-        ctx.globalAlpha = 1;
       }
+      ctx.restore();
+      ctx.globalAlpha = 1;
       
       // Enemigos
       for (const e of gameState.enemies) {
@@ -5140,6 +5389,8 @@ const Index = () => {
       }
       
       // Balas
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
       for (const b of gameState.bullets) {
         ctx.save();
         
@@ -5204,7 +5455,49 @@ const Index = () => {
         ctx.shadowBlur = 0;
         ctx.restore();
       }
+      ctx.restore();
       
+      // Estela cinética del jugador
+      if (gameState.playerTrail.length > 0) {
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        for (const trail of gameState.playerTrail) {
+          const alpha = Math.max(0, trail.life / (trail.maxLife || 0.0001));
+          const scale = 1 + (1 - alpha) * 0.4;
+
+          ctx.save();
+          ctx.translate(trail.x, trail.y);
+          ctx.rotate((trail.angle ?? 0) + Math.sin(gameState.time * 3) * 0.05 * alpha);
+          ctx.globalAlpha = alpha * 0.6;
+          const tailLength = gameState.player.rad * 1.6 * scale;
+          const tailWidth = gameState.player.rad * 0.9 * scale;
+          ctx.fillStyle = `rgba(56, 189, 248, ${0.18 + alpha * 0.3})`;
+          ctx.beginPath();
+          ctx.moveTo(-tailLength, 0);
+          ctx.quadraticCurveTo(0, tailWidth, tailLength, 0);
+          ctx.quadraticCurveTo(0, -tailWidth, -tailLength, 0);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+
+          const glowGradient = ctx.createRadialGradient(
+            trail.x,
+            trail.y,
+            0,
+            trail.x,
+            trail.y,
+            gameState.player.rad * 1.8 * scale
+          );
+          glowGradient.addColorStop(0, `rgba(14, 165, 233, ${0.25 * alpha})`);
+          glowGradient.addColorStop(1, "rgba(14, 165, 233, 0)");
+          ctx.fillStyle = glowGradient;
+          ctx.beginPath();
+          ctx.arc(trail.x, trail.y, gameState.player.rad * 1.8 * scale, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
       // Aura de fuego
       if (gameState.player.stats.auraRadius > 0) {
         ctx.strokeStyle = "rgba(248, 113, 113, 0.3)";
@@ -5214,30 +5507,82 @@ const Index = () => {
         ctx.stroke();
       }
       
-      // Jugador con rage mode visual
+      // Jugador con energía reactiva
       const blink = gameState.player.ifr > 0 && Math.floor(gameState.time * 12) % 2 === 0;
       const isRage = gameState.player.rageTimer > 0;
+      const targetEnemy = nearestEnemy();
+      const fallbackAngle = Math.atan2(gameState.player.vy, gameState.player.vx);
+      const facingAngle = targetEnemy
+        ? Math.atan2(targetEnemy.y - gameState.player.y, targetEnemy.x - gameState.player.x)
+        : fallbackAngle;
+      const movementGlow = Math.min(1, Math.hypot(gameState.player.vx, gameState.player.vy) / 8);
+
       ctx.save();
-      if (blink) ctx.globalAlpha = 0.4;
-      
-      // Rage mode glow
-      if (isRage) {
-        ctx.shadowColor = "#ef4444";
-        ctx.shadowBlur = 40;
-        ctx.strokeStyle = "#ef4444";
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(gameState.player.x, gameState.player.y, gameState.player.rad + 10, 0, Math.PI * 2);
-        ctx.stroke();
-      }
-      
-      ctx.fillStyle = isRage ? "#ef4444" : "#60a5fa";
-      ctx.shadowColor = isRage ? "#ef4444" : "#60a5fa";
-      ctx.shadowBlur = isRage ? 30 : 20;
+      ctx.translate(gameState.player.x, gameState.player.y);
+      ctx.rotate(facingAngle + Math.sin(gameState.time * 5) * 0.03 * movementGlow);
+      if (blink) ctx.globalAlpha = 0.35;
+
+      const auraRadius = gameState.player.rad + 12 + movementGlow * 6;
+      const auraGradient = ctx.createRadialGradient(
+        0,
+        0,
+        gameState.player.rad * 0.6,
+        0,
+        0,
+        auraRadius
+      );
+      auraGradient.addColorStop(0, isRage ? "rgba(248, 113, 113, 0.4)" : "rgba(59, 130, 246, 0.35)");
+      auraGradient.addColorStop(1, "rgba(15, 23, 42, 0)");
+      ctx.fillStyle = auraGradient;
       ctx.beginPath();
-      ctx.arc(gameState.player.x, gameState.player.y, gameState.player.rad, 0, Math.PI * 2);
+      ctx.arc(0, 0, auraRadius, 0, Math.PI * 2);
       ctx.fill();
+
+      ctx.save();
+      ctx.globalAlpha = 0.85;
+      const bladeGradient = ctx.createLinearGradient(0, 0, gameState.player.rad * 1.8, 0);
+      if (isRage) {
+        bladeGradient.addColorStop(0, "rgba(248, 113, 113, 0.15)");
+        bladeGradient.addColorStop(1, "rgba(239, 68, 68, 0.9)");
+      } else {
+        bladeGradient.addColorStop(0, "rgba(59, 130, 246, 0.2)");
+        bladeGradient.addColorStop(1, "rgba(56, 189, 248, 0.9)");
+      }
+      ctx.fillStyle = bladeGradient;
+      ctx.beginPath();
+      ctx.moveTo(gameState.player.rad * 1.8, 0);
+      ctx.lineTo(-gameState.player.rad * 0.8, gameState.player.rad * 0.7);
+      ctx.lineTo(-gameState.player.rad * 0.8, -gameState.player.rad * 0.7);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+
+      const coreGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, gameState.player.rad);
+      coreGradient.addColorStop(0, isRage ? "#fee2e2" : "#f8fafc");
+      coreGradient.addColorStop(0.5, isRage ? "#f87171" : "#bae6fd");
+      coreGradient.addColorStop(1, isRage ? "#b91c1c" : "#0ea5e9");
+      ctx.fillStyle = coreGradient;
+      ctx.shadowColor = isRage ? "rgba(239, 68, 68, 0.85)" : "rgba(56, 189, 248, 0.85)";
+      ctx.shadowBlur = isRage ? 45 : 28;
+      ctx.beginPath();
+      ctx.arc(0, 0, gameState.player.rad, 0, Math.PI * 2);
+      ctx.fill();
+
       ctx.shadowBlur = 0;
+      ctx.strokeStyle = isRage ? "rgba(248, 113, 113, 0.9)" : "rgba(56, 189, 248, 0.9)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, gameState.player.rad + 4 + movementGlow * 2, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.save();
+      ctx.globalAlpha = 0.9;
+      ctx.fillStyle = isRage ? "rgba(254, 226, 226, 0.9)" : "rgba(226, 232, 240, 0.9)";
+      ctx.beginPath();
+      ctx.ellipse(gameState.player.rad * 0.55, 0, gameState.player.rad * 0.45, gameState.player.rad * 0.25, 0, -Math.PI / 3, Math.PI / 3);
+      ctx.fill();
+      ctx.restore();
+
       ctx.restore();
       
       // Restart hold indicator
@@ -5291,7 +5636,25 @@ const Index = () => {
         ctx.font = "bold 12px system-ui";
         ctx.fillText(`⚡ ${Math.ceil(gameState.player.rageTimer)}s`, gameState.player.x, indicatorY);
       }
-      
+
+      ctx.restore();
+
+      ctx.save();
+      ctx.globalCompositeOperation = "multiply";
+      const vignette = ctx.createRadialGradient(
+        W / 2,
+        H / 2,
+        Math.min(W, H) * 0.45,
+        W / 2,
+        H / 2,
+        Math.max(W, H)
+      );
+      vignette.addColorStop(0, "rgba(0, 0, 0, 0)");
+      vignette.addColorStop(1, "rgba(2, 6, 23, 0.7)");
+      ctx.fillStyle = vignette;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+
       drawHUD();
       drawUpgradeUI();
       
