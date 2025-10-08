@@ -34,11 +34,10 @@ interface Translations {
   paused: string;
   tutorial: {
     move: string;
-    aim: string;
-    shoot: string;
+    collectXP: string;
+    choosePowerup: string;
     sprint: string;
-    pause: string;
-    survival: string;
+    ready: string;
   };
 }
 
@@ -73,11 +72,10 @@ const translations: Record<Language, Translations> = {
     paused: "PAUSA",
     tutorial: {
       move: "Usa WASD para moverte",
-      aim: "Mueve el ratón para apuntar",
-      shoot: "Click izquierdo para disparar",
-      sprint: "Mantén SPACE para correr (consume stamina)",
-      pause: "Presiona ESC para pausar",
-      survival: "Sobrevive eliminando enemigos",
+      collectXP: "Recoge el XP para subir de nivel",
+      choosePowerup: "Elige una mejora para empezar",
+      sprint: "SPACE para correr (consume stamina)",
+      ready: "¡Tutorial completado! Comenzando Wave 2...",
     },
   },
   en: {
@@ -110,11 +108,10 @@ const translations: Record<Language, Translations> = {
     paused: "PAUSED",
     tutorial: {
       move: "Use WASD to move",
-      aim: "Move mouse to aim",
-      shoot: "Left click to shoot",
-      sprint: "Hold SPACE to sprint (uses stamina)",
-      pause: "Press ESC to pause",
-      survival: "Survive by eliminating enemies",
+      collectXP: "Collect XP to level up",
+      choosePowerup: "Choose an upgrade to start",
+      sprint: "SPACE to sprint (uses stamina)",
+      ready: "Tutorial completed! Starting Wave 2...",
     },
   },
 };
@@ -2026,41 +2023,60 @@ const Index = () => {
       if (gameState.state !== 'running' || gameState.countdownTimer > 0) return;
 
       // ═══════════════════════════════════════════════════════════
-      // TUTORIAL - Avanzar paso cuando se cumplan condiciones
+      // TUTORIAL - Wave 1 como tutorial obligatorio
       // ═══════════════════════════════════════════════════════════
       if (gameState.tutorialActive && !tutorialCompleted && gameState.wave === 1) {
-        const timeInTutorial = (performance.now() - gameState.tutorialStartTime) / 1000;
         const { w, a, s, d } = gameState.keys;
         
-        // Paso 0: Movimiento (WASD)
+        // Paso 0: Movimiento (WASD) - Dropear XP cuando se mueva
         if (tutorialStep === 0 && (w || a || s || d)) {
           setTutorialStep(1);
+          gameState.tutorialStartTime = performance.now(); // Reset timer para el siguiente paso
+          // Dropear XP cerca del jugador para el siguiente paso
+          const angle = Math.random() * Math.PI * 2;
+          const distance = 80 + Math.random() * 50;
+          dropXP(
+            gameState.player.x + Math.cos(angle) * distance,
+            gameState.player.y + Math.sin(angle) * distance,
+            15 // Suficiente para subir de nivel
+          );
         }
         
-        // Paso 1: Apuntar (auto-avanza después de 2s)
-        if (tutorialStep === 1 && timeInTutorial > 3) {
+        // Paso 1: Recolectar XP (cuando suba XP)
+        if (tutorialStep === 1 && gameState.xp > 0) {
           setTutorialStep(2);
+          gameState.tutorialStartTime = performance.now();
         }
         
-        // Paso 2: Disparar
-        if (tutorialStep === 2 && gameState.player.shotsFired > 0) {
+        // Paso 2: Elegir powerup (cuando cierre el menú de upgrade)
+        if (tutorialStep === 2 && !gameState.showUpgradeUI && gameState.level > 1) {
           setTutorialStep(3);
+          gameState.tutorialStartTime = performance.now();
         }
         
-        // Paso 3: Sprint
-        if (tutorialStep === 3 && gameState.player.isSprinting) {
-          setTutorialStep(4);
+        // Paso 3: Mostrar info de sprint brevemente
+        if (tutorialStep === 3) {
+          const timeInStep = (performance.now() - gameState.tutorialStartTime) / 1000;
+          if (timeInStep > 3) { // Después de 3s mostrando sprint
+            setTutorialStep(4);
+            gameState.tutorialStartTime = performance.now();
+          }
         }
         
-        // Paso 4: Pausa (auto-avanza después de mostrar)
-        if (tutorialStep === 4 && timeInTutorial > 10) {
-          setTutorialStep(5);
-        }
-        
-        // Paso 5: Objetivo final (auto-completa)
-        if (tutorialStep === 5 && timeInTutorial > 13) {
-          setTutorialCompleted(true);
-          gameState.tutorialActive = false;
+        // Paso 4: Tutorial completado, preparar Wave 2
+        if (tutorialStep === 4) {
+          const timeInStep = (performance.now() - gameState.tutorialStartTime) / 1000;
+          if (timeInStep > 2) { // Después de 2s mostrando mensaje final
+            setTutorialCompleted(true);
+            gameState.tutorialActive = false;
+            // Avanzar a Wave 2 con countdown
+            gameState.wave = 2;
+            gameState.waveKills = 0;
+            gameState.waveEnemiesSpawned = 0;
+            gameState.waveEnemiesTotal = 15; // Wave 2 target
+            gameState.maxConcurrentEnemies = 13;
+            gameState.countdownTimer = 3; // Countdown 3-2-1
+          }
         }
       }
 
@@ -2096,8 +2112,8 @@ const Index = () => {
       //
       // ═══════════════════════════════════════════════════════════
       
-      // Wave system basado en conteo de enemigos eliminados
-      if (gameState.waveKills >= gameState.waveEnemiesTotal) {
+      // Wave system basado en conteo de enemigos eliminados (no durante tutorial)
+      if (!gameState.tutorialActive && gameState.waveKills >= gameState.waveEnemiesTotal) {
         // Wave completada!
         gameState.wave++;
         gameState.waveKills = 0;
@@ -2208,34 +2224,36 @@ const Index = () => {
         // ═══════════════════════════════════════════════════════════
         // ACTIVACIÓN DE EVENTOS AMBIENTALES AL INICIO DE WAVE
         // ═══════════════════════════════════════════════════════════
-        // Solo se puede activar 1 evento por wave, con probabilidad creciente
+        // Solo se puede activar 1 evento por wave, con probabilidad creciente (NO durante tutorial)
         // Calcular probabilidad según wave actual (MUCHO MÁS BAJAS)
-        let eventProbability = 0;
-        if (gameState.wave >= 1 && gameState.wave <= 5) {
-          eventProbability = 0.01; // 1% en waves 1-5
-        } else if (gameState.wave >= 6 && gameState.wave <= 10) {
-          eventProbability = 0.03; // 3% en waves 6-10
-        } else if (gameState.wave >= 11 && gameState.wave <= 15) {
-          eventProbability = 0.06; // 6% en waves 11-15
-        } else if (gameState.wave >= 16) {
-          eventProbability = 0.10; // 10% en waves 16+
-        }
-        
-        // Intentar activar evento con la probabilidad calculada (UNA VEZ al inicio de la wave)
-        if (Math.random() < eventProbability) {
-          const events = ["storm", "fog", "rain"] as const;
-          const newEvent = events[Math.floor(Math.random() * events.length)];
+        if (!gameState.tutorialActive) {
+          let eventProbability = 0;
+          if (gameState.wave >= 1 && gameState.wave <= 5) {
+            eventProbability = 0.01; // 1% en waves 1-5
+          } else if (gameState.wave >= 6 && gameState.wave <= 10) {
+            eventProbability = 0.03; // 3% en waves 6-10
+          } else if (gameState.wave >= 11 && gameState.wave <= 15) {
+            eventProbability = 0.06; // 6% en waves 11-15
+          } else if (gameState.wave >= 16) {
+            eventProbability = 0.10; // 10% en waves 16+
+          }
           
-          gameState.environmentalEvent = newEvent;
-          gameState.eventPhase = "notification";
-          gameState.eventIntensity = 0;
-          gameState.eventTimer = 0;
-          gameState.eventNotification = 5; // 5 segundos de aviso antes de que empiece
-          gameState.fogOpacity = 0;
-          gameState.fogZones = [];
-          gameState.fogWarningZones = [];
-          gameState.stormZone = null;
-          gameState.eventActivatedThisWave = true; // Marcar que ya se activó en esta wave
+          // Intentar activar evento con la probabilidad calculada (UNA VEZ al inicio de la wave)
+          if (Math.random() < eventProbability) {
+            const events = ["storm", "fog", "rain"] as const;
+            const newEvent = events[Math.floor(Math.random() * events.length)];
+            
+            gameState.environmentalEvent = newEvent;
+            gameState.eventPhase = "notification";
+            gameState.eventIntensity = 0;
+            gameState.eventTimer = 0;
+            gameState.eventNotification = 5; // 5 segundos de aviso antes de que empiece
+            gameState.fogOpacity = 0;
+            gameState.fogZones = [];
+            gameState.fogWarningZones = [];
+            gameState.stormZone = null;
+            gameState.eventActivatedThisWave = true; // Marcar que ya se activó en esta wave
+          }
         }
       }
       
@@ -2788,11 +2806,13 @@ const Index = () => {
       }
       
       // Solo spawnear enemigos normales si:
-      // 1. No hemos alcanzado el total de la wave
-      // 2. Hay cupo (normalEnemies < maxConcurrentEnemies)
-      // 3. El cooldown ha terminado (canSpawn = true)
+      // 1. No estamos en tutorial
+      // 2. No hemos alcanzado el total de la wave
+      // 3. Hay cupo (normalEnemies < maxConcurrentEnemies)
+      // 4. El cooldown ha terminado (canSpawn = true)
       const normalEnemies = gameState.enemies.filter(e => !e.isBoss && !e.isMiniBoss).length;
-      const canSpawnNow = gameState.waveEnemiesSpawned < gameState.waveEnemiesTotal && 
+      const canSpawnNow = !gameState.tutorialActive &&
+                          gameState.waveEnemiesSpawned < gameState.waveEnemiesTotal && 
                           normalEnemies < gameState.maxConcurrentEnemies &&
                           gameState.canSpawn;
       
@@ -2836,15 +2856,15 @@ const Index = () => {
         }
       }
       
-      // Boss spawn cada 5 waves (NO cuenta en límite concurrente)
-      if (gameState.wave % 5 === 0 && gameState.waveEnemiesSpawned === gameState.waveEnemiesTotal - 1 && gameState.enemies.length === 0) {
+      // Boss spawn cada 5 waves (NO durante tutorial, NO cuenta en límite concurrente)
+      if (!gameState.tutorialActive && gameState.wave % 5 === 0 && gameState.waveEnemiesSpawned === gameState.waveEnemiesTotal - 1 && gameState.enemies.length === 0) {
         spawnBoss();
         gameState.waveEnemiesSpawned++;
       }
       
-      // Mini-boss spawn (wave 3, 7, 12, 17, 22...) (NO cuenta en límite concurrente)
+      // Mini-boss spawn (wave 3, 7, 12, 17, 22...) (NO durante tutorial, NO cuenta en límite concurrente)
       const isMiniBossWave = gameState.wave === 3 || (gameState.wave > 3 && (gameState.wave - 3) % 5 === 0);
-      if (isMiniBossWave && gameState.waveEnemiesSpawned === gameState.waveEnemiesTotal - 1 && gameState.enemies.length === 0) {
+      if (!gameState.tutorialActive && isMiniBossWave && gameState.waveEnemiesSpawned === gameState.waveEnemiesTotal - 1 && gameState.enemies.length === 0) {
         spawnMiniBoss();
         gameState.waveEnemiesSpawned++;
       }
@@ -5962,39 +5982,33 @@ const Index = () => {
               </div>
             )}
             
-            {/* Paso 1: Apuntar */}
+            {/* Paso 1: Recolectar XP */}
             {tutorialStep === 1 && (
               <div className="space-y-4 animate-fade-in">
                 <h3 className="text-xl font-bold text-primary mb-3">
-                  {t.tutorial.aim}
+                  {t.tutorial.collectXP}
                 </h3>
                 <div className="flex justify-center">
-                  <div className="w-20 h-24 border-2 border-primary/50 rounded-lg bg-muted/30 flex items-center justify-center relative">
-                    <div className="w-12 h-16 border border-primary/30 rounded-md" />
-                    <div className="absolute top-2 w-3 h-3 bg-primary rounded-full animate-pulse" />
+                  <div className="w-16 h-16 bg-cyan-500/20 border-2 border-cyan-500 rounded-full flex items-center justify-center animate-pulse">
+                    <span className="text-3xl">💎</span>
                   </div>
                 </div>
               </div>
             )}
             
-            {/* Paso 2: Disparar */}
+            {/* Paso 2: Elegir powerup */}
             {tutorialStep === 2 && (
               <div className="space-y-4 animate-fade-in">
                 <h3 className="text-xl font-bold text-primary mb-3">
-                  {t.tutorial.shoot}
+                  {t.tutorial.choosePowerup}
                 </h3>
                 <div className="flex justify-center">
-                  <div className="w-20 h-24 border-2 border-primary/50 rounded-lg bg-muted/30 flex items-center justify-center relative">
-                    <div className="w-12 h-16 border border-primary/30 rounded-md" />
-                    <div className="absolute top-2 w-8 h-8 bg-primary/20 border-2 border-primary rounded-full flex items-center justify-center transition-transform">
-                      <span className="text-xs font-bold">L</span>
-                    </div>
-                  </div>
+                  <div className="text-6xl animate-bounce">⬆️</div>
                 </div>
               </div>
             )}
             
-            {/* Paso 3: Sprint */}
+            {/* Paso 3: Info de Sprint */}
             {tutorialStep === 3 && (
               <div className="space-y-4 animate-fade-in">
                 <h3 className="text-xl font-bold text-primary mb-3">
@@ -6010,33 +6024,21 @@ const Index = () => {
               </div>
             )}
             
-            {/* Paso 4: Pausa */}
+            {/* Paso 4: Tutorial completado */}
             {tutorialStep === 4 && (
               <div className="space-y-4 animate-fade-in">
-                <h3 className="text-xl font-bold text-primary mb-3">
-                  {t.tutorial.pause}
+                <h3 className="text-2xl font-bold text-primary mb-3">
+                  {t.tutorial.ready}
                 </h3>
                 <div className="flex justify-center">
-                  <KeyButton keyLabel="ESC" isActive={false} className="px-8" />
+                  <div className="text-6xl animate-pulse">✅</div>
                 </div>
-              </div>
-            )}
-            
-            {/* Paso 5: Objetivo */}
-            {tutorialStep === 5 && (
-              <div className="space-y-4 animate-fade-in">
-                <h3 className="text-2xl font-bold text-primary mb-3">
-                  {t.tutorial.survival}
-                </h3>
-                <p className="text-muted-foreground text-center">
-                  {language === 'es' ? '¡Buena suerte!' : 'Good luck!'}
-                </p>
               </div>
             )}
             
             {/* Step indicator */}
             <div className="mt-4 text-center text-sm text-muted-foreground">
-              {tutorialStep + 1} / 6
+              {tutorialStep + 1} / 5
             </div>
           </div>
         </div>
