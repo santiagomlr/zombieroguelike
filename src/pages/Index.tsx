@@ -330,6 +330,7 @@ const Index = () => {
       fogWarningZones: [] as Array<{ x: number; y: number; width: number; height: number; warningTime: number }>, // Warning para niebla
       stormZone: null as { x: number; y: number; radius: number; vx: number; vy: number } | null,
       meleeCooldown: 0, // Cooldown de golpe melee
+      explosionMarks: [] as Array<{ x: number; y: number; radius: number; life: number }>, // Marcas de explosión en el suelo
       sounds: {
         shoot: new Audio(),
         hit: new Audio(),
@@ -350,6 +351,7 @@ const Index = () => {
       musicNotificationTimer: 0,
       musicMuted: false,
       musicVolume: 0.3, // Volumen de la música (0 a 1)
+      targetMusicVolume: 0.3, // Volumen objetivo para animación suave
       sfxMuted: false,
       enemyLogo: null as HTMLImageElement | null,
     };
@@ -666,10 +668,24 @@ const Index = () => {
           specialType = "explosive";
           enemyType = "explosive";
           color = "#ef4444";
-          damage = 15;
+          // NUEVO: Zombie Bomber - daño base MUY alto
+          let bomberBaseDamage = 30;
+          // Escalado agresivo del bomber por wave
+          if (gameState.wave <= 5) {
+            bomberBaseDamage = 20 + gameState.wave * 3; // 23-35
+          } else if (gameState.wave <= 10) {
+            bomberBaseDamage = 35 + (gameState.wave - 5) * 5; // 40-65
+          } else if (gameState.wave <= 15) {
+            bomberBaseDamage = 65 + (gameState.wave - 10) * 7; // 72-100
+          } else if (gameState.wave <= 20) {
+            bomberBaseDamage = 100 + (gameState.wave - 15) * 16; // 116-180
+          } else {
+            bomberBaseDamage = 180 + (gameState.wave - 20) * 20; // 200+
+          }
+          damage = bomberBaseDamage;
           baseHp = 2;
-          rad = 10;
-          spd = 1.5;
+          rad = 12;
+          spd = 1.8; // Más rápido para ser más peligroso
         } else if (specialRoll < 0.5) {
           specialType = "fast";
           enemyType = "fast";
@@ -877,20 +893,27 @@ const Index = () => {
         speedScale = Math.min(3, 1 + (gameState.wave - 1) * 0.07); // Cap en +200%
       }
       
-      // Escalado de daño
+      // Escalado de daño - NUEVO SISTEMA POST-WAVE 13
       let damageScale = 1;
       if (gameState.wave <= 5) {
-        damageScale = 1;
+        damageScale = 1.0; // Base
       } else if (gameState.wave <= 10) {
-        damageScale = 1 + (gameState.wave - 5) * 0.15;
-      } else if (gameState.wave <= 20) {
-        damageScale = 1 + (gameState.wave - 5) * 0.25;
+        damageScale = 1.3; // +30%
+      } else if (gameState.wave <= 13) {
+        damageScale = 1.6; // +60%
+      } else if (gameState.wave <= 17) {
+        damageScale = 2.0; // +100% (doble)
+      } else if (gameState.wave <= 21) {
+        damageScale = 2.5; // +150%
       } else {
-        damageScale = 1 + (gameState.wave - 5) * 0.35;
+        damageScale = 3.0; // +200% (triple)
       }
       
       spd *= speedScale;
-      damage = Math.floor(damage * damageScale);
+      // IMPORTANTE: NO escalar daño de bombers otra vez (ya escalaron arriba)
+      if (specialType !== "explosive") {
+        damage = Math.floor(damage * damageScale);
+      }
       
       }
       
@@ -922,6 +945,9 @@ const Index = () => {
         burnTimer: 0,
         poisonTimer: 0,
         summonCooldown: 0,
+        // Bomber-specific properties
+        explosionTimer: specialType === "explosive" ? -1 : undefined, // -1 = no activado, >= 0 = contando
+        explosionDelay: specialType === "explosive" ? (Math.random() < 0.5 ? 0 : 1) : undefined, // 50% instant, 50% 1s delay
       });
       }
     }
@@ -1756,10 +1782,7 @@ const Index = () => {
           if (my >= sliderY - handleRadius && my <= sliderY + sliderH + handleRadius &&
               mx >= sliderX - handleRadius && mx <= sliderX + sliderW + handleRadius) {
             const clickX = Math.max(sliderX, Math.min(sliderX + sliderW, mx));
-            gameState.musicVolume = (clickX - sliderX) / sliderW;
-            if (gameState.music) {
-              gameState.music.volume = gameState.musicVolume;
-            }
+            gameState.targetMusicVolume = (clickX - sliderX) / sliderW; // Establecer volumen objetivo para transición suave
           }
           
           // Toggle buttons
@@ -1852,6 +1875,30 @@ const Index = () => {
         gameState.musicNotificationTimer = Math.max(0, gameState.musicNotificationTimer - dt);
       }
       
+      // Smooth volume transition (animación suave del volumen)
+      if (Math.abs(gameState.musicVolume - gameState.targetMusicVolume) > 0.001) {
+        const volumeSpeed = 2; // Velocidad de transición (más alto = más rápido)
+        gameState.musicVolume += (gameState.targetMusicVolume - gameState.musicVolume) * dt * volumeSpeed;
+        
+        // Aplicar el volumen al audio
+        if (gameState.music) {
+          gameState.music.volume = gameState.musicVolume;
+        }
+        
+        // Snap al valor final si está muy cerca
+        if (Math.abs(gameState.musicVolume - gameState.targetMusicVolume) < 0.001) {
+          gameState.musicVolume = gameState.targetMusicVolume;
+        }
+      }
+      
+      // Actualizar explosion marks
+      for (let i = gameState.explosionMarks.length - 1; i >= 0; i--) {
+        gameState.explosionMarks[i].life -= dt;
+        if (gameState.explosionMarks[i].life <= 0) {
+          gameState.explosionMarks.splice(i, 1);
+        }
+      }
+      
       // Hold R para reiniciar (solo durante running)
       if (gameState.state === 'running' && gameState.keys['r']) {
         gameState.restartTimer += dt;
@@ -1918,6 +1965,7 @@ const Index = () => {
         gameState.player.stats.firstHitImmuneUsed = false;
         
         // Sistema de oleadas estilo COD Zombies - Escalado exponencial
+        // POST-WAVE 13: Cantidad de enemigos FIJA, solo aumenta poder
         let waveTarget: number;
         let maxConcurrent: number;
         
@@ -1952,14 +2000,14 @@ const Index = () => {
         } else if (gameState.wave === 10) {
           waveTarget = 90;
           maxConcurrent = 35;
-        } else if (gameState.wave <= 20) {
-          // Wave 11-20: Escalado exponencial fuerte
+        } else if (gameState.wave <= 13) {
+          // Wave 11-13: Escalado exponencial fuerte (última escalada de cantidad)
           waveTarget = Math.floor(90 + (gameState.wave - 10) * 10 * Math.pow(1.15, gameState.wave - 10));
           maxConcurrent = Math.min(45, 35 + (gameState.wave - 10) * 2);
         } else {
-          // Wave 21+: Caos absoluto
-          waveTarget = Math.floor(90 + (gameState.wave - 10) * 10 * Math.pow(1.15, gameState.wave - 10));
-          maxConcurrent = Math.min(60, 45 + (gameState.wave - 20) * 3);
+          // Wave 14+: CANTIDAD FIJA - Solo escala poder/daño
+          waveTarget = 130; // Cantidad fija de enemigos
+          maxConcurrent = 45; // Max concurrente fijo
         }
         
         // Boss waves (cada 5) y Mini-boss waves (3, 7, 12, 17, 22...) incluyen +1 enemigo
@@ -2685,6 +2733,106 @@ const Index = () => {
         }
         
         // Comportamientos especiales de enemigos
+        
+        // 💣 BOMBER: Countdown de explosión
+        if (e.specialType === "explosive" && e.explosionTimer !== undefined && e.explosionTimer >= 0) {
+          e.explosionTimer -= dt;
+          
+          // Partículas de advertencia (más intensas cerca de explotar)
+          const warningIntensity = e.explosionTimer < 0.5 ? 0.8 : 0.3;
+          if (Math.random() < warningIntensity && gameState.particles.length < gameState.maxParticles) {
+            gameState.particles.push({
+              x: e.x + (Math.random() - 0.5) * e.rad * 2,
+              y: e.y + (Math.random() - 0.5) * e.rad * 2,
+              vx: (Math.random() - 0.5) * 3,
+              vy: (Math.random() - 0.5) * 3,
+              life: 0.3,
+              color: e.explosionTimer < 0.5 ? "#fbbf24" : "#ef4444",
+              size: e.explosionTimer < 0.5 ? 5 : 3,
+            });
+          }
+          
+          // BOOM! Explosión
+          if (e.explosionTimer <= 0) {
+            const explosionRadius = 80; // Radio AOE
+            const explosionDamage = e.damage; // Usar el daño escalado del bomber
+            
+            // Daño al jugador si está en rango
+            const distToPlayer = Math.hypot(e.x - gameState.player.x, e.y - gameState.player.y);
+            if (distToPlayer < explosionRadius) {
+              // Daño proporcional a la distancia
+              const damageMultiplier = 1 - (distToPlayer / explosionRadius) * 0.5; // 100% en el centro, 50% en el borde
+              const finalDamage = explosionDamage * damageMultiplier;
+              
+              if (gameState.player.ifr <= 0) {
+                if (gameState.player.shield > 0) {
+                  gameState.player.shield--;
+                } else {
+                  // Aplicar reducción de daño
+                  const reducedDamage = finalDamage * (1 - gameState.player.stats.damageReduction);
+                  gameState.player.hp = Math.max(0, gameState.player.hp - reducedDamage);
+                  
+                  // Knockback
+                  const knockbackForce = 150;
+                  const angle = Math.atan2(gameState.player.y - e.y, gameState.player.x - e.x);
+                  gameState.player.x += Math.cos(angle) * knockbackForce * dt * 10;
+                  gameState.player.y += Math.sin(angle) * knockbackForce * dt * 10;
+                  
+                  // Clamp dentro del mapa
+                  gameState.player.x = Math.max(gameState.player.rad, Math.min(W - gameState.player.rad, gameState.player.x));
+                  gameState.player.y = Math.max(gameState.player.rad, Math.min(H - gameState.player.rad, gameState.player.y));
+                }
+                gameState.player.ifr = gameState.player.ifrDuration;
+                
+                if (gameState.player.hp <= 0) {
+                  endGame();
+                }
+              }
+            }
+            
+            // Daño a enemigos cercanos (también reciben daño de explosión)
+            for (const otherEnemy of gameState.enemies) {
+              if (otherEnemy === e) continue;
+              const distToEnemy = Math.hypot(e.x - otherEnemy.x, e.y - otherEnemy.y);
+              if (distToEnemy < explosionRadius) {
+                const damageMultiplier = 1 - (distToEnemy / explosionRadius) * 0.5;
+                otherEnemy.hp -= explosionDamage * 0.5 * damageMultiplier; // 50% daño a otros enemigos
+              }
+            }
+            
+            // Explosión visual GRANDE
+            if (gameState.particles.length < gameState.maxParticles - 50) {
+              for (let j = 0; j < 50; j++) {
+                const angle = (Math.PI * 2 * j) / 50;
+                const speed = 8 + Math.random() * 8;
+                gameState.particles.push({
+                  x: e.x,
+                  y: e.y,
+                  vx: Math.cos(angle) * speed,
+                  vy: Math.sin(angle) * speed,
+                  life: 1 + Math.random() * 0.5,
+                  color: j % 2 === 0 ? "#ef4444" : "#fb923c",
+                  size: 6 + Math.random() * 4,
+                });
+              }
+            }
+            
+            // Marca en el suelo
+            gameState.explosionMarks.push({
+              x: e.x,
+              y: e.y,
+              radius: explosionRadius,
+              life: 3, // 3 segundos
+            });
+            
+            // Sonido de explosión (más fuerte)
+            playSound(80, 0.4, "sawtooth", 0.5);
+            
+            // Eliminar bomber
+            e.hp = 0;
+          }
+        }
+        
         if (e.specialType === "summoner" && e.summonCooldown !== undefined) {
           e.summonCooldown -= dt;
           const normalEnemies = gameState.enemies.filter(en => !en.isBoss && !en.isMiniBoss).length;
@@ -3375,6 +3523,35 @@ const Index = () => {
           
           // Daño solo si no está en rage mode y no es un boss (los bosses no hacen daño por contacto)
           if (!e.isBoss && gameState.player.rageTimer <= 0 && gameState.player.ifr <= 0) {
+            // 💣 BOMBER: Activar explosión al contacto
+            if (e.specialType === "explosive" && e.explosionTimer === -1) {
+              e.explosionTimer = e.explosionDelay || 0; // Iniciar countdown
+              
+              // Efecto visual de activación
+              if (gameState.particles.length < gameState.maxParticles - 15) {
+                for (let j = 0; j < 15; j++) {
+                  const angle = (Math.PI * 2 * j) / 15;
+                  gameState.particles.push({
+                    x: e.x,
+                    y: e.y,
+                    vx: Math.cos(angle) * 6,
+                    vy: Math.sin(angle) * 6,
+                    life: 0.5,
+                    color: "#ef4444",
+                    size: 4,
+                  });
+                }
+              }
+              
+              // Si es instantáneo, explotar ahora
+              if (e.explosionDelay === 0) {
+                // Marcar para explosión inmediata (se maneja abajo)
+                e.explosionTimer = 0;
+              }
+              
+              continue; // No hacer daño de contacto normal, solo explosión
+            }
+            
             // First Hit Immune: revisar si es el primer golpe de la wave
             const hasFirstHitImmune = gameState.player.itemFlags.ballistichelmet;
             if (hasFirstHitImmune && !gameState.player.stats.firstHitImmuneUsed) {
@@ -4265,6 +4442,33 @@ const Index = () => {
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, W, H);
       
+      // Marcas de explosión en el suelo (quemadura)
+      for (const mark of gameState.explosionMarks) {
+        const alpha = mark.life / 3; // Fade out gradual
+        ctx.save();
+        ctx.globalAlpha = alpha * 0.4;
+        
+        // Círculo quemado oscuro
+        const markGradient = ctx.createRadialGradient(mark.x, mark.y, 0, mark.x, mark.y, mark.radius);
+        markGradient.addColorStop(0, "rgba(80, 30, 10, 0.8)");
+        markGradient.addColorStop(0.5, "rgba(60, 20, 5, 0.5)");
+        markGradient.addColorStop(1, "rgba(40, 10, 0, 0)");
+        ctx.fillStyle = markGradient;
+        ctx.beginPath();
+        ctx.arc(mark.x, mark.y, mark.radius, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Borde quemado
+        ctx.globalAlpha = alpha * 0.6;
+        ctx.strokeStyle = "rgba(139, 69, 19, 0.8)";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        
+        ctx.restore();
+      }
+      
       // ═══════════════════════════════════════════════════════════
       // EFECTOS AMBIENTALES - Renderizado
       // ═══════════════════════════════════════════════════════════
@@ -4640,20 +4844,70 @@ const Index = () => {
           ctx.restore();
         }
         
+        // 💣 Anillo de advertencia para bombers a punto de explotar
+        if (e.specialType === "explosive" && e.explosionTimer !== undefined && e.explosionTimer >= 0) {
+          ctx.save();
+          const pulse = Math.sin(gameState.time * 12) * 0.4 + 0.6;
+          const warningRadius = e.rad + 8 + pulse * 5;
+          
+          // Anillo pulsante (más intenso cuando está cerca)
+          const intensity = e.explosionTimer < 0.5 ? 1 : 0.6;
+          ctx.strokeStyle = e.explosionTimer < 0.5 ? `rgba(251, 191, 36, ${pulse * intensity})` : `rgba(239, 68, 68, ${pulse * intensity})`;
+          ctx.lineWidth = e.explosionTimer < 0.5 ? 4 : 3;
+          ctx.shadowColor = e.explosionTimer < 0.5 ? "#fbbf24" : "#ef4444";
+          ctx.shadowBlur = 20 * pulse;
+          ctx.beginPath();
+          ctx.arc(e.x, e.y, warningRadius, 0, Math.PI * 2);
+          ctx.stroke();
+          
+          // Radio de explosión (círculo más grande y tenue)
+          ctx.globalAlpha = 0.15 * pulse;
+          ctx.strokeStyle = "#ef4444";
+          ctx.lineWidth = 2;
+          ctx.setLineDash([5, 5]);
+          ctx.beginPath();
+          ctx.arc(e.x, e.y, 80, 0, Math.PI * 2); // Radio AOE de explosión
+          ctx.stroke();
+          ctx.setLineDash([]);
+          
+          ctx.shadowBlur = 0;
+          ctx.restore();
+        }
+        
         // Indicador de tipo especial
         if (e.specialType) {
           ctx.save();
           ctx.textAlign = "center";
-          ctx.font = "bold 16px system-ui";
           ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
           ctx.shadowBlur = 4;
-          let emoji = "";
-          if (e.specialType === "explosive") emoji = "💣";
-          else if (e.specialType === "fast") emoji = "⚡";
-          else if (e.specialType === "tank") emoji = "🛡️";
-          else if (e.specialType === "summoner") emoji = "👻";
-          ctx.fillText(emoji, e.x, e.y - e.rad - 20);
-          ctx.shadowBlur = 0;
+          
+          // Bomber con countdown visual
+          if (e.specialType === "explosive" && e.explosionTimer !== undefined && e.explosionTimer >= 0) {
+            // Countdown timer
+            const timeLeft = Math.ceil(e.explosionTimer * 10) / 10; // Redondear a 1 decimal
+            ctx.font = "bold 20px system-ui";
+            const pulse = Math.sin(gameState.time * 10) * 0.3 + 0.7;
+            ctx.fillStyle = timeLeft < 0.5 ? "#fbbf24" : "#ef4444";
+            ctx.shadowColor = timeLeft < 0.5 ? "#fbbf24" : "#ef4444";
+            ctx.shadowBlur = 20 * pulse;
+            ctx.fillText(timeLeft.toFixed(1) + "s", e.x, e.y - e.rad - 35);
+            
+            // Emoji pulsante
+            ctx.font = "bold 24px system-ui";
+            ctx.fillText("💣", e.x, e.y - e.rad - 10);
+            ctx.shadowBlur = 0;
+          } else {
+            // Emojis normales para otros tipos
+            ctx.font = "bold 16px system-ui";
+            let emoji = "";
+            if (e.specialType === "explosive") emoji = "💣";
+            else if (e.specialType === "fast") emoji = "⚡";
+            else if (e.specialType === "tank") emoji = "🛡️";
+            else if (e.specialType === "summoner") emoji = "👻";
+            ctx.fillText(emoji, e.x, e.y - e.rad - 20);
+            ctx.shadowBlur = 0;
+          }
+          
           ctx.restore();
         }
         
