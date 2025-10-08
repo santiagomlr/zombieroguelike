@@ -2005,16 +2005,16 @@ const Index = () => {
       // ═══════════════════════════════════════════════════════════
       // Solo se puede activar 1 evento por wave, con probabilidad creciente
       if (!gameState.eventActivatedThisWave && !gameState.environmentalEvent && gameState.state === 'running') {
-        // Calcular probabilidad según wave actual
+        // Calcular probabilidad según wave actual (MUCHO MÁS BAJAS)
         let eventProbability = 0;
         if (gameState.wave >= 1 && gameState.wave <= 5) {
-          eventProbability = 0.05; // 5% en waves 1-5
+          eventProbability = 0.01; // 1% en waves 1-5 (era 5%)
         } else if (gameState.wave >= 6 && gameState.wave <= 10) {
-          eventProbability = 0.15; // 15% en waves 6-10
+          eventProbability = 0.03; // 3% en waves 6-10 (era 15%)
         } else if (gameState.wave >= 11 && gameState.wave <= 15) {
-          eventProbability = 0.30; // 30% en waves 11-15
+          eventProbability = 0.06; // 6% en waves 11-15 (era 30%)
         } else if (gameState.wave >= 16) {
-          eventProbability = 0.45; // 45% en waves 16+
+          eventProbability = 0.10; // 10% en waves 16+ (era 45%)
         }
         
         // Intentar activar evento con la probabilidad calculada (se chequea cada frame, muy rápido)
@@ -2078,43 +2078,75 @@ const Index = () => {
           
           switch (gameState.environmentalEvent) {
             case "storm":
-              // ⚡ TORMENTA: Zona circular que se mueve aleatoriamente
+              // ⚡ TORMENTA: Sigue al jugador LENTAMENTE pero de forma impredecible
               // Crear zona de tormenta si no existe
               if (!gameState.stormZone) {
                 gameState.stormZone = {
                   x: Math.random() * W,
                   y: Math.random() * H,
                   radius: 150,
-                  vx: (Math.random() - 0.5) * 100,
-                  vy: (Math.random() - 0.5) * 100,
+                  vx: 0,
+                  vy: 0,
                 };
               }
               
-              // Mover la tormenta aleatoriamente
+              // Calcular dirección hacia el jugador
+              const dx = gameState.player.x - gameState.stormZone.x;
+              const dy = gameState.player.y - gameState.stormZone.y;
+              const distToPlayer = Math.hypot(dx, dy);
+              
+              // Velocidad base muy lenta (sigue al jugador suavemente)
+              const baseSpeed = 20; // Muy lento
+              
+              // Componente hacia el jugador (80% del tiempo)
+              const followStrength = Math.random() < 0.8 ? 1 : 0;
+              const targetVx = (dx / distToPlayer) * baseSpeed * followStrength;
+              const targetVy = (dy / distToPlayer) * baseSpeed * followStrength;
+              
+              // Componente aleatorio impredecible (20% del tiempo o cambio brusco)
+              if (Math.random() < 0.02 || followStrength === 0) {
+                // Cambio de dirección impredecible
+                const randomAngle = Math.random() * Math.PI * 2;
+                gameState.stormZone.vx = Math.cos(randomAngle) * baseSpeed * 1.5;
+                gameState.stormZone.vy = Math.sin(randomAngle) * baseSpeed * 1.5;
+              } else {
+                // Interpolar suavemente hacia la dirección objetivo
+                gameState.stormZone.vx += (targetVx - gameState.stormZone.vx) * 0.05;
+                gameState.stormZone.vy += (targetVy - gameState.stormZone.vy) * 0.05;
+              }
+              
+              // Añadir ruido aleatorio continuo (hace el movimiento impredecible)
+              gameState.stormZone.vx += (Math.random() - 0.5) * 15;
+              gameState.stormZone.vy += (Math.random() - 0.5) * 15;
+              
+              // Mover la tormenta
               gameState.stormZone.x += gameState.stormZone.vx * dt;
               gameState.stormZone.y += gameState.stormZone.vy * dt;
               
-              // Rebotar en los bordes y cambiar dirección aleatoriamente
-              if (gameState.stormZone.x < gameState.stormZone.radius || gameState.stormZone.x > W - gameState.stormZone.radius) {
-                gameState.stormZone.vx *= -1;
-                gameState.stormZone.vx += (Math.random() - 0.5) * 50;
+              // Mantener dentro del mapa (rebotar suavemente en bordes)
+              if (gameState.stormZone.x < gameState.stormZone.radius) {
+                gameState.stormZone.x = gameState.stormZone.radius;
+                gameState.stormZone.vx = Math.abs(gameState.stormZone.vx);
               }
-              if (gameState.stormZone.y < gameState.stormZone.radius || gameState.stormZone.y > H - gameState.stormZone.radius) {
-                gameState.stormZone.vy *= -1;
-                gameState.stormZone.vy += (Math.random() - 0.5) * 50;
+              if (gameState.stormZone.x > W - gameState.stormZone.radius) {
+                gameState.stormZone.x = W - gameState.stormZone.radius;
+                gameState.stormZone.vx = -Math.abs(gameState.stormZone.vx);
+              }
+              if (gameState.stormZone.y < gameState.stormZone.radius) {
+                gameState.stormZone.y = gameState.stormZone.radius;
+                gameState.stormZone.vy = Math.abs(gameState.stormZone.vy);
+              }
+              if (gameState.stormZone.y > H - gameState.stormZone.radius) {
+                gameState.stormZone.y = H - gameState.stormZone.radius;
+                gameState.stormZone.vy = -Math.abs(gameState.stormZone.vy);
               }
               
-              // Cambiar dirección aleatoriamente
-              if (Math.random() < 0.02) {
-                gameState.stormZone.vx = (Math.random() - 0.5) * 100;
-                gameState.stormZone.vy = (Math.random() - 0.5) * 100;
-              }
-              
-              // Mantener velocidad dentro de límites
+              // Limitar velocidad máxima
               const stormSpeed = Math.hypot(gameState.stormZone.vx, gameState.stormZone.vy);
-              if (stormSpeed > 150) {
-                gameState.stormZone.vx = (gameState.stormZone.vx / stormSpeed) * 150;
-                gameState.stormZone.vy = (gameState.stormZone.vy / stormSpeed) * 150;
+              const maxSpeed = 40; // Velocidad máxima baja
+              if (stormSpeed > maxSpeed) {
+                gameState.stormZone.vx = (gameState.stormZone.vx / stormSpeed) * maxSpeed;
+                gameState.stormZone.vy = (gameState.stormZone.vy / stormSpeed) * maxSpeed;
               }
               
               // Daño continuo si el jugador está dentro (escalado por intensidad)
