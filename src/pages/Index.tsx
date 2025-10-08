@@ -1839,8 +1839,8 @@ const Index = () => {
             break;
           }
         }
-      } else if (gameState.state === 'paused' && !gameState.showUpgradeUI) {
-        // Pause menu click handler - NUEVO DISEÑO
+      } else if (gameState.state === 'paused' && !gameState.showUpgradeUI && gameState.countdownTimer <= 0) {
+        // Pause menu click handler - NUEVO DISEÑO (NO durante countdown)
         if (gameState.showAudioSettings) {
           // CLICKS EN PANEL DE AUDIO SETTINGS
           const audioW = 600;
@@ -5453,8 +5453,8 @@ const Index = () => {
         ctx.restore();
       }
       
-      // Pause menu - REDISEÑADO
-      if (gameState.state === 'paused' && !gameState.showUpgradeUI) {
+      // Pause menu - REDISEÑADO (NO mostrar durante countdown)
+      if (gameState.state === 'paused' && !gameState.showUpgradeUI && gameState.countdownTimer <= 0) {
         ctx.save();
         ctx.fillStyle = "rgba(0, 0, 0, 0.85)";
         ctx.fillRect(0, 0, W, H);
