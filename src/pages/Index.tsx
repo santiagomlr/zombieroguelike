@@ -2009,6 +2009,7 @@ const Index = () => {
           }
           
           if (gameState.pauseMenuTab === "settings") {
+            // === SETTINGS TAB CLICK HANDLERS ===
             // Aim Mode Selector - Coordenadas fijas desde arriba
             let contentY = menuY + 170;
             const aimBtnW = 145;
@@ -2042,28 +2043,26 @@ const Index = () => {
               gameState.showAudioSettings = true;
               return;
             }
-            
-            contentY += audioBtnH + 30;
-            
-            // Continue & Restart buttons
-            const btnW = 250;
-            const btnH = 60;
-            const btnGap = 30;
-            const continueX = centerX - btnW - btnGap / 2;
-            const restartX = centerX + btnGap / 2;
-            const btnY = contentY;
-            
-            // Continue button
-            if (mx >= continueX && mx <= continueX + btnW && my >= btnY && my <= btnY + btnH) {
-              gameState.countdownTimer = 3;
-              gameState.showAudioSettings = false;
-            }
-            
-            // Restart button
-            if (mx >= restartX && mx <= restartX + btnW && my >= btnY && my <= btnY + btnH) {
-              resetGame();
-              gameState.showAudioSettings = false;
-            }
+          }
+          
+          // Continue & Restart buttons (COMUNES A TODOS LOS TABS - POSICIÓN FIJA AL FINAL)
+          const btnW = 250;
+          const btnH = 60;
+          const btnGap = 30;
+          const btnY = menuY + menuH - 85;
+          const continueX = centerX - btnW - btnGap / 2;
+          const restartX = centerX + btnGap / 2;
+          
+          // Continue button
+          if (mx >= continueX && mx <= continueX + btnW && my >= btnY && my <= btnY + btnH) {
+            gameState.countdownTimer = 3;
+            gameState.showAudioSettings = false;
+          }
+          
+          // Restart button
+          if (mx >= restartX && mx <= restartX + btnW && my >= btnY && my <= btnY + btnH) {
+            resetGame();
+            gameState.showAudioSettings = false;
           }
         }
       } else if (gameState.state === 'gameover') {
@@ -6298,9 +6297,11 @@ const Index = () => {
             ctx.font = "15px system-ui";
             const enemies = [
               { icon: "🟢", color: "#22c55e", name: "Verde", desc: "Común, lento, daño leve" },
-              { icon: "🟣", color: "#a855f7", name: "Morado", desc: "Intermedio, rápido, daño medio" },
+              { icon: "🟣", color: "#a855f7", name: "Morado", desc: "Intermedio, rápido" },
               { icon: "🟡", color: "#fbbf24", name: "Amarillo", desc: "Élite, fuerte, más HP" },
               { icon: "🔴", color: "#ef4444", name: "Bomber", desc: "Explota al impactar" },
+              { icon: "⚡", color: "#60a5fa", name: "Rápido", desc: "Muy veloz, bajo HP" },
+              { icon: "🛡️", color: "#94a3b8", name: "Tank", desc: "Alto HP, lento, resistente" },
               { icon: "🔵", color: "#3b82f6", name: "Mini-Boss", desc: "Aparece cada 5 waves" },
               { icon: "💀", color: "#9333ea", name: "BOSS", desc: "Cada 5 waves, muy peligroso" },
             ];
