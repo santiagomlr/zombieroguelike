@@ -338,6 +338,7 @@ const Index = () => {
         pickup: new Audio(),
         death: new Audio(),
       },
+      gameOverMusic: null as HTMLAudioElement | null,
       musicTracks: [
         { name: "Electronic Dreams", path: "/audio/Electronic_Dreams.mp3" },
         { name: "That Song", path: "/audio/Fobee_-_That_Song.mp3" },
@@ -469,10 +470,25 @@ const Index = () => {
       
       gameState.state = 'gameover';
       gameState.player.hp = 0;
-      gameState.gameOverTimer = 1.0; // 1 segundo para auto-reinicio
+      gameState.gameOverTimer = 0; // No auto-restart, mostrar pantalla de game over
       
       playDeathSound();
-      console.log('Game Over: auto-restart in 1s');
+      
+      // Detener música normal y reproducir música de game over
+      if (gameState.music) {
+        gameState.music.pause();
+      }
+      
+      if (!gameState.gameOverMusic) {
+        gameState.gameOverMusic = new Audio("/audio/Summer_Saxophone.mp3");
+        gameState.gameOverMusic.loop = true;
+      }
+      
+      gameState.gameOverMusic.volume = gameState.musicMuted ? 0 : gameState.musicVolume;
+      gameState.gameOverMusic.currentTime = 0;
+      gameState.gameOverMusic.play().catch(() => {});
+      
+      console.log('Game Over');
     }
     
     function resetGame() {
@@ -585,7 +601,11 @@ const Index = () => {
       gameState.keys[e.key.toLowerCase()] = true;
       
       // Game Over: Enter para reiniciar inmediatamente
-      if (gameState.state === 'gameover' && e.key === 'Enter') {
+      if (gameState.state === 'gameover' && (e.key === 'Enter' || e.key === 'r' || e.key === 'R')) {
+        if (gameState.gameOverMusic) {
+          gameState.gameOverMusic.pause();
+          gameState.gameOverMusic.currentTime = 0;
+        }
         resetGame();
         return;
       }
@@ -1858,6 +1878,25 @@ const Index = () => {
             gameState.showAudioSettings = false;
           }
         }
+      } else if (gameState.state === 'gameover') {
+        // GAME OVER SCREEN CLICK HANDLER
+        const menuW = 700;
+        const menuH = 650;
+        const menuX = W / 2 - menuW / 2;
+        const menuY = H / 2 - menuH / 2;
+        
+        const btnW = 400;
+        const btnH = 70;
+        const btnX = W / 2 - btnW / 2;
+        const btnY = menuY + menuH - 120;
+        
+        if (mx >= btnX && mx <= btnX + btnW && my >= btnY && my <= btnY + btnH) {
+          if (gameState.gameOverMusic) {
+            gameState.gameOverMusic.pause();
+            gameState.gameOverMusic.currentTime = 0;
+          }
+          resetGame();
+        }
       }
     });
 
@@ -1910,12 +1949,8 @@ const Index = () => {
         gameState.restartTimer = 0;
       }
 
-      // Game Over auto-restart timer
+      // Game Over - no hacer nada, esperar input del usuario
       if (gameState.state === 'gameover') {
-        gameState.gameOverTimer = Math.max(0, gameState.gameOverTimer - dt);
-        if (gameState.gameOverTimer === 0) {
-          resetGame();
-        }
         return;
       }
       
@@ -5124,11 +5159,128 @@ const Index = () => {
       }
       
       // Game Over overlay fade
+      // GAME OVER SCREEN
       if (gameState.state === 'gameover') {
-        const alpha = Math.min(0.85, 1 - Math.max(0, gameState.gameOverTimer));
         ctx.save();
-        ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
+        ctx.fillStyle = "rgba(0, 0, 0, 0.9)";
         ctx.fillRect(0, 0, W, H);
+        
+        const menuW = 700;
+        const menuH = 650;
+        const menuX = W / 2 - menuW / 2;
+        const menuY = H / 2 - menuH / 2;
+        
+        // Background con gradiente
+        const bgGradient = ctx.createLinearGradient(menuX, menuY, menuX, menuY + menuH);
+        bgGradient.addColorStop(0, "rgba(20, 10, 10, 0.98)");
+        bgGradient.addColorStop(1, "rgba(40, 20, 20, 0.98)");
+        ctx.fillStyle = bgGradient;
+        ctx.fillRect(menuX, menuY, menuW, menuH);
+        
+        // Border con glow rojo
+        ctx.strokeStyle = "#ef4444";
+        ctx.lineWidth = 4;
+        ctx.shadowColor = "#ef4444";
+        ctx.shadowBlur = 30;
+        ctx.strokeRect(menuX, menuY, menuW, menuH);
+        ctx.shadowBlur = 0;
+        
+        // Título GAME OVER
+        ctx.fillStyle = "#ef4444";
+        ctx.font = "bold 64px system-ui";
+        ctx.textAlign = "center";
+        ctx.shadowColor = "#ef4444";
+        ctx.shadowBlur = 20;
+        ctx.fillText(t.gameOver, W / 2, menuY + 90);
+        ctx.shadowBlur = 0;
+        
+        let contentY = menuY + 160;
+        
+        // Separador
+        ctx.strokeStyle = "rgba(239, 68, 68, 0.3)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(menuX + 60, contentY);
+        ctx.lineTo(menuX + menuW - 60, contentY);
+        ctx.stroke();
+        
+        contentY += 50;
+        
+        // Estadísticas finales
+        const leftCol = menuX + 120;
+        const rightCol = menuX + menuW / 2 + 80;
+        
+        ctx.font = "bold 28px system-ui";
+        ctx.fillStyle = "#fbbf24";
+        ctx.textAlign = "left";
+        ctx.fillText("📊 " + t.stats, leftCol, contentY);
+        contentY += 60;
+        
+        ctx.font = "24px system-ui";
+        ctx.fillStyle = "#d1d5db";
+        
+        // Score
+        ctx.fillText(t.finalScore + ":", leftCol, contentY);
+        ctx.fillStyle = "#a855f7";
+        ctx.textAlign = "right";
+        ctx.fillText(gameState.score.toString(), rightCol + 180, contentY);
+        contentY += 50;
+        
+        // Level
+        ctx.fillStyle = "#d1d5db";
+        ctx.textAlign = "left";
+        ctx.fillText(t.finalLevel + ":", leftCol, contentY);
+        ctx.fillStyle = "#22c55e";
+        ctx.textAlign = "right";
+        ctx.fillText(gameState.level.toString(), rightCol + 180, contentY);
+        contentY += 50;
+        
+        // Wave
+        ctx.fillStyle = "#d1d5db";
+        ctx.textAlign = "left";
+        ctx.fillText(t.finalWave + ":", leftCol, contentY);
+        ctx.fillStyle = "#3b82f6";
+        ctx.textAlign = "right";
+        ctx.fillText(gameState.wave.toString(), rightCol + 180, contentY);
+        contentY += 50;
+        
+        // Tiempo
+        const time = Math.floor(gameState.time);
+        const mm = String(Math.floor(time / 60)).padStart(2, '0');
+        const ss = String(time % 60).padStart(2, '0');
+        ctx.fillStyle = "#d1d5db";
+        ctx.textAlign = "left";
+        ctx.fillText("Tiempo:", leftCol, contentY);
+        ctx.fillStyle = "#fbbf24";
+        ctx.textAlign = "right";
+        ctx.fillText(`${mm}:${ss}`, rightCol + 180, contentY);
+        
+        // Botón de reinicio
+        const btnW = 400;
+        const btnH = 70;
+        const btnX = W / 2 - btnW / 2;
+        const btnY = menuY + menuH - 120;
+        
+        const btnGradient = ctx.createLinearGradient(btnX, btnY, btnX, btnY + btnH);
+        btnGradient.addColorStop(0, "#ef4444");
+        btnGradient.addColorStop(1, "#dc2626");
+        ctx.fillStyle = btnGradient;
+        ctx.beginPath();
+        ctx.roundRect(btnX, btnY, btnW, btnH, 15);
+        ctx.fill();
+        
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 3;
+        ctx.shadowColor = "#ef4444";
+        ctx.shadowBlur = 20;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 32px system-ui";
+        ctx.textAlign = "center";
+        ctx.fillText("🔄 " + t.playAgain, btnX + btnW / 2, btnY + btnH / 2 + 12);
+        
         ctx.restore();
       }
       
