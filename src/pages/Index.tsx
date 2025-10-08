@@ -268,8 +268,8 @@ const Index = () => {
         rad: 16,
         hp: 100,
         maxhp: 100,
-        stamina: 100,
-        maxStamina: 100,
+        stamina: 20,
+        maxStamina: 20,
         isSprinting: false,
         shotsFired: 0,
         shield: 0,
@@ -541,8 +541,8 @@ const Index = () => {
       gameState.player.y = H / 2;
       gameState.player.hp = 100;
       gameState.player.maxhp = 100;
-      gameState.player.stamina = 100;
-      gameState.player.maxStamina = 100;
+      gameState.player.stamina = 20;
+      gameState.player.maxStamina = 20;
       gameState.player.isSprinting = false;
       gameState.player.shotsFired = 0;
       gameState.player.shield = 0;
@@ -2012,18 +2012,18 @@ const Index = () => {
         return;
       }
       
-      // Countdown timer después de pausa
+      // Countdown timer después de pausa (más rápido: 2x velocidad)
       if (gameState.countdownTimer > 0) {
-        gameState.countdownTimer -= dt;
+        gameState.countdownTimer -= dt * 2; // 2x más rápido
         if (gameState.countdownTimer <= 0) {
           gameState.countdownTimer = 0;
           gameState.state = 'running';
         }
-        return; // No actualizar lógica del juego durante countdown
+        // NO return aquí - seguir actualizando para que se vea el juego
       }
       
-      // Solo actualizar lógica del juego si está corriendo
-      if (gameState.state !== 'running') return;
+      // Solo actualizar lógica del juego si está corriendo (pero no durante countdown)
+      if (gameState.state !== 'running' || gameState.countdownTimer > 0) return;
 
       // ═══════════════════════════════════════════════════════════
       // TUTORIAL - Avanzar paso cuando se cumplan condiciones
@@ -2656,12 +2656,12 @@ const Index = () => {
       if (gameState.keys[" "] && isMoving && gameState.player.stamina > 0) {
         // Sprint activado
         gameState.player.isSprinting = true;
-        gameState.player.stamina = Math.max(0, gameState.player.stamina - 30 * dt); // Consume 30 stamina/segundo
+        gameState.player.stamina = Math.max(0, gameState.player.stamina - 5 * dt); // Consume 5 stamina/segundo (dura 4s)
       } else {
         // Sprint desactivado, regenerar stamina
         gameState.player.isSprinting = false;
         if (gameState.player.stamina < gameState.player.maxStamina) {
-          gameState.player.stamina = Math.min(gameState.player.maxStamina, gameState.player.stamina + 20 * dt); // Regenera 20 stamina/segundo
+          gameState.player.stamina = Math.min(gameState.player.maxStamina, gameState.player.stamina + 10 * dt); // Regenera 10 stamina/segundo (llena en 2s)
         }
       }
       
