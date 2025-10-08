@@ -2015,30 +2015,21 @@ const Index = () => {
           }
         }
         
-        // Verificar si la wave terminó (evento termina al final de la wave)
+        // Verificar si la wave terminó (evento termina inmediatamente al final de la wave)
         if (gameState.waveKills >= gameState.waveEnemiesTotal && (gameState.eventPhase === "active" || gameState.eventPhase === "fadein")) {
-          gameState.eventPhase = "fadeout";
-        }
-        
-        // Fase de Fade Out (3 segundos)
-        if (gameState.eventPhase === "fadeout") {
-          gameState.eventIntensity = Math.max(0, gameState.eventIntensity - dt * 0.33); // 3 segundos para llegar a 0
+          // Evento terminado inmediatamente
+          gameState.environmentalEvent = gameState.secondaryEvent;
+          gameState.secondaryEvent = null;
+          gameState.fogOpacity = 0;
+          gameState.fogZones = [];
+          gameState.stormZone = null;
+          gameState.eventPhase = "none";
+          gameState.eventIntensity = 0;
           
-          if (gameState.eventIntensity <= 0) {
-            // Evento terminado
-            gameState.environmentalEvent = gameState.secondaryEvent;
-            gameState.secondaryEvent = null;
-            gameState.fogOpacity = 0;
-            gameState.fogZones = [];
-            gameState.stormZone = null;
-            gameState.eventPhase = "none";
-            gameState.eventIntensity = 0;
-            
-            // Si todavía hay un evento, reiniciar
-            if (gameState.environmentalEvent) {
-              gameState.eventPhase = "notification";
-              gameState.eventNotification = 5;
-            }
+          // Si todavía hay un evento, reiniciar
+          if (gameState.environmentalEvent) {
+            gameState.eventPhase = "notification";
+            gameState.eventNotification = 5;
           }
         }
         
@@ -3783,8 +3774,6 @@ const Index = () => {
         let notifAlpha = 1;
         if (gameState.eventPhase === "notification") {
           notifAlpha = Math.min(1, gameState.eventNotification / 2);
-        } else if (gameState.eventPhase === "fadeout") {
-          notifAlpha = gameState.eventIntensity; // Fade out con el evento
         }
         ctx.globalAlpha = notifAlpha;
         
