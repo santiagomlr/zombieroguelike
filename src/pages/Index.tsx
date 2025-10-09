@@ -32,6 +32,8 @@ interface Translations {
   stats: string;
   continue: string;
   paused: string;
+  startMusicButton: string;
+  shufflePlaylistReady: string;
   tutorial: {
     move: string;
   };
@@ -66,6 +68,8 @@ const translations: Record<Language, Translations> = {
     stats: "Estadísticas",
     continue: "Continuar",
     paused: "PAUSA",
+    startMusicButton: "🎵 Iniciar música",
+    shufflePlaylistReady: "Reproducción aleatoria lista",
     tutorial: {
       move: "Usa WASD para moverte",
     },
@@ -98,6 +102,8 @@ const translations: Record<Language, Translations> = {
     stats: "Stats",
     continue: "Continue",
     paused: "PAUSED",
+    startMusicButton: "🎵 Start Music",
+    shufflePlaylistReady: "Shuffle playlist ready",
     tutorial: {
       move: "Use WASD to move",
     },
@@ -4488,12 +4494,21 @@ const Index = () => {
       ctx.shadowBlur = 0;
       
       // Texto del botón
-      ctx.fillStyle = "#fff";
-      ctx.font = "bold 16px system-ui";
       ctx.textAlign = "center";
       if (!gameState.musicStarted) {
-        ctx.fillText("🎵 Click to Play", musicBtnX + musicBtnW / 2, musicBtnY + musicBtnH / 2 + 6);
+        const musicTextX = musicBtnX + musicBtnW / 2;
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 16px system-ui";
+        ctx.fillText(t.startMusicButton, musicTextX, musicBtnY + musicBtnH / 2 - 2);
+
+        ctx.font = "12px system-ui";
+        ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+        ctx.fillText(t.shufflePlaylistReady, musicTextX, musicBtnY + musicBtnH - 8);
+
+        ctx.fillStyle = "#fff";
       } else {
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 16px system-ui";
         const currentTrack = gameState.musicTracks[gameState.currentMusicIndex];
         ctx.fillText(`♫ ${currentTrack.name.slice(0, 12)}...`, musicBtnX + musicBtnW / 2, musicBtnY + musicBtnH / 2 + 6);
       }
