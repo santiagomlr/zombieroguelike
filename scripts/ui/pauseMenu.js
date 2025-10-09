@@ -23,6 +23,11 @@ const TAB_CONFIG = [
   { id: "wiki", label: "Wiki" },
 ];
 
+const DEFAULT_LANGUAGES = [
+  { value: "es", label: "Español" },
+  { value: "en", label: "English" },
+];
+
 const externalHooks = {
   onPause: null,
   onResume: null,
@@ -31,6 +36,9 @@ const externalHooks = {
   getScore: null,
   getIsPaused: null,
   setPaused: null,
+  getLanguage: null,
+  setLanguage: null,
+  getLanguages: null,
 };
 
 let pauseMenuEl = null;
@@ -44,6 +52,10 @@ let statsInterval = null;
 let activeTab = "main";
 let lastFocusedElement = null;
 let countdownTimers = [];
+let languageSelectEl = null;
+let cachedLanguageOptionsKey = "";
+let suppressNextEscape = false;
+let lastToggleFromKeyboard = false;
 
 function getGameStateFallback() {
   return (
@@ -108,6 +120,111 @@ function callHook(name, ...args) {
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
+}
+
+function normalizeLanguageOption(option) {
+  if (!option) return null;
+  if (typeof option === "string") {
+    const value = option.trim();
+    return value ? { value, label: value } : null;
+  }
+  if (typeof option === "object") {
+    const value = typeof option.value === "string" ? option.value.trim() : String(option.value ?? "").trim();
+    if (!value) return null;
+    const label = typeof option.label === "string" ? option.label.trim() : value;
+    return { value, label: label || value };
+  }
+  return null;
+}
+
+function getLanguageOptions() {
+  let provided = null;
+  if (typeof externalHooks.getLanguages === "function") {
+    try {
+      provided = externalHooks.getLanguages();
+    } catch (error) {
+      console.error("pauseMenu: getLanguages hook threw", error);
+    }
+  }
+  const normalized = Array.isArray(provided) && provided.length
+    ? provided.map(normalizeLanguageOption).filter(Boolean)
+    : DEFAULT_LANGUAGES;
+  return normalized.length ? normalized : DEFAULT_LANGUAGES;
+}
+
+function getStoredLanguage(options) {
+  try {
+    const stored = localStorage.getItem("language");
+    if (stored && options.some((opt) => opt.value === stored)) {
+      return stored;
+    }
+  } catch (error) {
+    console.warn("pauseMenu: unable to read stored language", error);
+  }
+  return options[0]?.value ?? "en";
+}
+
+function getActiveLanguage(options = getLanguageOptions()) {
+  if (typeof externalHooks.getLanguage === "function") {
+    try {
+      const lang = externalHooks.getLanguage();
+      if (typeof lang === "string" && options.some((opt) => opt.value === lang)) {
+        return lang;
+      }
+    } catch (error) {
+      console.error("pauseMenu: getLanguage hook threw", error);
+    }
+  }
+  return getStoredLanguage(options);
+}
+
+function persistLanguagePreference(language) {
+  try {
+    localStorage.setItem("language", language);
+  } catch (error) {
+    console.warn("pauseMenu: unable to persist language", error);
+  }
+}
+
+function applyLanguage(language) {
+  if (typeof externalHooks.setLanguage === "function") {
+    try {
+      externalHooks.setLanguage(language);
+    } catch (error) {
+      console.error("pauseMenu: setLanguage hook threw", error);
+    }
+  }
+  document.documentElement?.setAttribute("lang", language);
+  document.dispatchEvent(
+    new CustomEvent("pausemenu:language-change", { detail: { language } })
+  );
+}
+
+function sendEscapeToGame() {
+  suppressNextEscape = true;
+  const keyboardOptions = {
+    key: "Escape",
+    code: "Escape",
+    keyCode: 27,
+    which: 27,
+    bubbles: true,
+  };
+  const syntheticEvent = new KeyboardEvent("keydown", keyboardOptions);
+  try {
+    Object.defineProperty(syntheticEvent, "keyCode", { get: () => 27 });
+    Object.defineProperty(syntheticEvent, "which", { get: () => 27 });
+  } catch (error) {
+    // Ignore assignment errors in strict browsers
+  }
+  window.dispatchEvent(syntheticEvent);
+  const syntheticKeyUp = new KeyboardEvent("keyup", keyboardOptions);
+  try {
+    Object.defineProperty(syntheticKeyUp, "keyCode", { get: () => 27 });
+    Object.defineProperty(syntheticKeyUp, "which", { get: () => 27 });
+  } catch (error) {
+    // Ignore assignment errors in strict browsers
+  }
+  window.dispatchEvent(syntheticKeyUp);
 }
 
 function formatTime(ms) {
@@ -206,6 +323,14 @@ function createMenuMarkup(root) {
                 <input type="checkbox" data-control="music-mute" />
                 <span>Mute Music</span>
               </label>
+            </fieldset>
+            <fieldset class="pause-menu__fieldset">
+              <legend class="pause-menu__legend">Language</legend>
+              <div class="pause-menu__select" data-language-slot>
+                <select data-control="language-select" aria-label="Language selector"></select>
+                <span class="pause-menu__select-icon" aria-hidden="true">▾</span>
+              </div>
+              <p class="pause-menu__helper">Current language: <span data-display="language-name">&mdash;</span></p>
             </fieldset>
           </form>
         </div>
@@ -312,6 +437,54 @@ function syncAudioControls() {
   }
 }
 
+function populateLanguageOptions() {
+  if (!pauseMenuEl) return;
+  const select = pauseMenuEl.querySelector("[data-control='language-select']");
+  if (!(select instanceof HTMLSelectElement)) {
+    languageSelectEl = null;
+    cachedLanguageOptionsKey = "";
+    return;
+  }
+  const options = getLanguageOptions();
+  const key = options.map((opt) => `${opt.value}:${opt.label}`).join("|");
+  if (key === cachedLanguageOptionsKey && languageSelectEl) {
+    return;
+  }
+  select.innerHTML = "";
+  options.forEach((opt) => {
+    const optionEl = document.createElement("option");
+    optionEl.value = opt.value;
+    optionEl.textContent = opt.label;
+    select.appendChild(optionEl);
+  });
+  languageSelectEl = select;
+  cachedLanguageOptionsKey = key;
+}
+
+function syncLanguageControls() {
+  if (!pauseMenuEl) return;
+  populateLanguageOptions();
+  const select = languageSelectEl || pauseMenuEl.querySelector("[data-control='language-select']");
+  if (!(select instanceof HTMLSelectElement)) {
+    return;
+  }
+  const options = getLanguageOptions();
+  const activeLanguage = getActiveLanguage(options);
+  select.value = activeLanguage;
+  select.setAttribute("aria-valuenow", activeLanguage);
+  const labelEl = pauseMenuEl.querySelector("[data-display='language-name']");
+  if (labelEl) {
+    const match = options.find((opt) => opt.value === activeLanguage);
+    labelEl.textContent = match ? match.label : activeLanguage;
+  }
+  document.documentElement?.setAttribute("lang", activeLanguage);
+}
+
+function syncSettingsControls() {
+  syncAudioControls();
+  syncLanguageControls();
+}
+
 function updateStats() {
   if (!pauseMenuEl) return;
   const waveEl = pauseMenuEl.querySelector("[data-stat='wave']");
@@ -350,7 +523,7 @@ function showMenu() {
   callHook("setPaused", true);
   callHook("onPause");
   startStatsUpdates();
-  syncAudioControls();
+  syncSettingsControls();
   lastFocusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   const firstTab = tabButtons[0];
   if (firstTab) firstTab.focus();
@@ -361,7 +534,9 @@ function hideMenu() {
   if (!pauseMenuEl) return;
   pauseMenuEl.setAttribute("aria-hidden", "true");
   pauseMenuEl.classList.remove("pause-menu--visible");
+  document.body.classList.remove("pause-menu-open");
   stopStatsUpdates();
+  isPaused = false;
 }
 
 function resumeFromCountdown() {
@@ -398,10 +573,13 @@ function cancelCountdown() {
   showMenu();
 }
 
-function startCountdown() {
+function startCountdown(syncGameWithEngine = false) {
   if (isCountdownActive) return;
   isCountdownActive = true;
   hideMenu();
+  if (syncGameWithEngine) {
+    sendEscapeToGame();
+  }
   countdownOverlayEl?.setAttribute("aria-hidden", "false");
   countdownOverlayEl?.classList.add("pause-countdown--visible");
   if (countdownLabelEl) countdownLabelEl.textContent = "3";
@@ -425,22 +603,42 @@ function startCountdown() {
   });
 }
 
-function togglePause() {
+function togglePause(input) {
+  let syncGame = false;
+  if (input instanceof Event) {
+    syncGame = true;
+  } else if (typeof input === "boolean") {
+    syncGame = input;
+  } else if (input && typeof input === "object") {
+    syncGame = Boolean(input.syncGame);
+  } else {
+    syncGame = !lastToggleFromKeyboard;
+  }
+  lastToggleFromKeyboard = false;
   if (isCountdownActive) {
     cancelCountdown();
+    if (syncGame) {
+      sendEscapeToGame();
+    }
     return;
   }
   if (!isPaused) {
+    if (syncGame) {
+      sendEscapeToGame();
+    }
     showMenu();
   } else {
-    startCountdown();
+    startCountdown(syncGame);
   }
 }
 
 function handleGlobalKeyDown(event) {
   if (event.key === "Escape") {
-    event.preventDefault();
-    event.stopPropagation();
+    if (suppressNextEscape) {
+      suppressNextEscape = false;
+      return;
+    }
+    lastToggleFromKeyboard = true;
     togglePause();
     return;
   }
@@ -510,7 +708,8 @@ function attachActionHandlers() {
     const action = target.dataset.action;
     if (!action) return;
     if (action === "resume") {
-      startCountdown();
+      lastToggleFromKeyboard = false;
+      startCountdown(true);
     } else if (action === "quit") {
       const shouldQuit = callHook("confirmQuit");
       if (shouldQuit !== false) {
@@ -535,6 +734,7 @@ function attachFormHandlers() {
   const musicMute = pauseMenuEl.querySelector("[data-control='music-mute']");
   const sfxDisplay = pauseMenuEl.querySelector("[data-display='sfx-volume']");
   const musicDisplay = pauseMenuEl.querySelector("[data-display='music-volume']");
+  const languageSelect = pauseMenuEl.querySelector("[data-control='language-select']");
 
   if (sfxSlider instanceof HTMLInputElement) {
     sfxSlider.addEventListener("input", () => {
@@ -568,6 +768,18 @@ function attachFormHandlers() {
       unlockAudio();
     });
   }
+  if (languageSelect instanceof HTMLSelectElement) {
+    languageSelect.addEventListener("change", () => {
+      const options = getLanguageOptions();
+      const candidate = languageSelect.value;
+      const nextLanguage = options.some((opt) => opt.value === candidate)
+        ? candidate
+        : getActiveLanguage(options);
+      persistLanguagePreference(nextLanguage);
+      applyLanguage(nextLanguage);
+      syncLanguageControls();
+    });
+  }
 }
 
 function cachePanels() {
@@ -591,13 +803,13 @@ function initPauseMenu() {
   attachActionHandlers();
   attachFormHandlers();
   updateTabState(activeTab);
-  syncAudioControls();
-  window.addEventListener("keydown", handleGlobalKeyDown, true);
+  syncSettingsControls();
+  window.addEventListener("keydown", handleGlobalKeyDown, false);
   document.addEventListener("pausemenu:toggle", togglePause);
   if (countdownOverlayEl) {
     countdownOverlayEl.addEventListener("click", () => {
       if (isCountdownActive) {
-        cancelCountdown();
+        togglePause({ syncGame: true });
       }
     });
   }
@@ -608,7 +820,12 @@ export function registerPauseMenuHooks(hooks = {}) {
   Object.assign(externalHooks, hooks);
 }
 
-export function openPauseMenu() {
+export function openPauseMenu(options = {}) {
+  const shouldSync = typeof options === "boolean" ? options : options?.syncGame ?? true;
+  lastToggleFromKeyboard = false;
+  if (shouldSync && !isPaused && !isCountdownActive) {
+    sendEscapeToGame();
+  }
   showMenu();
 }
 
