@@ -6353,15 +6353,15 @@ const Index = () => {
             }
             
             // Continue & Restart Buttons (al final del tab)
-            contentY = menuY + menuH - 85;
+            const btnY = menuY + menuH - 85;
             const btnW = 250;
             const btnH = 60;
             const btnGap = 30;
             const continueX = centerX - btnW - btnGap / 2;
             const restartX = centerX + btnGap / 2;
-            
+
             // Continue button
-            const continueGradient = ctx.createLinearGradient(continueX, contentY, continueX, contentY + btnH);
+            const continueGradient = ctx.createLinearGradient(continueX, btnY, continueX, btnY + btnH);
             continueGradient.addColorStop(0, "#22c55e");
             continueGradient.addColorStop(0.5, "#16a34a");
             continueGradient.addColorStop(1, "#15803d");
@@ -6369,37 +6369,37 @@ const Index = () => {
             ctx.shadowColor = "#22c55e";
             ctx.shadowBlur = 30;
             ctx.beginPath();
-            ctx.roundRect(continueX, contentY, btnW, btnH, 12);
+            ctx.roundRect(continueX, btnY, btnW, btnH, 12);
             ctx.fill();
-            
+
             ctx.strokeStyle = "#4ade80";
             ctx.lineWidth = 2;
             ctx.shadowBlur = 20;
             ctx.shadowColor = "#22c55e";
             ctx.stroke();
             ctx.shadowBlur = 0;
-            
+
             ctx.save();
             ctx.globalAlpha = 0.3;
-            const continueHighlight = ctx.createLinearGradient(continueX, contentY, continueX, contentY + btnH / 3);
+            const continueHighlight = ctx.createLinearGradient(continueX, btnY, continueX, btnY + btnH / 3);
             continueHighlight.addColorStop(0, "rgba(255, 255, 255, 0.8)");
             continueHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
             ctx.fillStyle = continueHighlight;
             ctx.beginPath();
-            ctx.roundRect(continueX + 3, contentY + 3, btnW - 6, btnH / 3, 9);
+            ctx.roundRect(continueX + 3, btnY + 3, btnW - 6, btnH / 3, 9);
             ctx.fill();
             ctx.restore();
-            
+
             ctx.fillStyle = "#fff";
             ctx.font = "bold 24px system-ui";
             ctx.textAlign = "center";
             ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
             ctx.shadowBlur = 4;
-            ctx.fillText("▶ " + t.continue, continueX + btnW / 2, contentY + btnH / 2 + 9);
+            ctx.fillText("▶ " + t.continue, continueX + btnW / 2, btnY + btnH / 2 + 9);
             ctx.shadowBlur = 0;
-            
+
             // Restart button
-            const restartGradient = ctx.createLinearGradient(restartX, contentY, restartX, contentY + btnH);
+            const restartGradient = ctx.createLinearGradient(restartX, btnY, restartX, btnY + btnH);
             restartGradient.addColorStop(0, "#ef4444");
             restartGradient.addColorStop(0.5, "#dc2626");
             restartGradient.addColorStop(1, "#b91c1c");
@@ -6407,32 +6407,32 @@ const Index = () => {
             ctx.shadowColor = "#ef4444";
             ctx.shadowBlur = 30;
             ctx.beginPath();
-            ctx.roundRect(restartX, contentY, btnW, btnH, 12);
+            ctx.roundRect(restartX, btnY, btnW, btnH, 12);
             ctx.fill();
-            
+
             ctx.strokeStyle = "#f87171";
             ctx.lineWidth = 2;
             ctx.shadowBlur = 20;
             ctx.shadowColor = "#ef4444";
             ctx.stroke();
             ctx.shadowBlur = 0;
-            
+
             ctx.save();
             ctx.globalAlpha = 0.3;
-            const restartHighlight = ctx.createLinearGradient(restartX, contentY, restartX, contentY + btnH / 3);
+            const restartHighlight = ctx.createLinearGradient(restartX, btnY, restartX, btnY + btnH / 3);
             restartHighlight.addColorStop(0, "rgba(255, 255, 255, 0.8)");
             restartHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
             ctx.fillStyle = restartHighlight;
             ctx.beginPath();
-            ctx.roundRect(restartX + 3, contentY + 3, btnW - 6, btnH / 3, 9);
+            ctx.roundRect(restartX + 3, btnY + 3, btnW - 6, btnH / 3, 9);
             ctx.fill();
             ctx.restore();
-            
+
             ctx.fillStyle = "#fff";
             ctx.font = "bold 24px system-ui";
             ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
             ctx.shadowBlur = 4;
-            ctx.fillText("🔄 " + t.restart, restartX + btnW / 2, contentY + btnH / 2 + 9);
+            ctx.fillText("🔄 " + t.restart, restartX + btnW / 2, btnY + btnH / 2 + 9);
             ctx.shadowBlur = 0;
             
           } else if (gameState.pauseMenuTab === "credits") {
@@ -6472,15 +6472,15 @@ const Index = () => {
             ctx.shadowBlur = 0;
             
             // Continue & Restart Buttons (al final del tab)
-            contentY = menuY + menuH - 85;
+            const btnY = menuY + menuH - 85;
             const btnW = 250;
             const btnH = 60;
             const btnGap = 30;
             const continueX = centerX - btnW - btnGap / 2;
             const restartX = centerX + btnGap / 2;
-            
+
             // Continue button
-            const continueGradient = ctx.createLinearGradient(continueX, contentY, continueX, contentY + btnH);
+            const continueGradient = ctx.createLinearGradient(continueX, btnY, continueX, btnY + btnH);
             continueGradient.addColorStop(0, "#22c55e");
             continueGradient.addColorStop(0.5, "#16a34a");
             continueGradient.addColorStop(1, "#15803d");
@@ -6488,37 +6488,37 @@ const Index = () => {
             ctx.shadowColor = "#22c55e";
             ctx.shadowBlur = 30;
             ctx.beginPath();
-            ctx.roundRect(continueX, contentY, btnW, btnH, 12);
+            ctx.roundRect(continueX, btnY, btnW, btnH, 12);
             ctx.fill();
-            
+
             ctx.strokeStyle = "#4ade80";
             ctx.lineWidth = 2;
             ctx.shadowBlur = 20;
             ctx.shadowColor = "#22c55e";
             ctx.stroke();
             ctx.shadowBlur = 0;
-            
+
             ctx.save();
             ctx.globalAlpha = 0.3;
-            const continueHighlight = ctx.createLinearGradient(continueX, contentY, continueX, contentY + btnH / 3);
+            const continueHighlight = ctx.createLinearGradient(continueX, btnY, continueX, btnY + btnH / 3);
             continueHighlight.addColorStop(0, "rgba(255, 255, 255, 0.8)");
             continueHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
             ctx.fillStyle = continueHighlight;
             ctx.beginPath();
-            ctx.roundRect(continueX + 3, contentY + 3, btnW - 6, btnH / 3, 9);
+            ctx.roundRect(continueX + 3, btnY + 3, btnW - 6, btnH / 3, 9);
             ctx.fill();
             ctx.restore();
-            
+
             ctx.fillStyle = "#fff";
             ctx.font = "bold 24px system-ui";
             ctx.textAlign = "center";
             ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
             ctx.shadowBlur = 4;
-            ctx.fillText("▶ " + t.continue, continueX + btnW / 2, contentY + btnH / 2 + 9);
+            ctx.fillText("▶ " + t.continue, continueX + btnW / 2, btnY + btnH / 2 + 9);
             ctx.shadowBlur = 0;
-            
+
             // Restart button
-            const restartGradient = ctx.createLinearGradient(restartX, contentY, restartX, contentY + btnH);
+            const restartGradient = ctx.createLinearGradient(restartX, btnY, restartX, btnY + btnH);
             restartGradient.addColorStop(0, "#ef4444");
             restartGradient.addColorStop(0.5, "#dc2626");
             restartGradient.addColorStop(1, "#b91c1c");
@@ -6526,32 +6526,32 @@ const Index = () => {
             ctx.shadowColor = "#ef4444";
             ctx.shadowBlur = 30;
             ctx.beginPath();
-            ctx.roundRect(restartX, contentY, btnW, btnH, 12);
+            ctx.roundRect(restartX, btnY, btnW, btnH, 12);
             ctx.fill();
-            
+
             ctx.strokeStyle = "#f87171";
             ctx.lineWidth = 2;
             ctx.shadowBlur = 20;
             ctx.shadowColor = "#ef4444";
             ctx.stroke();
             ctx.shadowBlur = 0;
-            
+
             ctx.save();
             ctx.globalAlpha = 0.3;
-            const restartHighlight = ctx.createLinearGradient(restartX, contentY, restartX, contentY + btnH / 3);
+            const restartHighlight = ctx.createLinearGradient(restartX, btnY, restartX, btnY + btnH / 3);
             restartHighlight.addColorStop(0, "rgba(255, 255, 255, 0.8)");
             restartHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
             ctx.fillStyle = restartHighlight;
             ctx.beginPath();
-            ctx.roundRect(restartX + 3, contentY + 3, btnW - 6, btnH / 3, 9);
+            ctx.roundRect(restartX + 3, btnY + 3, btnW - 6, btnH / 3, 9);
             ctx.fill();
             ctx.restore();
-            
+
             ctx.fillStyle = "#fff";
             ctx.font = "bold 24px system-ui";
             ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
             ctx.shadowBlur = 4;
-            ctx.fillText("🔄 " + t.restart, restartX + btnW / 2, contentY + btnH / 2 + 9);
+            ctx.fillText("🔄 " + t.restart, restartX + btnW / 2, btnY + btnH / 2 + 9);
             ctx.shadowBlur = 0;
             
           } else if (gameState.pauseMenuTab === "settings") {
@@ -6801,14 +6801,15 @@ const Index = () => {
             
             
             // Continue & Restart Buttons
+            const btnY = contentY;
             const btnW = 250;
             const btnH = 60;
             const btnGap = 30;
             const continueX = centerX - btnW - btnGap / 2;
             const restartX = centerX + btnGap / 2;
-            
+
             // Continue button - mejorado
-            const continueGradient = ctx.createLinearGradient(continueX, contentY, continueX, contentY + btnH);
+            const continueGradient = ctx.createLinearGradient(continueX, btnY, continueX, btnY + btnH);
             continueGradient.addColorStop(0, "#22c55e");
             continueGradient.addColorStop(0.5, "#16a34a");
             continueGradient.addColorStop(1, "#15803d");
@@ -6816,38 +6817,38 @@ const Index = () => {
             ctx.shadowColor = "#22c55e";
             ctx.shadowBlur = 30;
             ctx.beginPath();
-            ctx.roundRect(continueX, contentY, btnW, btnH, 12);
+            ctx.roundRect(continueX, btnY, btnW, btnH, 12);
             ctx.fill();
-            
+
             ctx.strokeStyle = "#4ade80";
             ctx.lineWidth = 2;
             ctx.shadowBlur = 20;
             ctx.shadowColor = "#22c55e";
             ctx.stroke();
             ctx.shadowBlur = 0;
-            
+
             // Highlight
             ctx.save();
             ctx.globalAlpha = 0.3;
-            const continueHighlight = ctx.createLinearGradient(continueX, contentY, continueX, contentY + btnH / 3);
+            const continueHighlight = ctx.createLinearGradient(continueX, btnY, continueX, btnY + btnH / 3);
             continueHighlight.addColorStop(0, "rgba(255, 255, 255, 0.8)");
             continueHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
             ctx.fillStyle = continueHighlight;
             ctx.beginPath();
-            ctx.roundRect(continueX + 3, contentY + 3, btnW - 6, btnH / 3, 9);
+            ctx.roundRect(continueX + 3, btnY + 3, btnW - 6, btnH / 3, 9);
             ctx.fill();
             ctx.restore();
-            
+
             ctx.fillStyle = "#fff";
             ctx.font = "bold 24px system-ui";
             ctx.textAlign = "center";
             ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
             ctx.shadowBlur = 4;
-            ctx.fillText("▶ " + t.continue, continueX + btnW / 2, contentY + btnH / 2 + 9);
+            ctx.fillText("▶ " + t.continue, continueX + btnW / 2, btnY + btnH / 2 + 9);
             ctx.shadowBlur = 0;
-            
+
             // Restart button - mejorado
-            const restartGradient = ctx.createLinearGradient(restartX, contentY, restartX, contentY + btnH);
+            const restartGradient = ctx.createLinearGradient(restartX, btnY, restartX, btnY + btnH);
             restartGradient.addColorStop(0, "#ef4444");
             restartGradient.addColorStop(0.5, "#dc2626");
             restartGradient.addColorStop(1, "#b91c1c");
@@ -6855,33 +6856,33 @@ const Index = () => {
             ctx.shadowColor = "#ef4444";
             ctx.shadowBlur = 30;
             ctx.beginPath();
-            ctx.roundRect(restartX, contentY, btnW, btnH, 12);
+            ctx.roundRect(restartX, btnY, btnW, btnH, 12);
             ctx.fill();
-            
+
             ctx.strokeStyle = "#f87171";
             ctx.lineWidth = 2;
             ctx.shadowBlur = 20;
             ctx.shadowColor = "#ef4444";
             ctx.stroke();
             ctx.shadowBlur = 0;
-            
+
             // Highlight
             ctx.save();
             ctx.globalAlpha = 0.3;
-            const restartHighlight = ctx.createLinearGradient(restartX, contentY, restartX, contentY + btnH / 3);
+            const restartHighlight = ctx.createLinearGradient(restartX, btnY, restartX, btnY + btnH / 3);
             restartHighlight.addColorStop(0, "rgba(255, 255, 255, 0.8)");
             restartHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
             ctx.fillStyle = restartHighlight;
             ctx.beginPath();
-            ctx.roundRect(restartX + 3, contentY + 3, btnW - 6, btnH / 3, 9);
+            ctx.roundRect(restartX + 3, btnY + 3, btnW - 6, btnH / 3, 9);
             ctx.fill();
             ctx.restore();
-            
+
             ctx.fillStyle = "#fff";
             ctx.font = "bold 24px system-ui";
             ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
             ctx.shadowBlur = 4;
-            ctx.fillText("🔄 " + t.restart, restartX + btnW / 2, contentY + btnH / 2 + 9);
+            ctx.fillText("🔄 " + t.restart, restartX + btnW / 2, btnY + btnH / 2 + 9);
             ctx.shadowBlur = 0;
           }
         }
