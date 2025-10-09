@@ -27,6 +27,23 @@ const DEFAULT_LANGUAGES = [
   { value: "en", label: "English" },
 ];
 
+const LEGACY_DISABLE_FLAG = "__DISABLE_LEGACY_PAUSE_MENU__";
+
+function isLegacyPauseMenuDisabled() {
+  if (typeof window !== "undefined" && window[LEGACY_DISABLE_FLAG]) {
+    return true;
+  }
+
+  if (typeof document !== "undefined") {
+    const body = document.body;
+    if (body && body.hasAttribute("data-disable-legacy-pause-menu")) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 const externalHooks = {
   onPause: null,
   onResume: null,
@@ -729,20 +746,60 @@ export function isCountdownRunning() {
   return false;
 }
 
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", initPauseMenu);
-} else {
-  initPauseMenu();
+function createNoopApi() {
+  const noop = () => {};
+  const alwaysFalse = () => false;
+  return {
+    open: noop,
+    close: noop,
+    toggle: noop,
+    registerHooks: noop,
+    isOpen: alwaysFalse,
+    isCountingDown: alwaysFalse,
+  };
 }
 
-window.pauseMenu = {
-  open: openPauseMenu,
-  close: closePauseMenu,
-  toggle: togglePause,
-  registerHooks: registerPauseMenuHooks,
-  isOpen: isPauseMenuOpen,
-  isCountingDown: isCountdownRunning,
-};
+function exposePauseMenuApi(api) {
+  window.pauseMenu = api;
+  window.gameClock = gameClock;
+}
 
-window.gameClock = gameClock;
+function setupPauseMenu() {
+  const disableMenu = () => exposePauseMenuApi(createNoopApi());
+
+  const enableMenu = () => {
+    exposePauseMenuApi({
+      open: openPauseMenu,
+      close: closePauseMenu,
+      toggle: togglePause,
+      registerHooks: registerPauseMenuHooks,
+      isOpen: isPauseMenuOpen,
+      isCountingDown: isCountdownRunning,
+    });
+
+    initPauseMenu();
+  };
+
+  const decide = () => {
+    if (isLegacyPauseMenuDisabled()) {
+      disableMenu();
+    } else {
+      enableMenu();
+    }
+  };
+
+  if (typeof document === "undefined") {
+    disableMenu();
+    return;
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", decide, { once: true });
+  } else {
+    decide();
+  }
+}
+
+exposePauseMenuApi(createNoopApi());
+setupPauseMenu();
 // END edit
