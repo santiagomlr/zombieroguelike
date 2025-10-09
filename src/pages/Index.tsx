@@ -656,6 +656,8 @@ const Index = () => {
       if (e.key === "Escape" && gameState.state !== 'gameover') {
         if (gameState.state === 'running') {
           gameState.state = 'paused';
+        } else if (gameState.state === 'paused' && gameState.countdownTimer > 0) {
+          gameState.countdownTimer = 0;
         } else if (gameState.state === 'paused' && !gameState.showUpgradeUI) {
           // Iniciar countdown de 3 segundos
           gameState.countdownTimer = 3;
