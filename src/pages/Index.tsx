@@ -1,6 +1,221 @@
 import { useEffect, useRef, useState } from "react";
-import { ITEMS, TOMES, WEAPONS, rarityColors, translations } from "@/lib/game/data";
-import { Item, Language, Tome, Upgrade, Weapon } from "@/lib/game/types";
+
+// Tipos
+type Rarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
+type Language = "es" | "en";
+
+interface Translations {
+  levelUp: string;
+  chooseUpgrade: string;
+  weapon: string;
+  tome: string;
+  item: string;
+  damage: string;
+  fireRate: string;
+  range: string;
+  level: string;
+  wave: string;
+  weapons: string;
+  tomes: string;
+  items: string;
+  movement: string;
+  restart: string;
+  pause: string;
+  sprint: string;
+  autoShoot: string;
+  gameOver: string;
+  finalScore: string;
+  finalLevel: string;
+  finalWave: string;
+  playAgain: string;
+  leaderboard: string;
+  stats: string;
+  continue: string;
+  paused: string;
+  tutorial: {
+    move: string;
+  };
+}
+
+const translations: Record<Language, Translations> = {
+  es: {
+    levelUp: "¡SUBISTE DE NIVEL!",
+    chooseUpgrade: "Elige una mejora:",
+    weapon: "ARMA",
+    tome: "TOMO",
+    item: "ÍTEM",
+    damage: "Daño",
+    fireRate: "Cadencia",
+    range: "Alcance",
+    level: "Nivel",
+    wave: "Wave",
+    weapons: "Armas:",
+    tomes: "Tomos:",
+    items: "Ítems:",
+    movement: "WASD - Movimiento",
+    restart: "R - Reiniciar",
+    pause: "ESC - Pausa",
+    sprint: "SPACE - Correr",
+    autoShoot: "Disparo automático",
+    gameOver: "GAME OVER",
+    finalScore: "Puntuación",
+    finalLevel: "Nivel alcanzado",
+    finalWave: "Wave alcanzado",
+    playAgain: "Jugar de nuevo",
+    leaderboard: "TOP 10",
+    stats: "Estadísticas",
+    continue: "Continuar",
+    paused: "PAUSA",
+    tutorial: {
+      move: "Usa WASD para moverte",
+    },
+  },
+  en: {
+    levelUp: "LEVEL UP!",
+    chooseUpgrade: "Choose an upgrade:",
+    weapon: "WEAPON",
+    tome: "TOME",
+    item: "ITEM",
+    damage: "Damage",
+    fireRate: "Fire Rate",
+    range: "Range",
+    level: "Level",
+    wave: "Wave",
+    weapons: "Weapons:",
+    tomes: "Tomes:",
+    items: "Items:",
+    movement: "WASD - Movement",
+    restart: "R - Restart",
+    pause: "ESC - Pause",
+    sprint: "SPACE - Sprint",
+    autoShoot: "Auto Shoot",
+    gameOver: "GAME OVER",
+    finalScore: "Score",
+    finalLevel: "Level Reached",
+    finalWave: "Wave Reached",
+    playAgain: "Play Again",
+    leaderboard: "TOP 10",
+    stats: "Stats",
+    continue: "Continue",
+    paused: "PAUSED",
+    tutorial: {
+      move: "Use WASD to move",
+    },
+  },
+};
+
+interface Weapon {
+  id: string;
+  name: string;
+  damage: number;
+  fireRate: number;
+  range: number;
+  projectileSpeed: number;
+  rarity: Rarity;
+  color: string;
+  special?: string;
+  level: number;
+}
+
+interface Tome {
+  id: string;
+  name: string;
+  description: string;
+  effect: string;
+  value: number;
+  rarity: Rarity;
+  color: string;
+  level: number;
+}
+
+interface Item {
+  id: string;
+  name: string;
+  description: string;
+  effect: string;
+  rarity: Rarity;
+  color: string;
+}
+
+interface Upgrade {
+  type: "weapon" | "tome" | "item";
+  data: Weapon | Tome | Item;
+  rarity: Rarity;
+  isLevelUp?: boolean;
+  targetIndex?: number;
+  upgradeType?: "damage" | "fireRate" | "range" | "special" | "effect";
+  description?: string;
+}
+
+const WEAPONS: Weapon[] = [
+  { id: "pistol", name: "Pistola", damage: 1, fireRate: 2, range: 250, projectileSpeed: 8, rarity: "common", color: "#9ca3af", level: 1 },
+  { id: "shotgun", name: "Escopeta", damage: 3, fireRate: 0.8, range: 180, projectileSpeed: 6, rarity: "uncommon", color: "#22c55e", special: "spread", level: 1 },
+  { id: "smg", name: "SMG", damage: 0.7, fireRate: 6, range: 200, projectileSpeed: 10, rarity: "rare", color: "#3b82f6", level: 1 },
+  { id: "rocket", name: "Lanzacohetes", damage: 8, fireRate: 0.5, range: 350, projectileSpeed: 5, rarity: "epic", color: "#a855f7", special: "aoe", level: 1 },
+  { id: "laser", name: "Láser", damage: 2, fireRate: 4, range: 400, projectileSpeed: 15, rarity: "epic", color: "#06b6d4", special: "pierce", level: 1 },
+  { id: "railgun", name: "Railgun", damage: 12, fireRate: 0.3, range: 500, projectileSpeed: 20, rarity: "legendary", color: "#fbbf24", special: "pierce", level: 1 },
+  { id: "minigun", name: "Minigun", damage: 0.5, fireRate: 10, range: 220, projectileSpeed: 12, rarity: "legendary", color: "#f87171", special: "rapid", level: 1 },
+  // Nuevas armas elementales
+  { id: "electric", name: "Arma Eléctrica", damage: 1.5, fireRate: 3, range: 300, projectileSpeed: 10, rarity: "epic", color: "#60a5fa", special: "chain", level: 1 },
+  { id: "flamethrower", name: "Lanzallamas", damage: 0.8, fireRate: 8, range: 150, projectileSpeed: 6, rarity: "rare", color: "#fb923c", special: "fire", level: 1 },
+  { id: "frostbow", name: "Arco Congelante", damage: 1.2, fireRate: 2, range: 350, projectileSpeed: 9, rarity: "epic", color: "#38bdf8", special: "freeze", level: 1 },
+  { id: "homing", name: "Misil Teledirigido", damage: 4, fireRate: 1, range: 400, projectileSpeed: 7, rarity: "legendary", color: "#f472b6", special: "homing", level: 1 },
+];
+
+const TOMES: Tome[] = [
+  { id: "power", name: "Tomo de Poder", description: "+10% Daño", effect: "damage", value: 1.1, rarity: "rare", color: "#f87171", level: 1 },
+  { id: "speed", name: "Tomo de Velocidad", description: "+5% Velocidad", effect: "speed", value: 1.05, rarity: "uncommon", color: "#22c55e", level: 1 },
+  { id: "bounce", name: "Tomo de Rebote", description: "+1 Rebote (Enemigos)", effect: "bounce", value: 1, rarity: "epic", color: "#a855f7", level: 1 },
+  { id: "range", name: "Tomo de Alcance", description: "+10% Alcance", effect: "range", value: 1.1, rarity: "uncommon", color: "#3b82f6", level: 1 },
+  { id: "precision", name: "Tomo de Precisión", description: "+10% Precisión", effect: "precision", value: 1.1, rarity: "rare", color: "#8b5cf6", level: 1 },
+  { id: "multi", name: "Tomo Múltiple", description: "+1 Proyectil", effect: "multishot", value: 1, rarity: "legendary", color: "#06b6d4", level: 1 },
+  { id: "regen", name: "Tomo de Regeneración", description: "Regenera 1 HP cada 5s", effect: "regen", value: 1, rarity: "uncommon", color: "#10b981", level: 1 },
+  { id: "magnet", name: "Tomo de Magnetismo", description: "+10% Rango de imán", effect: "magnet", value: 1.1, rarity: "common", color: "#64748b", level: 1 },
+  { id: "fire", name: "Tomo de Cadencia", description: "+10% Cadencia", effect: "fireRate", value: 1.1, rarity: "rare", color: "#fbbf24", level: 1 },
+];
+
+const ITEMS: Item[] = [
+  // Común
+  { id: "windboots", name: "Botas de Viento", description: "+5% velocidad", effect: "speedboost", rarity: "common", color: "#9ca3af" },
+  { id: "fastgloves", name: "Guantes Rápidos", description: "+5% cadencia", effect: "firerateitem", rarity: "common", color: "#9ca3af" },
+  { id: "lightvest", name: "Chaleco Ligero", description: "+10 HP máximo", effect: "maxhp10", rarity: "common", color: "#9ca3af" },
+  { id: "tacticalbelt", name: "Cinturón Táctico", description: "+10% magnetismo", effect: "magnetitem", rarity: "common", color: "#9ca3af" },
+  { id: "oldclock", name: "Reloj Antiguo", description: "+5% duración powerups", effect: "powerupduration", rarity: "common", color: "#9ca3af" },
+  { id: "rustyring", name: "Anillo Oxidado", description: "+10 XP por kill", effect: "xpbonus", rarity: "common", color: "#9ca3af" },
+  
+  // Raro
+  { id: "combatglasses", name: "Gafas de Combate", description: "+10% precisión", effect: "precisionitem", rarity: "rare", color: "#3b82f6" },
+  { id: "reinforcedpants", name: "Pantalones Reforzados", description: "-5% daño recibido", effect: "damagereduction", rarity: "rare", color: "#3b82f6" },
+  { id: "bouncegloves", name: "Guantes de Rebote", description: "+1 rebote", effect: "bounceitem", rarity: "rare", color: "#3b82f6" },
+  // ELIMINADO: extrabag (dropcapacity no implementado)
+  { id: "energyclock", name: "Reloj de Energía", description: "+10% cadencia global", effect: "globalfirerate", rarity: "rare", color: "#3b82f6" },
+  { id: "ballistichelmet", name: "Casco Balístico", description: "Inmunidad 1er golpe/wave", effect: "firsthitimmune", rarity: "rare", color: "#3b82f6" },
+  
+  // Épico
+  { id: "jetboots", name: "Botas Jet", description: "+15% velocidad", effect: "jetspeed", rarity: "epic", color: "#a855f7" },
+  { id: "reactiveshield", name: "Escudo Reactivo", description: "Onda empuja enemigos", effect: "reactiveshield", rarity: "epic", color: "#a855f7" },
+  { id: "chaosamuleto", name: "Amuleto del Caos", description: "Daño +10% a +50%", effect: "chaosdamage", rarity: "epic", color: "#a855f7" },
+  { id: "ironmedal", name: "Medalla de Hierro", description: "+15% HP máximo", effect: "maxhp15", rarity: "epic", color: "#a855f7" },
+  { id: "heavyvest", name: "Chaleco Pesado", description: "-10% velocidad, -25% daño", effect: "heavyarmor", rarity: "epic", color: "#a855f7" },
+  { id: "plasmafragment", name: "Fragmento de Plasma", description: "+1 rebote +15% alcance", effect: "plasmafrag", rarity: "epic", color: "#a855f7" },
+  
+  // Legendario
+  { id: "voidcore", name: "Núcleo del Vacío", description: "XP Doble", effect: "doublexp", rarity: "legendary", color: "#fbbf24" },
+  { id: "solargauntlet", name: "Guantelete Solar", description: "Proyectil cada 10 kills", effect: "solargauntlet", rarity: "legendary", color: "#fbbf24" },
+  { id: "infernalengine", name: "Motor Infernal", description: "+25% velocidad +20% daño, +10% daño recibido", effect: "infernalengine", rarity: "legendary", color: "#fbbf24" },
+  { id: "bloodstone", name: "Piedra de Sangre", description: "5 HP cada 30 kills", effect: "bloodstone", rarity: "legendary", color: "#fbbf24" },
+  { id: "hordetotem", name: "Tótem de la Horda", description: "+1 enemigo spawn, +2 XP/kill", effect: "hordetotem", rarity: "legendary", color: "#fbbf24" },
+  { id: "artificialheart", name: "Corazón Artificial", description: "+50 HP permanente", effect: "artificialheart", rarity: "legendary", color: "#fbbf24" },
+  { id: "infinitylens", name: "Lente del Infinito", description: "+10% todos los stats", effect: "infinitylens", rarity: "legendary", color: "#fbbf24" },
+];
+
+const rarityColors = {
+  common: "#9ca3af",
+  uncommon: "#22c55e",
+  rare: "#3b82f6",
+  epic: "#a855f7",
+  legendary: "#fbbf24",
+};
 
 const Index = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -22,23 +237,10 @@ const Index = () => {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    let animationFrameId = 0;
-
     let W = window.innerWidth;
     let H = window.innerHeight;
     canvas.width = W;
     canvas.height = H;
-
-    const createBackgroundOrbs = (count = 20) =>
-      Array.from({ length: count }, () => ({
-        x: Math.random() * W,
-        y: Math.random() * H,
-        radius: Math.random() * 90 + 40,
-        speed: Math.random() * 20 + 10,
-        drift: (Math.random() - 0.5) * 0.6,
-        hue: 200 + Math.random() * 80,
-        alpha: 0.05 + Math.random() * 0.12,
-      }));
 
     const gameState = {
       state: 'running' as 'running' | 'paused' | 'gameover',
@@ -62,7 +264,7 @@ const Index = () => {
         rageTimer: 0,
         tempMagnetTimer: 0,
         tempShieldTimer: 0,
-        weapons: [{ ...WEAPONS[0] }],
+        weapons: [WEAPONS[0]],
         tomes: [] as Tome[],
         items: [] as Item[],
         itemFlags: {} as Record<string, boolean>,
@@ -96,7 +298,6 @@ const Index = () => {
       drops: [] as any[],
       particles: [] as any[],
       hotspots: [] as any[],
-      playerTrail: [] as any[],
       maxParticles: 200,
       bosses: [] as any[],
       score: 0,
@@ -115,16 +316,6 @@ const Index = () => {
       spawnCooldown: 0, // Cooldown de 3 segundos después de matar todos los enemigos
       canSpawn: true, // Flag para controlar si se puede spawnar
       weaponCooldowns: {} as Record<string, number>,
-      camera: {
-        offsetX: 0,
-        offsetY: 0,
-        targetOffsetX: 0,
-        targetOffsetY: 0,
-        shake: 0,
-        shakeX: 0,
-        shakeY: 0,
-        tilt: 0,
-      },
       audioContext: null as AudioContext | null,
       keys: {} as Record<string, boolean>,
       showUpgradeUI: false,
@@ -157,7 +348,6 @@ const Index = () => {
       fogZones: [] as Array<{ x: number; y: number; width: number; height: number }>,
       fogWarningZones: [] as Array<{ x: number; y: number; width: number; height: number; warningTime: number }>, // Warning para niebla
       stormZone: null as { x: number; y: number; radius: number; vx: number; vy: number } | null,
-      backgroundOrbs: createBackgroundOrbs(24),
       meleeCooldown: 0, // Cooldown de golpe melee
       explosionMarks: [] as Array<{ x: number; y: number; radius: number; life: number }>, // Marcas de explosión en el suelo
       sounds: {
@@ -187,6 +377,10 @@ const Index = () => {
       enemyLogo: null as HTMLImageElement | null,
       tutorialActive: localStorage.getItem("gameHasTutorial") !== "completed",
       tutorialStartTime: performance.now(),
+      aimMode: (localStorage.getItem("aimMode") || "closest") as "closest" | "smart" | "weakest" | "strongest",
+      showWiki: false,
+      gameOverAnimationTimer: 0,
+      pauseMenuTab: "settings" as "settings" | "wiki" | "credits", // Tab del menú de pausa
     };
 
     gameStateRef.current = gameState;
@@ -262,69 +456,26 @@ const Index = () => {
     initMusic();
     
     // Sound effect functions
-    const playSound = (
-      frequency: number,
-      duration: number,
-      type: OscillatorType = "sine",
-      volume: number = 0.3,
-      detune: number = 30
-    ) => {
+    const playSound = (frequency: number, duration: number, type: OscillatorType = "sine", volume: number = 0.3) => {
       if (!gameState.audioContext || gameState.sfxMuted) return;
-      const audioCtx = gameState.audioContext;
-      const now = audioCtx.currentTime;
-
-      const oscillator = audioCtx.createOscillator();
-      const gainNode = audioCtx.createGain();
-      const filter = audioCtx.createBiquadFilter();
-
+      const oscillator = gameState.audioContext.createOscillator();
+      const gainNode = gameState.audioContext.createGain();
+      
       oscillator.type = type;
-      const jitter = (Math.random() - 0.5) * detune;
-      oscillator.frequency.setValueAtTime(Math.max(20, frequency + jitter), now);
-
-      filter.type = "lowpass";
-      filter.frequency.setValueAtTime(Math.max(200, frequency * 6), now);
-      filter.Q.setValueAtTime(6, now);
-
-      gainNode.gain.setValueAtTime(volume, now);
-      gainNode.gain.exponentialRampToValueAtTime(Math.max(0.001, volume * 0.05), now + duration);
-
-      oscillator.connect(filter);
-      filter.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
-
-      oscillator.start(now);
-      oscillator.stop(now + duration + 0.05);
+      oscillator.frequency.setValueAtTime(frequency, gameState.audioContext.currentTime);
+      
+      gainNode.gain.setValueAtTime(volume, gameState.audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, gameState.audioContext.currentTime + duration);
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(gameState.audioContext.destination);
+      
+      oscillator.start();
+      oscillator.stop(gameState.audioContext.currentTime + duration);
     };
-
-    const playShootSound = (weapon?: Weapon) => {
-      const rarityBoost = weapon?.rarity === "legendary" ? 0.1 : weapon?.rarity === "epic" ? 0.05 : 0;
-      const baseFrequency = weapon
-        ? weapon.special === "aoe"
-          ? 160
-          : weapon.special === "pierce"
-            ? 260
-            : weapon.special === "rapid"
-              ? 280
-              : weapon.special === "laser"
-                ? 360
-                : weapon.special === "fire"
-                  ? 220
-                  : weapon.special === "freeze"
-                    ? 300
-                    : weapon.special === "chain"
-                      ? 240
-                      : 210
-        : 210;
-      const waveform: OscillatorType = weapon?.special === "laser"
-        ? "sawtooth"
-        : weapon?.special === "fire"
-          ? "triangle"
-          : weapon?.special === "freeze"
-            ? "sine"
-            : "square";
-      playSound(baseFrequency, 0.12 + (weapon?.fireRate || 0) * 0.01, waveform, 0.2 + rarityBoost, 40);
-    };
-    const playHitSound = () => playSound(120, 0.18, "sawtooth", 0.22, 25);
+    
+    const playShootSound = () => playSound(200, 0.1, "square", 0.2);
+    const playHitSound = () => playSound(100, 0.15, "sawtooth", 0.2);
     const playLevelUpSound = () => {
       playSound(300, 0.1, "sine", 0.3);
       setTimeout(() => playSound(400, 0.1, "sine", 0.3), 100);
@@ -338,11 +489,6 @@ const Index = () => {
       playSound(400, 0.1, "sine", 0.25);
       setTimeout(() => playSound(500, 0.1, "sine", 0.25), 50);
       setTimeout(() => playSound(600, 0.15, "sine", 0.25), 100);
-    };
-
-    const addScreenShake = (strength: number) => {
-      if (!gameState.camera) return;
-      gameState.camera.shake = Math.min(12, gameState.camera.shake + strength);
     };
     
     // Game state management
@@ -379,23 +525,7 @@ const Index = () => {
       gameState.drops.length = 0;
       gameState.particles.length = 0;
       gameState.hotspots.length = 0;
-      gameState.playerTrail.length = 0;
-
-      if (gameState.camera) {
-        gameState.camera.offsetX = 0;
-        gameState.camera.offsetY = 0;
-        gameState.camera.targetOffsetX = 0;
-        gameState.camera.targetOffsetY = 0;
-        gameState.camera.shake = 0;
-        gameState.camera.shakeX = 0;
-        gameState.camera.shakeY = 0;
-        gameState.camera.tilt = 0;
-      }
-
-      if (gameState.backgroundOrbs) {
-        gameState.backgroundOrbs = createBackgroundOrbs(gameState.backgroundOrbs.length || 24);
-      }
-
+      
       // Resetear jugador
       gameState.player.x = W / 2;
       gameState.player.y = H / 2;
@@ -545,9 +675,6 @@ const Index = () => {
       if (gameState.player) {
         gameState.player.x = Math.min(gameState.player.x, W - 50);
         gameState.player.y = Math.min(gameState.player.y, H - 50);
-      }
-      if (gameState.backgroundOrbs) {
-        gameState.backgroundOrbs = createBackgroundOrbs(gameState.backgroundOrbs.length || 24);
       }
     };
 
@@ -942,18 +1069,96 @@ const Index = () => {
     }
 
     function nearestEnemy() {
-      let best = null;
-      let bestDist = 1e9;
-      for (const e of gameState.enemies) {
-        const onScreen = e.x >= -50 && e.x <= W + 50 && e.y >= -50 && e.y <= H + 50;
-        if (!onScreen) continue;
-        const d = Math.hypot(e.x - gameState.player.x, e.y - gameState.player.y);
-        if (d < bestDist) {
-          bestDist = d;
-          best = e;
-        }
+      const onScreenEnemies = gameState.enemies.filter((e: any) => 
+        e.x >= -50 && e.x <= W + 50 && e.y >= -50 && e.y <= H + 50
+      );
+      
+      if (onScreenEnemies.length === 0) return null;
+      
+      // Aplicar el modo de aim seleccionado
+      switch (gameState.aimMode) {
+        case "closest":
+          // Más cercano (default)
+          let closest = null;
+          let closestDist = 1e9;
+          for (const e of onScreenEnemies) {
+            const d = Math.hypot(e.x - gameState.player.x, e.y - gameState.player.y);
+            if (d < closestDist) {
+              closestDist = d;
+              closest = e;
+            }
+          }
+          return closest;
+          
+        case "smart":
+          // Smart Aim: prioriza por tipo, daño y dirección
+          let bestScore = -1;
+          let smartTarget = null;
+          const playerDir = { x: Math.cos(gameState.time), y: Math.sin(gameState.time) }; // Dirección aproximada del jugador
+          
+          for (const e of onScreenEnemies) {
+            const dist = Math.hypot(e.x - gameState.player.x, e.y - gameState.player.y);
+            const distScore = Math.max(0, 1 - dist / 500); // 0-1, más cerca = mejor
+            
+            // Prioridad por tipo
+            let typeScore = 0;
+            if (e.isBoss) typeScore = 1.0;
+            else if (e.isMiniBoss) typeScore = 0.8;
+            else if (e.specialType === "explosive") typeScore = 0.9; // Priorizar bombers
+            else if (e.isElite) typeScore = 0.7;
+            else if (e.specialType) typeScore = 0.6;
+            else if (e.enemyType === "strong") typeScore = 0.5;
+            else if (e.enemyType === "medium") typeScore = 0.3;
+            else typeScore = 0.1;
+            
+            // Prioridad por daño
+            const damageScore = Math.min(1, (e.damage || 0) / 50); // Normalizar daño
+            
+            // Dirección: priorizar enemigos frente al jugador
+            const toEnemy = { 
+              x: e.x - gameState.player.x, 
+              y: e.y - gameState.player.y 
+            };
+            const toEnemyLen = Math.hypot(toEnemy.x, toEnemy.y) || 1;
+            const dirScore = 0.5; // Por ahora neutral, se puede mejorar con dirección real del jugador
+            
+            // Score combinado
+            const totalScore = typeScore * 0.4 + damageScore * 0.3 + distScore * 0.2 + dirScore * 0.1;
+            
+            if (totalScore > bestScore) {
+              bestScore = totalScore;
+              smartTarget = e;
+            }
+          }
+          return smartTarget;
+          
+        case "weakest":
+          // Más débil (menos HP)
+          let weakest = null;
+          let lowestHp = 1e9;
+          for (const e of onScreenEnemies) {
+            if (e.hp < lowestHp) {
+              lowestHp = e.hp;
+              weakest = e;
+            }
+          }
+          return weakest;
+          
+        case "strongest":
+          // Más fuerte (más HP)
+          let strongest = null;
+          let highestHp = -1;
+          for (const e of onScreenEnemies) {
+            if (e.hp > highestHp) {
+              highestHp = e.hp;
+              strongest = e;
+            }
+          }
+          return strongest;
+          
+        default:
+          return onScreenEnemies[0];
       }
-      return best;
     }
 
     function shootWeapon(weapon: Weapon, target: any) {
@@ -1052,7 +1257,7 @@ const Index = () => {
         }
       }
       
-      playShootSound(weapon);
+      playShootSound();
     }
 
     function autoShoot(dt: number) {
@@ -1667,21 +1872,21 @@ const Index = () => {
     }
 
     // Click handler para upgrades, pause menu y botón de música
-    function handleCanvasClick(e: MouseEvent) {
+    canvas.addEventListener("click", (e) => {
       const rect = canvas.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
-
+      
       // Botón de cambiar canción (solo cuando el juego está corriendo)
       if (gameState.state === 'running') {
         const musicBtnW = 160;
         const musicBtnH = 45;
         const musicBtnX = W - musicBtnW - 20;
         const musicBtnY = H - musicBtnH - 70;
-
-        if (mx >= musicBtnX && mx <= musicBtnX + musicBtnW &&
+        
+        if (mx >= musicBtnX && mx <= musicBtnX + musicBtnW && 
             my >= musicBtnY && my <= musicBtnY + musicBtnH) {
-
+          
           // Si la música no ha iniciado, iniciarla
           if (!gameState.musicStarted) {
             gameState.musicStarted = true;
@@ -1694,14 +1899,14 @@ const Index = () => {
           return;
         }
       }
-
+      
       if (gameState.showUpgradeUI) {
         const cardW = 280;
         const cardH = 220;
         const gap = 40;
         const startX = W / 2 - (cardW * 1.5 + gap);
         const startY = H / 2 - cardH / 2 + 20;
-
+        
         for (let i = 0; i < 3; i++) {
           const cx = startX + i * (cardW + gap);
           if (mx >= cx && mx <= cx + cardW && my >= startY && my <= startY + cardH) {
@@ -1710,7 +1915,7 @@ const Index = () => {
           }
         }
       } else if (gameState.state === 'paused' && !gameState.showUpgradeUI && gameState.countdownTimer <= 0) {
-        // Pause menu click handler - NUEVO DISEÑO (NO durante countdown)
+        // Pause menu click handler - NUEVO DISEÑO CON TABS (NO durante countdown)
         if (gameState.showAudioSettings) {
           // CLICKS EN PANEL DE AUDIO SETTINGS
           const audioW = 600;
@@ -1718,20 +1923,20 @@ const Index = () => {
           const audioX = W / 2 - audioW / 2;
           const audioY = H / 2 - audioH / 2;
           const centerX = audioX + audioW / 2;
-
+          
           // Volume slider
           const sliderX = audioX + 80;
           const sliderW = 440;
           const sliderH = 14;
           const sliderY = audioY + 120 + 35;
           const handleRadius = 18;
-
+          
           if (my >= sliderY - handleRadius && my <= sliderY + sliderH + handleRadius &&
               mx >= sliderX - handleRadius && mx <= sliderX + sliderW + handleRadius) {
             const clickX = Math.max(sliderX, Math.min(sliderX + sliderW, mx));
             gameState.targetMusicVolume = (clickX - sliderX) / sliderW; // Establecer volumen objetivo para transición suave
           }
-
+          
           // Toggle buttons
           const toggleBtnW = 240;
           const toggleBtnH = 60;
@@ -1739,7 +1944,7 @@ const Index = () => {
           const toggleX1 = centerX - toggleBtnW - toggleGap / 2;
           const toggleX2 = centerX + toggleGap / 2;
           const toggleY = sliderY + 70;
-
+          
           // Music button
           if (mx >= toggleX1 && mx <= toggleX1 + toggleBtnW && my >= toggleY && my <= toggleY + toggleBtnH) {
             gameState.musicMuted = !gameState.musicMuted;
@@ -1747,59 +1952,117 @@ const Index = () => {
               if (gameState.musicMuted) {
                 gameState.music.pause();
               } else {
-                gameState.music.play().catch(err => console.warn("Audio play failed:", err));
+                gameState.music.play().catch(e => console.warn("Audio play failed:", e));
               }
             }
           }
-
+          
           // SFX button
           if (mx >= toggleX2 && mx <= toggleX2 + toggleBtnW && my >= toggleY && my <= toggleY + toggleBtnH) {
             gameState.sfxMuted = !gameState.sfxMuted;
           }
-
-          // Back button
-          const backBtnW = 280;
-          const backBtnH = 60;
+          
+          // Back button (ajustado para nuevas coordenadas)
+          const backBtnW = 300;
+          const backBtnH = 65;
           const backBtnX = centerX - backBtnW / 2;
-          const backBtnY = audioY + audioH - 90;
-
+          const backBtnY = audioY + audioH - 95;
+          
           if (mx >= backBtnX && mx <= backBtnX + backBtnW && my >= backBtnY && my <= backBtnY + backBtnH) {
             gameState.showAudioSettings = false;
           }
-
+          
         } else {
-          // CLICKS EN MENU PRINCIPAL
-          const menuW = 650;
+          // CLICKS EN MENU PRINCIPAL CON 3 TABS
+          const menuW = 700;
           const menuH = 700;
           const menuX = W / 2 - menuW / 2;
           const menuY = H / 2 - menuH / 2;
           const centerX = menuX + menuW / 2;
-
-          // Audio Settings Button
-          const audioBtnW = 350;
-          const audioBtnH = 55;
-          const audioBtnX = centerX - audioBtnW / 2;
-          const audioBtnY = menuY + menuH - 230;
-
-          if (mx >= audioBtnX && mx <= audioBtnX + audioBtnW && my >= audioBtnY && my <= audioBtnY + audioBtnH) {
-            gameState.showAudioSettings = true;
+          
+          // Tab buttons (Settings / Wiki / Credits)
+          const tabBtnW = 130;
+          const tabBtnH = 45;
+          const tabGap = 12;
+          const totalTabWidth = tabBtnW * 3 + tabGap * 2;
+          const settingsTabX = centerX - totalTabWidth / 2;
+          const wikiTabX = settingsTabX + tabBtnW + tabGap;
+          const creditsTabX = wikiTabX + tabBtnW + tabGap;
+          const tabY = menuY + 85;
+          
+          // Settings tab click
+          if (mx >= settingsTabX && mx <= settingsTabX + tabBtnW && my >= tabY && my <= tabY + tabBtnH) {
+            gameState.pauseMenuTab = "settings";
+            return;
           }
-
-          // Continue & Restart buttons
+          
+          // Wiki tab click
+          if (mx >= wikiTabX && mx <= wikiTabX + tabBtnW && my >= tabY && my <= tabY + tabBtnH) {
+            gameState.pauseMenuTab = "wiki";
+            return;
+          }
+          
+          // Credits tab click
+          if (mx >= creditsTabX && mx <= creditsTabX + tabBtnW && my >= tabY && my <= tabY + tabBtnH) {
+            gameState.pauseMenuTab = "credits";
+            return;
+          }
+          
+          if (gameState.pauseMenuTab === "settings") {
+            // === SETTINGS TAB CLICK HANDLERS ===
+            // Aim Mode Selector - Coordenadas fijas desde arriba
+            let contentY = menuY + 170;
+            const aimBtnW = 145;
+            const aimBtnH = 45;
+            const aimGap = 10;
+            const aimY = contentY;
+            const aimModes = [
+              { mode: "closest", label: "Cercano", x: menuX + 25 },
+              { mode: "smart", label: "Smart", x: menuX + 25 + aimBtnW + aimGap },
+              { mode: "weakest", label: "Débil", x: menuX + 25 + (aimBtnW + aimGap) * 2 },
+              { mode: "strongest", label: "Fuerte", x: menuX + 25 + (aimBtnW + aimGap) * 3 },
+            ];
+            
+            for (const { mode, label, x } of aimModes) {
+              if (mx >= x && mx <= x + aimBtnW && my >= aimY && my <= aimY + aimBtnH) {
+                gameState.aimMode = mode as any;
+                localStorage.setItem("aimMode", mode);
+                return;
+              }
+            }
+            
+            contentY += aimBtnH + 40;
+            
+            // Audio Settings - Sliders interactivos
+            contentY += aimBtnH + 50;
+            const sliderW = 600;
+            const sliderH = 6;
+            const sliderX2 = menuX + 40;
+            const sliderSpacing = 50;
+            
+            // Music Volume Slider clickable area
+            if (my >= contentY && my <= contentY + 20) {
+              const clickX = mx - sliderX2;
+              if (clickX >= 0 && clickX <= sliderW) {
+                gameState.targetMusicVolume = Math.max(0, Math.min(1, clickX / sliderW));
+              }
+            }
+          }
+          
+          // Continue & Restart buttons (COMUNES A TODOS LOS TABS - POSICIÓN FIJA AL FINAL)
           const btnW = 250;
           const btnH = 60;
           const btnGap = 30;
+          const btnY = menuY + menuH - 85;
           const continueX = centerX - btnW - btnGap / 2;
           const restartX = centerX + btnGap / 2;
-          const btnY = audioBtnY + audioBtnH + 20;
-
+          
           // Continue button
           if (mx >= continueX && mx <= continueX + btnW && my >= btnY && my <= btnY + btnH) {
-            // Iniciar countdown en lugar de reanudar directamente
             gameState.countdownTimer = 3;
             gameState.showAudioSettings = false;
           }
-
+          
           // Restart button
           if (mx >= restartX && mx <= restartX + btnW && my >= btnY && my <= btnY + btnH) {
             resetGame();
@@ -1812,12 +2075,12 @@ const Index = () => {
         const menuH = 650;
         const menuX = W / 2 - menuW / 2;
         const menuY = H / 2 - menuH / 2;
-
+        
         const btnW = 400;
         const btnH = 70;
         const btnX = W / 2 - btnW / 2;
         const btnY = menuY + menuH - 120;
-
+        
         if (mx >= btnX && mx <= btnX + btnW && my >= btnY && my <= btnY + btnH) {
           if (gameState.gameOverMusic) {
             gameState.gameOverMusic.pause();
@@ -1826,39 +2089,11 @@ const Index = () => {
           resetGame();
         }
       }
-    }
-
-    canvas.addEventListener("click", handleCanvasClick);
+    });
 
     function update(dt: number) {
       // Actualizar tiempo siempre (necesario para animaciones)
       gameState.time += dt;
-
-      const camera = gameState.camera;
-      if (camera) {
-        if (camera.shake > 0) {
-          camera.shake = Math.max(0, camera.shake - dt * 6);
-          const intensity = camera.shake * camera.shake * 0.3;
-          camera.shakeX = (Math.random() - 0.5) * intensity;
-          camera.shakeY = (Math.random() - 0.5) * intensity;
-        } else {
-          camera.shakeX *= 0.85;
-          camera.shakeY *= 0.85;
-        }
-      }
-
-      if (gameState.backgroundOrbs) {
-        for (const orb of gameState.backgroundOrbs) {
-          orb.y += orb.speed * dt;
-          orb.x += orb.drift;
-          if (orb.y - orb.radius > H) {
-            orb.y = -orb.radius;
-            orb.x = Math.random() * W;
-          }
-          if (orb.x < -orb.radius) orb.x = W + orb.radius;
-          if (orb.x > W + orb.radius) orb.x = -orb.radius;
-        }
-      }
 
       // Animations que deben correr siempre
       if (gameState.levelUpAnimation > 0) gameState.levelUpAnimation = Math.max(0, gameState.levelUpAnimation - dt * 2);
@@ -1905,8 +2140,10 @@ const Index = () => {
         gameState.restartTimer = 0;
       }
 
-      // Game Over - no hacer nada, esperar input del usuario
+      // Game Over - seguir corriendo el tiempo durante la animación
       if (gameState.state === 'gameover') {
+        gameState.gameOverAnimationTimer += dt;
+        gameState.time += dt; // El tiempo sigue corriendo
         return;
       }
       
@@ -2239,7 +2476,6 @@ const Index = () => {
               const distToStorm = Math.hypot(gameState.player.x - gameState.stormZone.x, gameState.player.y - gameState.stormZone.y);
               if (distToStorm < gameState.stormZone.radius) {
                 gameState.player.hp -= 10 * dt * intensity; // 10 HP/s escalado por intensidad
-                addScreenShake(4 * intensity);
                 if (gameState.player.hp <= 0) {
                   gameState.state = 'gameover';
                   gameState.gameOverTimer = 3;
@@ -2325,7 +2561,6 @@ const Index = () => {
               // Daño aumentado si está en zona de niebla (escalado por intensidad)
               if (inFogZone) {
                 gameState.player.hp -= 5 * dt * intensity; // 5 HP/s escalado por intensidad
-                addScreenShake(2.5 * intensity);
                 if (gameState.player.hp <= 0) {
                   gameState.state = 'gameover';
                   gameState.gameOverTimer = 3;
@@ -2444,11 +2679,10 @@ const Index = () => {
             // HOTSPOT NEGATIVO (Zona de Peligro)
             gameState.inDangerZone = true;
             gameState.dangerZoneTimer += dt;
-
+            
             // Daño continuo: 8 HP/s (sin activar invulnerabilidad)
             gameState.player.hp -= 8 * dt;
-            addScreenShake(3);
-
+            
             // Partículas de daño
             if (Math.random() < 0.15 && gameState.particles.length < gameState.maxParticles) {
               gameState.particles.push({
@@ -2595,9 +2829,6 @@ const Index = () => {
 
       if (gameState.player.ifr > 0) gameState.player.ifr = Math.max(0, gameState.player.ifr - dt);
 
-      const prevX = gameState.player.x;
-      const prevY = gameState.player.y;
-
       // Movimiento (WASD o flechas)
       let vx = (gameState.keys["d"] || gameState.keys["arrowright"] ? 1 : 0) - (gameState.keys["a"] || gameState.keys["arrowleft"] ? 1 : 0);
       let vy = (gameState.keys["s"] || gameState.keys["arrowdown"] ? 1 : 0) - (gameState.keys["w"] || gameState.keys["arrowup"] ? 1 : 0);
@@ -2634,39 +2865,9 @@ const Index = () => {
       // Clamp a los límites del mapa
       newX = Math.max(gameState.player.rad, Math.min(W - gameState.player.rad, newX));
       newY = Math.max(gameState.player.rad, Math.min(H - gameState.player.rad, newY));
-
+      
       gameState.player.x = newX;
       gameState.player.y = newY;
-      const dx = gameState.player.x - prevX;
-      const dy = gameState.player.y - prevY;
-      gameState.player.vx = dx;
-      gameState.player.vy = dy;
-
-      if (camera) {
-        const smoothing = Math.min(1, dt * 8);
-        const targetOffsetX = -dx * 8;
-        const targetOffsetY = -dy * 8;
-        camera.targetOffsetX = targetOffsetX;
-        camera.targetOffsetY = targetOffsetY;
-        camera.offsetX += (camera.targetOffsetX - camera.offsetX) * smoothing;
-        camera.offsetY += (camera.targetOffsetY - camera.offsetY) * smoothing;
-        const targetTilt = Math.max(-0.2, Math.min(0.2, -dx * 0.02));
-        camera.tilt += (targetTilt - camera.tilt) * Math.min(1, dt * 6);
-      }
-
-      const moveMagnitude = Math.hypot(dx, dy);
-      if (moveMagnitude > 0.2) {
-        gameState.playerTrail.push({
-          x: gameState.player.x,
-          y: gameState.player.y,
-          life: 0.35,
-          maxLife: 0.35,
-          angle: Math.atan2(dy, dx || 0.0001),
-        });
-        if (gameState.playerTrail.length > 20) {
-          gameState.playerTrail.shift();
-        }
-      }
 
       // ═══════════════════════════════════════════════════════════
       // SISTEMA DE SPAWN DE ENEMIGOS - Estilo COD Zombies
@@ -3295,7 +3496,6 @@ const Index = () => {
                   if (gameState.player.ifr <= 0 && gameState.player.shield === 0) {
                     gameState.player.hp -= 10;
                     gameState.player.ifr = gameState.player.ifrDuration;
-                    addScreenShake(7);
                   }
                 }
                 // Partículas de explosión grande
@@ -3653,7 +3853,6 @@ const Index = () => {
             } else if (gameState.player.shield > 0) {
               gameState.player.shield--;
               gameState.player.ifr = gameState.player.ifrDuration;
-              addScreenShake(3);
               // Shield break particles con límite
               if (gameState.particles.length < gameState.maxParticles - 12) {
                 for (let j = 0; j < 12; j++) {
@@ -3680,7 +3879,6 @@ const Index = () => {
               const nextHp = Math.max(0, Math.min(Number(gameState.player.maxhp) || 0, safeCurrentHp - dmg));
               gameState.player.hp = nextHp;
               gameState.player.ifr = gameState.player.ifrDuration;
-              addScreenShake(Math.min(10, 4 + dmg * 0.2));
               
               // Escudo Reactivo: empuja enemigos
               if (gameState.player.stats.reactiveShieldActive) {
@@ -3746,10 +3944,8 @@ const Index = () => {
             if (gameState.player.ifr <= 0) {
               if (gameState.player.shield > 0) {
                 gameState.player.shield--;
-                addScreenShake(2);
               } else {
                 gameState.player.hp -= b.damage;
-                addScreenShake(5);
               }
               gameState.player.ifr = gameState.player.ifrDuration;
               
@@ -3782,14 +3978,6 @@ const Index = () => {
             b.x += nx * overlap / 2;
             b.y += ny * overlap / 2;
           }
-        }
-      }
-
-      for (let i = gameState.playerTrail.length - 1; i >= 0; i--) {
-        const trail = gameState.playerTrail[i];
-        trail.life -= dt;
-        if (trail.life <= 0) {
-          gameState.playerTrail.splice(i, 1);
         }
       }
 
@@ -4577,95 +4765,14 @@ const Index = () => {
     function draw() {
       ctx.clearRect(0, 0, W, H);
       
-      const cameraState = gameState.camera ?? {
-        offsetX: 0,
-        offsetY: 0,
-        targetOffsetX: 0,
-        targetOffsetY: 0,
-        shake: 0,
-        shakeX: 0,
-        shakeY: 0,
-        tilt: 0,
-      };
-      const worldOffsetX = (cameraState.offsetX || 0) + (cameraState.shakeX || 0);
-      const worldOffsetY = (cameraState.offsetY || 0) + (cameraState.shakeY || 0);
-
-      // Fondo mejorado con gradientes dinámicos
-      const baseGradient = ctx.createLinearGradient(0, 0, 0, H);
-      baseGradient.addColorStop(0, "#0b1120");
-      baseGradient.addColorStop(0.45, "#070b16");
-      baseGradient.addColorStop(1, "#020617");
-      ctx.fillStyle = baseGradient;
+      // Fondo
+      const gradient = ctx.createRadialGradient(W / 2, H / 3, 0, W / 2, H / 3, Math.max(W, H));
+      gradient.addColorStop(0, "#0f1729");
+      gradient.addColorStop(0.5, "#0a0f1a");
+      gradient.addColorStop(1, "#060a10");
+      ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, W, H);
-
-      const radialGlow = ctx.createRadialGradient(
-        W / 2,
-        H / 2,
-        Math.min(W, H) * 0.15,
-        W / 2,
-        H / 2,
-        Math.max(W, H)
-      );
-      radialGlow.addColorStop(0, "rgba(8, 145, 178, 0.25)");
-      radialGlow.addColorStop(0.7, "rgba(15, 23, 42, 0.5)");
-      radialGlow.addColorStop(1, "rgba(2, 6, 23, 0.85)");
-      ctx.fillStyle = radialGlow;
-      ctx.fillRect(0, 0, W, H);
-
-      if (gameState.backgroundOrbs) {
-        ctx.save();
-        ctx.globalCompositeOperation = "screen";
-        for (const orb of gameState.backgroundOrbs) {
-          const pulse = Math.sin(gameState.time * 0.6 + orb.hue) * 0.3 + 0.7;
-          const px = orb.x + worldOffsetX * 0.2;
-          const py = orb.y + worldOffsetY * 0.2;
-          const orbGradient = ctx.createRadialGradient(px, py, 0, px, py, orb.radius);
-          orbGradient.addColorStop(0, `hsla(${orb.hue}, 80%, 60%, ${orb.alpha * pulse})`);
-          orbGradient.addColorStop(1, "hsla(0, 0%, 0%, 0)");
-          ctx.fillStyle = orbGradient;
-          ctx.fillRect(px - orb.radius, py - orb.radius, orb.radius * 2, orb.radius * 2);
-        }
-        ctx.restore();
-      }
-
-      ctx.save();
-      ctx.translate(W / 2, H / 2);
-      ctx.rotate(cameraState.tilt || 0);
-      ctx.translate(-W / 2, -H / 2);
-      ctx.translate(worldOffsetX, worldOffsetY);
-
-      const gridSpacing = 160;
-      const gridOffsetX = -((gameState.time * 20) % gridSpacing);
-      const gridOffsetY = -((gameState.time * 14) % gridSpacing);
-
-      ctx.save();
-      ctx.strokeStyle = "rgba(100, 116, 139, 0.08)";
-      ctx.lineWidth = 1;
-      for (let x = gridOffsetX - gridSpacing * 2; x <= W + gridSpacing * 2; x += gridSpacing) {
-        ctx.beginPath();
-        ctx.moveTo(x, -gridSpacing * 2);
-        ctx.lineTo(x, H + gridSpacing * 2);
-        ctx.stroke();
-      }
-      for (let y = gridOffsetY - gridSpacing * 2; y <= H + gridSpacing * 2; y += gridSpacing) {
-        ctx.beginPath();
-        ctx.moveTo(-gridSpacing * 2, y);
-        ctx.lineTo(W + gridSpacing * 2, y);
-        ctx.stroke();
-      }
-      ctx.restore();
-
-      ctx.save();
-      ctx.fillStyle = "rgba(148, 163, 184, 0.08)";
-      for (let x = gridOffsetX - gridSpacing * 2; x <= W + gridSpacing * 2; x += gridSpacing) {
-        for (let y = gridOffsetY - gridSpacing * 2; y <= H + gridSpacing * 2; y += gridSpacing) {
-          ctx.beginPath();
-          ctx.arc(x, y, 2, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
-      ctx.restore();
-
+      
       // Marcas de explosión en el suelo (quemadura)
       for (const mark of gameState.explosionMarks) {
         const alpha = mark.life / 3; // Fade out gradual
@@ -4990,17 +5097,14 @@ const Index = () => {
       }
       
       // Partículas
-      ctx.save();
-      ctx.globalCompositeOperation = "lighter";
       for (const p of gameState.particles) {
         ctx.fillStyle = p.color;
-        ctx.globalAlpha = Math.max(0, Math.min(1, p.life));
+        ctx.globalAlpha = p.life;
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         ctx.fill();
+        ctx.globalAlpha = 1;
       }
-      ctx.restore();
-      ctx.globalAlpha = 1;
       
       // Enemigos
       for (const e of gameState.enemies) {
@@ -5178,8 +5282,6 @@ const Index = () => {
       }
       
       // Balas
-      ctx.save();
-      ctx.globalCompositeOperation = "lighter";
       for (const b of gameState.bullets) {
         ctx.save();
         
@@ -5244,49 +5346,7 @@ const Index = () => {
         ctx.shadowBlur = 0;
         ctx.restore();
       }
-      ctx.restore();
       
-      // Estela cinética del jugador
-      if (gameState.playerTrail.length > 0) {
-        ctx.save();
-        ctx.globalCompositeOperation = "lighter";
-        for (const trail of gameState.playerTrail) {
-          const alpha = Math.max(0, trail.life / (trail.maxLife || 0.0001));
-          const scale = 1 + (1 - alpha) * 0.4;
-
-          ctx.save();
-          ctx.translate(trail.x, trail.y);
-          ctx.rotate((trail.angle ?? 0) + Math.sin(gameState.time * 3) * 0.05 * alpha);
-          ctx.globalAlpha = alpha * 0.6;
-          const tailLength = gameState.player.rad * 1.6 * scale;
-          const tailWidth = gameState.player.rad * 0.9 * scale;
-          ctx.fillStyle = `rgba(56, 189, 248, ${0.18 + alpha * 0.3})`;
-          ctx.beginPath();
-          ctx.moveTo(-tailLength, 0);
-          ctx.quadraticCurveTo(0, tailWidth, tailLength, 0);
-          ctx.quadraticCurveTo(0, -tailWidth, -tailLength, 0);
-          ctx.closePath();
-          ctx.fill();
-          ctx.restore();
-
-          const glowGradient = ctx.createRadialGradient(
-            trail.x,
-            trail.y,
-            0,
-            trail.x,
-            trail.y,
-            gameState.player.rad * 1.8 * scale
-          );
-          glowGradient.addColorStop(0, `rgba(14, 165, 233, ${0.25 * alpha})`);
-          glowGradient.addColorStop(1, "rgba(14, 165, 233, 0)");
-          ctx.fillStyle = glowGradient;
-          ctx.beginPath();
-          ctx.arc(trail.x, trail.y, gameState.player.rad * 1.8 * scale, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        ctx.restore();
-      }
-
       // Aura de fuego
       if (gameState.player.stats.auraRadius > 0) {
         ctx.strokeStyle = "rgba(248, 113, 113, 0.3)";
@@ -5296,82 +5356,30 @@ const Index = () => {
         ctx.stroke();
       }
       
-      // Jugador con energía reactiva
+      // Jugador con rage mode visual
       const blink = gameState.player.ifr > 0 && Math.floor(gameState.time * 12) % 2 === 0;
       const isRage = gameState.player.rageTimer > 0;
-      const targetEnemy = nearestEnemy();
-      const fallbackAngle = Math.atan2(gameState.player.vy, gameState.player.vx);
-      const facingAngle = targetEnemy
-        ? Math.atan2(targetEnemy.y - gameState.player.y, targetEnemy.x - gameState.player.x)
-        : fallbackAngle;
-      const movementGlow = Math.min(1, Math.hypot(gameState.player.vx, gameState.player.vy) / 8);
-
       ctx.save();
-      ctx.translate(gameState.player.x, gameState.player.y);
-      ctx.rotate(facingAngle + Math.sin(gameState.time * 5) * 0.03 * movementGlow);
-      if (blink) ctx.globalAlpha = 0.35;
-
-      const auraRadius = gameState.player.rad + 12 + movementGlow * 6;
-      const auraGradient = ctx.createRadialGradient(
-        0,
-        0,
-        gameState.player.rad * 0.6,
-        0,
-        0,
-        auraRadius
-      );
-      auraGradient.addColorStop(0, isRage ? "rgba(248, 113, 113, 0.4)" : "rgba(59, 130, 246, 0.35)");
-      auraGradient.addColorStop(1, "rgba(15, 23, 42, 0)");
-      ctx.fillStyle = auraGradient;
-      ctx.beginPath();
-      ctx.arc(0, 0, auraRadius, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.save();
-      ctx.globalAlpha = 0.85;
-      const bladeGradient = ctx.createLinearGradient(0, 0, gameState.player.rad * 1.8, 0);
+      if (blink) ctx.globalAlpha = 0.4;
+      
+      // Rage mode glow
       if (isRage) {
-        bladeGradient.addColorStop(0, "rgba(248, 113, 113, 0.15)");
-        bladeGradient.addColorStop(1, "rgba(239, 68, 68, 0.9)");
-      } else {
-        bladeGradient.addColorStop(0, "rgba(59, 130, 246, 0.2)");
-        bladeGradient.addColorStop(1, "rgba(56, 189, 248, 0.9)");
+        ctx.shadowColor = "#ef4444";
+        ctx.shadowBlur = 40;
+        ctx.strokeStyle = "#ef4444";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(gameState.player.x, gameState.player.y, gameState.player.rad + 10, 0, Math.PI * 2);
+        ctx.stroke();
       }
-      ctx.fillStyle = bladeGradient;
+      
+      ctx.fillStyle = isRage ? "#ef4444" : "#60a5fa";
+      ctx.shadowColor = isRage ? "#ef4444" : "#60a5fa";
+      ctx.shadowBlur = isRage ? 30 : 20;
       ctx.beginPath();
-      ctx.moveTo(gameState.player.rad * 1.8, 0);
-      ctx.lineTo(-gameState.player.rad * 0.8, gameState.player.rad * 0.7);
-      ctx.lineTo(-gameState.player.rad * 0.8, -gameState.player.rad * 0.7);
-      ctx.closePath();
+      ctx.arc(gameState.player.x, gameState.player.y, gameState.player.rad, 0, Math.PI * 2);
       ctx.fill();
-      ctx.restore();
-
-      const coreGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, gameState.player.rad);
-      coreGradient.addColorStop(0, isRage ? "#fee2e2" : "#f8fafc");
-      coreGradient.addColorStop(0.5, isRage ? "#f87171" : "#bae6fd");
-      coreGradient.addColorStop(1, isRage ? "#b91c1c" : "#0ea5e9");
-      ctx.fillStyle = coreGradient;
-      ctx.shadowColor = isRage ? "rgba(239, 68, 68, 0.85)" : "rgba(56, 189, 248, 0.85)";
-      ctx.shadowBlur = isRage ? 45 : 28;
-      ctx.beginPath();
-      ctx.arc(0, 0, gameState.player.rad, 0, Math.PI * 2);
-      ctx.fill();
-
       ctx.shadowBlur = 0;
-      ctx.strokeStyle = isRage ? "rgba(248, 113, 113, 0.9)" : "rgba(56, 189, 248, 0.9)";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(0, 0, gameState.player.rad + 4 + movementGlow * 2, 0, Math.PI * 2);
-      ctx.stroke();
-
-      ctx.save();
-      ctx.globalAlpha = 0.9;
-      ctx.fillStyle = isRage ? "rgba(254, 226, 226, 0.9)" : "rgba(226, 232, 240, 0.9)";
-      ctx.beginPath();
-      ctx.ellipse(gameState.player.rad * 0.55, 0, gameState.player.rad * 0.45, gameState.player.rad * 0.25, 0, -Math.PI / 3, Math.PI / 3);
-      ctx.fill();
-      ctx.restore();
-
       ctx.restore();
       
       // Restart hold indicator
@@ -5425,25 +5433,7 @@ const Index = () => {
         ctx.font = "bold 12px system-ui";
         ctx.fillText(`⚡ ${Math.ceil(gameState.player.rageTimer)}s`, gameState.player.x, indicatorY);
       }
-
-      ctx.restore();
-
-      ctx.save();
-      ctx.globalCompositeOperation = "multiply";
-      const vignette = ctx.createRadialGradient(
-        W / 2,
-        H / 2,
-        Math.min(W, H) * 0.45,
-        W / 2,
-        H / 2,
-        Math.max(W, H)
-      );
-      vignette.addColorStop(0, "rgba(0, 0, 0, 0)");
-      vignette.addColorStop(1, "rgba(2, 6, 23, 0.7)");
-      ctx.fillStyle = vignette;
-      ctx.fillRect(0, 0, W, H);
-      ctx.restore();
-
+      
       drawHUD();
       drawUpgradeUI();
       
@@ -5468,11 +5458,52 @@ const Index = () => {
       // GAME OVER SCREEN
       if (gameState.state === 'gameover') {
         ctx.save();
-        ctx.fillStyle = "rgba(0, 0, 0, 0.9)";
+        
+        // Fade in del overlay (primeros 2 segundos)
+        const fadeAlpha = Math.min(0.9, gameState.gameOverAnimationTimer / 2);
+        ctx.fillStyle = `rgba(0, 0, 0, ${fadeAlpha})`;
         ctx.fillRect(0, 0, W, H);
         
+        // Mostrar mensaje dramático los primeros 3 segundos
+        if (gameState.gameOverAnimationTimer < 3) {
+          const messageAlpha = Math.min(1, gameState.gameOverAnimationTimer / 1);
+          const pulse = Math.sin(gameState.time * 3) * 0.2 + 0.8;
+          
+          ctx.globalAlpha = messageAlpha;
+          ctx.fillStyle = "#ef4444";
+          ctx.font = "bold 48px system-ui";
+          ctx.textAlign = "center";
+          ctx.shadowColor = "#ef4444";
+          ctx.shadowBlur = 30 * pulse;
+          ctx.fillText("Has caído en la horda...", W / 2, H / 2 - 80);
+          ctx.shadowBlur = 0;
+          
+          // Mostrar tiempo sobrevivido después de 1.5s
+          if (gameState.gameOverAnimationTimer > 1.5) {
+            const timeAlpha = Math.min(1, (gameState.gameOverAnimationTimer - 1.5) / 1);
+            ctx.globalAlpha = timeAlpha;
+            const time = Math.floor(gameState.time);
+            const mm = String(Math.floor(time / 60)).padStart(2, '0');
+            const ss = String(time % 60).padStart(2, '0');
+            ctx.fillStyle = "#fbbf24";
+            ctx.font = "bold 56px system-ui";
+            ctx.shadowColor = "#fbbf24";
+            ctx.shadowBlur = 20 * pulse;
+            ctx.fillText(`Tiempo sobrevivido: ${mm}:${ss}`, W / 2, H / 2 + 20);
+            ctx.shadowBlur = 0;
+          }
+          
+          ctx.globalAlpha = 1;
+          ctx.restore();
+          return; // No mostrar el panel hasta después de 3 segundos
+        }
+        
+        // Panel de resultados (aparece después de 3 segundos)
+        const panelAlpha = Math.min(1, (gameState.gameOverAnimationTimer - 3) / 1);
+        ctx.globalAlpha = panelAlpha;
+        
         const menuW = 700;
-        const menuH = 650;
+        const menuH = 700;
         const menuX = W / 2 - menuW / 2;
         const menuY = H / 2 - menuH / 2;
         
@@ -5587,6 +5618,11 @@ const Index = () => {
         ctx.textAlign = "center";
         ctx.fillText("🔄 " + t.playAgain, btnX + btnW / 2, btnY + btnH / 2 + 12);
         
+        // Hint de teclas
+        ctx.fillStyle = "rgba(156, 163, 175, 0.8)";
+        ctx.font = "18px system-ui";
+        ctx.fillText("Presiona R o Enter para reiniciar", W / 2, menuY + menuH - 25);
+        
         ctx.restore();
       }
       
@@ -5596,8 +5632,194 @@ const Index = () => {
         ctx.fillStyle = "rgba(0, 0, 0, 0.85)";
         ctx.fillRect(0, 0, W, H);
         
-        // Si se muestra el panel de audio settings
-        if (gameState.showAudioSettings) {
+        // Si se muestra la Wiki
+        if (gameState.showWiki) {
+          // PANEL DE WIKI
+          const wikiW = 700;
+          const wikiH = 600;
+          const wikiX = W / 2 - wikiW / 2;
+          const wikiY = H / 2 - wikiH / 2;
+          
+          // Background
+          const wikiBg = ctx.createLinearGradient(wikiX, wikiY, wikiX, wikiY + wikiH);
+          wikiBg.addColorStop(0, "rgba(15, 20, 30, 0.98)");
+          wikiBg.addColorStop(1, "rgba(25, 30, 40, 0.98)");
+          ctx.fillStyle = wikiBg;
+          ctx.fillRect(wikiX, wikiY, wikiW, wikiH);
+          
+          // Border
+          ctx.strokeStyle = "#a855f7";
+          ctx.lineWidth = 3;
+          ctx.shadowColor = "#a855f7";
+          ctx.shadowBlur = 20;
+          ctx.strokeRect(wikiX, wikiY, wikiW, wikiH);
+          ctx.shadowBlur = 0;
+          
+          // Title
+          ctx.fillStyle = "#a855f7";
+          ctx.font = "bold 42px system-ui";
+          ctx.textAlign = "center";
+          ctx.shadowColor = "#a855f7";
+          ctx.shadowBlur = 15;
+          ctx.fillText("📚 Wiki del Juego", wikiX + wikiW / 2, wikiY + 50);
+          ctx.shadowBlur = 0;
+          
+          let contentY = wikiY + 95;
+          const leftMargin = wikiX + 35;
+          
+          // Sección 1: Pickups (Objetos que se dropean)
+          ctx.fillStyle = "#fbbf24";
+          ctx.font = "bold 24px system-ui";
+          ctx.textAlign = "left";
+          ctx.shadowColor = "#fbbf24";
+          ctx.shadowBlur = 8;
+          ctx.fillText("💎 Pickups", leftMargin, contentY);
+          ctx.shadowBlur = 0;
+          contentY += 30;
+          
+          ctx.font = "16px system-ui";
+          const pickups = [
+            { icon: "💎", color: "#3b82f6", name: "Gema de XP", desc: "Sube tu nivel" },
+            { icon: "❤️", color: "#ef4444", name: "Corazón", desc: "+20 HP de curación" },
+            { icon: "⭐", color: "#fbbf24", name: "Powerup", desc: "Mejora temporal (escudo, magneto, etc.)" },
+          ];
+          
+          for (const pickup of pickups) {
+            ctx.fillStyle = pickup.color;
+            ctx.fillText(pickup.icon, leftMargin + 10, contentY);
+            ctx.fillStyle = "#fff";
+            ctx.font = "bold 16px system-ui";
+            ctx.fillText(pickup.name, leftMargin + 40, contentY);
+            ctx.fillStyle = "#9ca3af";
+            ctx.font = "15px system-ui";
+            ctx.fillText(`— ${pickup.desc}`, leftMargin + 200, contentY);
+            contentY += 26;
+          }
+          
+          contentY += 15;
+          
+          // Sección 2: Sistema de Mejoras
+          ctx.fillStyle = "#fbbf24";
+          ctx.font = "bold 24px system-ui";
+          ctx.shadowColor = "#fbbf24";
+          ctx.shadowBlur = 8;
+          ctx.fillText("⚡ Sistema de Mejoras", leftMargin, contentY);
+          ctx.shadowBlur = 0;
+          contentY += 30;
+          
+          ctx.font = "15px system-ui";
+          ctx.fillStyle = "#d1d5db";
+          ctx.fillText("Al subir de nivel, elige entre 3 tipos de mejoras:", leftMargin + 10, contentY);
+          contentY += 28;
+          
+          const upgradeTypes = [
+            { icon: "🔫", color: "#f87171", name: "ARMAS", desc: "Pistola, Escopeta, SMG, Láser, etc." },
+            { icon: "📖", color: "#a855f7", name: "TOMOS", desc: "Poder, Velocidad, Rebote, Multi-shot" },
+            { icon: "🎒", color: "#fbbf24", name: "ÍTEMS", desc: "Pasivos permanentes y únicos" },
+          ];
+          
+          for (const type of upgradeTypes) {
+            ctx.fillStyle = type.color;
+            ctx.font = "bold 16px system-ui";
+            ctx.fillText(`${type.icon} ${type.name}:`, leftMargin + 20, contentY);
+            ctx.fillStyle = "#9ca3af";
+            ctx.font = "14px system-ui";
+            ctx.fillText(type.desc, leftMargin + 170, contentY);
+            contentY += 24;
+          }
+          
+          contentY += 20;
+          
+          // Sección 3: Tipos de enemigos
+          ctx.fillStyle = "#fbbf24";
+          ctx.font = "bold 24px system-ui";
+          ctx.shadowColor = "#fbbf24";
+          ctx.shadowBlur = 8;
+          ctx.fillText("👾 Tipos de Enemigos", leftMargin, contentY);
+          ctx.shadowBlur = 0;
+          contentY += 30;
+          
+          ctx.font = "15px system-ui";
+          const enemies = [
+            { icon: "🟢", color: "#22c55e", name: "Normal", desc: "Común, equilibrado" },
+            { icon: "🟣", color: "#a855f7", name: "Rápido", desc: "Muy veloz, bajo HP" },
+            { icon: "🟡", color: "#fbbf24", name: "Tank", desc: "Alto HP, lento, resistente" },
+            { icon: "🔴", color: "#ef4444", name: "Bomber", desc: "Explota al morir" },
+            { icon: "🔵", color: "#3b82f6", name: "Mini-Boss", desc: "Aparece cada 5 waves" },
+            { icon: "💀", color: "#9333ea", name: "BOSS", desc: "Cada 5 waves, muy peligroso" },
+          ];
+          
+          for (const enemy of enemies) {
+            ctx.fillStyle = enemy.color;
+            ctx.font = "bold 15px system-ui";
+            ctx.fillText(`${enemy.icon} ${enemy.name}`, leftMargin + 15, contentY);
+            ctx.fillStyle = "#9ca3af";
+            ctx.font = "14px system-ui";
+            ctx.fillText(`— ${enemy.desc}`, leftMargin + 180, contentY);
+            contentY += 24;
+          }
+          
+          contentY += 20;
+          
+          // Sección 4: Créditos
+          ctx.save();
+          // Fondo especial para créditos con gradiente mejorado
+          const creditsBg = ctx.createLinearGradient(wikiX, contentY - 15, wikiX, contentY + 75);
+          creditsBg.addColorStop(0, "rgba(168, 85, 247, 0.15)");
+          creditsBg.addColorStop(0.5, "rgba(251, 191, 36, 0.1)");
+          creditsBg.addColorStop(1, "rgba(0, 0, 0, 0.5)");
+          ctx.fillStyle = creditsBg;
+          ctx.fillRect(wikiX + 25, contentY - 15, wikiW - 50, 80);
+          
+          // Borde del panel de créditos
+          ctx.strokeStyle = "rgba(168, 85, 247, 0.4)";
+          ctx.lineWidth = 2;
+          ctx.strokeRect(wikiX + 25, contentY - 15, wikiW - 50, 80);
+          ctx.restore();
+          
+          ctx.fillStyle = "#fbbf24";
+          ctx.font = "bold 20px system-ui";
+          ctx.textAlign = "center";
+          ctx.shadowColor = "#fbbf24";
+          ctx.shadowBlur = 8;
+          ctx.fillText("⚡ Desarrollado por", wikiX + wikiW / 2, contentY + 12);
+          ctx.shadowBlur = 0;
+          
+          ctx.fillStyle = "#fff";
+          ctx.font = "bold 36px system-ui";
+          ctx.shadowColor = "#a855f7";
+          ctx.shadowBlur = 20;
+          ctx.fillText("Vela Digital", wikiX + wikiW / 2, contentY + 50);
+          ctx.shadowBlur = 0;
+          
+          // Back button mejorado
+          const backBtnW = 300;
+          const backBtnH = 65;
+          const backBtnX = wikiX + wikiW / 2 - backBtnW / 2;
+          const backBtnY = wikiY + wikiH - 85;
+          
+          const backGradient = ctx.createLinearGradient(backBtnX, backBtnY, backBtnX, backBtnY + backBtnH);
+          backGradient.addColorStop(0, "#7c3aed");
+          backGradient.addColorStop(1, "#5b21b6");
+          ctx.fillStyle = backGradient;
+          ctx.beginPath();
+          ctx.roundRect(backBtnX, backBtnY, backBtnW, backBtnH, 14);
+          ctx.fill();
+          
+          // Borde con glow
+          ctx.strokeStyle = "#fff";
+          ctx.lineWidth = 3;
+          ctx.shadowColor = "#a855f7";
+          ctx.shadowBlur = 20;
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+          
+          ctx.fillStyle = "#fff";
+          ctx.font = "bold 26px system-ui";
+          ctx.textAlign = "center";
+          ctx.fillText("← Volver", backBtnX + backBtnW / 2, backBtnY + backBtnH / 2 + 10);
+          
+        } else if (gameState.showAudioSettings) {
           // PANEL DE AUDIO SETTINGS
           const audioW = 600;
           const audioH = 450;
@@ -5692,79 +5914,142 @@ const Index = () => {
           const toggleX1 = centerX - toggleBtnW - toggleGap / 2;
           const toggleX2 = centerX + toggleGap / 2;
           
-          // Music button
+          // Music button - mejorado
           const musicGradient = ctx.createLinearGradient(toggleX1, audioContentY, toggleX1, audioContentY + toggleBtnH);
           if (gameState.musicMuted) {
             musicGradient.addColorStop(0, "#dc2626");
+            musicGradient.addColorStop(0.5, "#b91c1c");
             musicGradient.addColorStop(1, "#991b1b");
           } else {
             musicGradient.addColorStop(0, "#10b981");
-            musicGradient.addColorStop(1, "#059669");
+            musicGradient.addColorStop(0.5, "#059669");
+            musicGradient.addColorStop(1, "#047857");
           }
           ctx.fillStyle = musicGradient;
+          
+          ctx.shadowColor = gameState.musicMuted ? "#dc2626" : "#10b981";
+          ctx.shadowBlur = 25;
           ctx.beginPath();
           ctx.roundRect(toggleX1, audioContentY, toggleBtnW, toggleBtnH, 12);
           ctx.fill();
-          ctx.strokeStyle = "#fff";
-          ctx.lineWidth = 3;
-          ctx.shadowColor = gameState.musicMuted ? "#dc2626" : "#10b981";
-          ctx.shadowBlur = 15;
+          
+          ctx.strokeStyle = gameState.musicMuted ? "#f87171" : "#34d399";
+          ctx.lineWidth = 2;
+          ctx.shadowBlur = 20;
           ctx.stroke();
           ctx.shadowBlur = 0;
+          
+          // Highlight
+          ctx.save();
+          ctx.globalAlpha = 0.3;
+          const musicHighlight = ctx.createLinearGradient(toggleX1, audioContentY, toggleX1, audioContentY + toggleBtnH / 3);
+          musicHighlight.addColorStop(0, "rgba(255, 255, 255, 0.7)");
+          musicHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
+          ctx.fillStyle = musicHighlight;
+          ctx.beginPath();
+          ctx.roundRect(toggleX1 + 3, audioContentY + 3, toggleBtnW - 6, toggleBtnH / 3, 9);
+          ctx.fill();
+          ctx.restore();
+          
           ctx.fillStyle = "#fff";
           ctx.font = "bold 22px system-ui";
           ctx.textAlign = "center";
+          ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+          ctx.shadowBlur = 4;
           ctx.fillText(gameState.musicMuted ? "🔇 Música" : "🎵 Música", toggleX1 + toggleBtnW / 2, audioContentY + toggleBtnH / 2 + 8);
+          ctx.shadowBlur = 0;
           
-          // SFX button
+          // SFX button - mejorado
           const sfxGradient = ctx.createLinearGradient(toggleX2, audioContentY, toggleX2, audioContentY + toggleBtnH);
           if (gameState.sfxMuted) {
             sfxGradient.addColorStop(0, "#dc2626");
+            sfxGradient.addColorStop(0.5, "#b91c1c");
             sfxGradient.addColorStop(1, "#991b1b");
           } else {
             sfxGradient.addColorStop(0, "#10b981");
-            sfxGradient.addColorStop(1, "#059669");
+            sfxGradient.addColorStop(0.5, "#059669");
+            sfxGradient.addColorStop(1, "#047857");
           }
           ctx.fillStyle = sfxGradient;
+          
+          ctx.shadowColor = gameState.sfxMuted ? "#dc2626" : "#10b981";
+          ctx.shadowBlur = 25;
           ctx.beginPath();
           ctx.roundRect(toggleX2, audioContentY, toggleBtnW, toggleBtnH, 12);
           ctx.fill();
-          ctx.strokeStyle = "#fff";
-          ctx.lineWidth = 3;
-          ctx.shadowColor = gameState.sfxMuted ? "#dc2626" : "#10b981";
-          ctx.shadowBlur = 15;
+          
+          ctx.strokeStyle = gameState.sfxMuted ? "#f87171" : "#34d399";
+          ctx.lineWidth = 2;
+          ctx.shadowBlur = 20;
           ctx.stroke();
           ctx.shadowBlur = 0;
-          ctx.fillStyle = "#fff";
-          ctx.fillText(gameState.sfxMuted ? "🔇 SFX" : "🔊 SFX", toggleX2 + toggleBtnW / 2, audioContentY + toggleBtnH / 2 + 8);
           
-          // Back button
-          const backBtnW = 280;
-          const backBtnH = 60;
+          // Highlight
+          ctx.save();
+          ctx.globalAlpha = 0.3;
+          const sfxHighlight = ctx.createLinearGradient(toggleX2, audioContentY, toggleX2, audioContentY + toggleBtnH / 3);
+          sfxHighlight.addColorStop(0, "rgba(255, 255, 255, 0.7)");
+          sfxHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
+          ctx.fillStyle = sfxHighlight;
+          ctx.beginPath();
+          ctx.roundRect(toggleX2 + 3, audioContentY + 3, toggleBtnW - 6, toggleBtnH / 3, 9);
+          ctx.fill();
+          ctx.restore();
+          
+          ctx.fillStyle = "#fff";
+          ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+          ctx.shadowBlur = 4;
+          ctx.fillText(gameState.sfxMuted ? "🔇 SFX" : "🔊 SFX", toggleX2 + toggleBtnW / 2, audioContentY + toggleBtnH / 2 + 8);
+          ctx.shadowBlur = 0;
+          
+          // Back button - mejorado
+          const backBtnW = 300;
+          const backBtnH = 65;
           const backBtnX = centerX - backBtnW / 2;
-          const backBtnY = audioY + audioH - 90;
+          const backBtnY = audioY + audioH - 95;
           
           const backGradient = ctx.createLinearGradient(backBtnX, backBtnY, backBtnX, backBtnY + backBtnH);
-          backGradient.addColorStop(0, "#6b7280");
-          backGradient.addColorStop(1, "#4b5563");
+          backGradient.addColorStop(0, "#7c3aed");
+          backGradient.addColorStop(0.5, "#6d28d9");
+          backGradient.addColorStop(1, "#5b21b6");
           ctx.fillStyle = backGradient;
+          
+          ctx.shadowColor = "#a855f7";
+          ctx.shadowBlur = 30;
           ctx.beginPath();
-          ctx.roundRect(backBtnX, backBtnY, backBtnW, backBtnH, 12);
+          ctx.roundRect(backBtnX, backBtnY, backBtnW, backBtnH, 14);
           ctx.fill();
-          ctx.strokeStyle = "#fff";
-          ctx.lineWidth = 3;
-          ctx.shadowColor = "#6b7280";
-          ctx.shadowBlur = 15;
+          
+          ctx.strokeStyle = "#c084fc";
+          ctx.lineWidth = 2;
+          ctx.shadowBlur = 20;
           ctx.stroke();
           ctx.shadowBlur = 0;
+          
+          // Highlight
+          ctx.save();
+          ctx.globalAlpha = 0.3;
+          const backHighlight = ctx.createLinearGradient(backBtnX, backBtnY, backBtnX, backBtnY + backBtnH / 3);
+          backHighlight.addColorStop(0, "rgba(255, 255, 255, 0.7)");
+          backHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
+          ctx.fillStyle = backHighlight;
+          ctx.beginPath();
+          ctx.roundRect(backBtnX + 3, backBtnY + 3, backBtnW - 6, backBtnH / 3, 11);
+          ctx.fill();
+          ctx.restore();
+          
           ctx.fillStyle = "#fff";
-          ctx.font = "bold 24px system-ui";
-          ctx.fillText("← Volver", backBtnX + backBtnW / 2, backBtnY + backBtnH / 2 + 9);
+          ctx.font = "bold 26px system-ui";
+          ctx.textAlign = "center";
+          ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+          ctx.shadowBlur = 4;
+          ctx.fillText("← Volver", backBtnX + backBtnW / 2, backBtnY + backBtnH / 2 + 10);
+          ctx.shadowBlur = 0;
           
         } else {
-          // MENU PRINCIPAL DE PAUSA
-          const menuW = 650;
-          const menuH = 700;
+          // MENU PRINCIPAL DE PAUSA CON 3 TABS
+          const menuW = 700;
+          const menuH = 720;
           const menuX = W / 2 - menuW / 2;
           const menuY = H / 2 - menuH / 2;
           
@@ -5792,206 +6077,811 @@ const Index = () => {
           ctx.fillText(t.paused, W / 2, menuY + 60);
           ctx.shadowBlur = 0;
           
-          let contentY = menuY + 120;
-          const leftCol = menuX + 50;
-          const rightCol = menuX + menuW / 2 + 30;
           const centerX = menuX + menuW / 2;
           
-          // Separador helper
-          const drawSeparator = (y: number) => {
-            ctx.strokeStyle = "rgba(251, 191, 36, 0.2)";
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(menuX + 40, y);
-            ctx.lineTo(menuX + menuW - 40, y);
+          // === TAB SELECTOR (3 TABS) ===
+          const tabBtnW = 130;
+          const tabBtnH = 45;
+          const tabGap = 12;
+          const totalTabWidth = tabBtnW * 3 + tabGap * 2;
+          const settingsTabX = centerX - totalTabWidth / 2;
+          const wikiTabX = settingsTabX + tabBtnW + tabGap;
+          const creditsTabX = wikiTabX + tabBtnW + tabGap;
+          const tabY = menuY + 85;
+          
+          // Settings Tab
+          const settingsTabGradient = ctx.createLinearGradient(settingsTabX, tabY, settingsTabX, tabY + tabBtnH);
+          if (gameState.pauseMenuTab === "settings") {
+            settingsTabGradient.addColorStop(0, "#fbbf24");
+            settingsTabGradient.addColorStop(0.5, "#f59e0b");
+            settingsTabGradient.addColorStop(1, "#d97706");
+          } else {
+            settingsTabGradient.addColorStop(0, "#4b5563");
+            settingsTabGradient.addColorStop(0.5, "#374151");
+            settingsTabGradient.addColorStop(1, "#1f2937");
+          }
+          ctx.fillStyle = settingsTabGradient;
+          
+          if (gameState.pauseMenuTab === "settings") {
+            ctx.shadowColor = "#fbbf24";
+            ctx.shadowBlur = 20;
+          }
+          
+          ctx.beginPath();
+          ctx.roundRect(settingsTabX, tabY, tabBtnW, tabBtnH, 10);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          
+          if (gameState.pauseMenuTab === "settings") {
+            ctx.strokeStyle = "#fde047";
+            ctx.lineWidth = 2;
+            ctx.shadowColor = "#fbbf24";
+            ctx.shadowBlur = 15;
             ctx.stroke();
-          };
+            ctx.shadowBlur = 0;
+            
+            ctx.save();
+            ctx.globalAlpha = 0.3;
+            const settingsHighlight = ctx.createLinearGradient(settingsTabX, tabY, settingsTabX, tabY + tabBtnH / 3);
+            settingsHighlight.addColorStop(0, "rgba(255, 255, 255, 0.7)");
+            settingsHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
+            ctx.fillStyle = settingsHighlight;
+            ctx.beginPath();
+            ctx.roundRect(settingsTabX + 2, tabY + 2, tabBtnW - 4, tabBtnH / 3, 8);
+            ctx.fill();
+            ctx.restore();
+          } else {
+            ctx.strokeStyle = "#6b7280";
+            ctx.lineWidth = 1;
+            ctx.stroke();
+          }
           
-          // === ESTADÍSTICAS ===
-          ctx.fillStyle = "#fbbf24";
-          ctx.font = "bold 22px system-ui";
-          ctx.textAlign = "left";
-          ctx.fillText("📊 Estadísticas", leftCol, contentY);
-          contentY += 10;
-          drawSeparator(contentY);
-          contentY += 25;
-          
-          ctx.font = "17px system-ui";
-          ctx.fillStyle = "#d1d5db";
-          ctx.fillText(`${t.level}: ${gameState.level}`, leftCol, contentY);
-          ctx.fillText(`Score: ${gameState.score}`, rightCol, contentY);
-          contentY += 26;
-          ctx.fillText(`${t.wave}: ${gameState.wave}`, leftCol, contentY);
-          const time = Math.floor(gameState.time);
-          const mm = String(Math.floor(time / 60)).padStart(2, '0');
-          const ss = String(time % 60).padStart(2, '0');
-          ctx.fillText(`Tiempo: ${mm}:${ss}`, rightCol, contentY);
-          contentY += 26;
-          
-          // HP Bar compacta
-          ctx.fillText(`HP:`, leftCol, contentY);
-          const hpBarX = leftCol + 45;
-          const hpBarW = 180;
-          const hpBarH = 20;
-          const hpPercent = Math.max(0, Math.min(1, (Number(gameState.player.hp) || 0) / (Number(gameState.player.maxhp) || 1)));
-          ctx.fillStyle = "rgba(50, 50, 50, 0.8)";
-          ctx.fillRect(hpBarX, contentY - 14, hpBarW, hpBarH);
-          const hpGradient = ctx.createLinearGradient(hpBarX, 0, hpBarX + hpBarW * hpPercent, 0);
-          hpGradient.addColorStop(0, "#ef4444");
-          hpGradient.addColorStop(1, "#f87171");
-          ctx.fillStyle = hpGradient;
-          ctx.fillRect(hpBarX, contentY - 14, hpBarW * hpPercent, hpBarH);
           ctx.fillStyle = "#fff";
-          ctx.font = "bold 13px system-ui";
+          ctx.font = gameState.pauseMenuTab === "settings" ? "bold 16px system-ui" : "15px system-ui";
           ctx.textAlign = "center";
-          ctx.fillText(`${gameState.player.hp}/${gameState.player.maxhp}`, hpBarX + hpBarW / 2, contentY);
-          contentY += 35;
+          ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+          ctx.shadowBlur = 3;
+          ctx.fillText("⚙️ Settings", settingsTabX + tabBtnW / 2, tabY + tabBtnH / 2 + 6);
+          ctx.shadowBlur = 0;
           
-          // === COMBATE ===
-          ctx.fillStyle = "#fbbf24";
-          ctx.font = "bold 22px system-ui";
-          ctx.textAlign = "left";
-          ctx.fillText("⚔️ Combate", leftCol, contentY);
-          contentY += 10;
-          drawSeparator(contentY);
-          contentY += 25;
-          
-          ctx.font = "16px system-ui";
-          const dmgMult = ((gameState.player.stats.damageMultiplier - 1) * 100).toFixed(0);
-          const spdMult = ((gameState.player.stats.speedMultiplier - 1) * 100).toFixed(0);
-          const rangeMult = ((gameState.player.stats.rangeMultiplier - 1) * 100).toFixed(0);
-          const fireMult = ((gameState.player.stats.fireRateMultiplier - 1) * 100).toFixed(0);
-          
-          ctx.fillStyle = "#f87171";
-          ctx.fillText(`💥 Daño: +${dmgMult}%`, leftCol, contentY);
-          ctx.fillStyle = "#22c55e";
-          ctx.fillText(`⚡ Velocidad: +${spdMult}%`, rightCol, contentY);
-          contentY += 26;
-          ctx.fillStyle = "#3b82f6";
-          ctx.fillText(`🎯 Alcance: +${rangeMult}%`, leftCol, contentY);
-          ctx.fillStyle = "#fbbf24";
-          ctx.fillText(`🔫 Cadencia: +${fireMult}%`, rightCol, contentY);
-          contentY += 26;
-          
-          // Stats especiales compactos
-          if (gameState.player.stats.bounces > 0) {
-            ctx.fillStyle = "#a855f7";
-            ctx.fillText(`🔄 Rebotes: ${gameState.player.stats.bounces}`, leftCol, contentY);
-            contentY += 26;
+          // Wiki Tab
+          const wikiTabGradient = ctx.createLinearGradient(wikiTabX, tabY, wikiTabX, tabY + tabBtnH);
+          if (gameState.pauseMenuTab === "wiki") {
+            wikiTabGradient.addColorStop(0, "#3b82f6");
+            wikiTabGradient.addColorStop(0.5, "#2563eb");
+            wikiTabGradient.addColorStop(1, "#1e40af");
+          } else {
+            wikiTabGradient.addColorStop(0, "#4b5563");
+            wikiTabGradient.addColorStop(0.5, "#374151");
+            wikiTabGradient.addColorStop(1, "#1f2937");
           }
-          if (gameState.player.stats.multishot > 0) {
-            ctx.fillStyle = "#06b6d4";
-            ctx.fillText(`📌 Proyectiles: +${gameState.player.stats.multishot}`, leftCol, contentY);
-            contentY += 26;
+          ctx.fillStyle = wikiTabGradient;
+          
+          if (gameState.pauseMenuTab === "wiki") {
+            ctx.shadowColor = "#3b82f6";
+            ctx.shadowBlur = 20;
           }
-          if (gameState.player.stats.vampire > 0) {
-            ctx.fillStyle = "#ec4899";
-            ctx.fillText(`🩸 Vampirismo: ${(gameState.player.stats.vampire * 100).toFixed(0)}%`, leftCol, contentY);
-            contentY += 26;
+          
+          ctx.beginPath();
+          ctx.roundRect(wikiTabX, tabY, tabBtnW, tabBtnH, 10);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          
+          if (gameState.pauseMenuTab === "wiki") {
+            ctx.strokeStyle = "#60a5fa";
+            ctx.lineWidth = 2;
+            ctx.shadowColor = "#3b82f6";
+            ctx.shadowBlur = 15;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            
+            ctx.save();
+            ctx.globalAlpha = 0.3;
+            const wikiHighlight = ctx.createLinearGradient(wikiTabX, tabY, wikiTabX, tabY + tabBtnH / 3);
+            wikiHighlight.addColorStop(0, "rgba(255, 255, 255, 0.7)");
+            wikiHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
+            ctx.fillStyle = wikiHighlight;
+            ctx.beginPath();
+            ctx.roundRect(wikiTabX + 2, tabY + 2, tabBtnW - 4, tabBtnH / 3, 8);
+            ctx.fill();
+            ctx.restore();
+          } else {
+            ctx.strokeStyle = "#6b7280";
+            ctx.lineWidth = 1;
+            ctx.stroke();
           }
-          contentY += 10;
           
-          // === INVENTARIO ===
-          ctx.fillStyle = "#fbbf24";
-          ctx.font = "bold 22px system-ui";
-          ctx.fillText("🎒 Inventario", leftCol, contentY);
-          contentY += 10;
-          drawSeparator(contentY);
-          contentY += 25;
+          ctx.fillStyle = "#fff";
+          ctx.font = gameState.pauseMenuTab === "wiki" ? "bold 16px system-ui" : "15px system-ui";
+          ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+          ctx.shadowBlur = 3;
+          ctx.fillText("📚 Wiki", wikiTabX + tabBtnW / 2, tabY + tabBtnH / 2 + 6);
+          ctx.shadowBlur = 0;
           
-          ctx.font = "15px system-ui";
-          ctx.fillStyle = "#9ca3af";
-          ctx.fillText(`${t.weapons}: ${gameState.player.weapons.length}/3`, leftCol, contentY);
-          ctx.fillText(`${t.tomes}: ${gameState.player.tomes.length}/3`, rightCol, contentY);
-          contentY += 22;
+          // Credits Tab
+          const creditsTabGradient = ctx.createLinearGradient(creditsTabX, tabY, creditsTabX, tabY + tabBtnH);
+          if (gameState.pauseMenuTab === "credits") {
+            creditsTabGradient.addColorStop(0, "#a855f7");
+            creditsTabGradient.addColorStop(0.5, "#9333ea");
+            creditsTabGradient.addColorStop(1, "#7e22ce");
+          } else {
+            creditsTabGradient.addColorStop(0, "#4b5563");
+            creditsTabGradient.addColorStop(0.5, "#374151");
+            creditsTabGradient.addColorStop(1, "#1f2937");
+          }
+          ctx.fillStyle = creditsTabGradient;
           
-          // Items en paralelo
-          const maxItems = Math.max(gameState.player.weapons.length, gameState.player.tomes.length, 1);
-          for (let i = 0; i < maxItems; i++) {
-            if (i < gameState.player.weapons.length) {
-              const w = gameState.player.weapons[i];
-              ctx.fillStyle = w.color;
-              ctx.fillText(`• ${w.name} (Lv.${w.level})`, leftCol + 10, contentY);
+          if (gameState.pauseMenuTab === "credits") {
+            ctx.shadowColor = "#a855f7";
+            ctx.shadowBlur = 20;
+          }
+          
+          ctx.beginPath();
+          ctx.roundRect(creditsTabX, tabY, tabBtnW, tabBtnH, 10);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          
+          if (gameState.pauseMenuTab === "credits") {
+            ctx.strokeStyle = "#c084fc";
+            ctx.lineWidth = 2;
+            ctx.shadowColor = "#a855f7";
+            ctx.shadowBlur = 15;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            
+            ctx.save();
+            ctx.globalAlpha = 0.3;
+            const creditsHighlight = ctx.createLinearGradient(creditsTabX, tabY, creditsTabX, tabY + tabBtnH / 3);
+            creditsHighlight.addColorStop(0, "rgba(255, 255, 255, 0.7)");
+            creditsHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
+            ctx.fillStyle = creditsHighlight;
+            ctx.beginPath();
+            ctx.roundRect(creditsTabX + 2, tabY + 2, tabBtnW - 4, tabBtnH / 3, 8);
+            ctx.fill();
+            ctx.restore();
+          } else {
+            ctx.strokeStyle = "#6b7280";
+            ctx.lineWidth = 1;
+            ctx.stroke();
+          }
+          
+          ctx.fillStyle = "#fff";
+          ctx.font = gameState.pauseMenuTab === "credits" ? "bold 16px system-ui" : "15px system-ui";
+          ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+          ctx.shadowBlur = 3;
+          ctx.fillText("⚡ Créditos", creditsTabX + tabBtnW / 2, tabY + tabBtnH / 2 + 6);
+          ctx.shadowBlur = 0;
+          
+          // === CONTENIDO SEGÚN TAB ===
+          if (gameState.pauseMenuTab === "wiki") {
+            // === TAB DE WIKI ===
+            let contentY = menuY + 155;
+            const leftMargin = menuX + 35;
+            
+            // Pickups
+            ctx.fillStyle = "#3b82f6";
+            ctx.font = "bold 24px system-ui";
+            ctx.textAlign = "left";
+            ctx.shadowColor = "#3b82f6";
+            ctx.shadowBlur = 8;
+            ctx.fillText("💎 Pickups", leftMargin, contentY);
+            ctx.shadowBlur = 0;
+            contentY += 30;
+            
+            ctx.font = "16px system-ui";
+            const pickups = [
+              { icon: "💎", color: "#3b82f6", name: "Gema de XP", desc: "Sube tu nivel" },
+              { icon: "❤️", color: "#ef4444", name: "Corazón", desc: "+20 HP de curación" },
+              { icon: "⭐", color: "#fbbf24", name: "Powerup", desc: "Mejora temporal" },
+            ];
+            
+            for (const pickup of pickups) {
+              ctx.fillStyle = pickup.color;
+              ctx.fillText(pickup.icon, leftMargin + 10, contentY);
+              ctx.fillStyle = "#fff";
+              ctx.font = "bold 16px system-ui";
+              ctx.fillText(pickup.name, leftMargin + 40, contentY);
+              ctx.fillStyle = "#9ca3af";
+              ctx.font = "15px system-ui";
+              ctx.fillText(`— ${pickup.desc}`, leftMargin + 200, contentY);
+              contentY += 26;
             }
-            if (i < gameState.player.tomes.length) {
-              const tome = gameState.player.tomes[i];
-              ctx.fillStyle = tome.color;
-              ctx.fillText(`• ${tome.name} (Lv.${tome.level})`, rightCol + 10, contentY);
+            
+            contentY += 15;
+            
+            // Tipos de enemigos (VERSIÓN ORIGINAL)
+            ctx.fillStyle = "#fbbf24";
+            ctx.font = "bold 24px system-ui";
+            ctx.shadowColor = "#fbbf24";
+            ctx.shadowBlur = 8;
+            ctx.fillText("👾 Tipos de Enemigos", leftMargin, contentY);
+            ctx.shadowBlur = 0;
+            contentY += 30;
+            
+            ctx.font = "15px system-ui";
+            const enemies = [
+              { icon: "🟢", color: "#22c55e", name: "Verde", desc: "Común, lento, daño leve" },
+              { icon: "🟣", color: "#a855f7", name: "Morado", desc: "Intermedio, rápido" },
+              { icon: "🟡", color: "#fbbf24", name: "Amarillo", desc: "Élite, fuerte, más HP" },
+              { icon: "🔴", color: "#ef4444", name: "Bomber", desc: "Explota al impactar" },
+              { icon: "⚡", color: "#60a5fa", name: "Rápido", desc: "Muy veloz, bajo HP" },
+              { icon: "🛡️", color: "#94a3b8", name: "Tank", desc: "Alto HP, lento, resistente" },
+            ];
+            
+            for (const enemy of enemies) {
+              ctx.fillStyle = enemy.color;
+              ctx.font = "bold 15px system-ui";
+              ctx.fillText(`${enemy.icon} ${enemy.name}`, leftMargin + 15, contentY);
+              ctx.fillStyle = "#9ca3af";
+              ctx.font = "14px system-ui";
+              ctx.fillText(`— ${enemy.desc}`, leftMargin + 180, contentY);
+              contentY += 24;
             }
-            contentY += 22;
+            
+            contentY += 20;
+            
+            // Sistema de mejoras
+            ctx.fillStyle = "#fbbf24";
+            ctx.font = "bold 24px system-ui";
+            ctx.shadowColor = "#fbbf24";
+            ctx.shadowBlur = 8;
+            ctx.fillText("⚡ Sistema de Mejoras", leftMargin, contentY);
+            ctx.shadowBlur = 0;
+            contentY += 30;
+            
+            ctx.font = "15px system-ui";
+            ctx.fillStyle = "#d1d5db";
+            ctx.fillText("Al subir de nivel, elige entre:", leftMargin + 10, contentY);
+            contentY += 28;
+            
+            const upgradeTypes = [
+              { icon: "🔫", color: "#f87171", name: "ARMAS", desc: "Pistola, SMG, Láser, etc." },
+              { icon: "📖", color: "#a855f7", name: "TOMOS", desc: "Rebote, Multi-shot, Poder" },
+              { icon: "🎒", color: "#fbbf24", name: "ÍTEMS", desc: "Pasivos permanentes" },
+            ];
+            
+            for (const type of upgradeTypes) {
+              ctx.fillStyle = type.color;
+              ctx.font = "bold 16px system-ui";
+              ctx.fillText(`${type.icon} ${type.name}:`, leftMargin + 20, contentY);
+              ctx.fillStyle = "#9ca3af";
+              ctx.font = "14px system-ui";
+              ctx.fillText(type.desc, leftMargin + 170, contentY);
+              contentY += 24;
+            }
+            
+            // Continue & Restart Buttons (al final del tab)
+            contentY = menuY + menuH - 85;
+            const btnW = 250;
+            const btnH = 60;
+            const btnGap = 30;
+            const continueX = centerX - btnW - btnGap / 2;
+            const restartX = centerX + btnGap / 2;
+            
+            // Continue button
+            const continueGradient = ctx.createLinearGradient(continueX, contentY, continueX, contentY + btnH);
+            continueGradient.addColorStop(0, "#22c55e");
+            continueGradient.addColorStop(0.5, "#16a34a");
+            continueGradient.addColorStop(1, "#15803d");
+            ctx.fillStyle = continueGradient;
+            ctx.shadowColor = "#22c55e";
+            ctx.shadowBlur = 30;
+            ctx.beginPath();
+            ctx.roundRect(continueX, contentY, btnW, btnH, 12);
+            ctx.fill();
+            
+            ctx.strokeStyle = "#4ade80";
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = "#22c55e";
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            
+            ctx.save();
+            ctx.globalAlpha = 0.3;
+            const continueHighlight = ctx.createLinearGradient(continueX, contentY, continueX, contentY + btnH / 3);
+            continueHighlight.addColorStop(0, "rgba(255, 255, 255, 0.8)");
+            continueHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
+            ctx.fillStyle = continueHighlight;
+            ctx.beginPath();
+            ctx.roundRect(continueX + 3, contentY + 3, btnW - 6, btnH / 3, 9);
+            ctx.fill();
+            ctx.restore();
+            
+            ctx.fillStyle = "#fff";
+            ctx.font = "bold 24px system-ui";
+            ctx.textAlign = "center";
+            ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+            ctx.shadowBlur = 4;
+            ctx.fillText("▶ " + t.continue, continueX + btnW / 2, contentY + btnH / 2 + 9);
+            ctx.shadowBlur = 0;
+            
+            // Restart button
+            const restartGradient = ctx.createLinearGradient(restartX, contentY, restartX, contentY + btnH);
+            restartGradient.addColorStop(0, "#ef4444");
+            restartGradient.addColorStop(0.5, "#dc2626");
+            restartGradient.addColorStop(1, "#b91c1c");
+            ctx.fillStyle = restartGradient;
+            ctx.shadowColor = "#ef4444";
+            ctx.shadowBlur = 30;
+            ctx.beginPath();
+            ctx.roundRect(restartX, contentY, btnW, btnH, 12);
+            ctx.fill();
+            
+            ctx.strokeStyle = "#f87171";
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = "#ef4444";
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            
+            ctx.save();
+            ctx.globalAlpha = 0.3;
+            const restartHighlight = ctx.createLinearGradient(restartX, contentY, restartX, contentY + btnH / 3);
+            restartHighlight.addColorStop(0, "rgba(255, 255, 255, 0.8)");
+            restartHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
+            ctx.fillStyle = restartHighlight;
+            ctx.beginPath();
+            ctx.roundRect(restartX + 3, contentY + 3, btnW - 6, btnH / 3, 9);
+            ctx.fill();
+            ctx.restore();
+            
+            ctx.fillStyle = "#fff";
+            ctx.font = "bold 24px system-ui";
+            ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+            ctx.shadowBlur = 4;
+            ctx.fillText("🔄 " + t.restart, restartX + btnW / 2, contentY + btnH / 2 + 9);
+            ctx.shadowBlur = 0;
+            
+          } else if (gameState.pauseMenuTab === "credits") {
+            // === TAB DE CRÉDITOS ===
+            let contentY = menuY + menuH / 2 - 40;
+            
+            // Fondo decorativo
+            ctx.save();
+            const creditsBg = ctx.createLinearGradient(menuX, contentY - 30, menuX, contentY + 120);
+            creditsBg.addColorStop(0, "rgba(168, 85, 247, 0.15)");
+            creditsBg.addColorStop(0.5, "rgba(251, 191, 36, 0.1)");
+            creditsBg.addColorStop(1, "rgba(0, 0, 0, 0.5)");
+            ctx.fillStyle = creditsBg;
+            ctx.fillRect(menuX + 40, contentY - 30, menuW - 80, 150);
+            
+            // Borde
+            ctx.strokeStyle = "rgba(168, 85, 247, 0.4)";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(menuX + 40, contentY - 30, menuW - 80, 150);
+            ctx.restore();
+            
+            // Título
+            ctx.fillStyle = "#fbbf24";
+            ctx.font = "bold 24px system-ui";
+            ctx.textAlign = "center";
+            ctx.shadowColor = "#fbbf24";
+            ctx.shadowBlur = 10;
+            ctx.fillText("⚡ Creado por", centerX, contentY + 10);
+            ctx.shadowBlur = 0;
+            
+            // Logo Vela Digital
+            ctx.fillStyle = "#fff";
+            ctx.font = "bold 42px system-ui";
+            ctx.shadowColor = "#a855f7";
+            ctx.shadowBlur = 25;
+            ctx.fillText("Vela Digital", centerX, contentY + 60);
+            ctx.shadowBlur = 0;
+            
+            // Continue & Restart Buttons (al final del tab)
+            contentY = menuY + menuH - 85;
+            const btnW = 250;
+            const btnH = 60;
+            const btnGap = 30;
+            const continueX = centerX - btnW - btnGap / 2;
+            const restartX = centerX + btnGap / 2;
+            
+            // Continue button
+            const continueGradient = ctx.createLinearGradient(continueX, contentY, continueX, contentY + btnH);
+            continueGradient.addColorStop(0, "#22c55e");
+            continueGradient.addColorStop(0.5, "#16a34a");
+            continueGradient.addColorStop(1, "#15803d");
+            ctx.fillStyle = continueGradient;
+            ctx.shadowColor = "#22c55e";
+            ctx.shadowBlur = 30;
+            ctx.beginPath();
+            ctx.roundRect(continueX, contentY, btnW, btnH, 12);
+            ctx.fill();
+            
+            ctx.strokeStyle = "#4ade80";
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = "#22c55e";
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            
+            ctx.save();
+            ctx.globalAlpha = 0.3;
+            const continueHighlight = ctx.createLinearGradient(continueX, contentY, continueX, contentY + btnH / 3);
+            continueHighlight.addColorStop(0, "rgba(255, 255, 255, 0.8)");
+            continueHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
+            ctx.fillStyle = continueHighlight;
+            ctx.beginPath();
+            ctx.roundRect(continueX + 3, contentY + 3, btnW - 6, btnH / 3, 9);
+            ctx.fill();
+            ctx.restore();
+            
+            ctx.fillStyle = "#fff";
+            ctx.font = "bold 24px system-ui";
+            ctx.textAlign = "center";
+            ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+            ctx.shadowBlur = 4;
+            ctx.fillText("▶ " + t.continue, continueX + btnW / 2, contentY + btnH / 2 + 9);
+            ctx.shadowBlur = 0;
+            
+            // Restart button
+            const restartGradient = ctx.createLinearGradient(restartX, contentY, restartX, contentY + btnH);
+            restartGradient.addColorStop(0, "#ef4444");
+            restartGradient.addColorStop(0.5, "#dc2626");
+            restartGradient.addColorStop(1, "#b91c1c");
+            ctx.fillStyle = restartGradient;
+            ctx.shadowColor = "#ef4444";
+            ctx.shadowBlur = 30;
+            ctx.beginPath();
+            ctx.roundRect(restartX, contentY, btnW, btnH, 12);
+            ctx.fill();
+            
+            ctx.strokeStyle = "#f87171";
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = "#ef4444";
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            
+            ctx.save();
+            ctx.globalAlpha = 0.3;
+            const restartHighlight = ctx.createLinearGradient(restartX, contentY, restartX, contentY + btnH / 3);
+            restartHighlight.addColorStop(0, "rgba(255, 255, 255, 0.8)");
+            restartHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
+            ctx.fillStyle = restartHighlight;
+            ctx.beginPath();
+            ctx.roundRect(restartX + 3, contentY + 3, btnW - 6, btnH / 3, 9);
+            ctx.fill();
+            ctx.restore();
+            
+            ctx.fillStyle = "#fff";
+            ctx.font = "bold 24px system-ui";
+            ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+            ctx.shadowBlur = 4;
+            ctx.fillText("🔄 " + t.restart, restartX + btnW / 2, contentY + btnH / 2 + 9);
+            ctx.shadowBlur = 0;
+            
+          } else if (gameState.pauseMenuTab === "settings") {
+            // === TAB DE SETTINGS (MAIN) ===
+            // TAB DE ESTADÍSTICAS
+            let contentY = menuY + 160;
+            const leftCol = menuX + 50;
+            const rightCol = menuX + menuW / 2 + 30;
+            
+            // Separador helper
+            const drawSeparator = (y: number) => {
+              ctx.strokeStyle = "rgba(251, 191, 36, 0.2)";
+              ctx.lineWidth = 1;
+              ctx.beginPath();
+              ctx.moveTo(menuX + 40, y);
+              ctx.lineTo(menuX + menuW - 40, y);
+              ctx.stroke();
+            };
+            
+            // === ESTADÍSTICAS GENERALES ===
+            ctx.fillStyle = "#fbbf24";
+            ctx.font = "bold 22px system-ui";
+            ctx.textAlign = "left";
+            ctx.fillText("📊 Estadísticas Generales", leftCol, contentY);
+            contentY += 10;
+            drawSeparator(contentY);
+            contentY += 25;
+            
+            ctx.font = "18px system-ui";
+            ctx.fillStyle = "#d1d5db";
+            ctx.fillText(`${t.level}: ${gameState.level}`, leftCol, contentY);
+            ctx.fillText(`Score: ${gameState.score}`, rightCol, contentY);
+            contentY += 30;
+            ctx.fillText(`${t.wave}: ${gameState.wave}`, leftCol, contentY);
+            const time = Math.floor(gameState.time);
+            const mm = String(Math.floor(time / 60)).padStart(2, '0');
+            const ss = String(time % 60).padStart(2, '0');
+            ctx.fillText(`Tiempo: ${mm}:${ss}`, rightCol, contentY);
+            contentY += 30;
+            
+            // HP Bar
+            ctx.fillText(`HP:`, leftCol, contentY);
+            const hpBarX = leftCol + 50;
+            const hpBarW = 200;
+            const hpBarH = 24;
+            const hpPercent = Math.max(0, Math.min(1, (Number(gameState.player.hp) || 0) / (Number(gameState.player.maxhp) || 1)));
+            ctx.fillStyle = "rgba(50, 50, 50, 0.8)";
+            ctx.fillRect(hpBarX, contentY - 16, hpBarW, hpBarH);
+            const hpGradient = ctx.createLinearGradient(hpBarX, 0, hpBarX + hpBarW * hpPercent, 0);
+            hpGradient.addColorStop(0, "#ef4444");
+            hpGradient.addColorStop(1, "#f87171");
+            ctx.fillStyle = hpGradient;
+            ctx.fillRect(hpBarX, contentY - 16, hpBarW * hpPercent, hpBarH);
+            ctx.fillStyle = "#fff";
+            ctx.font = "bold 14px system-ui";
+            ctx.textAlign = "center";
+            ctx.fillText(`${gameState.player.hp}/${gameState.player.maxhp}`, hpBarX + hpBarW / 2, contentY);
+            contentY += 45;
+            
+            // === ESTADÍSTICAS DE COMBATE ===
+            ctx.fillStyle = "#fbbf24";
+            ctx.font = "bold 22px system-ui";
+            ctx.textAlign = "left";
+            ctx.fillText("⚔️ Combate", leftCol, contentY);
+            contentY += 10;
+            drawSeparator(contentY);
+            contentY += 25;
+            
+            ctx.font = "17px system-ui";
+            const dmgMult = ((gameState.player.stats.damageMultiplier - 1) * 100).toFixed(0);
+            const spdMult = ((gameState.player.stats.speedMultiplier - 1) * 100).toFixed(0);
+            const rangeMult = ((gameState.player.stats.rangeMultiplier - 1) * 100).toFixed(0);
+            const fireMult = ((gameState.player.stats.fireRateMultiplier - 1) * 100).toFixed(0);
+            
+            ctx.fillStyle = "#f87171";
+            ctx.fillText(`💥 Daño: +${dmgMult}%`, leftCol, contentY);
+            ctx.fillStyle = "#22c55e";
+            ctx.fillText(`⚡ Velocidad: +${spdMult}%`, rightCol, contentY);
+            contentY += 28;
+            ctx.fillStyle = "#3b82f6";
+            ctx.fillText(`🎯 Alcance: +${rangeMult}%`, leftCol, contentY);
+            ctx.fillStyle = "#fbbf24";
+            ctx.fillText(`🔫 Cadencia: +${fireMult}%`, rightCol, contentY);
+            contentY += 28;
+            
+            // Stats especiales
+            if (gameState.player.stats.bounces > 0) {
+              ctx.fillStyle = "#a855f7";
+              ctx.fillText(`🔄 Rebotes: ${gameState.player.stats.bounces}`, leftCol, contentY);
+              contentY += 28;
+            }
+            if (gameState.player.stats.multishot > 0) {
+              ctx.fillStyle = "#06b6d4";
+              ctx.fillText(`📌 Proyectiles: +${gameState.player.stats.multishot}`, leftCol, contentY);
+              contentY += 28;
+            }
+            if (gameState.player.stats.vampire > 0) {
+              ctx.fillStyle = "#ec4899";
+              ctx.fillText(`🩸 Vampirismo: ${(gameState.player.stats.vampire * 100).toFixed(0)}%`, leftCol, contentY);
+              contentY += 28;
+            }
+            contentY += 15;
+            
+            // === INVENTARIO ===
+            ctx.fillStyle = "#fbbf24";
+            ctx.font = "bold 22px system-ui";
+            ctx.fillText("🎒 Inventario", leftCol, contentY);
+            contentY += 10;
+            drawSeparator(contentY);
+            contentY += 25;
+            
+            ctx.font = "16px system-ui";
+            ctx.fillStyle = "#9ca3af";
+            ctx.fillText(`${t.weapons}: ${gameState.player.weapons.length}/3`, leftCol, contentY);
+            ctx.fillText(`${t.tomes}: ${gameState.player.tomes.length}/3`, rightCol, contentY);
+            contentY += 25;
+            
+            // Items
+            const maxItems = Math.max(gameState.player.weapons.length, gameState.player.tomes.length, 1);
+            for (let i = 0; i < maxItems; i++) {
+              if (i < gameState.player.weapons.length) {
+                const w = gameState.player.weapons[i];
+                ctx.fillStyle = w.color;
+                ctx.fillText(`• ${w.name} (Lv.${w.level})`, leftCol + 10, contentY);
+              }
+              if (i < gameState.player.tomes.length) {
+                const tome = gameState.player.tomes[i];
+                ctx.fillStyle = tome.color;
+                ctx.fillText(`• ${tome.name} (Lv.${tome.level})`, rightCol + 10, contentY);
+              }
+              contentY += 24;
+            }
+          } else if (gameState.pauseMenuTab === "settings") {
+            // === TAB DE SETTINGS (MAIN) ===
+            let contentY = menuY + 155;
+            const leftCol = menuX + 40;
+            
+            // === AIM MODE SELECTOR ===
+            ctx.fillStyle = "#fbbf24";
+            ctx.font = "bold 18px system-ui";
+            ctx.textAlign = "left";
+            ctx.fillText("🎯 Modo de Aim:", leftCol, contentY);
+            contentY += 35;
+            
+            // 4 botones de aim mode
+            const aimBtnW = 145;
+            const aimBtnH = 45;
+            const aimGap = 10;
+            const aimModes = [
+              { mode: "closest", label: "Cercano", x: menuX + 25 },
+              { mode: "smart", label: "Smart", x: menuX + 25 + aimBtnW + aimGap },
+              { mode: "weakest", label: "Débil", x: menuX + 25 + (aimBtnW + aimGap) * 2 },
+              { mode: "strongest", label: "Fuerte", x: menuX + 25 + (aimBtnW + aimGap) * 3 },
+            ];
+            
+            for (const { mode, label, x } of aimModes) {
+              const isSelected = gameState.aimMode === mode;
+              
+              // Gradiente mejorado
+              const btnGradient = ctx.createLinearGradient(x, contentY, x, contentY + aimBtnH);
+              if (isSelected) {
+                btnGradient.addColorStop(0, "#a855f7");
+                btnGradient.addColorStop(0.5, "#9333ea");
+                btnGradient.addColorStop(1, "#7e22ce");
+              } else {
+                btnGradient.addColorStop(0, "#4b5563");
+                btnGradient.addColorStop(0.5, "#374151");
+                btnGradient.addColorStop(1, "#1f2937");
+              }
+              ctx.fillStyle = btnGradient;
+              
+              // Sombra solo para seleccionado
+              if (isSelected) {
+                ctx.shadowColor = "#a855f7";
+                ctx.shadowBlur = 20;
+              }
+              
+              ctx.beginPath();
+              ctx.roundRect(x, contentY, aimBtnW, aimBtnH, 10);
+              ctx.fill();
+              ctx.shadowBlur = 0;
+              
+              if (isSelected) {
+                ctx.strokeStyle = "#c084fc";
+                ctx.lineWidth = 2;
+                ctx.shadowColor = "#a855f7";
+                ctx.shadowBlur = 15;
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+                
+                // Highlight superior
+                ctx.save();
+                ctx.globalAlpha = 0.3;
+                const highlight = ctx.createLinearGradient(x, contentY, x, contentY + aimBtnH / 3);
+                highlight.addColorStop(0, "rgba(255, 255, 255, 0.6)");
+                highlight.addColorStop(1, "rgba(255, 255, 255, 0)");
+                ctx.fillStyle = highlight;
+                ctx.beginPath();
+                ctx.roundRect(x + 2, contentY + 2, aimBtnW - 4, aimBtnH / 3, 8);
+                ctx.fill();
+                ctx.restore();
+              } else {
+                ctx.strokeStyle = "#6b7280";
+                ctx.lineWidth = 1;
+                ctx.stroke();
+              }
+              
+              ctx.fillStyle = "#fff";
+              ctx.font = isSelected ? "bold 15px system-ui" : "14px system-ui";
+              ctx.textAlign = "center";
+              ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+              ctx.shadowBlur = 3;
+              ctx.fillText(label, x + aimBtnW / 2, contentY + aimBtnH / 2 + 5);
+              ctx.shadowBlur = 0;
+            }
+            
+            contentY += aimBtnH + 50;
+            
+            // === AUDIO SETTINGS (SLIDER DIRECTO) ===
+            ctx.fillStyle = "#fbbf24";
+            ctx.font = "bold 18px system-ui";
+            ctx.textAlign = "left";
+            ctx.fillText("🔊 Audio", leftCol, contentY);
+            contentY += 35;
+            
+            const sliderW2 = 600;
+            const sliderH2 = 6;
+            const sliderX2 = leftCol;
+            
+            // Music Volume Slider
+            ctx.fillStyle = "rgba(255,255,255,0.8)";
+            ctx.font = "15px system-ui";
+            ctx.textAlign = "left";
+            ctx.fillText("🎵 Música", sliderX2, contentY);
+            ctx.textAlign = "right";
+            ctx.fillText(`${Math.round(gameState.musicVolume * 100)}%`, sliderX2 + sliderW2, contentY);
+            
+            ctx.fillStyle = "rgba(50, 50, 70, 0.9)";
+            ctx.fillRect(sliderX2, contentY + 8, sliderW2, sliderH2);
+            
+            const musicFill2 = sliderW2 * gameState.musicVolume;
+            const musicGradient2 = ctx.createLinearGradient(sliderX2, 0, sliderX2 + musicFill2, 0);
+            musicGradient2.addColorStop(0, "#3b82f6");
+            musicGradient2.addColorStop(1, "#2563eb");
+            ctx.fillStyle = musicGradient2;
+            ctx.fillRect(sliderX2, contentY + 8, musicFill2, sliderH2);
+            
+            
+            // Continue & Restart Buttons
+            const btnW = 250;
+            const btnH = 60;
+            const btnGap = 30;
+            const continueX = centerX - btnW - btnGap / 2;
+            const restartX = centerX + btnGap / 2;
+            
+            // Continue button - mejorado
+            const continueGradient = ctx.createLinearGradient(continueX, contentY, continueX, contentY + btnH);
+            continueGradient.addColorStop(0, "#22c55e");
+            continueGradient.addColorStop(0.5, "#16a34a");
+            continueGradient.addColorStop(1, "#15803d");
+            ctx.fillStyle = continueGradient;
+            ctx.shadowColor = "#22c55e";
+            ctx.shadowBlur = 30;
+            ctx.beginPath();
+            ctx.roundRect(continueX, contentY, btnW, btnH, 12);
+            ctx.fill();
+            
+            ctx.strokeStyle = "#4ade80";
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = "#22c55e";
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            
+            // Highlight
+            ctx.save();
+            ctx.globalAlpha = 0.3;
+            const continueHighlight = ctx.createLinearGradient(continueX, contentY, continueX, contentY + btnH / 3);
+            continueHighlight.addColorStop(0, "rgba(255, 255, 255, 0.8)");
+            continueHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
+            ctx.fillStyle = continueHighlight;
+            ctx.beginPath();
+            ctx.roundRect(continueX + 3, contentY + 3, btnW - 6, btnH / 3, 9);
+            ctx.fill();
+            ctx.restore();
+            
+            ctx.fillStyle = "#fff";
+            ctx.font = "bold 24px system-ui";
+            ctx.textAlign = "center";
+            ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+            ctx.shadowBlur = 4;
+            ctx.fillText("▶ " + t.continue, continueX + btnW / 2, contentY + btnH / 2 + 9);
+            ctx.shadowBlur = 0;
+            
+            // Restart button - mejorado
+            const restartGradient = ctx.createLinearGradient(restartX, contentY, restartX, contentY + btnH);
+            restartGradient.addColorStop(0, "#ef4444");
+            restartGradient.addColorStop(0.5, "#dc2626");
+            restartGradient.addColorStop(1, "#b91c1c");
+            ctx.fillStyle = restartGradient;
+            ctx.shadowColor = "#ef4444";
+            ctx.shadowBlur = 30;
+            ctx.beginPath();
+            ctx.roundRect(restartX, contentY, btnW, btnH, 12);
+            ctx.fill();
+            
+            ctx.strokeStyle = "#f87171";
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = "#ef4444";
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            
+            // Highlight
+            ctx.save();
+            ctx.globalAlpha = 0.3;
+            const restartHighlight = ctx.createLinearGradient(restartX, contentY, restartX, contentY + btnH / 3);
+            restartHighlight.addColorStop(0, "rgba(255, 255, 255, 0.8)");
+            restartHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
+            ctx.fillStyle = restartHighlight;
+            ctx.beginPath();
+            ctx.roundRect(restartX + 3, contentY + 3, btnW - 6, btnH / 3, 9);
+            ctx.fill();
+            ctx.restore();
+            
+            ctx.fillStyle = "#fff";
+            ctx.font = "bold 24px system-ui";
+            ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+            ctx.shadowBlur = 4;
+            ctx.fillText("🔄 " + t.restart, restartX + btnW / 2, contentY + btnH / 2 + 9);
+            ctx.shadowBlur = 0;
           }
-          
-          // === BOTONES ===
-          contentY = menuY + menuH - 230;
-          
-          // Audio Settings Button
-          const audioBtnW = 350;
-          const audioBtnH = 55;
-          const audioBtnX = centerX - audioBtnW / 2;
-          const audioBtnY = contentY;
-          
-          const audioGradient = ctx.createLinearGradient(audioBtnX, audioBtnY, audioBtnX, audioBtnY + audioBtnH);
-          audioGradient.addColorStop(0, "#a855f7");
-          audioGradient.addColorStop(1, "#7c3aed");
-          ctx.fillStyle = audioGradient;
-          ctx.beginPath();
-          ctx.roundRect(audioBtnX, audioBtnY, audioBtnW, audioBtnH, 10);
-          ctx.fill();
-          ctx.strokeStyle = "#fff";
-          ctx.lineWidth = 3;
-          ctx.shadowColor = "#a855f7";
-          ctx.shadowBlur = 15;
-          ctx.stroke();
-          ctx.shadowBlur = 0;
-          ctx.fillStyle = "#fff";
-          ctx.font = "bold 22px system-ui";
-          ctx.textAlign = "center";
-          ctx.fillText("🎧 Audio Settings", audioBtnX + audioBtnW / 2, audioBtnY + audioBtnH / 2 + 8);
-          
-          contentY += audioBtnH + 20;
-          
-          // Continue & Restart Buttons
-          const btnW = 250;
-          const btnH = 60;
-          const btnGap = 30;
-          const continueX = centerX - btnW - btnGap / 2;
-          const restartX = centerX + btnGap / 2;
-          const btnY = contentY;
-          
-          // Continue button
-          const continueGradient = ctx.createLinearGradient(continueX, btnY, continueX, btnY + btnH);
-          continueGradient.addColorStop(0, "#22c55e");
-          continueGradient.addColorStop(1, "#16a34a");
-          ctx.fillStyle = continueGradient;
-          ctx.beginPath();
-          ctx.roundRect(continueX, btnY, btnW, btnH, 10);
-          ctx.fill();
-          ctx.strokeStyle = "#fff";
-          ctx.lineWidth = 3;
-          ctx.shadowColor = "#22c55e";
-          ctx.shadowBlur = 20;
-          ctx.stroke();
-          ctx.shadowBlur = 0;
-          ctx.fillStyle = "#fff";
-          ctx.font = "bold 24px system-ui";
-          ctx.fillText("▶ " + t.continue, continueX + btnW / 2, btnY + btnH / 2 + 9);
-          
-          // Restart button
-          const restartGradient = ctx.createLinearGradient(restartX, btnY, restartX, btnY + btnH);
-          restartGradient.addColorStop(0, "#ef4444");
-          restartGradient.addColorStop(1, "#dc2626");
-          ctx.fillStyle = restartGradient;
-          ctx.beginPath();
-          ctx.roundRect(restartX, btnY, btnW, btnH, 10);
-          ctx.fill();
-          ctx.strokeStyle = "#fff";
-          ctx.lineWidth = 3;
-          ctx.shadowColor = "#ef4444";
-          ctx.shadowBlur = 20;
-          ctx.stroke();
-          ctx.shadowBlur = 0;
-          ctx.fillStyle = "#fff";
-          ctx.fillText("🔄 " + t.restart, restartX + btnW / 2, btnY + btnH / 2 + 9);
         }
         
         ctx.restore();
@@ -6024,14 +6914,14 @@ const Index = () => {
     function gameLoop(timestamp: number) {
       const dt = Math.min(0.033, (timestamp - lastTime) / 1000 || 0);
       lastTime = timestamp;
-
+      
       update(dt);
       draw();
-
-      animationFrameId = requestAnimationFrame(gameLoop);
+      
+      requestAnimationFrame(gameLoop);
     }
 
-    animationFrameId = requestAnimationFrame(gameLoop);
+    requestAnimationFrame(gameLoop);
 
     // Prevenir scroll y gestos en dispositivos móviles
     const preventScroll = (e: TouchEvent) => {
@@ -6051,27 +6941,10 @@ const Index = () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("resize", handleResize);
-      canvas.removeEventListener("click", handleCanvasClick);
       document.removeEventListener('touchmove', preventScroll);
       document.removeEventListener('gesturestart', preventGesture);
       document.removeEventListener('gesturechange', preventGesture);
       document.removeEventListener('gestureend', preventGesture);
-      cancelAnimationFrame(animationFrameId);
-      resetGameRef.current = null;
-      gameStateRef.current = null;
-      if (gameState.music) {
-        gameState.music.pause();
-      }
-      if (gameState.gameOverMusic) {
-        gameState.gameOverMusic.pause();
-      }
-      if (gameState.audioContext) {
-        try {
-          gameState.audioContext.close();
-        } catch (err) {
-          console.warn("Error closing audio context", err);
-        }
-      }
     };
   }, []);
 
