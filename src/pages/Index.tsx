@@ -616,7 +616,6 @@ const Index = () => {
       xp: 0,
       nextXP: 25,
       time: 0,
-      playTime: 0,
       wave: 1,
       waveKills: 0,
       waveEnemiesTotal: 10, // Wave 1 empieza con 10 (estilo COD Zombies)
@@ -931,7 +930,6 @@ const Index = () => {
       gameState.xp = 0;
       gameState.nextXP = 25;
       gameState.time = 0;
-      gameState.playTime = 0;
       gameState.wave = 1;
       gameState.waveKills = 0;
       gameState.waveEnemiesTotal = 10; // Wave 1 empieza con 10 enemigos (estilo COD Zombies)
@@ -2416,11 +2414,6 @@ const Index = () => {
     function update(dt: number) {
       // Actualizar tiempo siempre (necesario para animaciones)
       gameState.time += dt;
-
-      // Tiempo efectivo de juego (solo cuando está corriendo)
-      if (gameState.state === 'running') {
-        gameState.playTime += dt;
-      }
 
       // Animations que deben correr siempre
       if (gameState.levelUpAnimation > 0) gameState.levelUpAnimation = Math.max(0, gameState.levelUpAnimation - dt * 2);
@@ -5824,7 +5817,7 @@ const Index = () => {
           if (gameState.gameOverAnimationTimer > 1.5) {
             const timeAlpha = Math.min(1, (gameState.gameOverAnimationTimer - 1.5) / 1);
             ctx.globalAlpha = timeAlpha;
-            const time = Math.floor(gameState.playTime);
+            const time = Math.floor(gameState.time);
             const mm = String(Math.floor(time / 60)).padStart(2, '0');
             const ss = String(time % 60).padStart(2, '0');
             ctx.fillStyle = "#fbbf24";
@@ -5924,7 +5917,7 @@ const Index = () => {
         contentY += 50;
         
         // Tiempo
-        const time = Math.floor(gameState.playTime);
+        const time = Math.floor(gameState.time);
         const mm = String(Math.floor(time / 60)).padStart(2, '0');
         const ss = String(time % 60).padStart(2, '0');
         ctx.fillStyle = "#d1d5db";
@@ -6154,7 +6147,7 @@ const Index = () => {
               { label: pm.summary.level, value: `Lv.${gameState.level}`, icon: "⭐", color: "#facc15" },
               { label: pm.summary.score, value: gameState.score.toString(), icon: "🏆", color: "#34d399" },
               { label: pm.summary.time, value: (() => {
-                const totalSeconds = Math.floor(gameState.playTime);
+                const totalSeconds = Math.floor(gameState.time);
                 const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
                 const seconds = String(totalSeconds % 60).padStart(2, "0");
                 return `${minutes}:${seconds}`;
@@ -6422,7 +6415,7 @@ const Index = () => {
             break;
           }
           case "stats": {
-            const totalSeconds = Math.floor(gameState.playTime);
+            const totalSeconds = Math.floor(gameState.time);
             const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
             const seconds = String(totalSeconds % 60).padStart(2, "0");
             const highlightCards = [
