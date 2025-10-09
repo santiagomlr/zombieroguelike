@@ -615,7 +615,6 @@ const Index = () => {
       enemyLogo: null as HTMLImageElement | null,
       tutorialActive: localStorage.getItem("gameHasTutorial") !== "completed",
       tutorialStartTime: performance.now(),
-      aimMode: (localStorage.getItem("aimMode") || "closest") as "closest" | "smart" | "weakest" | "strongest",
       gameOverAnimationTimer: 0,
       pauseMenuTab: "home" as "home" | "settings" | "stats" | "wiki" | "credits",
       language,
@@ -1310,96 +1309,63 @@ const Index = () => {
     }
 
     function nearestEnemy() {
-      const onScreenEnemies = gameState.enemies.filter((e: any) => 
+      const onScreenEnemies = gameState.enemies.filter((e: any) =>
         e.x >= -50 && e.x <= W + 50 && e.y >= -50 && e.y <= H + 50
       );
-      
+
       if (onScreenEnemies.length === 0) return null;
-      
-      // Aplicar el modo de aim seleccionado
-      switch (gameState.aimMode) {
-        case "closest":
-          // Más cercano (default)
-          let closest = null;
-          let closestDist = 1e9;
-          for (const e of onScreenEnemies) {
-            const d = Math.hypot(e.x - gameState.player.x, e.y - gameState.player.y);
-            if (d < closestDist) {
-              closestDist = d;
-              closest = e;
-            }
+
+      let bestScore = -Infinity;
+      let bestEnemy = onScreenEnemies[0];
+
+      for (const enemy of onScreenEnemies) {
+        const dist = Math.hypot(enemy.x - gameState.player.x, enemy.y - gameState.player.y);
+        const normalizedDistance = Math.max(0, 1 - dist / 600);
+
+        const speed = enemy.spd || 0;
+        const approachScore = Math.min(1, speed / 2.5);
+        const timeToImpact = speed > 0 ? dist / (speed * 60) : Infinity;
+        const imminentImpactScore = timeToImpact < 5 ? Math.max(0, 1 - timeToImpact / 5) : 0;
+
+        let typeScore = 0.3;
+        if (enemy.isBoss) typeScore = 1.2;
+        else if (enemy.isMiniBoss) typeScore = 1.0;
+        else if (enemy.specialType === "explosive") typeScore = 1.1;
+        else if (enemy.isElite) typeScore = 0.9;
+        else if (enemy.specialType) typeScore = 0.8;
+        else if (enemy.enemyType === "strong") typeScore = 0.7;
+        else if (enemy.enemyType === "medium") typeScore = 0.5;
+
+        const damageScore = Math.min(1, (enemy.damage || 0) / 40);
+
+        let explosiveUrgency = 0;
+        if (enemy.specialType === "explosive") {
+          const timer = typeof enemy.explosionTimer === "number" ? enemy.explosionTimer : null;
+          if (timer !== null && timer >= 0) {
+            explosiveUrgency = Math.max(0, 1 - Math.min(timer, 2) / 2);
+          } else {
+            explosiveUrgency = 0.4;
           }
-          return closest;
-          
-        case "smart":
-          // Smart Aim: prioriza por tipo, daño y dirección
-          let bestScore = -1;
-          let smartTarget = null;
-          const playerDir = { x: Math.cos(gameState.time), y: Math.sin(gameState.time) }; // Dirección aproximada del jugador
-          
-          for (const e of onScreenEnemies) {
-            const dist = Math.hypot(e.x - gameState.player.x, e.y - gameState.player.y);
-            const distScore = Math.max(0, 1 - dist / 500); // 0-1, más cerca = mejor
-            
-            // Prioridad por tipo
-            let typeScore = 0;
-            if (e.isBoss) typeScore = 1.0;
-            else if (e.isMiniBoss) typeScore = 0.8;
-            else if (e.specialType === "explosive") typeScore = 0.9; // Priorizar bombers
-            else if (e.isElite) typeScore = 0.7;
-            else if (e.specialType) typeScore = 0.6;
-            else if (e.enemyType === "strong") typeScore = 0.5;
-            else if (e.enemyType === "medium") typeScore = 0.3;
-            else typeScore = 0.1;
-            
-            // Prioridad por daño
-            const damageScore = Math.min(1, (e.damage || 0) / 50); // Normalizar daño
-            
-            // Dirección: priorizar enemigos frente al jugador
-            const toEnemy = { 
-              x: e.x - gameState.player.x, 
-              y: e.y - gameState.player.y 
-            };
-            const toEnemyLen = Math.hypot(toEnemy.x, toEnemy.y) || 1;
-            const dirScore = 0.5; // Por ahora neutral, se puede mejorar con dirección real del jugador
-            
-            // Score combinado
-            const totalScore = typeScore * 0.4 + damageScore * 0.3 + distScore * 0.2 + dirScore * 0.1;
-            
-            if (totalScore > bestScore) {
-              bestScore = totalScore;
-              smartTarget = e;
-            }
-          }
-          return smartTarget;
-          
-        case "weakest":
-          // Más débil (menos HP)
-          let weakest = null;
-          let lowestHp = 1e9;
-          for (const e of onScreenEnemies) {
-            if (e.hp < lowestHp) {
-              lowestHp = e.hp;
-              weakest = e;
-            }
-          }
-          return weakest;
-          
-        case "strongest":
-          // Más fuerte (más HP)
-          let strongest = null;
-          let highestHp = -1;
-          for (const e of onScreenEnemies) {
-            if (e.hp > highestHp) {
-              highestHp = e.hp;
-              strongest = e;
-            }
-          }
-          return strongest;
-          
-        default:
-          return onScreenEnemies[0];
+        }
+
+        const healthRatio = enemy.maxhp ? enemy.hp / enemy.maxhp : 1;
+        const finishingScore = (1 - healthRatio) * 0.3;
+
+        const totalScore =
+          typeScore * 0.35 +
+          damageScore * 0.15 +
+          normalizedDistance * 0.25 +
+          approachScore * 0.1 +
+          Math.max(imminentImpactScore, explosiveUrgency) * 0.1 +
+          finishingScore * 0.05;
+
+        if (totalScore > bestScore) {
+          bestScore = totalScore;
+          bestEnemy = enemy;
+        }
       }
+
+      return bestEnemy;
     }
 
     function shootWeapon(weapon: Weapon, target: any) {
@@ -2210,30 +2176,7 @@ const Index = () => {
         } else if (gameState.pauseMenuTab === "settings") {
           let sectionY = contentY + 30;
 
-          // Aim mode buttons
-          const aimBtnW = 150;
-          const aimBtnH = 50;
-          const aimGap = 16;
-          const aimStartX = contentX + 10;
-          const aimY = sectionY + 30;
-          const aimModes: Array<{ mode: "closest" | "smart" | "weakest" | "strongest"; }> = [
-            { mode: "closest" },
-            { mode: "smart" },
-            { mode: "weakest" },
-            { mode: "strongest" },
-          ];
-
-          for (let i = 0; i < aimModes.length; i++) {
-            const btnX = aimStartX + i * (aimBtnW + aimGap);
-            if (mx >= btnX && mx <= btnX + aimBtnW && my >= aimY && my <= aimY + aimBtnH) {
-              const selectedMode = aimModes[i].mode;
-              gameState.aimMode = selectedMode;
-              localStorage.setItem("aimMode", selectedMode);
-              return;
-            }
-          }
-
-          sectionY = aimY + aimBtnH + 60;
+          sectionY += 120;
 
           // Music volume slider
           const sliderX = contentX + 40;
@@ -6129,49 +6072,27 @@ const Index = () => {
             ctx.textAlign = "left";
             ctx.fillText(pm.settings, contentX + 32, contentY + 60);
 
-            const aimLabel = currentLanguage === "es" ? "🎯 Modo de apuntado" : "🎯 Aim mode";
+            const aimTitle = currentLanguage === "es" ? "🎯 Apuntado inteligente" : "🎯 Smart aiming";
             ctx.fillStyle = "#fbbf24";
             ctx.font = "bold 20px system-ui";
-            ctx.fillText(aimLabel, contentX + 32, sectionY + 10);
-            const aimBtnW = 150;
-            const aimBtnH = 50;
-            const aimGap = 16;
-            const aimStartX = contentX + 10;
-            const aimY = sectionY + 30;
-            const aimLabels = currentLanguage === "es"
-              ? { closest: "Cercano", smart: "Inteligente", weakest: "Débil", strongest: "Fuerte" }
-              : { closest: "Closest", smart: "Smart", weakest: "Weakest", strongest: "Strongest" };
-            ( ["closest", "smart", "weakest", "strongest"] as const ).forEach((mode, idx) => {
-              const btnX = aimStartX + idx * (aimBtnW + aimGap);
-              const isSelected = gameState.aimMode === mode;
-              const btnGradient = ctx.createLinearGradient(btnX, aimY, btnX, aimY + aimBtnH);
-              if (isSelected) {
-                btnGradient.addColorStop(0, "#a855f7");
-                btnGradient.addColorStop(1, "#7e22ce");
-              } else {
-                btnGradient.addColorStop(0, "#1f2937");
-                btnGradient.addColorStop(1, "#0f172a");
-              }
-              ctx.save();
-              ctx.beginPath();
-              ctx.roundRect(btnX, aimY, aimBtnW, aimBtnH, 12);
-              ctx.fillStyle = btnGradient;
-              ctx.shadowColor = isSelected ? "#c084fc" : "rgba(15, 23, 42, 0.4)";
-              ctx.shadowBlur = isSelected ? 20 : 12;
-              ctx.fill();
-              ctx.shadowBlur = 0;
-              ctx.strokeStyle = isSelected ? "#fbbf24" : "rgba(148, 163, 184, 0.4)";
-              ctx.lineWidth = isSelected ? 2 : 1;
-              ctx.stroke();
-              ctx.restore();
+            ctx.fillText(aimTitle, contentX + 32, sectionY + 10);
 
-              ctx.fillStyle = "#f8fafc";
-              ctx.font = isSelected ? "bold 16px system-ui" : "15px system-ui";
-              ctx.textAlign = "center";
-              ctx.fillText(aimLabels[mode], btnX + aimBtnW / 2, aimY + aimBtnH / 2 + 6);
+            ctx.fillStyle = "rgba(248, 250, 252, 0.85)";
+            ctx.font = "16px system-ui";
+            const aimDescriptionEs = [
+              "El apuntado inteligente evalúa distancia, daño y urgencia",
+              "para priorizar automáticamente al enemigo más peligroso."
+            ];
+            const aimDescriptionEn = [
+              "Smart aiming evaluates distance, damage and urgency",
+              "to automatically focus the most dangerous target."
+            ];
+            const descriptionLines = currentLanguage === "es" ? aimDescriptionEs : aimDescriptionEn;
+            descriptionLines.forEach((line, idx) => {
+              ctx.fillText(line, contentX + 32, sectionY + 40 + idx * 22);
             });
 
-            sectionY = aimY + aimBtnH + 60;
+            sectionY += 120;
 
             ctx.fillStyle = "#fbbf24";
             ctx.font = "bold 20px system-ui";
