@@ -382,6 +382,15 @@ const Index = () => {
       musicVolume: 0.3, // Volumen de la música (0 a 1)
       targetMusicVolume: 0.3, // Volumen objetivo para animación suave
       musicStarted: false, // Flag para saber si el usuario ya inició la música
+      musicPaused: true,
+      musicQueue: [] as number[],
+      musicHistory: [] as number[],
+      musicControlsVisible: false,
+      musicControlRects: {
+        prev: { x: 0, y: 0, w: 0, h: 0 },
+        play: { x: 0, y: 0, w: 0, h: 0 },
+        next: { x: 0, y: 0, w: 0, h: 0 },
+      },
       sfxMuted: false,
       enemyLogo: null as HTMLImageElement | null,
       tutorialActive: localStorage.getItem("gameHasTutorial") !== "completed",
@@ -427,40 +436,130 @@ const Index = () => {
       console.warn("Web Audio API not supported");
     }
     
+    function shuffleMusicQueue(excludeTrack?: number | null) {
+      const indices = gameState.musicTracks.map((_, idx) => idx);
+
+      for (let i = indices.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [indices[i], indices[j]] = [indices[j], indices[i]];
+      }
+
+      if (
+        excludeTrack !== undefined &&
+        excludeTrack !== null &&
+        indices.length > 1 &&
+        indices[0] === excludeTrack
+      ) {
+        const swapIndex = Math.floor(Math.random() * (indices.length - 1)) + 1;
+        [indices[0], indices[swapIndex]] = [indices[swapIndex], indices[0]];
+      }
+
+      gameState.musicQueue = indices;
+    }
+
+    function ensureMusicQueue(excludeTrack?: number | null) {
+      if (gameState.musicQueue.length === 0) {
+        shuffleMusicQueue(excludeTrack);
+      }
+    }
+
+    function setCurrentTrack(trackIndex: number, shouldAutoplay: boolean) {
+      if (!gameState.music) return;
+
+      const audio = gameState.music;
+      const track = gameState.musicTracks[trackIndex];
+
+      audio.pause();
+      audio.src = track.path;
+      audio.currentTime = 0;
+      audio.volume = gameState.musicMuted ? 0 : gameState.musicVolume;
+
+      if (shouldAutoplay) {
+        gameState.musicPaused = false;
+        audio.play().catch(e => console.warn("Audio play failed:", e));
+      } else {
+        gameState.musicPaused = true;
+      }
+
+      gameState.currentMusicIndex = trackIndex;
+      gameState.musicNotification = track.name;
+      gameState.musicNotificationTimer = 3; // 3 segundos
+    }
+
+    function advanceToNextTrack(autoAdvance: boolean) {
+      if (!gameState.music || !gameState.musicStarted) return;
+
+      if (typeof gameState.currentMusicIndex === "number") {
+        gameState.musicHistory.push(gameState.currentMusicIndex);
+        if (gameState.musicHistory.length > 50) {
+          gameState.musicHistory.splice(0, gameState.musicHistory.length - 50);
+        }
+      }
+
+      ensureMusicQueue(gameState.currentMusicIndex);
+      const nextIndex = gameState.musicQueue.shift();
+      if (nextIndex === undefined) return;
+
+      const shouldAutoplay = autoAdvance || !gameState.musicPaused;
+      setCurrentTrack(nextIndex, shouldAutoplay);
+    }
+
+    function goToPreviousTrack() {
+      if (!gameState.music || !gameState.musicStarted) return;
+
+      const previousIndex = gameState.musicHistory.pop();
+      if (previousIndex === undefined) return;
+
+      if (typeof gameState.currentMusicIndex === "number") {
+        gameState.musicQueue.unshift(gameState.currentMusicIndex);
+      }
+
+      const shouldAutoplay = !gameState.musicPaused;
+      setCurrentTrack(previousIndex, shouldAutoplay);
+    }
+
+    function toggleMusicPlayback() {
+      if (!gameState.music || !gameState.musicStarted) return;
+
+      if (gameState.musicPaused) {
+        gameState.music.play().then(() => {
+          gameState.musicPaused = false;
+        }).catch(e => console.warn("Audio play failed:", e));
+      } else {
+        gameState.music.pause();
+        gameState.musicPaused = true;
+      }
+    }
+
+    function beginMusicPlayback() {
+      if (!gameState.music || gameState.musicTracks.length === 0) return;
+      if (gameState.musicStarted) return;
+
+      gameState.musicHistory = [];
+      shuffleMusicQueue(null);
+      const firstTrack = gameState.musicQueue.shift();
+      if (firstTrack === undefined) return;
+
+      gameState.musicStarted = true;
+      setCurrentTrack(firstTrack, true);
+    }
+
     // Initialize music system
     function initMusic() {
       if (!gameState.music) {
         const audio = new Audio();
         audio.volume = gameState.musicVolume;
         audio.loop = false;
-        
+
         audio.addEventListener('ended', () => {
-          // Pasar a la siguiente canción
-          gameState.currentMusicIndex = (gameState.currentMusicIndex + 1) % gameState.musicTracks.length;
-          playNextTrack();
+          advanceToNextTrack(true);
         });
-        
+
         gameState.music = audio;
         // No auto-play, esperar a que el usuario haga click
       }
     }
-    
-    function playNextTrack() {
-      if (!gameState.music || !gameState.musicStarted) return;
-      
-      const track = gameState.musicTracks[gameState.currentMusicIndex];
-      gameState.music.src = track.path;
-      gameState.music.volume = gameState.musicMuted ? 0 : gameState.musicVolume;
-      
-      if (!gameState.musicMuted) {
-        gameState.music.play().catch(e => console.warn("Audio play failed:", e));
-      }
-      
-      // Mostrar notificación
-      gameState.musicNotification = track.name;
-      gameState.musicNotificationTimer = 3; // 3 segundos
-    }
-    
+
     // Inicializar música pero sin auto-play
     initMusic();
     
@@ -513,6 +612,7 @@ const Index = () => {
       // Detener música normal y reproducir música de game over
       if (gameState.music) {
         gameState.music.pause();
+        gameState.musicPaused = true;
       }
       
       if (!gameState.gameOverMusic) {
@@ -665,6 +765,8 @@ const Index = () => {
       if (e.key === "Escape" && gameState.state !== 'gameover') {
         if (gameState.state === 'running') {
           gameState.state = 'paused';
+        } else if (gameState.state === 'paused' && gameState.countdownTimer > 0) {
+          gameState.countdownTimer = 0;
         } else if (gameState.state === 'paused' && !gameState.showUpgradeUI) {
           // Iniciar countdown de 3 segundos
           gameState.countdownTimer = 3;
@@ -1888,23 +1990,48 @@ const Index = () => {
       
       // Botón de cambiar canción (solo cuando el juego está corriendo)
       if (gameState.state === 'running') {
-        const musicBtnW = 160;
-        const musicBtnH = 45;
+        const controlsVisible = gameState.musicControlsVisible && gameState.musicStarted;
+        if (controlsVisible) {
+          const { prev, play, next } = gameState.musicControlRects;
+
+          if (
+            mx >= prev.x && mx <= prev.x + prev.w &&
+            my >= prev.y && my <= prev.y + prev.h
+          ) {
+            goToPreviousTrack();
+            return;
+          }
+
+          if (
+            mx >= play.x && mx <= play.x + play.w &&
+            my >= play.y && my <= play.y + play.h
+          ) {
+            toggleMusicPlayback();
+            return;
+          }
+
+          if (
+            mx >= next.x && mx <= next.x + next.w &&
+            my >= next.y && my <= next.y + next.h
+          ) {
+            advanceToNextTrack(false);
+            return;
+          }
+        }
+
+        const musicBtnW = controlsVisible ? 240 : 200;
+        const musicBtnH = controlsVisible ? 110 : 50;
         const musicBtnX = W - musicBtnW - 20;
         const musicBtnY = H - musicBtnH - 70;
-        
-        if (mx >= musicBtnX && mx <= musicBtnX + musicBtnW && 
+
+        if (mx >= musicBtnX && mx <= musicBtnX + musicBtnW &&
             my >= musicBtnY && my <= musicBtnY + musicBtnH) {
-          
-          // Si la música no ha iniciado, iniciarla
+
           if (!gameState.musicStarted) {
-            gameState.musicStarted = true;
-            playNextTrack();
-          } else {
-            // Cambiar a la siguiente canción
-            gameState.currentMusicIndex = (gameState.currentMusicIndex + 1) % gameState.musicTracks.length;
-            playNextTrack();
+            beginMusicPlayback();
           }
+
+          gameState.musicControlsVisible = !gameState.musicControlsVisible;
           return;
         }
       }
@@ -1958,9 +2085,8 @@ const Index = () => {
           if (mx >= toggleX1 && mx <= toggleX1 + toggleBtnW && my >= toggleY && my <= toggleY + toggleBtnH) {
             gameState.musicMuted = !gameState.musicMuted;
             if (gameState.music) {
-              if (gameState.musicMuted) {
-                gameState.music.pause();
-              } else {
+              gameState.music.volume = gameState.musicMuted ? 0 : gameState.musicVolume;
+              if (!gameState.musicMuted && !gameState.musicPaused && gameState.music.paused) {
                 gameState.music.play().catch(e => console.warn("Audio play failed:", e));
               }
             }
@@ -2083,6 +2209,7 @@ const Index = () => {
             }
 
             contentY = toggleBtnY + toggleBtnH + 50;
+            contentY = languageY + langBtnH + 50;
 
             // Audio Settings - Sliders interactivos
             const sliderW = 600;
@@ -2175,7 +2302,7 @@ const Index = () => {
         
         // Aplicar el volumen al audio
         if (gameState.music) {
-          gameState.music.volume = gameState.musicVolume;
+          gameState.music.volume = gameState.musicMuted ? 0 : gameState.musicVolume;
         }
         
         // Snap al valor final si está muy cerca
@@ -4519,16 +4646,14 @@ const Index = () => {
         ctx.globalAlpha = 1;
       }
       
-      // Botón de cambiar canción (esquina superior derecha)
-      const musicBtnW = 160;
-      const musicBtnH = 45;
+      const controlsVisible = gameState.musicControlsVisible && gameState.musicStarted;
+      const musicBtnW = controlsVisible ? 240 : 200;
+      const musicBtnH = controlsVisible ? 110 : 50;
       const musicBtnX = W - musicBtnW - 20;
       const musicBtnY = H - musicBtnH - 70;
-      
-      // Background del botón con animación si no ha iniciado
+
       const musicBtnGradient = ctx.createLinearGradient(musicBtnX, musicBtnY, musicBtnX, musicBtnY + musicBtnH);
       if (!gameState.musicStarted) {
-        // Animación pulsante para llamar atención
         const pulse = Math.sin(gameState.time * 3) * 0.2 + 0.8;
         musicBtnGradient.addColorStop(0, `rgba(${168 * pulse}, ${85 * pulse}, 247, 0.95)`);
         musicBtnGradient.addColorStop(1, `rgba(${124 * pulse}, ${58 * pulse}, 237, 0.95)`);
@@ -4536,30 +4661,111 @@ const Index = () => {
         musicBtnGradient.addColorStop(0, "rgba(168, 85, 247, 0.9)");
         musicBtnGradient.addColorStop(1, "rgba(124, 58, 237, 0.9)");
       }
+
       ctx.fillStyle = musicBtnGradient;
       ctx.beginPath();
-      ctx.roundRect(musicBtnX, musicBtnY, musicBtnW, musicBtnH, 8);
+      ctx.roundRect(musicBtnX, musicBtnY, musicBtnW, musicBtnH, 12);
       ctx.fill();
-      
-      // Border con glow si no ha iniciado
+
       ctx.strokeStyle = "#a855f7";
       ctx.lineWidth = 2;
       ctx.shadowColor = "#a855f7";
-      ctx.shadowBlur = gameState.musicStarted ? 10 : 20;
+      ctx.shadowBlur = gameState.musicStarted ? 12 : 22;
       ctx.stroke();
       ctx.shadowBlur = 0;
-      
-      // Texto del botón
+
       ctx.fillStyle = "#fff";
-      ctx.font = "bold 16px system-ui";
       ctx.textAlign = "center";
+
       if (!gameState.musicStarted) {
-        ctx.fillText("🎵 Click to Play", musicBtnX + musicBtnW / 2, musicBtnY + musicBtnH / 2 + 6);
+        ctx.font = "bold 16px system-ui";
+        ctx.fillText("🎵 Start Music", musicBtnX + musicBtnW / 2, musicBtnY + musicBtnH / 2);
+        ctx.font = "12px system-ui";
+        ctx.fillText("Shuffle playlist ready", musicBtnX + musicBtnW / 2, musicBtnY + musicBtnH / 2 + 18);
+
+        gameState.musicControlRects.prev = { x: 0, y: 0, w: 0, h: 0 };
+        gameState.musicControlRects.play = { x: 0, y: 0, w: 0, h: 0 };
+        gameState.musicControlRects.next = { x: 0, y: 0, w: 0, h: 0 };
+      } else if (!controlsVisible) {
+        const currentTrack = gameState.musicTracks[gameState.currentMusicIndex];
+        const displayName = currentTrack.name.length > 18 ? `${currentTrack.name.slice(0, 15)}...` : currentTrack.name;
+
+        ctx.font = "bold 16px system-ui";
+        ctx.fillText(`♫ ${displayName}`, musicBtnX + musicBtnW / 2, musicBtnY + musicBtnH / 2 - 4);
+        ctx.font = "12px system-ui";
+        ctx.fillText("Click to toggle controls", musicBtnX + musicBtnW / 2, musicBtnY + musicBtnH / 2 + 16);
+
+        gameState.musicControlRects.prev = { x: 0, y: 0, w: 0, h: 0 };
+        gameState.musicControlRects.play = { x: 0, y: 0, w: 0, h: 0 };
+        gameState.musicControlRects.next = { x: 0, y: 0, w: 0, h: 0 };
       } else {
         const currentTrack = gameState.musicTracks[gameState.currentMusicIndex];
-        ctx.fillText(`♫ ${currentTrack.name.slice(0, 12)}...`, musicBtnX + musicBtnW / 2, musicBtnY + musicBtnH / 2 + 6);
+        const trackName = currentTrack.name.length > 28 ? `${currentTrack.name.slice(0, 25)}...` : currentTrack.name;
+
+        ctx.textAlign = "left";
+        ctx.font = "bold 16px system-ui";
+        ctx.fillText(`♫ ${trackName}`, musicBtnX + 16, musicBtnY + 30);
+
+        ctx.font = "12px system-ui";
+        const statusText = gameState.musicPaused ? "Paused" : "Playing";
+        ctx.fillText(`${statusText} • 🔀 Shuffle`, musicBtnX + 16, musicBtnY + 48);
+
+        const padding = 16;
+        const buttonHeight = 36;
+        const spacing = 12;
+        const totalButtonWidth = musicBtnW - padding * 2;
+        const buttonWidth = (totalButtonWidth - spacing * 2) / 3;
+        const buttonY = musicBtnY + musicBtnH - padding - buttonHeight;
+
+        const buttons = [
+          {
+            key: "prev" as const,
+            label: "⏮ Prev",
+            x: musicBtnX + padding,
+            gradient: ["#7c3aed", "#6d28d9"],
+          },
+          {
+            key: "play" as const,
+            label: gameState.musicPaused ? "▶ Play" : "⏸ Pause",
+            x: musicBtnX + padding + buttonWidth + spacing,
+            gradient: gameState.musicPaused ? ["#22c55e", "#16a34a"] : ["#f97316", "#ea580c"],
+          },
+          {
+            key: "next" as const,
+            label: "⏭ Next",
+            x: musicBtnX + padding + (buttonWidth + spacing) * 2,
+            gradient: ["#7c3aed", "#6d28d9"],
+          },
+        ];
+
+        for (const button of buttons) {
+          const btnGradient = ctx.createLinearGradient(button.x, buttonY, button.x, buttonY + buttonHeight);
+          btnGradient.addColorStop(0, button.gradient[0]);
+          btnGradient.addColorStop(1, button.gradient[1]);
+
+          ctx.fillStyle = btnGradient;
+          ctx.beginPath();
+          ctx.roundRect(button.x, buttonY, buttonWidth, buttonHeight, 8);
+          ctx.fill();
+
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+
+          ctx.font = "bold 14px system-ui";
+          ctx.fillStyle = "#fff";
+          ctx.textAlign = "center";
+          ctx.fillText(button.label, button.x + buttonWidth / 2, buttonY + buttonHeight / 2 + 5);
+
+          gameState.musicControlRects[button.key] = {
+            x: button.x,
+            y: buttonY,
+            w: buttonWidth,
+            h: buttonHeight,
+          };
+        }
       }
-      
+
       // Overlay de Game Over con fade
       if (gameState.state === 'gameover') {
         ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
@@ -6469,6 +6675,7 @@ const Index = () => {
             ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
             ctx.shadowBlur = 4;
             ctx.fillText("▶ " + i18n.continue, continueX + btnW / 2, btnY + btnH / 2 + 9);
+            ctx.fillText("▶ " + i18n.continue, continueX + btnW / 2, contentY + btnH / 2 + 9);
             ctx.shadowBlur = 0;
 
             // Language toggle button
@@ -6544,6 +6751,7 @@ const Index = () => {
             ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
             ctx.shadowBlur = 4;
             ctx.fillText("🔄 " + i18n.restart, restartX + btnW / 2, btnY + btnH / 2 + 9);
+            ctx.fillText("🔄 " + i18n.restart, restartX + btnW / 2, contentY + btnH / 2 + 9);
             ctx.shadowBlur = 0;
             
           } else if (gameState.pauseMenuTab === "credits") {
@@ -6628,6 +6836,7 @@ const Index = () => {
             ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
             ctx.shadowBlur = 4;
             ctx.fillText("▶ " + i18n.continue, continueX + btnW / 2, btnY + btnH / 2 + 9);
+            ctx.fillText("▶ " + i18n.continue, continueX + btnW / 2, contentY + btnH / 2 + 9);
             ctx.shadowBlur = 0;
 
             // Language toggle button
@@ -6703,6 +6912,7 @@ const Index = () => {
             ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
             ctx.shadowBlur = 4;
             ctx.fillText("🔄 " + i18n.restart, restartX + btnW / 2, btnY + btnH / 2 + 9);
+            ctx.fillText("🔄 " + i18n.restart, restartX + btnW / 2, contentY + btnH / 2 + 9);
             ctx.shadowBlur = 0;
             
           } else if (gameState.pauseMenuTab === "settings") {
@@ -7030,6 +7240,7 @@ const Index = () => {
             ctx.shadowBlur = 0;
 
             contentY = toggleBtnY + toggleBtnH + 50;
+            contentY += langBtnH + 50;
 
             // === AUDIO SETTINGS (SLIDER DIRECTO) ===
             ctx.fillStyle = "#fbbf24";
@@ -7107,6 +7318,7 @@ const Index = () => {
             ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
             ctx.shadowBlur = 4;
             ctx.fillText("▶ " + i18n.continue, continueX + btnW / 2, btnY + btnH / 2 + 9);
+            ctx.fillText("▶ " + i18n.continue, continueX + btnW / 2, contentY + btnH / 2 + 9);
             ctx.shadowBlur = 0;
 
             // Language toggle button
@@ -7183,6 +7395,7 @@ const Index = () => {
             ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
             ctx.shadowBlur = 4;
             ctx.fillText("🔄 " + i18n.restart, restartX + btnW / 2, btnY + btnH / 2 + 9);
+            ctx.fillText("🔄 " + i18n.restart, restartX + btnW / 2, contentY + btnH / 2 + 9);
             ctx.shadowBlur = 0;
           }
         }
