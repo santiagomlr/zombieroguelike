@@ -340,26 +340,29 @@ type PauseMenuTab = "home" | "settings" | "stats" | "wiki" | "credits";
 const PAUSE_MENU_TABS: PauseMenuTab[] = ["home", "settings", "stats", "wiki", "credits"];
 
 const getPauseMenuLayout = (W: number, H: number) => {
-  const menuW = Math.min(760, Math.max(540, W - 220));
-  const menuH = Math.min(520, Math.max(420, H - 220));
+  const scaleBase = Math.min(0.92, Math.max(0.82, Math.min(W / 1366, H / 768)));
+  const scale = Number.isFinite(scaleBase) ? scaleBase : 0.9;
+
+  const menuW = Math.min(760, Math.max(540, W - 220)) * scale;
+  const menuH = Math.min(520, Math.max(420, H - 220)) * scale;
   const menuX = W / 2 - menuW / 2;
   const menuY = H / 2 - menuH / 2;
-  const padding = 24;
-  const headerHeight = 104;
+  const padding = 24 * scale;
+  const headerHeight = 104 * scale;
   const navW = Math.min(170, Math.max(140, menuW * 0.22));
   const navX = menuX + padding;
-  const navY = menuY + headerHeight + 12;
-  const navH = 44;
-  const navGap = 12;
-  const contentX = navX + navW + 20;
-  const contentY = menuY + headerHeight + 16;
+  const navY = menuY + headerHeight + 12 * scale;
+  const navH = 44 * scale;
+  const navGap = 12 * scale;
+  const contentX = navX + navW + 20 * scale;
+  const contentY = menuY + headerHeight + 16 * scale;
   const contentW = menuW - (contentX - menuX) - padding;
   const contentH = menuH - (contentY - menuY) - padding;
-  const innerPadding = 20;
+  const innerPadding = 20 * scale;
   const innerX = contentX + innerPadding;
   const innerY = contentY + innerPadding;
-  const innerW = contentW - innerPadding * 2;
-  const innerH = contentH - innerPadding * 2;
+  const innerW = Math.max(0, contentW - innerPadding * 2);
+  const innerH = Math.max(0, contentH - innerPadding * 2);
 
   return {
     menuX,
@@ -381,6 +384,7 @@ const getPauseMenuLayout = (W: number, H: number) => {
     innerY,
     innerW,
     innerH,
+    scale,
   };
 };
 
@@ -388,10 +392,10 @@ const getPauseMenuContentMetrics = (
   tab: PauseMenuTab,
   layout: ReturnType<typeof getPauseMenuLayout>
 ) => {
-  const headerHeight = 64;
-  const footerSpace = tab === "home" ? 96 : 40;
+  const headerHeight = 64 * layout.scale;
+  const footerSpace = (tab === "home" ? 96 : 40) * layout.scale;
   const scrollAreaTop = layout.innerY + headerHeight;
-  const scrollAreaHeight = Math.max(80, layout.innerH - headerHeight - footerSpace);
+  const scrollAreaHeight = Math.max(80 * layout.scale, layout.innerH - headerHeight - footerSpace);
 
   return {
     headerHeight,
@@ -2255,7 +2259,8 @@ const Index = () => {
           }
         } else if (activeTab === "settings" && pointerInScroll) {
           const slider = gameState.pauseMenuHitAreas.settings.slider;
-          if (mx >= slider.x - 20 && mx <= slider.x + slider.w + 20 && adjustedY >= slider.y - 20 && adjustedY <= slider.y + slider.h + 20) {
+          const sliderMargin = 20 * layout.scale;
+          if (mx >= slider.x - sliderMargin && mx <= slider.x + slider.w + sliderMargin && adjustedY >= slider.y - sliderMargin && adjustedY <= slider.y + slider.h + sliderMargin) {
             const clickX = clamp(mx, slider.x, slider.x + slider.w);
             gameState.targetMusicVolume = (clickX - slider.x) / slider.w;
             return;
@@ -2325,7 +2330,7 @@ const Index = () => {
 
       if (mx >= layout.innerX && mx <= layout.innerX + layout.innerW && my >= scrollAreaTop && my <= scrollAreaTop + scrollAreaHeight) {
         e.preventDefault();
-        const delta = e.deltaMode === WheelEvent.DOM_DELTA_LINE ? e.deltaY * 24 : e.deltaY;
+        const delta = e.deltaMode === WheelEvent.DOM_DELTA_LINE ? e.deltaY * 24 * layout.scale : e.deltaY;
         const maxScroll = gameState.pauseMenuMaxScroll[activeTab] ?? 0;
         if (maxScroll <= 0) {
           return;
@@ -5917,49 +5922,57 @@ const Index = () => {
           innerY,
           innerW,
           innerH,
+          scale,
         } = layout;
+
+        const scaleValue = (value: number) => value * scale;
+        const scaledRadius = (value: number) => Math.max(4, value * scale);
+        const getScaledFont = (size: number, weight?: string) => {
+          const px = Math.max(10, Math.round(size * scale));
+          return `${weight ? `${weight} ` : ""}${px}px system-ui`;
+        };
 
         ctx.save();
         ctx.beginPath();
-        ctx.roundRect(menuX, menuY, menuW, menuH, 22);
+        ctx.roundRect(menuX, menuY, menuW, menuH, scaledRadius(22));
         const bgGradient = ctx.createLinearGradient(menuX, menuY, menuX, menuY + menuH);
         bgGradient.addColorStop(0, "rgba(15, 23, 42, 0.94)");
         bgGradient.addColorStop(1, "rgba(15, 23, 42, 0.82)");
         ctx.fillStyle = bgGradient;
         ctx.shadowColor = "rgba(30, 64, 175, 0.25)";
-        ctx.shadowBlur = 18;
+        ctx.shadowBlur = scaleValue(18);
         ctx.fill();
         ctx.shadowBlur = 0;
         ctx.strokeStyle = "rgba(148, 163, 184, 0.35)";
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = Math.max(1, 1.5 * scale);
         ctx.stroke();
         ctx.restore();
 
         ctx.save();
         const layoutHeaderHeight = layout.headerHeight;
         ctx.beginPath();
-        ctx.roundRect(menuX + 8, menuY + 8, menuW - 16, layoutHeaderHeight - 16, 18);
+        ctx.roundRect(menuX + scaleValue(8), menuY + scaleValue(8), menuW - scaleValue(16), layoutHeaderHeight - scaleValue(16), scaledRadius(18));
         const headerGradient = ctx.createLinearGradient(menuX, menuY, menuX, menuY + layoutHeaderHeight);
         headerGradient.addColorStop(0, "rgba(59, 130, 246, 0.22)");
         headerGradient.addColorStop(1, "rgba(168, 85, 247, 0.18)");
         ctx.fillStyle = headerGradient;
         ctx.strokeStyle = "rgba(148, 163, 184, 0.25)";
-        ctx.lineWidth = 1;
+        ctx.lineWidth = Math.max(1, scale);
         ctx.fill();
         ctx.stroke();
         ctx.restore();
 
         ctx.fillStyle = "#fcd34d";
-        ctx.font = "600 32px system-ui";
+        ctx.font = getScaledFont(32, "600");
         ctx.textAlign = "left";
         ctx.shadowColor = "rgba(252, 211, 77, 0.45)";
-        ctx.shadowBlur = 10;
-        ctx.fillText(pm.overviewTitle, menuX + padding + 4, menuY + 60);
+        ctx.shadowBlur = scaleValue(10);
+        ctx.fillText(pm.overviewTitle, menuX + padding + scaleValue(4), menuY + scaleValue(60));
         ctx.shadowBlur = 0;
 
         ctx.fillStyle = "rgba(226, 232, 240, 0.82)";
-        ctx.font = "15px system-ui";
-        ctx.fillText(pm.overviewSubtitle, menuX + padding + 4, menuY + 86);
+        ctx.font = getScaledFont(15);
+        ctx.fillText(pm.overviewSubtitle, menuX + padding + scaleValue(4), menuY + scaleValue(86));
 
         const navItems = [
           { id: "home", label: `🏠 ${pm.home}` },
@@ -5975,23 +5988,23 @@ const Index = () => {
 
           ctx.save();
           ctx.beginPath();
-          ctx.roundRect(navX, itemY, navW, navH, 12);
+          ctx.roundRect(navX, itemY, navW, navH, scaledRadius(12));
           ctx.fillStyle = isActive ? "rgba(96, 165, 250, 0.28)" : "rgba(15, 23, 42, 0.55)";
           ctx.fill();
           ctx.strokeStyle = isActive ? "rgba(129, 140, 248, 0.7)" : "rgba(148, 163, 184, 0.2)";
-          ctx.lineWidth = isActive ? 1.5 : 1;
+          ctx.lineWidth = isActive ? Math.max(1, 1.5 * scale) : Math.max(1, scale * 0.9);
           ctx.stroke();
           ctx.restore();
 
           if (isActive) {
             ctx.fillStyle = "rgba(148, 197, 253, 0.8)";
-            ctx.fillRect(navX - 3, itemY + 10, 3, navH - 20);
+            ctx.fillRect(navX - scaleValue(3), itemY + scaleValue(10), scaleValue(3), Math.max(scaleValue(6), navH - scaleValue(20)));
           }
 
           ctx.fillStyle = "#f8fafc";
-          ctx.font = isActive ? "600 16px system-ui" : "15px system-ui";
+          ctx.font = isActive ? getScaledFont(16, "600") : getScaledFont(15);
           ctx.textAlign = "left";
-          ctx.fillText(item.label, navX + 18, itemY + navH / 2 + 5);
+          ctx.fillText(item.label, navX + scaleValue(18), itemY + navH / 2 + scaleValue(5));
         });
 
         const contentGradient = ctx.createLinearGradient(contentX, contentY, contentX, contentY + contentH);
@@ -5999,11 +6012,11 @@ const Index = () => {
         contentGradient.addColorStop(1, "rgba(30, 41, 59, 0.76)");
         ctx.save();
         ctx.beginPath();
-        ctx.roundRect(contentX, contentY, contentW, contentH, 18);
+        ctx.roundRect(contentX, contentY, contentW, contentH, scaledRadius(18));
         ctx.fillStyle = contentGradient;
         ctx.fill();
         ctx.strokeStyle = "rgba(148, 163, 184, 0.18)";
-        ctx.lineWidth = 1;
+        ctx.lineWidth = Math.max(1, scale);
         ctx.stroke();
         ctx.restore();
 
@@ -6014,40 +6027,40 @@ const Index = () => {
         let clampedScroll = currentScroll;
         let contentBottom = scrollAreaTop;
 
-        const titleY = innerY + 28;
-        const subtitleY = innerY + 52;
+        const titleY = innerY + scaleValue(28);
+        const subtitleY = innerY + scaleValue(52);
         ctx.textAlign = "left";
         ctx.fillStyle = "#f8fafc";
-        ctx.font = "600 22px system-ui";
+        ctx.font = getScaledFont(22, "600");
         switch (activeTab) {
           case "home":
             ctx.fillText(pm.home, innerX, titleY);
             ctx.fillStyle = "rgba(226, 232, 240, 0.75)";
-            ctx.font = "15px system-ui";
+            ctx.font = getScaledFont(15);
             ctx.fillText(pm.overviewSubtitle, innerX, subtitleY);
             break;
           case "settings":
             ctx.fillText(pm.settings, innerX, titleY);
             ctx.fillStyle = "rgba(226, 232, 240, 0.75)";
-            ctx.font = "15px system-ui";
+            ctx.font = getScaledFont(15);
             ctx.fillText(pm.audio, innerX, subtitleY);
             break;
           case "stats":
             ctx.fillText(pm.statsTitle, innerX, titleY);
             ctx.fillStyle = "rgba(226, 232, 240, 0.75)";
-            ctx.font = "15px system-ui";
+            ctx.font = getScaledFont(15);
             ctx.fillText(pm.statsHighlights, innerX, subtitleY);
             break;
           case "wiki":
             ctx.fillText(pm.wiki, innerX, titleY);
             ctx.fillStyle = "rgba(226, 232, 240, 0.75)";
-            ctx.font = "15px system-ui";
+            ctx.font = getScaledFont(15);
             ctx.fillText(pm.wikiSubtitle, innerX, subtitleY);
             break;
           case "credits":
             ctx.fillText(pm.credits, innerX, titleY);
             ctx.fillStyle = "rgba(226, 232, 240, 0.75)";
-            ctx.font = "15px system-ui";
+            ctx.font = getScaledFont(15);
             ctx.fillText(pm.creditsSubtitle, innerX, subtitleY);
             break;
         }
@@ -6074,11 +6087,11 @@ const Index = () => {
             ];
 
             const columns = innerW > 560 ? 2 : 1;
-            const boxGap = 18;
+            const boxGap = scaleValue(18);
             const boxW = columns === 2 ? (innerW - boxGap) / 2 : innerW;
-            const boxH = 96;
+            const boxH = scaleValue(96);
             const startX = innerX;
-            const startY = scrollAreaTop + 12;
+            const startY = scrollAreaTop + scaleValue(12);
             const lastRow = Math.floor((summaryBoxes.length - 1) / columns);
             const lastRowCount = summaryBoxes.length % columns || columns;
 
@@ -6097,24 +6110,24 @@ const Index = () => {
 
               ctx.save();
               ctx.beginPath();
-              ctx.roundRect(boxX, boxY, boxW, boxH, 14);
+              ctx.roundRect(boxX, boxY, boxW, boxH, scaledRadius(14));
               ctx.fillStyle = cardGradient;
               ctx.shadowColor = `${box.color}55`;
-              ctx.shadowBlur = 12;
+              ctx.shadowBlur = scaleValue(12);
               ctx.fill();
               ctx.shadowBlur = 0;
               ctx.strokeStyle = `${box.color}66`;
-              ctx.lineWidth = 1;
+              ctx.lineWidth = Math.max(1, scale);
               ctx.stroke();
               ctx.restore();
 
               ctx.fillStyle = "rgba(148, 163, 184, 0.85)";
-              ctx.font = "13px system-ui";
-              ctx.fillText(box.label, boxX + 18, boxY + 28);
+              ctx.font = getScaledFont(13);
+              ctx.fillText(box.label, boxX + scaleValue(18), boxY + scaleValue(28));
 
               ctx.fillStyle = "#f8fafc";
-              ctx.font = "600 24px system-ui";
-              ctx.fillText(`${box.icon} ${box.value}`, boxX + 18, boxY + boxH / 2 + 14);
+              ctx.font = getScaledFont(24, "600");
+              ctx.fillText(`${box.icon} ${box.value}`, boxX + scaleValue(18), boxY + boxH / 2 + scaleValue(14));
 
               contentBottom = Math.max(contentBottom, boxY + boxH);
             });
@@ -6132,30 +6145,30 @@ const Index = () => {
                   "to automatically focus the most dangerous target.",
                 ];
 
-            let sectionY = scrollAreaTop + 12;
+            let sectionY = scrollAreaTop + scaleValue(12);
             ctx.fillStyle = "#bfdbfe";
-            ctx.font = "600 18px system-ui";
+            ctx.font = getScaledFont(18, "600");
             ctx.fillText(aimTitle, innerX, sectionY);
 
             ctx.fillStyle = "rgba(248, 250, 252, 0.75)";
-            ctx.font = "14px system-ui";
+            ctx.font = getScaledFont(14);
             aimDescription.forEach((line, idx) => {
-              ctx.fillText(line, innerX, sectionY + 30 + idx * 22);
+              ctx.fillText(line, innerX, sectionY + scaleValue(30) + idx * scaleValue(22));
             });
 
-            sectionY += 30 + aimDescription.length * 22 + 32;
+            sectionY += scaleValue(30) + aimDescription.length * scaleValue(22) + scaleValue(32);
 
             ctx.fillStyle = "#bfdbfe";
-            ctx.font = "600 18px system-ui";
+            ctx.font = getScaledFont(18, "600");
             ctx.fillText(`🎚️ ${pm.musicVolume}`, innerX, sectionY);
 
-            const sliderX = innerX + 8;
-            const sliderW = Math.max(220, innerW - 16);
-            const sliderH = 10;
-            const sliderY = sectionY + 30;
+            const sliderX = innerX + scaleValue(8);
+            const sliderW = Math.max(scaleValue(220), innerW - scaleValue(16));
+            const sliderH = scaleValue(10);
+            const sliderY = sectionY + scaleValue(30);
             ctx.fillStyle = "rgba(15, 23, 42, 0.7)";
             ctx.beginPath();
-            ctx.roundRect(sliderX, sliderY, sliderW, sliderH, 5);
+            ctx.roundRect(sliderX, sliderY, sliderW, sliderH, scaledRadius(5));
             ctx.fill();
 
             const fillW = sliderW * gameState.musicVolume;
@@ -6164,53 +6177,53 @@ const Index = () => {
             sliderFill.addColorStop(1, "#a855f7");
             ctx.fillStyle = sliderFill;
             ctx.beginPath();
-            ctx.roundRect(sliderX, sliderY, Math.max(sliderH, fillW), sliderH, 5);
+            ctx.roundRect(sliderX, sliderY, Math.max(sliderH, fillW), sliderH, scaledRadius(5));
             ctx.fill();
 
             const handleX = sliderX + fillW;
             ctx.fillStyle = "#fcd34d";
             ctx.beginPath();
-            ctx.arc(handleX, sliderY + sliderH / 2, 10, 0, Math.PI * 2);
+            ctx.arc(handleX, sliderY + sliderH / 2, scaleValue(10), 0, Math.PI * 2);
             ctx.fill();
             ctx.strokeStyle = "rgba(250, 204, 21, 0.6)";
-            ctx.lineWidth = 1.5;
+            ctx.lineWidth = Math.max(1, 1.5 * scale);
             ctx.stroke();
 
             ctx.fillStyle = "rgba(226, 232, 240, 0.7)";
-            ctx.font = "14px system-ui";
+            ctx.font = getScaledFont(14);
             ctx.textAlign = "right";
-            ctx.fillText(`${Math.round(gameState.musicVolume * 100)}%`, sliderX + sliderW, sliderY - 10);
+            ctx.fillText(`${Math.round(gameState.musicVolume * 100)}%`, sliderX + sliderW, sliderY - scaleValue(10));
             ctx.textAlign = "left";
 
-            sectionY = sliderY + 56;
+            sectionY = sliderY + scaleValue(56);
 
-            const toggleH = 52;
-            const toggleGap = 18;
+            const toggleH = scaleValue(52);
+            const toggleGap = scaleValue(18);
             const togglesTwoCols = innerW > 520;
             const toggleW = togglesTwoCols ? (innerW - toggleGap) / 2 : innerW;
             const musicToggle = { x: innerX, y: sectionY, w: toggleW, h: toggleH };
             const sfxToggle = togglesTwoCols
               ? { x: innerX + toggleW + toggleGap, y: sectionY, w: toggleW, h: toggleH }
-              : { x: innerX, y: sectionY + toggleH + 16, w: toggleW, h: toggleH };
+              : { x: innerX, y: sectionY + toggleH + scaleValue(16), w: toggleW, h: toggleH };
 
             const drawToggle = (area: { x: number; y: number; w: number; h: number }, label: string, active: boolean, onText: string, offText: string) => {
               ctx.save();
               ctx.beginPath();
-              ctx.roundRect(area.x, area.y, area.w, area.h, 12);
+              ctx.roundRect(area.x, area.y, area.w, area.h, scaledRadius(12));
               ctx.fillStyle = active ? "rgba(34, 197, 94, 0.28)" : "rgba(248, 113, 113, 0.2)";
               ctx.fill();
               ctx.strokeStyle = active ? "rgba(134, 239, 172, 0.6)" : "rgba(252, 165, 165, 0.45)";
-              ctx.lineWidth = 1.5;
+              ctx.lineWidth = Math.max(1, 1.5 * scale);
               ctx.stroke();
               ctx.restore();
 
               ctx.fillStyle = "#f8fafc";
-              ctx.font = "600 18px system-ui";
+              ctx.font = getScaledFont(18, "600");
               ctx.textAlign = "center";
-              ctx.fillText(label, area.x + area.w / 2, area.y + 24);
-              ctx.font = "14px system-ui";
+              ctx.fillText(label, area.x + area.w / 2, area.y + scaleValue(24));
+              ctx.font = getScaledFont(14);
               ctx.fillStyle = "rgba(248, 250, 252, 0.8)";
-              ctx.fillText(active ? onText : offText, area.x + area.w / 2, area.y + area.h - 14);
+              ctx.fillText(active ? onText : offText, area.x + area.w / 2, area.y + area.h - scaleValue(14));
               ctx.textAlign = "left";
 
               contentBottom = Math.max(contentBottom, area.y + area.h);
@@ -6219,19 +6232,19 @@ const Index = () => {
             drawToggle(musicToggle, pm.music.label, !gameState.musicMuted, pm.music.on, pm.music.off);
             drawToggle(sfxToggle, pm.sfx.label, !gameState.sfxMuted, pm.sfx.on, pm.sfx.off);
 
-            sectionY = (togglesTwoCols ? musicToggle.y + toggleH : sfxToggle.y + sfxToggle.h) + 40;
+            sectionY = (togglesTwoCols ? musicToggle.y + toggleH : sfxToggle.y + sfxToggle.h) + scaleValue(40);
 
             ctx.fillStyle = "#bfdbfe";
-            ctx.font = "600 18px system-ui";
+            ctx.font = getScaledFont(18, "600");
             ctx.fillText(`🌐 ${pm.language}`, innerX, sectionY);
 
             const langOptions: Language[] = ["es", "en"];
-            const langBtnH = 44;
-            const langGap = 16;
-            const langBtnW = Math.min(180, Math.max(140, (innerW - langGap) / langOptions.length));
+            const langBtnH = scaleValue(44);
+            const langGap = scaleValue(16);
+            const langBtnW = Math.min(scaleValue(180), Math.max(scaleValue(140), (innerW - langGap) / langOptions.length));
             const langTotalW = langOptions.length * langBtnW + (langOptions.length - 1) * langGap;
             const langStartX = innerX + Math.max(0, (innerW - langTotalW) / 2);
-            const langY = sectionY + 32;
+            const langY = sectionY + scaleValue(32);
 
             gameState.pauseMenuHitAreas.settings.languages = [];
 
@@ -6241,18 +6254,18 @@ const Index = () => {
               const flag = langOption === "es" ? "🇪🇸" : "🇺🇸";
               ctx.save();
               ctx.beginPath();
-              ctx.roundRect(btnX, langY, langBtnW, langBtnH, 10);
+              ctx.roundRect(btnX, langY, langBtnW, langBtnH, scaledRadius(10));
               ctx.fillStyle = isActive ? "rgba(56, 189, 248, 0.28)" : "rgba(15, 23, 42, 0.55)";
               ctx.fill();
               ctx.strokeStyle = isActive ? "rgba(125, 211, 252, 0.6)" : "rgba(148, 163, 184, 0.25)";
-              ctx.lineWidth = isActive ? 1.5 : 1;
+              ctx.lineWidth = isActive ? Math.max(1, 1.5 * scale) : Math.max(1, scale);
               ctx.stroke();
               ctx.restore();
 
               ctx.fillStyle = "#f8fafc";
-              ctx.font = isActive ? "600 16px system-ui" : "14px system-ui";
+              ctx.font = isActive ? getScaledFont(16, "600") : getScaledFont(14);
               ctx.textAlign = "center";
-              ctx.fillText(`${flag} ${pm.languages[langOption]}`, btnX + langBtnW / 2, langY + langBtnH / 2 + 5);
+              ctx.fillText(`${flag} ${pm.languages[langOption]}`, btnX + langBtnW / 2, langY + langBtnH / 2 + scaleValue(5));
               ctx.textAlign = "left";
 
               gameState.pauseMenuHitAreas.settings.languages.push({ x: btnX, y: langY, w: langBtnW, h: langBtnH, lang: langOption });
@@ -6278,17 +6291,17 @@ const Index = () => {
             ];
 
             const highlightCols = innerW > 560 ? 2 : 1;
-            const highlightGap = 18;
+            const highlightGap = scaleValue(18);
             const highlightW = highlightCols === 2 ? (innerW - highlightGap) / 2 : innerW;
-            const highlightH = 92;
-            const highlightStartY = scrollAreaTop + 12;
+            const highlightH = scaleValue(92);
+            const highlightStartY = scrollAreaTop + scaleValue(12);
             const highlightLastRow = Math.floor((highlightCards.length - 1) / highlightCols);
             const highlightLastCount = highlightCards.length % highlightCols || highlightCols;
 
             highlightCards.forEach((card, index) => {
               const row = Math.floor(index / highlightCols);
               let cardX = innerX + (index % highlightCols) * (highlightW + highlightGap);
-              const cardY = highlightStartY + row * (highlightH + 18);
+              const cardY = highlightStartY + row * (highlightH + scaleValue(18));
               if (row === highlightLastRow && highlightLastCount === 1) {
                 cardX = innerX + (innerW - highlightW) / 2;
               }
@@ -6298,28 +6311,28 @@ const Index = () => {
               grad.addColorStop(1, "rgba(15, 23, 42, 0.72)");
               ctx.save();
               ctx.beginPath();
-              ctx.roundRect(cardX, cardY, highlightW, highlightH, 12);
+              ctx.roundRect(cardX, cardY, highlightW, highlightH, scaledRadius(12));
               ctx.fillStyle = grad;
               ctx.fill();
               ctx.strokeStyle = `${card.color}55`;
-              ctx.lineWidth = 1;
+              ctx.lineWidth = Math.max(1, scale);
               ctx.stroke();
               ctx.restore();
 
               ctx.fillStyle = "rgba(148, 163, 184, 0.85)";
-              ctx.font = "13px system-ui";
-              ctx.fillText(card.label, cardX + 16, cardY + 26);
+              ctx.font = getScaledFont(13);
+              ctx.fillText(card.label, cardX + scaleValue(16), cardY + scaleValue(26));
               ctx.fillStyle = "#f8fafc";
-              ctx.font = "600 22px system-ui";
-              ctx.fillText(`${card.icon} ${card.value}`, cardX + 16, cardY + highlightH / 2 + 14);
+              ctx.font = getScaledFont(22, "600");
+              ctx.fillText(`${card.icon} ${card.value}`, cardX + scaleValue(16), cardY + highlightH / 2 + scaleValue(14));
 
               contentBottom = Math.max(contentBottom, cardY + highlightH);
             });
 
-            let detailY = highlightStartY + Math.ceil(highlightCards.length / highlightCols) * (highlightH + 18) + 22;
+            let detailY = highlightStartY + Math.ceil(highlightCards.length / highlightCols) * (highlightH + scaleValue(18)) + scaleValue(22);
             ctx.fillStyle = "rgba(226, 232, 240, 0.7)";
-            ctx.font = "14px system-ui";
-            ctx.fillText(pm.statsHighlights, innerX, detailY - 12);
+            ctx.font = getScaledFont(14);
+            ctx.fillText(pm.statsHighlights, innerX, detailY - scaleValue(12));
 
             const formatPercent = (value: number) => {
               const diff = (value - 1) * 100;
@@ -6342,15 +6355,15 @@ const Index = () => {
             ];
 
             const detailCols = innerW > 560 ? 2 : 1;
-            const detailGap = 16;
+            const detailGap = scaleValue(16);
             const detailW = detailCols === 2 ? (innerW - detailGap) / 2 : innerW;
-            const detailH = 84;
+            const detailH = scaleValue(84);
 
             detailCards.forEach((card, index) => {
               const row = Math.floor(index / detailCols);
               const col = index % detailCols;
               let cardX = innerX + col * (detailW + detailGap);
-              const cardY = detailY + row * (detailH + 16);
+              const cardY = detailY + row * (detailH + scaleValue(16));
               if (detailCols > 1 && col === detailCols - 1 && detailW > innerW) {
                 cardX = innerX + (innerW - detailW) / 2;
               }
@@ -6360,20 +6373,20 @@ const Index = () => {
               grad.addColorStop(1, "rgba(15, 23, 42, 0.75)");
               ctx.save();
               ctx.beginPath();
-              ctx.roundRect(cardX, cardY, detailW, detailH, 12);
+              ctx.roundRect(cardX, cardY, detailW, detailH, scaledRadius(12));
               ctx.fillStyle = grad;
               ctx.fill();
               ctx.strokeStyle = `${card.color}55`;
-              ctx.lineWidth = 1;
+              ctx.lineWidth = Math.max(1, scale);
               ctx.stroke();
               ctx.restore();
 
               ctx.fillStyle = "rgba(148, 163, 184, 0.85)";
-              ctx.font = "13px system-ui";
-              ctx.fillText(card.label, cardX + 16, cardY + 24);
+              ctx.font = getScaledFont(13);
+              ctx.fillText(card.label, cardX + scaleValue(16), cardY + scaleValue(24));
               ctx.fillStyle = "#f8fafc";
-              ctx.font = "600 20px system-ui";
-              ctx.fillText(card.value, cardX + 16, cardY + detailH / 2 + 12);
+              ctx.font = getScaledFont(20, "600");
+              ctx.fillText(card.value, cardX + scaleValue(16), cardY + detailH / 2 + scaleValue(12));
 
               contentBottom = Math.max(contentBottom, cardY + detailH);
             });
@@ -6381,112 +6394,112 @@ const Index = () => {
           }
           case "wiki": {
             const wikiLeft = innerX;
-            const descOffset = Math.min(240, innerW * 0.45);
-            let wikiY = scrollAreaTop + 12;
+            const descOffset = Math.min(scaleValue(240), innerW * 0.45);
+            let wikiY = scrollAreaTop + scaleValue(12);
 
             ctx.fillStyle = "#bfdbfe";
-            ctx.font = "600 18px system-ui";
+            ctx.font = getScaledFont(18, "600");
             ctx.fillText(wikiLocale.pickupsTitle, wikiLeft, wikiY);
-            wikiY += 30;
+            wikiY += scaleValue(30);
 
-            ctx.font = "14px system-ui";
+            ctx.font = getScaledFont(14);
             wikiLocale.pickups.forEach(pickup => {
               ctx.fillStyle = pickup.color;
               ctx.fillText(pickup.icon, wikiLeft, wikiY);
               ctx.fillStyle = "#f8fafc";
-              ctx.fillText(`${pickup.name}:`, wikiLeft + 28, wikiY);
+              ctx.fillText(`${pickup.name}:`, wikiLeft + scaleValue(28), wikiY);
               ctx.fillStyle = "rgba(148, 163, 184, 0.9)";
               ctx.fillText(pickup.desc, wikiLeft + descOffset, wikiY);
-              wikiY += 24;
+              wikiY += scaleValue(24);
             });
 
-            wikiY += 20;
+            wikiY += scaleValue(20);
             ctx.fillStyle = "#bfdbfe";
-            ctx.font = "600 18px system-ui";
+            ctx.font = getScaledFont(18, "600");
             ctx.fillText(wikiLocale.upgradesTitle, wikiLeft, wikiY);
-            wikiY += 28;
+            wikiY += scaleValue(28);
 
             ctx.fillStyle = "rgba(226, 232, 240, 0.72)";
-            ctx.font = "14px system-ui";
+            ctx.font = getScaledFont(14);
             ctx.fillText(wikiLocale.upgradesIntro, wikiLeft, wikiY);
-            wikiY += 24;
+            wikiY += scaleValue(24);
 
             wikiLocale.upgradeTypes.forEach(type => {
               ctx.fillStyle = type.color;
               ctx.fillText(`${type.icon} ${type.name}:`, wikiLeft, wikiY);
               ctx.fillStyle = "rgba(148, 163, 184, 0.9)";
               ctx.fillText(type.desc, wikiLeft + descOffset, wikiY);
-              wikiY += 24;
+              wikiY += scaleValue(24);
             });
 
-            wikiY += 20;
+            wikiY += scaleValue(20);
             ctx.fillStyle = "#bfdbfe";
-            ctx.font = "600 18px system-ui";
+            ctx.font = getScaledFont(18, "600");
             ctx.fillText(wikiLocale.enemiesTitle, wikiLeft, wikiY);
-            wikiY += 28;
+            wikiY += scaleValue(28);
 
             wikiLocale.enemies.forEach(enemy => {
               ctx.fillStyle = enemy.color;
               ctx.fillText(`${enemy.icon} ${enemy.name}`, wikiLeft, wikiY);
               ctx.fillStyle = "rgba(148, 163, 184, 0.9)";
               ctx.fillText(enemy.desc, wikiLeft + descOffset, wikiY);
-              wikiY += 24;
+              wikiY += scaleValue(24);
             });
 
-            wikiY += 28;
+            wikiY += scaleValue(28);
             ctx.save();
-            const creditsGrad = ctx.createLinearGradient(wikiLeft, wikiY, wikiLeft, wikiY + 90);
+            const creditsGrad = ctx.createLinearGradient(wikiLeft, wikiY, wikiLeft, wikiY + scaleValue(90));
             creditsGrad.addColorStop(0, "rgba(168, 85, 247, 0.18)");
             creditsGrad.addColorStop(1, "rgba(59, 130, 246, 0.14)");
             ctx.fillStyle = creditsGrad;
             ctx.beginPath();
-            ctx.roundRect(wikiLeft - 10, wikiY - 10, innerW - 20, 90, 16);
+            ctx.roundRect(wikiLeft - scaleValue(10), wikiY - scaleValue(10), innerW - scaleValue(20), scaleValue(90), scaledRadius(16));
             ctx.fill();
             ctx.strokeStyle = "rgba(148, 163, 184, 0.3)";
-            ctx.lineWidth = 1;
+            ctx.lineWidth = Math.max(1, scale);
             ctx.stroke();
             ctx.restore();
 
             ctx.fillStyle = "#bfdbfe";
-            ctx.font = "600 18px system-ui";
-            ctx.fillText(wikiLocale.creditsTitle, wikiLeft, wikiY + 20);
+            ctx.font = getScaledFont(18, "600");
+            ctx.fillText(wikiLocale.creditsTitle, wikiLeft, wikiY + scaleValue(20));
             ctx.fillStyle = "#f8fafc";
-            ctx.font = "600 26px system-ui";
-            ctx.fillText(wikiLocale.creditsName, wikiLeft, wikiY + 56);
+            ctx.font = getScaledFont(26, "600");
+            ctx.fillText(wikiLocale.creditsName, wikiLeft, wikiY + scaleValue(56));
 
-            contentBottom = Math.max(contentBottom, wikiY + 90);
+            contentBottom = Math.max(contentBottom, wikiY + scaleValue(90));
             break;
           }
           case "credits": {
             const cardX = innerX + innerW / 2;
-            const cardY = scrollAreaTop + scrollAreaHeight / 2 - 20;
+            const cardY = scrollAreaTop + scrollAreaHeight / 2 - scaleValue(20);
 
             ctx.save();
-            const creditsGrad = ctx.createRadialGradient(cardX, cardY, 20, cardX, cardY, innerW / 1.6);
+            const creditsGrad = ctx.createRadialGradient(cardX, cardY, scaleValue(20), cardX, cardY, innerW / 1.6);
             creditsGrad.addColorStop(0, "rgba(168, 85, 247, 0.22)");
             creditsGrad.addColorStop(1, "rgba(59, 130, 246, 0.08)");
             ctx.fillStyle = creditsGrad;
             ctx.beginPath();
-            ctx.roundRect(innerX + 20, cardY - 110, innerW - 40, 220, 24);
+            ctx.roundRect(innerX + scaleValue(20), cardY - scaleValue(110), innerW - scaleValue(40), scaleValue(220), scaledRadius(24));
             ctx.fill();
             ctx.restore();
 
             ctx.fillStyle = "#bfdbfe";
-            ctx.font = "600 20px system-ui";
+            ctx.font = getScaledFont(20, "600");
             ctx.textAlign = "center";
-            ctx.fillText(wikiLocale.creditsTitle, cardX, cardY - 40);
+            ctx.fillText(wikiLocale.creditsTitle, cardX, cardY - scaleValue(40));
             ctx.fillStyle = "#f8fafc";
-            ctx.font = "600 34px system-ui";
-            ctx.fillText(wikiLocale.creditsName, cardX, cardY + 8);
+            ctx.font = getScaledFont(34, "600");
+            ctx.fillText(wikiLocale.creditsName, cardX, cardY + scaleValue(8));
 
             ctx.fillStyle = "rgba(226, 232, 240, 0.7)";
-            ctx.font = "15px system-ui";
+            ctx.font = getScaledFont(15);
             const thanksText = currentLanguage === "es"
               ? "Construido con pasión pixelada por el equipo de Vela Digital."
               : "Crafted with pixelated passion by the Vela Digital team.";
-            ctx.fillText(thanksText, cardX, cardY + 46);
+            ctx.fillText(thanksText, cardX, cardY + scaleValue(46));
 
-            contentBottom = Math.max(contentBottom, cardY + 110);
+            contentBottom = Math.max(contentBottom, cardY + scaleValue(110));
             ctx.textAlign = "left";
             break;
           }
@@ -6502,8 +6515,8 @@ const Index = () => {
         }
         gameState.pauseMenuMaxScroll[activeTab] = maxScroll;
 
-        if (maxScroll > 4) {
-          const fadeHeight = Math.min(40, scrollAreaHeight / 3);
+        if (maxScroll > scaleValue(4)) {
+          const fadeHeight = Math.min(scaleValue(40), scrollAreaHeight / 3);
           if (clampedScroll > 0) {
             const fadeTop = ctx.createLinearGradient(innerX, scrollAreaTop, innerX, scrollAreaTop + fadeHeight);
             fadeTop.addColorStop(0, "rgba(15, 23, 42, 0.85)");
@@ -6519,48 +6532,48 @@ const Index = () => {
             ctx.fillRect(innerX, scrollAreaBottom - fadeHeight, innerW, fadeHeight);
           }
 
-          const trackX = innerX + innerW - 8;
-          const trackY = scrollAreaTop + 8;
-          const trackH = scrollAreaHeight - 16;
+          const trackX = innerX + innerW - scaleValue(8);
+          const trackY = scrollAreaTop + scaleValue(8);
+          const trackH = scrollAreaHeight - scaleValue(16);
           const visibleRatio = scrollAreaHeight / contentHeight;
-          const indicatorH = Math.max(30, trackH * visibleRatio);
+          const indicatorH = Math.max(scaleValue(30), trackH * visibleRatio);
           const indicatorY = trackY + (trackH - indicatorH) * (clampedScroll / maxScroll);
 
           ctx.fillStyle = "rgba(148, 163, 184, 0.25)";
-          ctx.fillRect(trackX, trackY, 4, trackH);
+          ctx.fillRect(trackX, trackY, scaleValue(4), trackH);
           ctx.fillStyle = "rgba(148, 197, 253, 0.75)";
-          ctx.fillRect(trackX, indicatorY, 4, indicatorH);
+          ctx.fillRect(trackX, indicatorY, scaleValue(4), indicatorH);
         }
 
         if (activeTab === "home") {
-          const buttonH = 56;
-          const gap = innerW < 560 ? 16 : 22;
-          const resumeW = innerW < 560 ? innerW : Math.min(320, innerW * 0.5);
-          const restartW = innerW < 560 ? innerW : Math.min(220, innerW * 0.32);
+          const buttonH = scaleValue(56);
+          const gap = innerW < 560 ? scaleValue(16) : scaleValue(22);
+          const resumeW = innerW < 560 ? innerW : Math.min(scaleValue(320), innerW * 0.5);
+          const restartW = innerW < 560 ? innerW : Math.min(scaleValue(220), innerW * 0.32);
           const canFitHorizontal = resumeW + restartW + gap <= innerW && innerW >= 520;
 
           const drawSoftButton = (x: number, y: number, w: number, label: string, fill: string, stroke: string) => {
             ctx.save();
             ctx.beginPath();
-            ctx.roundRect(x, y, w, buttonH, 12);
+            ctx.roundRect(x, y, w, buttonH, scaledRadius(12));
             ctx.fillStyle = fill;
             ctx.fill();
             ctx.strokeStyle = stroke;
-            ctx.lineWidth = 1.5;
+            ctx.lineWidth = Math.max(1, 1.5 * scale);
             ctx.stroke();
             ctx.restore();
 
             ctx.fillStyle = "#f8fafc";
-            ctx.font = "600 18px system-ui";
+            ctx.font = getScaledFont(18, "600");
             ctx.textAlign = "center";
-            ctx.fillText(label, x + w / 2, y + buttonH / 2 + 6);
+            ctx.fillText(label, x + w / 2, y + buttonH / 2 + scaleValue(6));
             ctx.textAlign = "left";
           };
 
           if (canFitHorizontal) {
             const totalButtonsWidth = resumeW + restartW + gap;
             const baseX = innerX + Math.max(0, (innerW - totalButtonsWidth) / 2);
-            const buttonY = innerY + innerH - buttonH - 12;
+            const buttonY = innerY + innerH - buttonH - scaleValue(12);
 
             drawSoftButton(baseX, buttonY, resumeW, locale.continue, "rgba(34, 197, 94, 0.28)", "rgba(134, 239, 172, 0.6)");
             const restartX = baseX + resumeW + gap;
@@ -6570,7 +6583,7 @@ const Index = () => {
             gameState.pauseMenuHitAreas.home.resume = { x: baseX, y: buttonY, w: resumeW, h: buttonH };
             gameState.pauseMenuHitAreas.home.restart = { x: restartX, y: buttonY, w: restartW, h: buttonH };
           } else {
-            const buttonY = innerY + innerH - buttonH * 2 - gap - 12;
+            const buttonY = innerY + innerH - buttonH * 2 - gap - scaleValue(12);
             const restartY = buttonY + buttonH + gap;
 
             drawSoftButton(innerX, buttonY, innerW, locale.continue, "rgba(34, 197, 94, 0.28)", "rgba(134, 239, 172, 0.6)");
