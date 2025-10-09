@@ -2189,6 +2189,26 @@ const Index = () => {
               }
             }
 
+            const toggleBtnW = langBtnW * 2 + langGap;
+            const toggleBtnH = langBtnH;
+            const toggleBtnX = menuX + 25;
+            const toggleBtnY = languageY + langBtnH + 20;
+            if (
+              mx >= toggleBtnX &&
+              mx <= toggleBtnX + toggleBtnW &&
+              my >= toggleBtnY &&
+              my <= toggleBtnY + toggleBtnH
+            ) {
+              const nextLanguage: Language = gameState.language === "es" ? "en" : "es";
+              gameState.language = nextLanguage;
+              setLanguage(nextLanguage);
+              if (typeof window !== "undefined") {
+                localStorage.setItem("language", nextLanguage);
+              }
+              return;
+            }
+
+            contentY = toggleBtnY + toggleBtnH + 50;
             contentY = languageY + langBtnH + 50;
 
             // Audio Settings - Sliders interactivos
@@ -2207,19 +2227,32 @@ const Index = () => {
           }
           
           // Continue & Restart buttons (COMUNES A TODOS LOS TABS - POSICIÓN FIJA AL FINAL)
-          const btnW = 250;
+          const btnW = 210;
           const btnH = 60;
-          const btnGap = 30;
+          const btnGap = 20;
+          const totalBtnWidth = btnW * 3 + btnGap * 2;
+          const firstBtnX = centerX - totalBtnWidth / 2;
           const btnY = menuY + menuH - 85;
-          const continueX = centerX - btnW - btnGap / 2;
-          const restartX = centerX + btnGap / 2;
-          
+          const continueX = firstBtnX;
+          const languageX = firstBtnX + btnW + btnGap;
+          const restartX = firstBtnX + (btnW + btnGap) * 2;
+
           // Continue button
           if (mx >= continueX && mx <= continueX + btnW && my >= btnY && my <= btnY + btnH) {
             gameState.countdownTimer = 3;
             gameState.showAudioSettings = false;
           }
-          
+
+          // Language toggle button
+          if (mx >= languageX && mx <= languageX + btnW && my >= btnY && my <= btnY + btnH) {
+            const nextLanguage: Language = gameState.language === "es" ? "en" : "es";
+            gameState.language = nextLanguage;
+            setLanguage(nextLanguage);
+            if (typeof window !== "undefined") {
+              localStorage.setItem("language", nextLanguage);
+            }
+          }
+
           // Restart button
           if (mx >= restartX && mx <= restartX + btnW && my >= btnY && my <= btnY + btnH) {
             resetGame();
@@ -6596,16 +6629,18 @@ const Index = () => {
               contentY += 24;
             }
             
-            // Continue & Restart Buttons (al final del tab)
-            contentY = menuY + menuH - 85;
-            const btnW = 250;
+            // Continue / Language / Restart buttons (al final del tab)
+            const btnW = 210;
             const btnH = 60;
-            const btnGap = 30;
-            const continueX = centerX - btnW - btnGap / 2;
-            const restartX = centerX + btnGap / 2;
-            
+            const btnGap = 20;
+            const totalBtnWidth = btnW * 3 + btnGap * 2;
+            const btnY = menuY + menuH - 85;
+            const continueX = centerX - totalBtnWidth / 2;
+            const languageX = continueX + btnW + btnGap;
+            const restartX = languageX + btnW + btnGap;
+
             // Continue button
-            const continueGradient = ctx.createLinearGradient(continueX, contentY, continueX, contentY + btnH);
+            const continueGradient = ctx.createLinearGradient(continueX, btnY, continueX, btnY + btnH);
             continueGradient.addColorStop(0, "#22c55e");
             continueGradient.addColorStop(0.5, "#16a34a");
             continueGradient.addColorStop(1, "#15803d");
@@ -6613,37 +6648,76 @@ const Index = () => {
             ctx.shadowColor = "#22c55e";
             ctx.shadowBlur = 30;
             ctx.beginPath();
-            ctx.roundRect(continueX, contentY, btnW, btnH, 12);
+            ctx.roundRect(continueX, btnY, btnW, btnH, 12);
             ctx.fill();
-            
+
             ctx.strokeStyle = "#4ade80";
             ctx.lineWidth = 2;
             ctx.shadowBlur = 20;
             ctx.shadowColor = "#22c55e";
             ctx.stroke();
             ctx.shadowBlur = 0;
-            
+
             ctx.save();
             ctx.globalAlpha = 0.3;
-            const continueHighlight = ctx.createLinearGradient(continueX, contentY, continueX, contentY + btnH / 3);
+            const continueHighlight = ctx.createLinearGradient(continueX, btnY, continueX, btnY + btnH / 3);
             continueHighlight.addColorStop(0, "rgba(255, 255, 255, 0.8)");
             continueHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
             ctx.fillStyle = continueHighlight;
             ctx.beginPath();
-            ctx.roundRect(continueX + 3, contentY + 3, btnW - 6, btnH / 3, 9);
+            ctx.roundRect(continueX + 3, btnY + 3, btnW - 6, btnH / 3, 9);
             ctx.fill();
             ctx.restore();
-            
+
             ctx.fillStyle = "#fff";
             ctx.font = "bold 24px system-ui";
             ctx.textAlign = "center";
             ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
             ctx.shadowBlur = 4;
+            ctx.fillText("▶ " + i18n.continue, continueX + btnW / 2, btnY + btnH / 2 + 9);
             ctx.fillText("▶ " + i18n.continue, continueX + btnW / 2, contentY + btnH / 2 + 9);
             ctx.shadowBlur = 0;
-            
+
+            // Language toggle button
+            const footerToggleGradient = ctx.createLinearGradient(languageX, btnY, languageX, btnY + btnH);
+            footerToggleGradient.addColorStop(0, "#38bdf8");
+            footerToggleGradient.addColorStop(0.5, "#0ea5e9");
+            footerToggleGradient.addColorStop(1, "#0284c7");
+            ctx.fillStyle = footerToggleGradient;
+            ctx.shadowColor = "#38bdf8";
+            ctx.shadowBlur = 25;
+            ctx.beginPath();
+            ctx.roundRect(languageX, btnY, btnW, btnH, 12);
+            ctx.fill();
+
+            ctx.strokeStyle = "#bae6fd";
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 18;
+            ctx.shadowColor = "#38bdf8";
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            ctx.save();
+            ctx.globalAlpha = 0.3;
+            const footerToggleHighlight = ctx.createLinearGradient(languageX, btnY, languageX, btnY + btnH / 3);
+            footerToggleHighlight.addColorStop(0, "rgba(255, 255, 255, 0.8)");
+            footerToggleHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
+            ctx.fillStyle = footerToggleHighlight;
+            ctx.beginPath();
+            ctx.roundRect(languageX + 3, btnY + 3, btnW - 6, btnH / 3, 9);
+            ctx.fill();
+            ctx.restore();
+
+            const footerToggleLabel = gameState.language === "es" ? "🌐 Switch to English" : "🌐 Cambiar a Español";
+            ctx.fillStyle = "#fff";
+            ctx.font = "bold 18px system-ui";
+            ctx.shadowColor = "rgba(0, 0, 0, 0.45)";
+            ctx.shadowBlur = 4;
+            ctx.fillText(footerToggleLabel, languageX + btnW / 2, btnY + btnH / 2 + 6);
+            ctx.shadowBlur = 0;
+
             // Restart button
-            const restartGradient = ctx.createLinearGradient(restartX, contentY, restartX, contentY + btnH);
+            const restartGradient = ctx.createLinearGradient(restartX, btnY, restartX, btnY + btnH);
             restartGradient.addColorStop(0, "#ef4444");
             restartGradient.addColorStop(0.5, "#dc2626");
             restartGradient.addColorStop(1, "#b91c1c");
@@ -6651,31 +6725,32 @@ const Index = () => {
             ctx.shadowColor = "#ef4444";
             ctx.shadowBlur = 30;
             ctx.beginPath();
-            ctx.roundRect(restartX, contentY, btnW, btnH, 12);
+            ctx.roundRect(restartX, btnY, btnW, btnH, 12);
             ctx.fill();
-            
+
             ctx.strokeStyle = "#f87171";
             ctx.lineWidth = 2;
             ctx.shadowBlur = 20;
             ctx.shadowColor = "#ef4444";
             ctx.stroke();
             ctx.shadowBlur = 0;
-            
+
             ctx.save();
             ctx.globalAlpha = 0.3;
-            const restartHighlight = ctx.createLinearGradient(restartX, contentY, restartX, contentY + btnH / 3);
+            const restartHighlight = ctx.createLinearGradient(restartX, btnY, restartX, btnY + btnH / 3);
             restartHighlight.addColorStop(0, "rgba(255, 255, 255, 0.8)");
             restartHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
             ctx.fillStyle = restartHighlight;
             ctx.beginPath();
-            ctx.roundRect(restartX + 3, contentY + 3, btnW - 6, btnH / 3, 9);
+            ctx.roundRect(restartX + 3, btnY + 3, btnW - 6, btnH / 3, 9);
             ctx.fill();
             ctx.restore();
-            
+
             ctx.fillStyle = "#fff";
             ctx.font = "bold 24px system-ui";
             ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
             ctx.shadowBlur = 4;
+            ctx.fillText("🔄 " + i18n.restart, restartX + btnW / 2, btnY + btnH / 2 + 9);
             ctx.fillText("🔄 " + i18n.restart, restartX + btnW / 2, contentY + btnH / 2 + 9);
             ctx.shadowBlur = 0;
             
@@ -6715,16 +6790,18 @@ const Index = () => {
             ctx.fillText("Vela Digital", centerX, contentY + 60);
             ctx.shadowBlur = 0;
             
-            // Continue & Restart Buttons (al final del tab)
-            contentY = menuY + menuH - 85;
-            const btnW = 250;
+            // Continue / Language / Restart buttons (al final del tab)
+            const btnW = 210;
             const btnH = 60;
-            const btnGap = 30;
-            const continueX = centerX - btnW - btnGap / 2;
-            const restartX = centerX + btnGap / 2;
-            
+            const btnGap = 20;
+            const totalBtnWidth = btnW * 3 + btnGap * 2;
+            const btnY = menuY + menuH - 85;
+            const continueX = centerX - totalBtnWidth / 2;
+            const languageX = continueX + btnW + btnGap;
+            const restartX = languageX + btnW + btnGap;
+
             // Continue button
-            const continueGradient = ctx.createLinearGradient(continueX, contentY, continueX, contentY + btnH);
+            const continueGradient = ctx.createLinearGradient(continueX, btnY, continueX, btnY + btnH);
             continueGradient.addColorStop(0, "#22c55e");
             continueGradient.addColorStop(0.5, "#16a34a");
             continueGradient.addColorStop(1, "#15803d");
@@ -6732,37 +6809,76 @@ const Index = () => {
             ctx.shadowColor = "#22c55e";
             ctx.shadowBlur = 30;
             ctx.beginPath();
-            ctx.roundRect(continueX, contentY, btnW, btnH, 12);
+            ctx.roundRect(continueX, btnY, btnW, btnH, 12);
             ctx.fill();
-            
+
             ctx.strokeStyle = "#4ade80";
             ctx.lineWidth = 2;
             ctx.shadowBlur = 20;
             ctx.shadowColor = "#22c55e";
             ctx.stroke();
             ctx.shadowBlur = 0;
-            
+
             ctx.save();
             ctx.globalAlpha = 0.3;
-            const continueHighlight = ctx.createLinearGradient(continueX, contentY, continueX, contentY + btnH / 3);
+            const continueHighlight = ctx.createLinearGradient(continueX, btnY, continueX, btnY + btnH / 3);
             continueHighlight.addColorStop(0, "rgba(255, 255, 255, 0.8)");
             continueHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
             ctx.fillStyle = continueHighlight;
             ctx.beginPath();
-            ctx.roundRect(continueX + 3, contentY + 3, btnW - 6, btnH / 3, 9);
+            ctx.roundRect(continueX + 3, btnY + 3, btnW - 6, btnH / 3, 9);
             ctx.fill();
             ctx.restore();
-            
+
             ctx.fillStyle = "#fff";
             ctx.font = "bold 24px system-ui";
             ctx.textAlign = "center";
             ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
             ctx.shadowBlur = 4;
+            ctx.fillText("▶ " + i18n.continue, continueX + btnW / 2, btnY + btnH / 2 + 9);
             ctx.fillText("▶ " + i18n.continue, continueX + btnW / 2, contentY + btnH / 2 + 9);
             ctx.shadowBlur = 0;
-            
+
+            // Language toggle button
+            const footerToggleGradient = ctx.createLinearGradient(languageX, btnY, languageX, btnY + btnH);
+            footerToggleGradient.addColorStop(0, "#38bdf8");
+            footerToggleGradient.addColorStop(0.5, "#0ea5e9");
+            footerToggleGradient.addColorStop(1, "#0284c7");
+            ctx.fillStyle = footerToggleGradient;
+            ctx.shadowColor = "#38bdf8";
+            ctx.shadowBlur = 25;
+            ctx.beginPath();
+            ctx.roundRect(languageX, btnY, btnW, btnH, 12);
+            ctx.fill();
+
+            ctx.strokeStyle = "#bae6fd";
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 18;
+            ctx.shadowColor = "#38bdf8";
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            ctx.save();
+            ctx.globalAlpha = 0.3;
+            const footerToggleHighlight = ctx.createLinearGradient(languageX, btnY, languageX, btnY + btnH / 3);
+            footerToggleHighlight.addColorStop(0, "rgba(255, 255, 255, 0.8)");
+            footerToggleHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
+            ctx.fillStyle = footerToggleHighlight;
+            ctx.beginPath();
+            ctx.roundRect(languageX + 3, btnY + 3, btnW - 6, btnH / 3, 9);
+            ctx.fill();
+            ctx.restore();
+
+            const footerToggleLabel = gameState.language === "es" ? "🌐 Switch to English" : "🌐 Cambiar a Español";
+            ctx.fillStyle = "#fff";
+            ctx.font = "bold 18px system-ui";
+            ctx.shadowColor = "rgba(0, 0, 0, 0.45)";
+            ctx.shadowBlur = 4;
+            ctx.fillText(footerToggleLabel, languageX + btnW / 2, btnY + btnH / 2 + 6);
+            ctx.shadowBlur = 0;
+
             // Restart button
-            const restartGradient = ctx.createLinearGradient(restartX, contentY, restartX, contentY + btnH);
+            const restartGradient = ctx.createLinearGradient(restartX, btnY, restartX, btnY + btnH);
             restartGradient.addColorStop(0, "#ef4444");
             restartGradient.addColorStop(0.5, "#dc2626");
             restartGradient.addColorStop(1, "#b91c1c");
@@ -6770,31 +6886,32 @@ const Index = () => {
             ctx.shadowColor = "#ef4444";
             ctx.shadowBlur = 30;
             ctx.beginPath();
-            ctx.roundRect(restartX, contentY, btnW, btnH, 12);
+            ctx.roundRect(restartX, btnY, btnW, btnH, 12);
             ctx.fill();
-            
+
             ctx.strokeStyle = "#f87171";
             ctx.lineWidth = 2;
             ctx.shadowBlur = 20;
             ctx.shadowColor = "#ef4444";
             ctx.stroke();
             ctx.shadowBlur = 0;
-            
+
             ctx.save();
             ctx.globalAlpha = 0.3;
-            const restartHighlight = ctx.createLinearGradient(restartX, contentY, restartX, contentY + btnH / 3);
+            const restartHighlight = ctx.createLinearGradient(restartX, btnY, restartX, btnY + btnH / 3);
             restartHighlight.addColorStop(0, "rgba(255, 255, 255, 0.8)");
             restartHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
             ctx.fillStyle = restartHighlight;
             ctx.beginPath();
-            ctx.roundRect(restartX + 3, contentY + 3, btnW - 6, btnH / 3, 9);
+            ctx.roundRect(restartX + 3, btnY + 3, btnW - 6, btnH / 3, 9);
             ctx.fill();
             ctx.restore();
-            
+
             ctx.fillStyle = "#fff";
             ctx.font = "bold 24px system-ui";
             ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
             ctx.shadowBlur = 4;
+            ctx.fillText("🔄 " + i18n.restart, restartX + btnW / 2, btnY + btnH / 2 + 9);
             ctx.fillText("🔄 " + i18n.restart, restartX + btnW / 2, contentY + btnH / 2 + 9);
             ctx.shadowBlur = 0;
             
@@ -7088,6 +7205,41 @@ const Index = () => {
               ctx.shadowBlur = 0;
             }
 
+            const toggleBtnW = langBtnW * 2 + langGap;
+            const toggleBtnH = langBtnH;
+            const toggleBtnX = menuX + 25;
+            const toggleBtnY = contentY + langBtnH + 20;
+            const toggleLabel =
+              gameState.language === "es" ? "Switch to English" : "Cambiar a Español";
+
+            const toggleGradient = ctx.createLinearGradient(
+              toggleBtnX,
+              toggleBtnY,
+              toggleBtnX,
+              toggleBtnY + toggleBtnH,
+            );
+            toggleGradient.addColorStop(0, "#f97316");
+            toggleGradient.addColorStop(0.5, "#ea580c");
+            toggleGradient.addColorStop(1, "#c2410c");
+            ctx.fillStyle = toggleGradient;
+
+            ctx.beginPath();
+            ctx.roundRect(toggleBtnX, toggleBtnY, toggleBtnW, toggleBtnH, 12);
+            ctx.fill();
+
+            ctx.strokeStyle = "#fdba74";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.fillStyle = "#fff";
+            ctx.font = "bold 15px system-ui";
+            ctx.textAlign = "center";
+            ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
+            ctx.shadowBlur = 4;
+            ctx.fillText(toggleLabel, toggleBtnX + toggleBtnW / 2, toggleBtnY + toggleBtnH / 2 + 5);
+            ctx.shadowBlur = 0;
+
+            contentY = toggleBtnY + toggleBtnH + 50;
             contentY += langBtnH + 50;
 
             // === AUDIO SETTINGS (SLIDER DIRECTO) ===
@@ -7119,16 +7271,18 @@ const Index = () => {
             ctx.fillStyle = musicGradient2;
             ctx.fillRect(sliderX2, contentY + 8, musicFill2, sliderH2);
             
-            
-            // Continue & Restart Buttons
-            const btnW = 250;
+            // Continue / Language / Restart buttons
+            const btnW = 210;
             const btnH = 60;
-            const btnGap = 30;
-            const continueX = centerX - btnW - btnGap / 2;
-            const restartX = centerX + btnGap / 2;
-            
+            const btnGap = 20;
+            const totalBtnWidth = btnW * 3 + btnGap * 2;
+            const btnY = menuY + menuH - 85;
+            const continueX = centerX - totalBtnWidth / 2;
+            const languageX = continueX + btnW + btnGap;
+            const restartX = languageX + btnW + btnGap;
+
             // Continue button - mejorado
-            const continueGradient = ctx.createLinearGradient(continueX, contentY, continueX, contentY + btnH);
+            const continueGradient = ctx.createLinearGradient(continueX, btnY, continueX, btnY + btnH);
             continueGradient.addColorStop(0, "#22c55e");
             continueGradient.addColorStop(0.5, "#16a34a");
             continueGradient.addColorStop(1, "#15803d");
@@ -7136,38 +7290,77 @@ const Index = () => {
             ctx.shadowColor = "#22c55e";
             ctx.shadowBlur = 30;
             ctx.beginPath();
-            ctx.roundRect(continueX, contentY, btnW, btnH, 12);
+            ctx.roundRect(continueX, btnY, btnW, btnH, 12);
             ctx.fill();
-            
+
             ctx.strokeStyle = "#4ade80";
             ctx.lineWidth = 2;
             ctx.shadowBlur = 20;
             ctx.shadowColor = "#22c55e";
             ctx.stroke();
             ctx.shadowBlur = 0;
-            
+
             // Highlight
             ctx.save();
             ctx.globalAlpha = 0.3;
-            const continueHighlight = ctx.createLinearGradient(continueX, contentY, continueX, contentY + btnH / 3);
+            const continueHighlight = ctx.createLinearGradient(continueX, btnY, continueX, btnY + btnH / 3);
             continueHighlight.addColorStop(0, "rgba(255, 255, 255, 0.8)");
             continueHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
             ctx.fillStyle = continueHighlight;
             ctx.beginPath();
-            ctx.roundRect(continueX + 3, contentY + 3, btnW - 6, btnH / 3, 9);
+            ctx.roundRect(continueX + 3, btnY + 3, btnW - 6, btnH / 3, 9);
             ctx.fill();
             ctx.restore();
-            
+
             ctx.fillStyle = "#fff";
             ctx.font = "bold 24px system-ui";
             ctx.textAlign = "center";
             ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
             ctx.shadowBlur = 4;
+            ctx.fillText("▶ " + i18n.continue, continueX + btnW / 2, btnY + btnH / 2 + 9);
             ctx.fillText("▶ " + i18n.continue, continueX + btnW / 2, contentY + btnH / 2 + 9);
             ctx.shadowBlur = 0;
-            
+
+            // Language toggle button
+            const footerToggleGradient = ctx.createLinearGradient(languageX, btnY, languageX, btnY + btnH);
+            footerToggleGradient.addColorStop(0, "#38bdf8");
+            footerToggleGradient.addColorStop(0.5, "#0ea5e9");
+            footerToggleGradient.addColorStop(1, "#0284c7");
+            ctx.fillStyle = footerToggleGradient;
+            ctx.shadowColor = "#38bdf8";
+            ctx.shadowBlur = 25;
+            ctx.beginPath();
+            ctx.roundRect(languageX, btnY, btnW, btnH, 12);
+            ctx.fill();
+
+            ctx.strokeStyle = "#bae6fd";
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 18;
+            ctx.shadowColor = "#38bdf8";
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            ctx.save();
+            ctx.globalAlpha = 0.3;
+            const footerToggleHighlight = ctx.createLinearGradient(languageX, btnY, languageX, btnY + btnH / 3);
+            footerToggleHighlight.addColorStop(0, "rgba(255, 255, 255, 0.8)");
+            footerToggleHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
+            ctx.fillStyle = footerToggleHighlight;
+            ctx.beginPath();
+            ctx.roundRect(languageX + 3, btnY + 3, btnW - 6, btnH / 3, 9);
+            ctx.fill();
+            ctx.restore();
+
+            const footerToggleLabel = gameState.language === "es" ? "🌐 Switch to English" : "🌐 Cambiar a Español";
+            ctx.fillStyle = "#fff";
+            ctx.font = "bold 18px system-ui";
+            ctx.shadowColor = "rgba(0, 0, 0, 0.45)";
+            ctx.shadowBlur = 4;
+            ctx.fillText(footerToggleLabel, languageX + btnW / 2, btnY + btnH / 2 + 6);
+            ctx.shadowBlur = 0;
+
             // Restart button - mejorado
-            const restartGradient = ctx.createLinearGradient(restartX, contentY, restartX, contentY + btnH);
+            const restartGradient = ctx.createLinearGradient(restartX, btnY, restartX, btnY + btnH);
             restartGradient.addColorStop(0, "#ef4444");
             restartGradient.addColorStop(0.5, "#dc2626");
             restartGradient.addColorStop(1, "#b91c1c");
@@ -7175,32 +7368,33 @@ const Index = () => {
             ctx.shadowColor = "#ef4444";
             ctx.shadowBlur = 30;
             ctx.beginPath();
-            ctx.roundRect(restartX, contentY, btnW, btnH, 12);
+            ctx.roundRect(restartX, btnY, btnW, btnH, 12);
             ctx.fill();
-            
+
             ctx.strokeStyle = "#f87171";
             ctx.lineWidth = 2;
             ctx.shadowBlur = 20;
             ctx.shadowColor = "#ef4444";
             ctx.stroke();
             ctx.shadowBlur = 0;
-            
+
             // Highlight
             ctx.save();
             ctx.globalAlpha = 0.3;
-            const restartHighlight = ctx.createLinearGradient(restartX, contentY, restartX, contentY + btnH / 3);
+            const restartHighlight = ctx.createLinearGradient(restartX, btnY, restartX, btnY + btnH / 3);
             restartHighlight.addColorStop(0, "rgba(255, 255, 255, 0.8)");
             restartHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
             ctx.fillStyle = restartHighlight;
             ctx.beginPath();
-            ctx.roundRect(restartX + 3, contentY + 3, btnW - 6, btnH / 3, 9);
+            ctx.roundRect(restartX + 3, btnY + 3, btnW - 6, btnH / 3, 9);
             ctx.fill();
             ctx.restore();
-            
+
             ctx.fillStyle = "#fff";
             ctx.font = "bold 24px system-ui";
             ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
             ctx.shadowBlur = 4;
+            ctx.fillText("🔄 " + i18n.restart, restartX + btnW / 2, btnY + btnH / 2 + 9);
             ctx.fillText("🔄 " + i18n.restart, restartX + btnW / 2, contentY + btnH / 2 + 9);
             ctx.shadowBlur = 0;
           }
