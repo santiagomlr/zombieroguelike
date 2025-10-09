@@ -42,7 +42,7 @@ const translations: Record<Language, Translations> = {
     levelUp: "¡SUBISTE DE NIVEL!",
     chooseUpgrade: "Elige una mejora:",
     weapon: "ARMA",
-    tome: "TOMO",
+    tome: "LIBRO",
     item: "ÍTEM",
     damage: "Daño",
     fireRate: "Cadencia",
@@ -50,7 +50,7 @@ const translations: Record<Language, Translations> = {
     level: "Nivel",
     wave: "Wave",
     weapons: "Armas:",
-    tomes: "Tomos:",
+    tomes: "Libros:",
     items: "Ítems:",
     movement: "WASD - Movimiento",
     restart: "R - Reiniciar",
@@ -221,14 +221,22 @@ const Index = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [score, setScore] = useState(0);
   const [level, setLevel] = useState(1);
-  const [language, setLanguage] = useState<Language>("es");
+  const [language, setLanguage] = useState<Language>(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("language");
+      if (stored === "en" || stored === "es") {
+        return stored;
+      }
+    }
+    return "es";
+  });
   const [tutorialStep, setTutorialStep] = useState(0);
   const [tutorialCompleted, setTutorialCompleted] = useState(false);
   const gameStateRef = useRef<any>(null);
   const resetGameRef = useRef<(() => void) | null>(null);
   const prerenderedLogosRef = useRef<{[key: string]: HTMLCanvasElement}>({});
   
-  const t = translations[language];
+  const uiTranslations = translations[language];
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -244,6 +252,7 @@ const Index = () => {
 
     const gameState = {
       state: 'running' as 'running' | 'paused' | 'gameover',
+      language,
       player: {
         x: W / 2,
         y: H / 2,
@@ -2011,7 +2020,7 @@ const Index = () => {
           if (gameState.pauseMenuTab === "settings") {
             // === SETTINGS TAB CLICK HANDLERS ===
             // Aim Mode Selector - Coordenadas fijas desde arriba
-            let contentY = menuY + 170;
+            let contentY = menuY + 190;
             const aimBtnW = 145;
             const aimBtnH = 45;
             const aimGap = 10;
@@ -2030,18 +2039,59 @@ const Index = () => {
                 return;
               }
             }
-            
+
             contentY += aimBtnH + 40;
-            
+
+            // Language selector buttons
+            const langBtnW = 180;
+            const langBtnH = 45;
+            const langGap = 20;
+            const languageOptions: Array<{ code: Language; x: number }> = [
+              { code: "es", x: menuX + 25 },
+              { code: "en", x: menuX + 25 + langBtnW + langGap },
+            ];
+
+            const languageY = contentY + 35;
+            for (const { code, x } of languageOptions) {
+              if (mx >= x && mx <= x + langBtnW && my >= languageY && my <= languageY + langBtnH) {
+                gameState.language = code;
+                setLanguage(code);
+                if (typeof window !== "undefined") {
+                  localStorage.setItem("language", code);
+                }
+                return;
+              }
+            }
+
+            const toggleBtnW = langBtnW * 2 + langGap;
+            const toggleBtnH = langBtnH;
+            const toggleBtnX = menuX + 25;
+            const toggleBtnY = languageY + langBtnH + 20;
+            if (
+              mx >= toggleBtnX &&
+              mx <= toggleBtnX + toggleBtnW &&
+              my >= toggleBtnY &&
+              my <= toggleBtnY + toggleBtnH
+            ) {
+              const nextLanguage: Language = gameState.language === "es" ? "en" : "es";
+              gameState.language = nextLanguage;
+              setLanguage(nextLanguage);
+              if (typeof window !== "undefined") {
+                localStorage.setItem("language", nextLanguage);
+              }
+              return;
+            }
+
+            contentY = toggleBtnY + toggleBtnH + 50;
+
             // Audio Settings - Sliders interactivos
-            contentY += aimBtnH + 50;
             const sliderW = 600;
             const sliderH = 6;
             const sliderX2 = menuX + 40;
-            const sliderSpacing = 50;
-            
+            const sliderAreaY = contentY + 35;
+
             // Music Volume Slider clickable area
-            if (my >= contentY && my <= contentY + 20) {
+            if (my >= sliderAreaY && my <= sliderAreaY + 20) {
               const clickX = mx - sliderX2;
               if (clickX >= 0 && clickX <= sliderW) {
                 gameState.targetMusicVolume = Math.max(0, Math.min(1, clickX / sliderW));
@@ -2050,19 +2100,32 @@ const Index = () => {
           }
           
           // Continue & Restart buttons (COMUNES A TODOS LOS TABS - POSICIÓN FIJA AL FINAL)
-          const btnW = 250;
+          const btnW = 210;
           const btnH = 60;
-          const btnGap = 30;
+          const btnGap = 20;
+          const totalBtnWidth = btnW * 3 + btnGap * 2;
+          const firstBtnX = centerX - totalBtnWidth / 2;
           const btnY = menuY + menuH - 85;
-          const continueX = centerX - btnW - btnGap / 2;
-          const restartX = centerX + btnGap / 2;
-          
+          const continueX = firstBtnX;
+          const languageX = firstBtnX + btnW + btnGap;
+          const restartX = firstBtnX + (btnW + btnGap) * 2;
+
           // Continue button
           if (mx >= continueX && mx <= continueX + btnW && my >= btnY && my <= btnY + btnH) {
             gameState.countdownTimer = 3;
             gameState.showAudioSettings = false;
           }
-          
+
+          // Language toggle button
+          if (mx >= languageX && mx <= languageX + btnW && my >= btnY && my <= btnY + btnH) {
+            const nextLanguage: Language = gameState.language === "es" ? "en" : "es";
+            gameState.language = nextLanguage;
+            setLanguage(nextLanguage);
+            if (typeof window !== "undefined") {
+              localStorage.setItem("language", nextLanguage);
+            }
+          }
+
           // Restart button
           if (mx >= restartX && mx <= restartX + btnW && my >= btnY && my <= btnY + btnH) {
             resetGame();
@@ -3994,6 +4057,7 @@ const Index = () => {
     }
 
     function drawHUD() {
+      const i18n = translations[gameState.language];
       ctx.save();
       
       // HP Bar - Barra horizontal con valor numérico
@@ -4276,7 +4340,7 @@ const Index = () => {
       ctx.textAlign = "left";
       ctx.fillStyle = "#fff";
       ctx.font = "bold 14px system-ui";
-      ctx.fillText("Armas:", W - 220, 70);
+      ctx.fillText(i18n.weapons, W - 220, 70);
       for (let i = 0; i < gameState.player.weapons.length; i++) {
         const w = gameState.player.weapons[i];
         ctx.fillStyle = w.color;
@@ -4291,7 +4355,7 @@ const Index = () => {
       ctx.fillStyle = "#fff";
       ctx.font = "bold 14px system-ui";
       const tomeY = 80 + gameState.player.weapons.length * 25 + 10;
-      ctx.fillText(t.tomes, W - 220, tomeY);
+      ctx.fillText(i18n.tomes, W - 220, tomeY);
       for (let i = 0; i < gameState.player.tomes.length; i++) {
         const tome = gameState.player.tomes[i];
         ctx.fillStyle = tome.color;
@@ -4307,7 +4371,7 @@ const Index = () => {
         ctx.fillStyle = "#fff";
         ctx.font = "bold 14px system-ui";
         const itemY = tomeY + gameState.player.tomes.length * 25 + 20;
-        ctx.fillText(t.items, W - 220, itemY);
+        ctx.fillText(i18n.items, W - 220, itemY);
         
         // Mostrar solo primeros 10 ítems (si hay más, scroll)
         const maxItemsToShow = Math.min(10, gameState.player.items.length);
@@ -4524,6 +4588,8 @@ const Index = () => {
       if (!gameState.showUpgradeUI) return;
 
       ctx.save();
+
+      const i18n = translations[gameState.language];
       
       // Easing function for smooth animation
       const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
@@ -4561,11 +4627,11 @@ const Index = () => {
       ctx.fillStyle = "#fbbf24";
       ctx.font = "bold 56px system-ui";
       ctx.textAlign = "center";
-      ctx.fillText("¡SUBISTE DE NIVEL!", 0, 0);
+      ctx.fillText(i18n.levelUp, 0, 0);
       
       // Segundo glow para más intensidad
       ctx.shadowBlur = 60 * pulse * animProgress;
-      ctx.fillText("¡SUBISTE DE NIVEL!", 0, 0);
+      ctx.fillText(i18n.levelUp, 0, 0);
       ctx.shadowBlur = 0;
       
       ctx.restore();
@@ -4574,7 +4640,7 @@ const Index = () => {
       ctx.font = "28px system-ui";
       ctx.fillStyle = `rgba(156, 163, 175, ${animProgress})`;
       ctx.textAlign = "center";
-      ctx.fillText("Elige una mejora:", W / 2, H / 2 - 100);
+      ctx.fillText(i18n.chooseUpgrade, W / 2, H / 2 - 100);
       
       ctx.globalAlpha = 1;
       
@@ -4644,7 +4710,12 @@ const Index = () => {
         ctx.fillStyle = rarityColor;
         ctx.font = "bold 14px system-ui";
         ctx.textAlign = "center";
-        const typeText = option.type === "weapon" ? "⚔️ ARMA" : option.type === "tome" ? "📖 TOMO" : "✨ ÍTEM";
+        const typeText =
+          option.type === "weapon"
+            ? `⚔️ ${i18n.weapon}`
+            : option.type === "tome"
+              ? `📖 ${i18n.tome}`
+              : `✨ ${i18n.item}`;
         
         // Badge background
         const badgeW = 100;
@@ -4764,6 +4835,8 @@ const Index = () => {
 
     function draw() {
       ctx.clearRect(0, 0, W, H);
+
+      const i18n = translations[gameState.language];
       
       // Fondo
       const gradient = ctx.createRadialGradient(W / 2, H / 3, 0, W / 2, H / 3, Math.max(W, H));
@@ -5528,7 +5601,7 @@ const Index = () => {
         ctx.textAlign = "center";
         ctx.shadowColor = "#ef4444";
         ctx.shadowBlur = 20;
-        ctx.fillText(t.gameOver, W / 2, menuY + 90);
+        ctx.fillText(i18n.gameOver, W / 2, menuY + 90);
         ctx.shadowBlur = 0;
         
         let contentY = menuY + 160;
@@ -5550,14 +5623,14 @@ const Index = () => {
         ctx.font = "bold 28px system-ui";
         ctx.fillStyle = "#fbbf24";
         ctx.textAlign = "left";
-        ctx.fillText("📊 " + t.stats, leftCol, contentY);
+        ctx.fillText("📊 " + i18n.stats, leftCol, contentY);
         contentY += 60;
         
         ctx.font = "24px system-ui";
         ctx.fillStyle = "#d1d5db";
         
         // Score
-        ctx.fillText(t.finalScore + ":", leftCol, contentY);
+        ctx.fillText(i18n.finalScore + ":", leftCol, contentY);
         ctx.fillStyle = "#a855f7";
         ctx.textAlign = "right";
         ctx.fillText(gameState.score.toString(), rightCol + 180, contentY);
@@ -5566,7 +5639,7 @@ const Index = () => {
         // Level
         ctx.fillStyle = "#d1d5db";
         ctx.textAlign = "left";
-        ctx.fillText(t.finalLevel + ":", leftCol, contentY);
+        ctx.fillText(i18n.finalLevel + ":", leftCol, contentY);
         ctx.fillStyle = "#22c55e";
         ctx.textAlign = "right";
         ctx.fillText(gameState.level.toString(), rightCol + 180, contentY);
@@ -5575,7 +5648,7 @@ const Index = () => {
         // Wave
         ctx.fillStyle = "#d1d5db";
         ctx.textAlign = "left";
-        ctx.fillText(t.finalWave + ":", leftCol, contentY);
+        ctx.fillText(i18n.finalWave + ":", leftCol, contentY);
         ctx.fillStyle = "#3b82f6";
         ctx.textAlign = "right";
         ctx.fillText(gameState.wave.toString(), rightCol + 180, contentY);
@@ -5616,7 +5689,7 @@ const Index = () => {
         ctx.fillStyle = "#fff";
         ctx.font = "bold 32px system-ui";
         ctx.textAlign = "center";
-        ctx.fillText("🔄 " + t.playAgain, btnX + btnW / 2, btnY + btnH / 2 + 12);
+        ctx.fillText("🔄 " + i18n.playAgain, btnX + btnW / 2, btnY + btnH / 2 + 12);
         
         // Hint de teclas
         ctx.fillStyle = "rgba(156, 163, 175, 0.8)";
@@ -6074,7 +6147,7 @@ const Index = () => {
           ctx.textAlign = "center";
           ctx.shadowColor = "#fbbf24";
           ctx.shadowBlur = 10;
-          ctx.fillText(t.paused, W / 2, menuY + 60);
+        ctx.fillText(i18n.paused, W / 2, menuY + 60);
           ctx.shadowBlur = 0;
           
           const centerX = menuX + menuW / 2;
@@ -6350,16 +6423,18 @@ const Index = () => {
               contentY += 24;
             }
             
-            // Continue & Restart Buttons (al final del tab)
-            contentY = menuY + menuH - 85;
-            const btnW = 250;
+            // Continue / Language / Restart buttons (al final del tab)
+            const btnW = 210;
             const btnH = 60;
-            const btnGap = 30;
-            const continueX = centerX - btnW - btnGap / 2;
-            const restartX = centerX + btnGap / 2;
-            
+            const btnGap = 20;
+            const totalBtnWidth = btnW * 3 + btnGap * 2;
+            const btnY = menuY + menuH - 85;
+            const continueX = centerX - totalBtnWidth / 2;
+            const languageX = continueX + btnW + btnGap;
+            const restartX = languageX + btnW + btnGap;
+
             // Continue button
-            const continueGradient = ctx.createLinearGradient(continueX, contentY, continueX, contentY + btnH);
+            const continueGradient = ctx.createLinearGradient(continueX, btnY, continueX, btnY + btnH);
             continueGradient.addColorStop(0, "#22c55e");
             continueGradient.addColorStop(0.5, "#16a34a");
             continueGradient.addColorStop(1, "#15803d");
@@ -6367,37 +6442,75 @@ const Index = () => {
             ctx.shadowColor = "#22c55e";
             ctx.shadowBlur = 30;
             ctx.beginPath();
-            ctx.roundRect(continueX, contentY, btnW, btnH, 12);
+            ctx.roundRect(continueX, btnY, btnW, btnH, 12);
             ctx.fill();
-            
+
             ctx.strokeStyle = "#4ade80";
             ctx.lineWidth = 2;
             ctx.shadowBlur = 20;
             ctx.shadowColor = "#22c55e";
             ctx.stroke();
             ctx.shadowBlur = 0;
-            
+
             ctx.save();
             ctx.globalAlpha = 0.3;
-            const continueHighlight = ctx.createLinearGradient(continueX, contentY, continueX, contentY + btnH / 3);
+            const continueHighlight = ctx.createLinearGradient(continueX, btnY, continueX, btnY + btnH / 3);
             continueHighlight.addColorStop(0, "rgba(255, 255, 255, 0.8)");
             continueHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
             ctx.fillStyle = continueHighlight;
             ctx.beginPath();
-            ctx.roundRect(continueX + 3, contentY + 3, btnW - 6, btnH / 3, 9);
+            ctx.roundRect(continueX + 3, btnY + 3, btnW - 6, btnH / 3, 9);
             ctx.fill();
             ctx.restore();
-            
+
             ctx.fillStyle = "#fff";
             ctx.font = "bold 24px system-ui";
             ctx.textAlign = "center";
             ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
             ctx.shadowBlur = 4;
-            ctx.fillText("▶ " + t.continue, continueX + btnW / 2, contentY + btnH / 2 + 9);
+            ctx.fillText("▶ " + i18n.continue, continueX + btnW / 2, btnY + btnH / 2 + 9);
             ctx.shadowBlur = 0;
-            
+
+            // Language toggle button
+            const footerToggleGradient = ctx.createLinearGradient(languageX, btnY, languageX, btnY + btnH);
+            footerToggleGradient.addColorStop(0, "#38bdf8");
+            footerToggleGradient.addColorStop(0.5, "#0ea5e9");
+            footerToggleGradient.addColorStop(1, "#0284c7");
+            ctx.fillStyle = footerToggleGradient;
+            ctx.shadowColor = "#38bdf8";
+            ctx.shadowBlur = 25;
+            ctx.beginPath();
+            ctx.roundRect(languageX, btnY, btnW, btnH, 12);
+            ctx.fill();
+
+            ctx.strokeStyle = "#bae6fd";
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 18;
+            ctx.shadowColor = "#38bdf8";
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            ctx.save();
+            ctx.globalAlpha = 0.3;
+            const footerToggleHighlight = ctx.createLinearGradient(languageX, btnY, languageX, btnY + btnH / 3);
+            footerToggleHighlight.addColorStop(0, "rgba(255, 255, 255, 0.8)");
+            footerToggleHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
+            ctx.fillStyle = footerToggleHighlight;
+            ctx.beginPath();
+            ctx.roundRect(languageX + 3, btnY + 3, btnW - 6, btnH / 3, 9);
+            ctx.fill();
+            ctx.restore();
+
+            const footerToggleLabel = gameState.language === "es" ? "🌐 Switch to English" : "🌐 Cambiar a Español";
+            ctx.fillStyle = "#fff";
+            ctx.font = "bold 18px system-ui";
+            ctx.shadowColor = "rgba(0, 0, 0, 0.45)";
+            ctx.shadowBlur = 4;
+            ctx.fillText(footerToggleLabel, languageX + btnW / 2, btnY + btnH / 2 + 6);
+            ctx.shadowBlur = 0;
+
             // Restart button
-            const restartGradient = ctx.createLinearGradient(restartX, contentY, restartX, contentY + btnH);
+            const restartGradient = ctx.createLinearGradient(restartX, btnY, restartX, btnY + btnH);
             restartGradient.addColorStop(0, "#ef4444");
             restartGradient.addColorStop(0.5, "#dc2626");
             restartGradient.addColorStop(1, "#b91c1c");
@@ -6405,32 +6518,32 @@ const Index = () => {
             ctx.shadowColor = "#ef4444";
             ctx.shadowBlur = 30;
             ctx.beginPath();
-            ctx.roundRect(restartX, contentY, btnW, btnH, 12);
+            ctx.roundRect(restartX, btnY, btnW, btnH, 12);
             ctx.fill();
-            
+
             ctx.strokeStyle = "#f87171";
             ctx.lineWidth = 2;
             ctx.shadowBlur = 20;
             ctx.shadowColor = "#ef4444";
             ctx.stroke();
             ctx.shadowBlur = 0;
-            
+
             ctx.save();
             ctx.globalAlpha = 0.3;
-            const restartHighlight = ctx.createLinearGradient(restartX, contentY, restartX, contentY + btnH / 3);
+            const restartHighlight = ctx.createLinearGradient(restartX, btnY, restartX, btnY + btnH / 3);
             restartHighlight.addColorStop(0, "rgba(255, 255, 255, 0.8)");
             restartHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
             ctx.fillStyle = restartHighlight;
             ctx.beginPath();
-            ctx.roundRect(restartX + 3, contentY + 3, btnW - 6, btnH / 3, 9);
+            ctx.roundRect(restartX + 3, btnY + 3, btnW - 6, btnH / 3, 9);
             ctx.fill();
             ctx.restore();
-            
+
             ctx.fillStyle = "#fff";
             ctx.font = "bold 24px system-ui";
             ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
             ctx.shadowBlur = 4;
-            ctx.fillText("🔄 " + t.restart, restartX + btnW / 2, contentY + btnH / 2 + 9);
+            ctx.fillText("🔄 " + i18n.restart, restartX + btnW / 2, btnY + btnH / 2 + 9);
             ctx.shadowBlur = 0;
             
           } else if (gameState.pauseMenuTab === "credits") {
@@ -6469,16 +6582,18 @@ const Index = () => {
             ctx.fillText("Vela Digital", centerX, contentY + 60);
             ctx.shadowBlur = 0;
             
-            // Continue & Restart Buttons (al final del tab)
-            contentY = menuY + menuH - 85;
-            const btnW = 250;
+            // Continue / Language / Restart buttons (al final del tab)
+            const btnW = 210;
             const btnH = 60;
-            const btnGap = 30;
-            const continueX = centerX - btnW - btnGap / 2;
-            const restartX = centerX + btnGap / 2;
-            
+            const btnGap = 20;
+            const totalBtnWidth = btnW * 3 + btnGap * 2;
+            const btnY = menuY + menuH - 85;
+            const continueX = centerX - totalBtnWidth / 2;
+            const languageX = continueX + btnW + btnGap;
+            const restartX = languageX + btnW + btnGap;
+
             // Continue button
-            const continueGradient = ctx.createLinearGradient(continueX, contentY, continueX, contentY + btnH);
+            const continueGradient = ctx.createLinearGradient(continueX, btnY, continueX, btnY + btnH);
             continueGradient.addColorStop(0, "#22c55e");
             continueGradient.addColorStop(0.5, "#16a34a");
             continueGradient.addColorStop(1, "#15803d");
@@ -6486,37 +6601,75 @@ const Index = () => {
             ctx.shadowColor = "#22c55e";
             ctx.shadowBlur = 30;
             ctx.beginPath();
-            ctx.roundRect(continueX, contentY, btnW, btnH, 12);
+            ctx.roundRect(continueX, btnY, btnW, btnH, 12);
             ctx.fill();
-            
+
             ctx.strokeStyle = "#4ade80";
             ctx.lineWidth = 2;
             ctx.shadowBlur = 20;
             ctx.shadowColor = "#22c55e";
             ctx.stroke();
             ctx.shadowBlur = 0;
-            
+
             ctx.save();
             ctx.globalAlpha = 0.3;
-            const continueHighlight = ctx.createLinearGradient(continueX, contentY, continueX, contentY + btnH / 3);
+            const continueHighlight = ctx.createLinearGradient(continueX, btnY, continueX, btnY + btnH / 3);
             continueHighlight.addColorStop(0, "rgba(255, 255, 255, 0.8)");
             continueHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
             ctx.fillStyle = continueHighlight;
             ctx.beginPath();
-            ctx.roundRect(continueX + 3, contentY + 3, btnW - 6, btnH / 3, 9);
+            ctx.roundRect(continueX + 3, btnY + 3, btnW - 6, btnH / 3, 9);
             ctx.fill();
             ctx.restore();
-            
+
             ctx.fillStyle = "#fff";
             ctx.font = "bold 24px system-ui";
             ctx.textAlign = "center";
             ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
             ctx.shadowBlur = 4;
-            ctx.fillText("▶ " + t.continue, continueX + btnW / 2, contentY + btnH / 2 + 9);
+            ctx.fillText("▶ " + i18n.continue, continueX + btnW / 2, btnY + btnH / 2 + 9);
             ctx.shadowBlur = 0;
-            
+
+            // Language toggle button
+            const footerToggleGradient = ctx.createLinearGradient(languageX, btnY, languageX, btnY + btnH);
+            footerToggleGradient.addColorStop(0, "#38bdf8");
+            footerToggleGradient.addColorStop(0.5, "#0ea5e9");
+            footerToggleGradient.addColorStop(1, "#0284c7");
+            ctx.fillStyle = footerToggleGradient;
+            ctx.shadowColor = "#38bdf8";
+            ctx.shadowBlur = 25;
+            ctx.beginPath();
+            ctx.roundRect(languageX, btnY, btnW, btnH, 12);
+            ctx.fill();
+
+            ctx.strokeStyle = "#bae6fd";
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 18;
+            ctx.shadowColor = "#38bdf8";
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            ctx.save();
+            ctx.globalAlpha = 0.3;
+            const footerToggleHighlight = ctx.createLinearGradient(languageX, btnY, languageX, btnY + btnH / 3);
+            footerToggleHighlight.addColorStop(0, "rgba(255, 255, 255, 0.8)");
+            footerToggleHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
+            ctx.fillStyle = footerToggleHighlight;
+            ctx.beginPath();
+            ctx.roundRect(languageX + 3, btnY + 3, btnW - 6, btnH / 3, 9);
+            ctx.fill();
+            ctx.restore();
+
+            const footerToggleLabel = gameState.language === "es" ? "🌐 Switch to English" : "🌐 Cambiar a Español";
+            ctx.fillStyle = "#fff";
+            ctx.font = "bold 18px system-ui";
+            ctx.shadowColor = "rgba(0, 0, 0, 0.45)";
+            ctx.shadowBlur = 4;
+            ctx.fillText(footerToggleLabel, languageX + btnW / 2, btnY + btnH / 2 + 6);
+            ctx.shadowBlur = 0;
+
             // Restart button
-            const restartGradient = ctx.createLinearGradient(restartX, contentY, restartX, contentY + btnH);
+            const restartGradient = ctx.createLinearGradient(restartX, btnY, restartX, btnY + btnH);
             restartGradient.addColorStop(0, "#ef4444");
             restartGradient.addColorStop(0.5, "#dc2626");
             restartGradient.addColorStop(1, "#b91c1c");
@@ -6524,32 +6677,32 @@ const Index = () => {
             ctx.shadowColor = "#ef4444";
             ctx.shadowBlur = 30;
             ctx.beginPath();
-            ctx.roundRect(restartX, contentY, btnW, btnH, 12);
+            ctx.roundRect(restartX, btnY, btnW, btnH, 12);
             ctx.fill();
-            
+
             ctx.strokeStyle = "#f87171";
             ctx.lineWidth = 2;
             ctx.shadowBlur = 20;
             ctx.shadowColor = "#ef4444";
             ctx.stroke();
             ctx.shadowBlur = 0;
-            
+
             ctx.save();
             ctx.globalAlpha = 0.3;
-            const restartHighlight = ctx.createLinearGradient(restartX, contentY, restartX, contentY + btnH / 3);
+            const restartHighlight = ctx.createLinearGradient(restartX, btnY, restartX, btnY + btnH / 3);
             restartHighlight.addColorStop(0, "rgba(255, 255, 255, 0.8)");
             restartHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
             ctx.fillStyle = restartHighlight;
             ctx.beginPath();
-            ctx.roundRect(restartX + 3, contentY + 3, btnW - 6, btnH / 3, 9);
+            ctx.roundRect(restartX + 3, btnY + 3, btnW - 6, btnH / 3, 9);
             ctx.fill();
             ctx.restore();
-            
+
             ctx.fillStyle = "#fff";
             ctx.font = "bold 24px system-ui";
             ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
             ctx.shadowBlur = 4;
-            ctx.fillText("🔄 " + t.restart, restartX + btnW / 2, contentY + btnH / 2 + 9);
+            ctx.fillText("🔄 " + i18n.restart, restartX + btnW / 2, btnY + btnH / 2 + 9);
             ctx.shadowBlur = 0;
             
           } else if (gameState.pauseMenuTab === "settings") {
@@ -6580,10 +6733,10 @@ const Index = () => {
             
             ctx.font = "18px system-ui";
             ctx.fillStyle = "#d1d5db";
-            ctx.fillText(`${t.level}: ${gameState.level}`, leftCol, contentY);
+            ctx.fillText(`${i18n.level}: ${gameState.level}`, leftCol, contentY);
             ctx.fillText(`Score: ${gameState.score}`, rightCol, contentY);
             contentY += 30;
-            ctx.fillText(`${t.wave}: ${gameState.wave}`, leftCol, contentY);
+            ctx.fillText(`${i18n.wave}: ${gameState.wave}`, leftCol, contentY);
             const time = Math.floor(gameState.time);
             const mm = String(Math.floor(time / 60)).padStart(2, '0');
             const ss = String(time % 60).padStart(2, '0');
@@ -6663,8 +6816,8 @@ const Index = () => {
             
             ctx.font = "16px system-ui";
             ctx.fillStyle = "#9ca3af";
-            ctx.fillText(`${t.weapons}: ${gameState.player.weapons.length}/3`, leftCol, contentY);
-            ctx.fillText(`${t.tomes}: ${gameState.player.tomes.length}/3`, rightCol, contentY);
+            ctx.fillText(`${i18n.weapons}: ${gameState.player.weapons.length}/3`, leftCol, contentY);
+            ctx.fillText(`${i18n.tomes}: ${gameState.player.tomes.length}/3`, rightCol, contentY);
             contentY += 25;
             
             // Items
@@ -6766,8 +6919,118 @@ const Index = () => {
               ctx.shadowBlur = 0;
             }
             
-            contentY += aimBtnH + 50;
-            
+            contentY += aimBtnH + 40;
+
+            // === LANGUAGE SELECTOR ===
+            ctx.fillStyle = "#fbbf24";
+            ctx.font = "bold 18px system-ui";
+            ctx.textAlign = "left";
+            const languageLabel = gameState.language === "es" ? "🌐 Idioma:" : "🌐 Language:";
+            ctx.fillText(languageLabel, leftCol, contentY);
+            contentY += 35;
+
+            const langBtnW = 180;
+            const langBtnH = 45;
+            const langGap = 20;
+            const languageOptions: Array<{ code: Language; label: string; x: number }> = [
+              { code: "es", label: "Español", x: menuX + 25 },
+              { code: "en", label: "English", x: menuX + 25 + langBtnW + langGap },
+            ];
+
+            for (const { code, label, x } of languageOptions) {
+              const isSelected = gameState.language === code;
+
+              const btnGradient = ctx.createLinearGradient(x, contentY, x, contentY + langBtnH);
+              if (isSelected) {
+                btnGradient.addColorStop(0, "#14b8a6");
+                btnGradient.addColorStop(0.5, "#0d9488");
+                btnGradient.addColorStop(1, "#0f766e");
+              } else {
+                btnGradient.addColorStop(0, "#4b5563");
+                btnGradient.addColorStop(0.5, "#374151");
+                btnGradient.addColorStop(1, "#1f2937");
+              }
+              ctx.fillStyle = btnGradient;
+
+              if (isSelected) {
+                ctx.shadowColor = "#14b8a6";
+                ctx.shadowBlur = 20;
+              }
+
+              ctx.beginPath();
+              ctx.roundRect(x, contentY, langBtnW, langBtnH, 10);
+              ctx.fill();
+              ctx.shadowBlur = 0;
+
+              if (isSelected) {
+                ctx.strokeStyle = "#5eead4";
+                ctx.lineWidth = 2;
+                ctx.shadowColor = "#14b8a6";
+                ctx.shadowBlur = 15;
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+
+                ctx.save();
+                ctx.globalAlpha = 0.3;
+                const highlight = ctx.createLinearGradient(x, contentY, x, contentY + langBtnH / 3);
+                highlight.addColorStop(0, "rgba(255, 255, 255, 0.6)");
+                highlight.addColorStop(1, "rgba(255, 255, 255, 0)");
+                ctx.fillStyle = highlight;
+                ctx.beginPath();
+                ctx.roundRect(x + 2, contentY + 2, langBtnW - 4, langBtnH / 3, 8);
+                ctx.fill();
+                ctx.restore();
+              } else {
+                ctx.strokeStyle = "#6b7280";
+                ctx.lineWidth = 1;
+                ctx.stroke();
+              }
+
+              ctx.fillStyle = "#fff";
+              ctx.font = isSelected ? "bold 15px system-ui" : "14px system-ui";
+              ctx.textAlign = "center";
+              ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+              ctx.shadowBlur = 3;
+              ctx.fillText(label, x + langBtnW / 2, contentY + langBtnH / 2 + 5);
+              ctx.shadowBlur = 0;
+            }
+
+            const toggleBtnW = langBtnW * 2 + langGap;
+            const toggleBtnH = langBtnH;
+            const toggleBtnX = menuX + 25;
+            const toggleBtnY = contentY + langBtnH + 20;
+            const toggleLabel =
+              gameState.language === "es" ? "Switch to English" : "Cambiar a Español";
+
+            const toggleGradient = ctx.createLinearGradient(
+              toggleBtnX,
+              toggleBtnY,
+              toggleBtnX,
+              toggleBtnY + toggleBtnH,
+            );
+            toggleGradient.addColorStop(0, "#f97316");
+            toggleGradient.addColorStop(0.5, "#ea580c");
+            toggleGradient.addColorStop(1, "#c2410c");
+            ctx.fillStyle = toggleGradient;
+
+            ctx.beginPath();
+            ctx.roundRect(toggleBtnX, toggleBtnY, toggleBtnW, toggleBtnH, 12);
+            ctx.fill();
+
+            ctx.strokeStyle = "#fdba74";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.fillStyle = "#fff";
+            ctx.font = "bold 15px system-ui";
+            ctx.textAlign = "center";
+            ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
+            ctx.shadowBlur = 4;
+            ctx.fillText(toggleLabel, toggleBtnX + toggleBtnW / 2, toggleBtnY + toggleBtnH / 2 + 5);
+            ctx.shadowBlur = 0;
+
+            contentY = toggleBtnY + toggleBtnH + 50;
+
             // === AUDIO SETTINGS (SLIDER DIRECTO) ===
             ctx.fillStyle = "#fbbf24";
             ctx.font = "bold 18px system-ui";
@@ -6797,16 +7060,18 @@ const Index = () => {
             ctx.fillStyle = musicGradient2;
             ctx.fillRect(sliderX2, contentY + 8, musicFill2, sliderH2);
             
-            
-            // Continue & Restart Buttons
-            const btnW = 250;
+            // Continue / Language / Restart buttons
+            const btnW = 210;
             const btnH = 60;
-            const btnGap = 30;
-            const continueX = centerX - btnW - btnGap / 2;
-            const restartX = centerX + btnGap / 2;
-            
+            const btnGap = 20;
+            const totalBtnWidth = btnW * 3 + btnGap * 2;
+            const btnY = menuY + menuH - 85;
+            const continueX = centerX - totalBtnWidth / 2;
+            const languageX = continueX + btnW + btnGap;
+            const restartX = languageX + btnW + btnGap;
+
             // Continue button - mejorado
-            const continueGradient = ctx.createLinearGradient(continueX, contentY, continueX, contentY + btnH);
+            const continueGradient = ctx.createLinearGradient(continueX, btnY, continueX, btnY + btnH);
             continueGradient.addColorStop(0, "#22c55e");
             continueGradient.addColorStop(0.5, "#16a34a");
             continueGradient.addColorStop(1, "#15803d");
@@ -6814,38 +7079,76 @@ const Index = () => {
             ctx.shadowColor = "#22c55e";
             ctx.shadowBlur = 30;
             ctx.beginPath();
-            ctx.roundRect(continueX, contentY, btnW, btnH, 12);
+            ctx.roundRect(continueX, btnY, btnW, btnH, 12);
             ctx.fill();
-            
+
             ctx.strokeStyle = "#4ade80";
             ctx.lineWidth = 2;
             ctx.shadowBlur = 20;
             ctx.shadowColor = "#22c55e";
             ctx.stroke();
             ctx.shadowBlur = 0;
-            
+
             // Highlight
             ctx.save();
             ctx.globalAlpha = 0.3;
-            const continueHighlight = ctx.createLinearGradient(continueX, contentY, continueX, contentY + btnH / 3);
+            const continueHighlight = ctx.createLinearGradient(continueX, btnY, continueX, btnY + btnH / 3);
             continueHighlight.addColorStop(0, "rgba(255, 255, 255, 0.8)");
             continueHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
             ctx.fillStyle = continueHighlight;
             ctx.beginPath();
-            ctx.roundRect(continueX + 3, contentY + 3, btnW - 6, btnH / 3, 9);
+            ctx.roundRect(continueX + 3, btnY + 3, btnW - 6, btnH / 3, 9);
             ctx.fill();
             ctx.restore();
-            
+
             ctx.fillStyle = "#fff";
             ctx.font = "bold 24px system-ui";
             ctx.textAlign = "center";
             ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
             ctx.shadowBlur = 4;
-            ctx.fillText("▶ " + t.continue, continueX + btnW / 2, contentY + btnH / 2 + 9);
+            ctx.fillText("▶ " + i18n.continue, continueX + btnW / 2, btnY + btnH / 2 + 9);
             ctx.shadowBlur = 0;
-            
+
+            // Language toggle button
+            const footerToggleGradient = ctx.createLinearGradient(languageX, btnY, languageX, btnY + btnH);
+            footerToggleGradient.addColorStop(0, "#38bdf8");
+            footerToggleGradient.addColorStop(0.5, "#0ea5e9");
+            footerToggleGradient.addColorStop(1, "#0284c7");
+            ctx.fillStyle = footerToggleGradient;
+            ctx.shadowColor = "#38bdf8";
+            ctx.shadowBlur = 25;
+            ctx.beginPath();
+            ctx.roundRect(languageX, btnY, btnW, btnH, 12);
+            ctx.fill();
+
+            ctx.strokeStyle = "#bae6fd";
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 18;
+            ctx.shadowColor = "#38bdf8";
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            ctx.save();
+            ctx.globalAlpha = 0.3;
+            const footerToggleHighlight = ctx.createLinearGradient(languageX, btnY, languageX, btnY + btnH / 3);
+            footerToggleHighlight.addColorStop(0, "rgba(255, 255, 255, 0.8)");
+            footerToggleHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
+            ctx.fillStyle = footerToggleHighlight;
+            ctx.beginPath();
+            ctx.roundRect(languageX + 3, btnY + 3, btnW - 6, btnH / 3, 9);
+            ctx.fill();
+            ctx.restore();
+
+            const footerToggleLabel = gameState.language === "es" ? "🌐 Switch to English" : "🌐 Cambiar a Español";
+            ctx.fillStyle = "#fff";
+            ctx.font = "bold 18px system-ui";
+            ctx.shadowColor = "rgba(0, 0, 0, 0.45)";
+            ctx.shadowBlur = 4;
+            ctx.fillText(footerToggleLabel, languageX + btnW / 2, btnY + btnH / 2 + 6);
+            ctx.shadowBlur = 0;
+
             // Restart button - mejorado
-            const restartGradient = ctx.createLinearGradient(restartX, contentY, restartX, contentY + btnH);
+            const restartGradient = ctx.createLinearGradient(restartX, btnY, restartX, btnY + btnH);
             restartGradient.addColorStop(0, "#ef4444");
             restartGradient.addColorStop(0.5, "#dc2626");
             restartGradient.addColorStop(1, "#b91c1c");
@@ -6853,33 +7156,33 @@ const Index = () => {
             ctx.shadowColor = "#ef4444";
             ctx.shadowBlur = 30;
             ctx.beginPath();
-            ctx.roundRect(restartX, contentY, btnW, btnH, 12);
+            ctx.roundRect(restartX, btnY, btnW, btnH, 12);
             ctx.fill();
-            
+
             ctx.strokeStyle = "#f87171";
             ctx.lineWidth = 2;
             ctx.shadowBlur = 20;
             ctx.shadowColor = "#ef4444";
             ctx.stroke();
             ctx.shadowBlur = 0;
-            
+
             // Highlight
             ctx.save();
             ctx.globalAlpha = 0.3;
-            const restartHighlight = ctx.createLinearGradient(restartX, contentY, restartX, contentY + btnH / 3);
+            const restartHighlight = ctx.createLinearGradient(restartX, btnY, restartX, btnY + btnH / 3);
             restartHighlight.addColorStop(0, "rgba(255, 255, 255, 0.8)");
             restartHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
             ctx.fillStyle = restartHighlight;
             ctx.beginPath();
-            ctx.roundRect(restartX + 3, contentY + 3, btnW - 6, btnH / 3, 9);
+            ctx.roundRect(restartX + 3, btnY + 3, btnW - 6, btnH / 3, 9);
             ctx.fill();
             ctx.restore();
-            
+
             ctx.fillStyle = "#fff";
             ctx.font = "bold 24px system-ui";
             ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
             ctx.shadowBlur = 4;
-            ctx.fillText("🔄 " + t.restart, restartX + btnW / 2, contentY + btnH / 2 + 9);
+            ctx.fillText("🔄 " + i18n.restart, restartX + btnW / 2, btnY + btnH / 2 + 9);
             ctx.shadowBlur = 0;
           }
         }
@@ -6948,6 +7251,15 @@ const Index = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("language", language);
+    }
+    if (gameStateRef.current) {
+      gameStateRef.current.language = language;
+    }
+  }, [language]);
+
   return (
     <div className="relative w-full h-screen overflow-hidden bg-background">
       <canvas
@@ -6966,7 +7278,7 @@ const Index = () => {
           <div className="relative bg-card/95 backdrop-blur-sm border-2 border-primary/50 rounded-lg p-8 max-w-md mx-4 shadow-2xl animate-scale-in">
             <div className="space-y-6 animate-fade-in">
               <h3 className="text-2xl font-bold text-primary text-center">
-                {t.tutorial.move}
+                {uiTranslations.tutorial.move}
               </h3>
               <div className="flex justify-center gap-2">
                 <KeyButton keyLabel="W" isActive={gameStateRef.current?.keys.w || false} />
