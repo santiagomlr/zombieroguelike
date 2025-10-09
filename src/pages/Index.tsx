@@ -314,6 +314,7 @@ const Index = () => {
       xp: 0,
       nextXP: 25,
       time: 0,
+      elapsedTime: 0,
       wave: 1,
       waveKills: 0,
       waveEnemiesTotal: 10, // Wave 1 empieza con 10 (estilo COD Zombies)
@@ -685,6 +686,7 @@ const Index = () => {
       gameState.xp = 0;
       gameState.nextXP = 25;
       gameState.time = 0;
+      gameState.elapsedTime = 0;
       gameState.wave = 1;
       gameState.waveKills = 0;
       gameState.waveEnemiesTotal = 10; // Wave 1 empieza con 10 enemigos (estilo COD Zombies)
@@ -2252,6 +2254,11 @@ const Index = () => {
       // Actualizar tiempo siempre (necesario para animaciones)
       gameState.time += dt;
 
+      // Tiempo real de juego (se detiene al pausar o morir)
+      if (gameState.state === 'running' && gameState.countdownTimer <= 0) {
+        gameState.elapsedTime += dt;
+      }
+
       // Animations que deben correr siempre
       if (gameState.levelUpAnimation > 0) gameState.levelUpAnimation = Math.max(0, gameState.levelUpAnimation - dt * 2);
       if (gameState.upgradeAnimation > 0) gameState.upgradeAnimation = Math.max(0, gameState.upgradeAnimation - dt);
@@ -2300,7 +2307,7 @@ const Index = () => {
       // Game Over - seguir corriendo el tiempo durante la animación
       if (gameState.state === 'gameover') {
         gameState.gameOverAnimationTimer += dt;
-        gameState.time += dt; // El tiempo sigue corriendo
+        gameState.time += dt; // El tiempo sigue corriendo para animaciones
         return;
       }
       
@@ -5728,7 +5735,7 @@ const Index = () => {
           if (gameState.gameOverAnimationTimer > 1.5) {
             const timeAlpha = Math.min(1, (gameState.gameOverAnimationTimer - 1.5) / 1);
             ctx.globalAlpha = timeAlpha;
-            const time = Math.floor(gameState.time);
+            const time = Math.floor(gameState.elapsedTime);
             const mm = String(Math.floor(time / 60)).padStart(2, '0');
             const ss = String(time % 60).padStart(2, '0');
             ctx.fillStyle = "#fbbf24";
@@ -5828,7 +5835,7 @@ const Index = () => {
         contentY += 50;
         
         // Tiempo
-        const time = Math.floor(gameState.time);
+        const time = Math.floor(gameState.elapsedTime);
         const mm = String(Math.floor(time / 60)).padStart(2, '0');
         const ss = String(time % 60).padStart(2, '0');
         ctx.fillStyle = "#d1d5db";
@@ -6830,7 +6837,7 @@ const Index = () => {
             ctx.fillText(`Score: ${gameState.score}`, rightCol, contentY);
             contentY += 30;
             ctx.fillText(`${i18n.wave}: ${gameState.wave}`, leftCol, contentY);
-            const time = Math.floor(gameState.time);
+            const time = Math.floor(gameState.elapsedTime);
             const mm = String(Math.floor(time / 60)).padStart(2, '0');
             const ss = String(time % 60).padStart(2, '0');
             ctx.fillText(`Tiempo: ${mm}:${ss}`, rightCol, contentY);
