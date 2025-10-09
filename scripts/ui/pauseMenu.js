@@ -20,7 +20,6 @@ import gameClock, {
 const TAB_CONFIG = [
   { id: "main", label: "Main" },
   { id: "settings", label: "Settings" },
-  { id: "wiki", label: "Wiki" },
 ];
 
 const DEFAULT_LANGUAGES = [
@@ -42,16 +41,12 @@ const externalHooks = {
 };
 
 let pauseMenuEl = null;
-let countdownOverlayEl = null;
-let countdownLabelEl = null;
 let tabButtons = [];
 let tabPanels = new Map();
 let isPaused = false;
-let isCountdownActive = false;
 let statsInterval = null;
 let activeTab = "main";
 let lastFocusedElement = null;
-let countdownTimers = [];
 let languageSelectEl = null;
 let cachedLanguageOptionsKey = "";
 let suppressNextEscape = false;
@@ -334,47 +329,12 @@ function createMenuMarkup(root) {
             </fieldset>
           </form>
         </div>
-        <div id="pause-panel-wiki" class="pause-menu__panel" role="tabpanel" aria-labelledby="pause-tab-wiki" hidden>
-          <div class="pause-menu__wiki" tabindex="0">
-            <h3>Zombie Survival Wiki</h3>
-            <p>
-              Welcome to the field guide for our roguelike shooter. Survive relentless waves, upgrade your arsenal,
-              and control the arena with tactical positioning. Master crowd control, manage cooldowns, and always watch
-              your flanks.
-            </p>
-            <h4>Core Tips</h4>
-            <ul>
-              <li>Keep moving in loose circles to kite the horde.</li>
-              <li>Prioritize damage upgrades early, sustain later.</li>
-              <li>Use environmental chokepoints to funnel enemies.</li>
-              <li>Break glowing crates for burst XP and healing.</li>
-            </ul>
-            <h4>Enemy Intel</h4>
-            <p>
-              Runners close gaps fast, Brutes soak damage, and Spitters punish stationary players. Listen for audio cues to
-              anticipate elite spawns.
-            </p>
-            <h4>Credits</h4>
-            <p><strong>Game Design &amp; Code:</strong> Your Name</p>
-            <p><strong>Art / Audio / Fonts:</strong> Community Assets &amp; Licensed Packs</p>
-            <p><strong>Special Thanks:</strong> Playtesters, Friends, and the Indie Dev Collective</p>
-          </div>
-        </div>
       </section>
     </div>
   `;
 
   root.appendChild(container);
   return container;
-}
-
-function createCountdownOverlay(root) {
-  const overlay = document.createElement("div");
-  overlay.className = "pause-countdown";
-  overlay.setAttribute("aria-hidden", "true");
-  overlay.innerHTML = `<div class="pause-countdown__content" role="status" aria-live="assertive"><span class="pause-countdown__label">3</span></div>`;
-  root.appendChild(overlay);
-  return overlay;
 }
 
 function getFocusableElements() {
@@ -539,68 +499,20 @@ function hideMenu() {
   isPaused = false;
 }
 
-function resumeFromCountdown() {
-  isCountdownActive = false;
-  countdownOverlayEl?.setAttribute("aria-hidden", "true");
-  countdownOverlayEl?.classList.remove("pause-countdown--visible");
-  document.body.classList.remove("pause-menu-open");
-  callHook("setPaused", false);
-  callHook("onResume");
-  startPlayClock();
-  document.dispatchEvent(new CustomEvent("pausemenu:closed"));
-  isPaused = false;
-  if (lastFocusedElement) {
-    lastFocusedElement.focus({ preventScroll: true });
-    lastFocusedElement = null;
-  }
-}
-
-function finishCountdown() {
-  resumeFromCountdown();
-}
-
-function clearCountdownTimers() {
-  countdownTimers.forEach((timer) => clearTimeout(timer));
-  countdownTimers = [];
-}
-
-function cancelCountdown() {
-  if (!isCountdownActive) return;
-  clearCountdownTimers();
-  isCountdownActive = false;
-  countdownOverlayEl?.setAttribute("aria-hidden", "true");
-  countdownOverlayEl?.classList.remove("pause-countdown--visible");
-  showMenu();
-}
-
-function startCountdown(syncGameWithEngine = false) {
-  if (isCountdownActive) return;
-  isCountdownActive = true;
+function resumeGame(syncGameWithEngine = false) {
+  if (!pauseMenuEl) return;
   hideMenu();
   if (syncGameWithEngine) {
     sendEscapeToGame();
   }
-  countdownOverlayEl?.setAttribute("aria-hidden", "false");
-  countdownOverlayEl?.classList.add("pause-countdown--visible");
-  if (countdownLabelEl) countdownLabelEl.textContent = "3";
-  document.activeElement instanceof HTMLElement && document.activeElement.blur();
-
-  const steps = ["3", "2", "1", "GO"];
-  steps.forEach((step, index) => {
-    const timeout = setTimeout(() => {
-      if (!isCountdownActive) return;
-      if (countdownLabelEl) countdownLabelEl.textContent = step;
-      if (step === "GO") {
-        const finishTimer = setTimeout(() => {
-          if (!isCountdownActive) return;
-          clearCountdownTimers();
-          finishCountdown();
-        }, 750);
-        countdownTimers.push(finishTimer);
-      }
-    }, index * 1000);
-    countdownTimers.push(timeout);
-  });
+  callHook("setPaused", false);
+  callHook("onResume");
+  startPlayClock();
+  document.dispatchEvent(new CustomEvent("pausemenu:closed"));
+  if (lastFocusedElement) {
+    lastFocusedElement.focus({ preventScroll: true });
+    lastFocusedElement = null;
+  }
 }
 
 function togglePause(input) {
@@ -615,20 +527,13 @@ function togglePause(input) {
     syncGame = !lastToggleFromKeyboard;
   }
   lastToggleFromKeyboard = false;
-  if (isCountdownActive) {
-    cancelCountdown();
-    if (syncGame) {
-      sendEscapeToGame();
-    }
-    return;
-  }
   if (!isPaused) {
     if (syncGame) {
       sendEscapeToGame();
     }
     showMenu();
   } else {
-    startCountdown(syncGame);
+    resumeGame(syncGame);
   }
 }
 
@@ -646,10 +551,6 @@ function handleGlobalKeyDown(event) {
     return;
   }
   event.stopPropagation();
-  if (isCountdownActive) {
-    event.preventDefault();
-    return;
-  }
   if (event.key === "Tab") {
     const focusables = getFocusableElements();
     if (!focusables.length) {
@@ -709,17 +610,12 @@ function attachActionHandlers() {
     if (!action) return;
     if (action === "resume") {
       lastToggleFromKeyboard = false;
-      startCountdown(true);
+      resumeGame(true);
     } else if (action === "quit") {
       const shouldQuit = callHook("confirmQuit");
       if (shouldQuit !== false) {
         resetPlayClock();
-        isCountdownActive = false;
-        clearCountdownTimers();
-        countdownOverlayEl?.setAttribute("aria-hidden", "true");
-        countdownOverlayEl?.classList.remove("pause-countdown--visible");
         hideMenu();
-        document.body.classList.remove("pause-menu-open");
         isPaused = false;
       }
     }
@@ -796,8 +692,6 @@ function initPauseMenu() {
   if (pauseMenuEl) return;
   const root = ensureUiRoot();
   pauseMenuEl = createMenuMarkup(root);
-  countdownOverlayEl = createCountdownOverlay(root);
-  countdownLabelEl = countdownOverlayEl.querySelector(".pause-countdown__label");
   cachePanels();
   attachTabHandlers();
   attachActionHandlers();
@@ -806,13 +700,6 @@ function initPauseMenu() {
   syncSettingsControls();
   window.addEventListener("keydown", handleGlobalKeyDown, false);
   document.addEventListener("pausemenu:toggle", togglePause);
-  if (countdownOverlayEl) {
-    countdownOverlayEl.addEventListener("click", () => {
-      if (isCountdownActive) {
-        togglePause({ syncGame: true });
-      }
-    });
-  }
   startPlayClock();
 }
 
@@ -823,24 +710,15 @@ export function registerPauseMenuHooks(hooks = {}) {
 export function openPauseMenu(options = {}) {
   const shouldSync = typeof options === "boolean" ? options : options?.syncGame ?? true;
   lastToggleFromKeyboard = false;
-  if (shouldSync && !isPaused && !isCountdownActive) {
+  if (shouldSync && !isPaused) {
     sendEscapeToGame();
   }
   showMenu();
 }
 
 export function closePauseMenu() {
-  if (isCountdownActive) {
-    cancelCountdown();
-    return;
-  }
-  hideMenu();
-  isPaused = false;
-  document.body.classList.remove("pause-menu-open");
-  callHook("setPaused", false);
-  callHook("onResume");
-  startPlayClock();
-  document.dispatchEvent(new CustomEvent("pausemenu:closed"));
+  if (!isPaused) return;
+  resumeGame(false);
 }
 
 export function isPauseMenuOpen() {
@@ -848,7 +726,7 @@ export function isPauseMenuOpen() {
 }
 
 export function isCountdownRunning() {
-  return isCountdownActive;
+  return false;
 }
 
 if (document.readyState === "loading") {

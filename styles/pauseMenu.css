@@ -102,7 +102,6 @@
 
 .pause-menu__panels {
   flex: 1;
-  overflow: hidden;
   position: relative;
 }
 
@@ -110,6 +109,30 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
+  flex: 1;
+  max-height: 100%;
+  overflow-y: auto;
+  padding-right: 8px;
+  scrollbar-gutter: stable both-edges;
+  scrollbar-width: thin;
+  overscroll-behavior: contain;
+}
+
+.pause-menu__panel::-webkit-scrollbar {
+  width: 10px;
+}
+
+.pause-menu__panel::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 999px;
+}
+
+.pause-menu__panel::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.45);
+}
+
+.pause-menu__panel::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .pause-menu__stats {
@@ -285,95 +308,6 @@
 .pause-menu__helper span {
   color: var(--pm-primary);
   font-weight: 600;
-}
-
-.pause-menu__wiki {
-  flex: 1;
-  overflow: auto;
-  padding-right: 8px;
-  line-height: 1.6;
-  color: var(--pm-text);
-}
-
-.pause-menu__wiki h3,
-.pause-menu__wiki h4 {
-  margin-top: 0;
-  color: var(--pm-primary);
-}
-
-.pause-menu__wiki ul {
-  padding-left: 20px;
-  margin: 12px 0;
-}
-
-.pause-menu__wiki p {
-  margin: 12px 0;
-}
-
-.pause-menu__wiki:focus-visible {
-  outline: 3px solid var(--pm-focus);
-  outline-offset: 4px;
-}
-
-.pause-countdown {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  pointer-events: none;
-  opacity: 0;
-  z-index: 1100;
-  transition: opacity 200ms ease;
-}
-
-.pause-countdown--visible {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.pause-countdown::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: rgba(3, 7, 18, 0.7);
-  backdrop-filter: blur(6px) saturate(120%);
-}
-
-.pause-countdown__content {
-  position: relative;
-  font-size: clamp(4rem, 8vw, 6rem);
-  font-weight: 800;
-  color: #f8fafc;
-  text-shadow: 0 14px 36px rgba(3, 7, 18, 0.65);
-  animation: countdown-pop 1s ease forwards;
-}
-
-.pause-countdown__label {
-  display: inline-block;
-  padding: 24px 48px;
-  border-radius: 24px;
-  background: rgba(8, 12, 32, 0.82);
-  border: 1px solid rgba(34, 211, 238, 0.45);
-}
-
-.pause-countdown--visible .pause-countdown__label {
-  animation: countdown-step 1s ease infinite;
-}
-
-@keyframes countdown-step {
-  0% {
-    transform: scale(0.8);
-    opacity: 0.6;
-  }
-  50% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1.1);
-    opacity: 0.85;
-  }
 }
 
 @media (max-width: 768px) {
