@@ -703,6 +703,18 @@ const Index = () => {
         wiki: 0,
         credits: 0,
       },
+      pauseMenuUiScalePercent: (() => {
+        const stored = localStorage.getItem("pauseMenuUiScalePercent");
+        const allowed = [70, 80, 90, 100, 110, 120];
+        if (stored) {
+          const parsed = Number.parseInt(stored, 10);
+          if (Number.isFinite(parsed) && allowed.includes(parsed)) {
+            return parsed;
+          }
+        }
+        return 90;
+      })(),
+      pauseMenuUiScaleDropdownOpen: false,
       pauseMenuHitAreas: {
         home: {
           layout: "horizontal" as "horizontal" | "stacked",
@@ -716,6 +728,10 @@ const Index = () => {
             sfx: { x: 0, y: 0, w: 0, h: 0 },
           },
           languages: [] as Array<{ x: number; y: number; w: number; h: number; lang: Language }>,
+          uiScale: {
+            trigger: { x: 0, y: 0, w: 0, h: 0 },
+            options: [] as Array<{ x: number; y: number; w: number; h: number; value: number }>,
+          },
         },
       },
       language,
@@ -2226,7 +2242,7 @@ const Index = () => {
           }
         }
       } else if (gameState.state === 'paused' && !gameState.showUpgradeUI && gameState.countdownTimer <= 0) {
-        const layout = getPauseMenuLayout(W, H);
+        const layout = getPauseMenuLayout(W, H, gameState.pauseMenuUiScalePercent / 100);
         const { navX, navY, navW, navH, navGap, innerX, innerY, innerW } = layout;
         const navItems = PAUSE_MENU_TABS;
 
@@ -2236,6 +2252,9 @@ const Index = () => {
             const newTab = navItems[i];
             gameState.pauseMenuTab = newTab;
             gameState.pauseMenuScroll[newTab] = 0;
+            if (gameState.pauseMenuUiScaleDropdownOpen) {
+              gameState.pauseMenuUiScaleDropdownOpen = false;
+            }
             return;
           }
         }
@@ -2247,13 +2266,23 @@ const Index = () => {
         const pointerInScroll = mx >= innerX && mx <= innerX + innerW && my >= scrollAreaTop && my <= scrollAreaTop + scrollAreaHeight;
         const adjustedY = pointerInScroll ? my + scrollOffset : my;
 
+        if (activeTab === "settings" && !pointerInScroll && gameState.pauseMenuUiScaleDropdownOpen) {
+          gameState.pauseMenuUiScaleDropdownOpen = false;
+        }
+
         if (activeTab === "home") {
           const { resume, restart } = gameState.pauseMenuHitAreas.home;
           if (mx >= resume.x && mx <= resume.x + resume.w && my >= resume.y && my <= resume.y + resume.h) {
+            if (gameState.pauseMenuUiScaleDropdownOpen) {
+              gameState.pauseMenuUiScaleDropdownOpen = false;
+            }
             gameState.countdownTimer = 3;
             return;
           }
           if (mx >= restart.x && mx <= restart.x + restart.w && my >= restart.y && my <= restart.y + restart.h) {
+            if (gameState.pauseMenuUiScaleDropdownOpen) {
+              gameState.pauseMenuUiScaleDropdownOpen = false;
+            }
             resetGame();
             return;
           }
@@ -2263,6 +2292,9 @@ const Index = () => {
           if (mx >= slider.x - sliderMargin && mx <= slider.x + slider.w + sliderMargin && adjustedY >= slider.y - sliderMargin && adjustedY <= slider.y + slider.h + sliderMargin) {
             const clickX = clamp(mx, slider.x, slider.x + slider.w);
             gameState.targetMusicVolume = (clickX - slider.x) / slider.w;
+            if (gameState.pauseMenuUiScaleDropdownOpen) {
+              gameState.pauseMenuUiScaleDropdownOpen = false;
+            }
             return;
           }
 
@@ -2276,12 +2308,18 @@ const Index = () => {
                 gameState.music.play().catch(err => console.warn("Audio play failed:", err));
               }
             }
+            if (gameState.pauseMenuUiScaleDropdownOpen) {
+              gameState.pauseMenuUiScaleDropdownOpen = false;
+            }
             return;
           }
 
           const sfxToggle = gameState.pauseMenuHitAreas.settings.toggles.sfx;
           if (mx >= sfxToggle.x && mx <= sfxToggle.x + sfxToggle.w && adjustedY >= sfxToggle.y && adjustedY <= sfxToggle.y + sfxToggle.h) {
             gameState.sfxMuted = !gameState.sfxMuted;
+            if (gameState.pauseMenuUiScaleDropdownOpen) {
+              gameState.pauseMenuUiScaleDropdownOpen = false;
+            }
             return;
           }
 
@@ -2290,8 +2328,39 @@ const Index = () => {
               const newLang = option.lang;
               setLanguage(newLang);
               localStorage.setItem("language", newLang);
+              if (gameState.pauseMenuUiScaleDropdownOpen) {
+                gameState.pauseMenuUiScaleDropdownOpen = false;
+              }
               return;
             }
+          }
+
+          const uiScaleHit = gameState.pauseMenuHitAreas.settings.uiScale;
+          if (
+            mx >= uiScaleHit.trigger.x &&
+            mx <= uiScaleHit.trigger.x + uiScaleHit.trigger.w &&
+            adjustedY >= uiScaleHit.trigger.y &&
+            adjustedY <= uiScaleHit.trigger.y + uiScaleHit.trigger.h
+          ) {
+            gameState.pauseMenuUiScaleDropdownOpen = !gameState.pauseMenuUiScaleDropdownOpen;
+            return;
+          }
+
+          if (gameState.pauseMenuUiScaleDropdownOpen) {
+            for (const option of uiScaleHit.options) {
+              if (
+                mx >= option.x &&
+                mx <= option.x + option.w &&
+                adjustedY >= option.y &&
+                adjustedY <= option.y + option.h
+              ) {
+                gameState.pauseMenuUiScalePercent = option.value;
+                localStorage.setItem("pauseMenuUiScalePercent", String(option.value));
+                gameState.pauseMenuUiScaleDropdownOpen = false;
+                return;
+              }
+            }
+            gameState.pauseMenuUiScaleDropdownOpen = false;
           }
         }
       } else if (gameState.state === 'gameover') {
@@ -2323,7 +2392,7 @@ const Index = () => {
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
 
-      const layout = getPauseMenuLayout(W, H);
+      const layout = getPauseMenuLayout(W, H, gameState.pauseMenuUiScalePercent / 100);
       const activeTab = gameState.pauseMenuTab;
       const metrics = getPauseMenuContentMetrics(activeTab, layout);
       const { scrollAreaTop, scrollAreaHeight } = metrics;
@@ -5902,7 +5971,7 @@ const Index = () => {
         const locale = translations[currentLanguage];
         const pm = locale.pauseMenu;
         const wikiLocale = locale.wiki;
-        const layout = getPauseMenuLayout(W, H);
+        const layout = getPauseMenuLayout(W, H, gameState.pauseMenuUiScalePercent / 100);
         const {
           menuX,
           menuY,
@@ -6271,6 +6340,73 @@ const Index = () => {
               gameState.pauseMenuHitAreas.settings.languages.push({ x: btnX, y: langY, w: langBtnW, h: langBtnH, lang: langOption });
               contentBottom = Math.max(contentBottom, langY + langBtnH);
             });
+
+            sectionY = langY + langBtnH + scaleValue(48);
+
+            ctx.fillStyle = "#bfdbfe";
+            ctx.font = getScaledFont(18, "600");
+            ctx.textAlign = "left";
+            ctx.fillText("🖥️ UI Scale", innerX, sectionY);
+
+            const dropdownValues = [70, 80, 90, 100, 110, 120];
+            const dropdownH = scaleValue(44);
+            const dropdownGap = scaleValue(6);
+            const dropdownW = Math.min(innerW, Math.max(scaleValue(220), innerW * 0.65));
+            const dropdownX = innerX + (innerW - dropdownW) / 2;
+            const dropdownY = sectionY + scaleValue(28);
+            const uiScaleHitAreas = gameState.pauseMenuHitAreas.settings.uiScale;
+            uiScaleHitAreas.trigger = { x: dropdownX, y: dropdownY, w: dropdownW, h: dropdownH };
+            uiScaleHitAreas.options = [];
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.roundRect(dropdownX, dropdownY, dropdownW, dropdownH, scaledRadius(10));
+            ctx.fillStyle = "rgba(15, 23, 42, 0.6)";
+            ctx.fill();
+            ctx.strokeStyle = gameState.pauseMenuUiScaleDropdownOpen ? "rgba(148, 197, 253, 0.6)" : "rgba(148, 163, 184, 0.3)";
+            ctx.lineWidth = Math.max(1, 1.25 * scale);
+            ctx.stroke();
+            ctx.restore();
+
+            ctx.fillStyle = "#f8fafc";
+            ctx.font = getScaledFont(16, "600");
+            ctx.textAlign = "left";
+            ctx.fillText(`${gameState.pauseMenuUiScalePercent}%`, dropdownX + scaleValue(16), dropdownY + dropdownH / 2 + scaleValue(5));
+            ctx.textAlign = "right";
+            ctx.font = getScaledFont(18, "600");
+            ctx.fillText(gameState.pauseMenuUiScaleDropdownOpen ? "▲" : "▼", dropdownX + dropdownW - scaleValue(16), dropdownY + dropdownH / 2 + scaleValue(6));
+            ctx.textAlign = "left";
+
+            let dropdownBottom = dropdownY + dropdownH;
+
+            if (gameState.pauseMenuUiScaleDropdownOpen) {
+              const optionRadius = scaledRadius(10);
+              let optionY = dropdownY + dropdownH + dropdownGap;
+              dropdownValues.forEach(value => {
+                ctx.save();
+                ctx.beginPath();
+                ctx.roundRect(dropdownX, optionY, dropdownW, dropdownH, optionRadius);
+                const isSelected = gameState.pauseMenuUiScalePercent === value;
+                ctx.fillStyle = isSelected ? "rgba(56, 189, 248, 0.28)" : "rgba(15, 23, 42, 0.72)";
+                ctx.fill();
+                ctx.strokeStyle = isSelected ? "rgba(125, 211, 252, 0.6)" : "rgba(148, 163, 184, 0.2)";
+                ctx.lineWidth = Math.max(1, scale);
+                ctx.stroke();
+                ctx.restore();
+
+                ctx.fillStyle = "#f8fafc";
+                ctx.font = isSelected ? getScaledFont(16, "600") : getScaledFont(15);
+                ctx.textAlign = "center";
+                ctx.fillText(`${value}%`, dropdownX + dropdownW / 2, optionY + dropdownH / 2 + scaleValue(5));
+                ctx.textAlign = "left";
+
+                uiScaleHitAreas.options.push({ x: dropdownX, y: optionY, w: dropdownW, h: dropdownH, value });
+                optionY += dropdownH + dropdownGap;
+                dropdownBottom = optionY - dropdownGap;
+              });
+            }
+
+            contentBottom = Math.max(contentBottom, dropdownBottom);
 
             gameState.pauseMenuHitAreas.settings.slider = { x: sliderX, y: sliderY, w: sliderW, h: sliderH };
             gameState.pauseMenuHitAreas.settings.toggles.music = musicToggle;
