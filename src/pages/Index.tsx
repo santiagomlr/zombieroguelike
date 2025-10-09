@@ -4119,7 +4119,7 @@ const Index = () => {
       ctx.font = "bold 18px system-ui";
       ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
       ctx.shadowBlur = 4;
-      ctx.fillText(`NIVEL ${gameState.level}`, 20, staminaBarY + staminaBarH + 22);
+      ctx.fillText(`${t.level.toUpperCase()} ${gameState.level}`, 20, staminaBarY + staminaBarH + 22);
       ctx.shadowBlur = 0;
       
       // Wave counter (debajo del nivel)
