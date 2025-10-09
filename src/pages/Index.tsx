@@ -273,75 +273,30 @@ type PauseMenuTab = "home" | "settings" | "stats";
 
 const PAUSE_MENU_TABS: PauseMenuTab[] = ["home", "settings", "stats"];
 
-const getPauseMenuLayout = (W: number, H: number, uiScalePercent = 1) => {
-  const scaleBase = Math.min(1.0, Math.max(0.88, Math.min(W / 1366, H / 768)));
-  const base = Number.isFinite(scaleBase) ? scaleBase : 0.95;
-  const clampedUiScale = Math.min(1.3, Math.max(0.8, uiScalePercent));
-  const scale = Math.min(1.25, Math.max(0.8, base * clampedUiScale));
-
-  const menuW = Math.min(1100, Math.max(720, W - 120)) * scale;
-  const menuH = Math.min(720, Math.max(540, H - 100)) * scale;
+const getPauseMenuLayout = (W: number, H: number) => {
+  const scale = Math.min(1, Math.max(0.7, Math.min(W / 1280, H / 720)));
+  
+  const menuW = Math.min(600, Math.max(400, W * 0.75)) * scale;
+  const menuH = Math.min(620, Math.max(480, H * 0.8)) * scale;
   const menuX = W / 2 - menuW / 2;
   const menuY = H / 2 - menuH / 2;
-  const padding = 36 * scale;
-  const headerHeight = 130 * scale;
-  const navGap = 16 * scale;
-  const navH = 68 * scale;
-  const navCount = PAUSE_MENU_TABS.length;
-  const navAreaWidth = menuW - padding * 2;
-  const navW = Math.max(160 * scale, (navAreaWidth - navGap * (navCount - 1)) / navCount);
-  const navTotalWidth = navW * navCount + navGap * (navCount - 1);
-  const navX = menuX + padding + Math.max(0, (navAreaWidth - navTotalWidth) / 2);
-  const navY = menuY + headerHeight + 22 * scale;
-  const contentX = menuX + padding;
-  const contentY = navY + navH + 28 * scale;
-  const contentW = menuW - padding * 2;
-  const contentH = menuY + menuH - padding - contentY;
-  const innerPadding = 28 * scale;
-  const innerX = contentX + innerPadding;
-  const innerY = contentY + innerPadding;
-  const innerW = Math.max(0, contentW - innerPadding * 2);
-  const innerH = Math.max(0, contentH - innerPadding * 2);
-
+  const padding = 32 * scale;
+  
   return {
     menuX,
     menuY,
     menuW,
     menuH,
     padding,
-    headerHeight,
-    navX,
-    navY,
-    navW,
-    navH,
-    navGap,
-    navTotalWidth,
-    contentX,
-    contentY,
-    contentW,
-    contentH,
-    innerX,
-    innerY,
-    innerW,
-    innerH,
     scale,
   };
 };
 
 const getPauseMenuContentMetrics = (
-  tab: PauseMenuTab,
   layout: ReturnType<typeof getPauseMenuLayout>
 ) => {
-  const headerHeight = 82 * layout.scale;
-  const footerSpace = (tab === "home" ? 160 : 64) * layout.scale;
-  const scrollAreaTop = layout.innerY + headerHeight;
-  const scrollAreaHeight = Math.max(120 * layout.scale, layout.innerH - headerHeight - footerSpace);
-
   return {
-    headerHeight,
-    footerSpace,
-    scrollAreaTop,
-    scrollAreaHeight,
+    scale: layout.scale,
   };
 };
 
@@ -2178,126 +2133,40 @@ const Index = () => {
           }
         }
       } else if (gameState.state === 'paused' && !gameState.showUpgradeUI && gameState.countdownTimer <= 0) {
-        const layout = getPauseMenuLayout(W, H, gameState.pauseMenuUiScalePercent / 100);
-        const { navX, navY, navW, navH, navGap, innerX, innerY, innerW } = layout;
-        const navItems = PAUSE_MENU_TABS;
-
-        for (let i = 0; i < navItems.length; i++) {
-          const itemX = navX + i * (navW + navGap);
-          if (mx >= itemX && mx <= itemX + navW && my >= navY && my <= navY + navH) {
-            const newTab = navItems[i];
-            gameState.pauseMenuTab = newTab;
-            gameState.pauseMenuScroll[newTab] = 0;
-            if (gameState.pauseMenuUiScaleDropdownOpen) {
-              gameState.pauseMenuUiScaleDropdownOpen = false;
-            }
-            return;
-          }
+        const layout = getPauseMenuLayout(W, H);
+        const { menuX, menuY, menuW, menuH, padding, scale } = layout;
+        
+        // Continue button
+        const buttonH = 52 * scale;
+        const buttonGap = 14 * scale;
+        const buttonsY = menuY + menuH - padding - buttonH * 2 - buttonGap - 16 * scale;
+        const continueBtn = { x: menuX + padding, y: buttonsY, w: menuW - padding * 2, h: buttonH };
+        const restartBtn = { x: menuX + padding, y: buttonsY + buttonH + buttonGap, w: menuW - padding * 2, h: buttonH };
+        
+        if (mx >= continueBtn.x && mx <= continueBtn.x + continueBtn.w && my >= continueBtn.y && my <= continueBtn.y + continueBtn.h) {
+          gameState.countdownTimer = 3;
+          return;
         }
-
-        const activeTab = gameState.pauseMenuTab;
-        const metrics = getPauseMenuContentMetrics(activeTab, layout);
-        const { scrollAreaTop, scrollAreaHeight } = metrics;
-        const scrollOffset = gameState.pauseMenuScroll[activeTab] ?? 0;
-        const pointerInScroll = mx >= innerX && mx <= innerX + innerW && my >= scrollAreaTop && my <= scrollAreaTop + scrollAreaHeight;
-        const adjustedY = pointerInScroll ? my + scrollOffset : my;
-
-        if (activeTab === "settings" && !pointerInScroll && gameState.pauseMenuUiScaleDropdownOpen) {
-          gameState.pauseMenuUiScaleDropdownOpen = false;
+        
+        if (mx >= restartBtn.x && mx <= restartBtn.x + restartBtn.w && my >= restartBtn.y && my <= restartBtn.y + restartBtn.h) {
+          resetGame();
+          return;
         }
-
-        if (activeTab === "home") {
-          const { resume, restart } = gameState.pauseMenuHitAreas.home;
-          if (mx >= resume.x && mx <= resume.x + resume.w && my >= resume.y && my <= resume.y + resume.h) {
-            if (gameState.pauseMenuUiScaleDropdownOpen) {
-              gameState.pauseMenuUiScaleDropdownOpen = false;
-            }
-            gameState.countdownTimer = 3;
-            return;
-          }
-          if (mx >= restart.x && mx <= restart.x + restart.w && my >= restart.y && my <= restart.y + restart.h) {
-            if (gameState.pauseMenuUiScaleDropdownOpen) {
-              gameState.pauseMenuUiScaleDropdownOpen = false;
-            }
-            resetGame();
-            return;
-          }
-        } else if (activeTab === "settings" && pointerInScroll) {
-          const slider = gameState.pauseMenuHitAreas.settings.slider;
-          const sliderMargin = 20 * layout.scale;
-          if (mx >= slider.x - sliderMargin && mx <= slider.x + slider.w + sliderMargin && adjustedY >= slider.y - sliderMargin && adjustedY <= slider.y + slider.h + sliderMargin) {
-            const clickX = clamp(mx, slider.x, slider.x + slider.w);
-            gameState.targetMusicVolume = (clickX - slider.x) / slider.w;
-            if (gameState.pauseMenuUiScaleDropdownOpen) {
-              gameState.pauseMenuUiScaleDropdownOpen = false;
-            }
-            return;
-          }
-
-          const musicToggle = gameState.pauseMenuHitAreas.settings.toggles.music;
-          if (mx >= musicToggle.x && mx <= musicToggle.x + musicToggle.w && adjustedY >= musicToggle.y && adjustedY <= musicToggle.y + musicToggle.h) {
-            gameState.musicMuted = !gameState.musicMuted;
-            if (gameState.music) {
-              if (gameState.musicMuted) {
-                gameState.music.pause();
-              } else {
-                gameState.music.play().catch(err => console.warn("Audio play failed:", err));
-              }
-            }
-            if (gameState.pauseMenuUiScaleDropdownOpen) {
-              gameState.pauseMenuUiScaleDropdownOpen = false;
-            }
-            return;
-          }
-
-          const sfxToggle = gameState.pauseMenuHitAreas.settings.toggles.sfx;
-          if (mx >= sfxToggle.x && mx <= sfxToggle.x + sfxToggle.w && adjustedY >= sfxToggle.y && adjustedY <= sfxToggle.y + sfxToggle.h) {
-            gameState.sfxMuted = !gameState.sfxMuted;
-            if (gameState.pauseMenuUiScaleDropdownOpen) {
-              gameState.pauseMenuUiScaleDropdownOpen = false;
-            }
-            return;
-          }
-
-          for (const option of gameState.pauseMenuHitAreas.settings.languages) {
-            if (mx >= option.x && mx <= option.x + option.w && adjustedY >= option.y && adjustedY <= option.y + option.h) {
-              const newLang = option.lang;
-              setLanguage(newLang);
-              localStorage.setItem("language", newLang);
-              if (gameState.pauseMenuUiScaleDropdownOpen) {
-                gameState.pauseMenuUiScaleDropdownOpen = false;
-              }
-              return;
+        
+        // Music toggle (small icon in header)
+        const iconSize = 32 * scale;
+        const iconPad = 12 * scale;
+        const musicIcon = { x: menuX + menuW - padding - iconSize, y: menuY + iconPad, w: iconSize, h: iconSize };
+        if (mx >= musicIcon.x && mx <= musicIcon.x + musicIcon.w && my >= musicIcon.y && my <= musicIcon.y + musicIcon.h) {
+          gameState.musicMuted = !gameState.musicMuted;
+          if (gameState.music) {
+            if (gameState.musicMuted) {
+              gameState.music.pause();
+            } else {
+              gameState.music.play().catch(err => console.warn("Audio play failed:", err));
             }
           }
-
-          const uiScaleHit = gameState.pauseMenuHitAreas.settings.uiScale;
-          if (
-            mx >= uiScaleHit.trigger.x &&
-            mx <= uiScaleHit.trigger.x + uiScaleHit.trigger.w &&
-            adjustedY >= uiScaleHit.trigger.y &&
-            adjustedY <= uiScaleHit.trigger.y + uiScaleHit.trigger.h
-          ) {
-            gameState.pauseMenuUiScaleDropdownOpen = !gameState.pauseMenuUiScaleDropdownOpen;
-            return;
-          }
-
-          if (gameState.pauseMenuUiScaleDropdownOpen) {
-            for (const option of uiScaleHit.options) {
-              if (
-                mx >= option.x &&
-                mx <= option.x + option.w &&
-                adjustedY >= option.y &&
-                adjustedY <= option.y + option.h
-              ) {
-                gameState.pauseMenuUiScalePercent = option.value;
-                localStorage.setItem("pauseMenuUiScalePercent", String(option.value));
-                gameState.pauseMenuUiScaleDropdownOpen = false;
-                return;
-              }
-            }
-            gameState.pauseMenuUiScaleDropdownOpen = false;
-          }
+          return;
         }
       } else if (gameState.state === 'gameover') {
         // GAME OVER SCREEN CLICK HANDLER
@@ -2322,27 +2191,8 @@ const Index = () => {
     });
 
     const handlePauseMenuScroll = (e: WheelEvent) => {
-      if (gameState.state !== 'paused' || gameState.showUpgradeUI || gameState.countdownTimer > 0) return;
-
-      const rect = canvas.getBoundingClientRect();
-      const mx = e.clientX - rect.left;
-      const my = e.clientY - rect.top;
-
-      const layout = getPauseMenuLayout(W, H, gameState.pauseMenuUiScalePercent / 100);
-      const activeTab = gameState.pauseMenuTab;
-      const metrics = getPauseMenuContentMetrics(activeTab, layout);
-      const { scrollAreaTop, scrollAreaHeight } = metrics;
-
-      if (mx >= layout.innerX && mx <= layout.innerX + layout.innerW && my >= scrollAreaTop && my <= scrollAreaTop + scrollAreaHeight) {
-        e.preventDefault();
-        const delta = e.deltaMode === WheelEvent.DOM_DELTA_LINE ? e.deltaY * 24 * layout.scale : e.deltaY;
-        const maxScroll = gameState.pauseMenuMaxScroll[activeTab] ?? 0;
-        if (maxScroll <= 0) {
-          return;
-        }
-        const nextScroll = clamp(gameState.pauseMenuScroll[activeTab] + delta, 0, maxScroll);
-        gameState.pauseMenuScroll[activeTab] = nextScroll;
-      }
+      // Simplified - no scrolling needed in new design
+      e.preventDefault();
     };
 
     canvas.addEventListener("wheel", handlePauseMenuScroll, { passive: false });
@@ -5897,729 +5747,161 @@ const Index = () => {
         ctx.restore();
       }
       
-      // Pause menu - rediseñado con navegación adaptable
+      // Pause menu - Simplified unified design  
       if (gameState.state === 'paused' && !gameState.showUpgradeUI && gameState.countdownTimer <= 0) {
         ctx.save();
-        ctx.fillStyle = "rgba(7, 11, 23, 0.68)";
+        ctx.fillStyle = "rgba(5, 10, 20, 0.85)";
         ctx.fillRect(0, 0, W, H);
 
         const currentLanguage = (gameState.language ?? language) as Language;
         const locale = translations[currentLanguage];
-        const pm = locale.pauseMenu;
-        const layout = getPauseMenuLayout(W, H, gameState.pauseMenuUiScalePercent / 100);
-        const {
-          menuX,
-          menuY,
-          menuW,
-          menuH,
-          padding,
-          navX,
-          navY,
-          navW,
-          navH,
-          navGap,
-          contentX,
-          contentY,
-          contentW,
-          contentH,
-          innerX,
-          innerY,
-          innerW,
-          innerH,
-          scale,
-        } = layout;
-
+        const t = locale;
+        const layout = getPauseMenuLayout(W, H);
+        const { menuX, menuY, menuW, menuH, padding, scale } = layout;
+        
         const scaleValue = (value: number) => value * scale;
-        const scaledRadius = (value: number) => Math.max(4, value * scale);
+        const scaledRadius = (value: number) => Math.max(6, value * scale);
         const getScaledFont = (size: number, weight?: string) => {
-          const px = Math.max(10, Math.round(size * scale));
+          const px = Math.max(12, Math.round(size * scale));
           return `${weight ? `${weight} ` : ""}${px}px system-ui`;
         };
 
+        // Main menu background with neon glow
         ctx.save();
         ctx.beginPath();
-        ctx.roundRect(menuX, menuY, menuW, menuH, scaledRadius(24));
+        ctx.roundRect(menuX, menuY, menuW, menuH, scaledRadius(20));
         const bgGradient = ctx.createLinearGradient(menuX, menuY, menuX, menuY + menuH);
-        bgGradient.addColorStop(0, "rgba(12, 18, 35, 0.96)");
-        bgGradient.addColorStop(1, "rgba(15, 23, 42, 0.94)");
+        bgGradient.addColorStop(0, "rgba(10, 15, 30, 0.98)");
+        bgGradient.addColorStop(1, "rgba(15, 20, 35, 0.95)");
         ctx.fillStyle = bgGradient;
-        ctx.shadowColor = "rgba(30, 64, 175, 0.4)";
-        ctx.shadowBlur = scaleValue(30);
-        ctx.shadowOffsetY = scaleValue(10);
+        ctx.shadowColor = "rgba(34, 197, 94, 0.3)";
+        ctx.shadowBlur = scaleValue(40);
         ctx.fill();
         ctx.shadowBlur = 0;
-        ctx.shadowOffsetY = 0;
-        ctx.strokeStyle = "rgba(59, 130, 246, 0.5)";
+        ctx.strokeStyle = "rgba(34, 197, 94, 0.6)";
+        ctx.lineWidth = Math.max(2, 2.5 * scale);
+        ctx.stroke();
+        ctx.restore();
+
+        // Header
+        const headerY = menuY + padding;
+        ctx.fillStyle = "#22c55e";
+        ctx.font = getScaledFont(32, "800");
+        ctx.textAlign = "center";
+        ctx.shadowColor = "rgba(34, 197, 94, 0.8)";
+        ctx.shadowBlur = scaleValue(15);
+        ctx.fillText("⏸  " + t.paused.toUpperCase(), W / 2, headerY);
+        ctx.shadowBlur = 0;
+
+        // Quick stats grid
+        const statsY = headerY + 60 * scale;
+        const totalSeconds = Math.floor(gameState.time);
+        const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
+        const seconds = String(totalSeconds % 60).padStart(2, "0");
+        
+        const stats = [
+          { label: t.wave, value: `${gameState.wave}`, color: "#3b82f6" },
+          { label: t.level, value: `${gameState.level}`, color: "#fbbf24" },
+          { label: "⏱️", value: `${minutes}:${seconds}`, color: "#a855f7" },
+        ];
+
+        const statBoxW = (menuW - padding * 2 - 20 * scale) / 3;
+        const statBoxH = 70 * scale;
+
+        stats.forEach((stat, i) => {
+          const statX = menuX + padding + i * (statBoxW + 10 * scale);
+          
+          ctx.save();
+          ctx.beginPath();
+          ctx.roundRect(statX, statsY, statBoxW, statBoxH, scaledRadius(12));
+          const statGradient = ctx.createLinearGradient(statX, statsY, statX, statsY + statBoxH);
+          statGradient.addColorStop(0, `${stat.color}40`);
+          statGradient.addColorStop(1, "rgba(15, 20, 35, 0.6)");
+          ctx.fillStyle = statGradient;
+          ctx.fill();
+          ctx.strokeStyle = `${stat.color}80`;
+          ctx.lineWidth = Math.max(1, 1.5 * scale);
+          ctx.stroke();
+          ctx.restore();
+
+          ctx.textAlign = "center";
+          ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+          ctx.font = getScaledFont(13, "500");
+          ctx.fillText(stat.label, statX + statBoxW / 2, statsY + 22 * scale);
+          
+          ctx.fillStyle = "#ffffff";
+          ctx.font = getScaledFont(24, "700");
+          ctx.fillText(stat.value, statX + statBoxW / 2, statsY + statBoxH - 18 * scale);
+        });
+
+        // Buttons
+        const buttonH = 56 * scale;
+        const buttonGap = 14 * scale;
+        const buttonsY = menuY + menuH - padding - buttonH * 2 - buttonGap - 8 * scale;
+
+        // Continue button
+        const continueY = buttonsY;
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(menuX + padding, continueY, menuW - padding * 2, buttonH, scaledRadius(14));
+        const continueBg = ctx.createLinearGradient(0, continueY, 0, continueY + buttonH);
+        continueBg.addColorStop(0, "rgba(34, 197, 94, 0.4)");
+        continueBg.addColorStop(1, "rgba(34, 197, 94, 0.25)");
+        ctx.fillStyle = continueBg;
+        ctx.fill();
+        ctx.strokeStyle = "rgba(134, 239, 172, 0.8)";
+        ctx.lineWidth = Math.max(2, 2 * scale);
+        ctx.shadowColor = "rgba(34, 197, 94, 0.5)";
+        ctx.shadowBlur = scaleValue(15);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.restore();
+
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#ffffff";
+        ctx.font = getScaledFont(20, "700");
+        ctx.fillText("▶  " + t.continue.toUpperCase(), W / 2, continueY + buttonH / 2 + scaleValue(7));
+
+        // Restart button
+        const restartY = continueY + buttonH + buttonGap;
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(menuX + padding, restartY, menuW - padding * 2, buttonH, scaledRadius(14));
+        const restartBg = ctx.createLinearGradient(0, restartY, 0, restartY + buttonH);
+        restartBg.addColorStop(0, "rgba(239, 68, 68, 0.3)");
+        restartBg.addColorStop(1, "rgba(239, 68, 68, 0.2)");
+        ctx.fillStyle = restartBg;
+        ctx.fill();
+        ctx.strokeStyle = "rgba(252, 165, 165, 0.6)";
+        ctx.lineWidth = Math.max(1.5, 1.5 * scale);
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+        ctx.font = getScaledFont(18, "600");
+        ctx.fillText("🔄  " + t.restart, W / 2, restartY + buttonH / 2 + scaleValue(6));
+
+        // Music toggle icon (top right)
+        const iconSize = 32 * scale;
+        const iconPad = 12 * scale;
+        const musicIcon = { x: menuX + menuW - padding - iconSize, y: menuY + iconPad, w: iconSize, h: iconSize };
+        
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(musicIcon.x + iconSize / 2, musicIcon.y + iconSize / 2, iconSize / 2, 0, Math.PI * 2);
+        ctx.fillStyle = gameState.musicMuted ? "rgba(239, 68, 68, 0.3)" : "rgba(34, 197, 94, 0.3)";
+        ctx.fill();
+        ctx.strokeStyle = gameState.musicMuted ? "rgba(239, 68, 68, 0.6)" : "rgba(34, 197, 94, 0.6)";
         ctx.lineWidth = Math.max(1.5, 2 * scale);
         ctx.stroke();
         ctx.restore();
 
-        ctx.save();
-        const layoutHeaderHeight = layout.headerHeight;
-        ctx.beginPath();
-        ctx.roundRect(menuX + scaleValue(10), menuY + scaleValue(10), menuW - scaleValue(20), layoutHeaderHeight - scaleValue(20), scaledRadius(20));
-        const headerGradient = ctx.createLinearGradient(menuX, menuY, menuX, menuY + layoutHeaderHeight);
-        headerGradient.addColorStop(0, "rgba(59, 130, 246, 0.28)");
-        headerGradient.addColorStop(1, "rgba(139, 92, 246, 0.22)");
-        ctx.fillStyle = headerGradient;
-        ctx.strokeStyle = "rgba(96, 165, 250, 0.4)";
-        ctx.lineWidth = Math.max(1, 1.2 * scale);
-        ctx.fill();
-        ctx.stroke();
-        ctx.restore();
-
-        ctx.fillStyle = "#fcd34d";
-        ctx.font = getScaledFont(38, "700");
-        ctx.textAlign = "left";
-        ctx.shadowColor = "rgba(252, 211, 77, 0.6)";
-        ctx.shadowBlur = scaleValue(14);
-        ctx.fillText(pm.overviewTitle, menuX + padding + scaleValue(6), menuY + scaleValue(68));
-        ctx.shadowBlur = 0;
-
-        ctx.fillStyle = "rgba(226, 232, 240, 0.88)";
-        ctx.font = getScaledFont(16, "400");
-        ctx.fillText(pm.overviewSubtitle, menuX + padding + scaleValue(6), menuY + scaleValue(96));
-
-        const navItems = [
-          { id: "home" as const, label: pm.home, icon: "🎮" },
-          { id: "settings" as const, label: pm.settings, icon: "⚙️" },
-          { id: "stats" as const, label: pm.stats, icon: "📊" },
-        ];
-
-        const navBackgroundX = navX - scaleValue(14);
-        const navBackgroundY = navY - scaleValue(12);
-        const navBackgroundW = layout.navTotalWidth + scaleValue(28);
-        const navBackgroundH = navH + scaleValue(24);
-
-        ctx.save();
-        ctx.beginPath();
-        ctx.roundRect(navBackgroundX, navBackgroundY, navBackgroundW, navBackgroundH, scaledRadius(18));
-        const navBgGradient = ctx.createLinearGradient(navBackgroundX, navBackgroundY, navBackgroundX, navBackgroundY + navBackgroundH);
-        navBgGradient.addColorStop(0, "rgba(15, 23, 42, 0.85)");
-        navBgGradient.addColorStop(1, "rgba(30, 41, 59, 0.75)");
-        ctx.fillStyle = navBgGradient;
-        ctx.fill();
-        ctx.strokeStyle = "rgba(59, 130, 246, 0.35)";
-        ctx.lineWidth = Math.max(1, 1.2 * scale);
-        ctx.stroke();
-        ctx.restore();
-
-        navItems.forEach((item, index) => {
-          const itemX = navX + index * (navW + navGap);
-          const isActive = gameState.pauseMenuTab === item.id;
-
-          ctx.save();
-          ctx.beginPath();
-          ctx.roundRect(itemX, navY, navW, navH, scaledRadius(16));
-          const itemGradient = ctx.createLinearGradient(itemX, navY, itemX, navY + navH);
-          if (isActive) {
-            itemGradient.addColorStop(0, "rgba(59, 130, 246, 0.5)");
-            itemGradient.addColorStop(1, "rgba(96, 165, 250, 0.35)");
-            ctx.shadowColor = "rgba(59, 130, 246, 0.4)";
-            ctx.shadowBlur = scaleValue(12);
-          } else {
-            itemGradient.addColorStop(0, "rgba(15, 23, 42, 0.6)");
-            itemGradient.addColorStop(1, "rgba(30, 41, 59, 0.55)");
-          }
-          ctx.fillStyle = itemGradient;
-          ctx.fill();
-          ctx.shadowBlur = 0;
-          ctx.strokeStyle = isActive ? "rgba(96, 165, 250, 0.75)" : "rgba(148, 163, 184, 0.3)";
-          ctx.lineWidth = Math.max(1.5, isActive ? 2 * scale : 1.2 * scale);
-          ctx.stroke();
-          ctx.restore();
-
-          if (isActive) {
-            ctx.fillStyle = "rgba(96, 165, 250, 0.9)";
-            ctx.fillRect(itemX + scaleValue(26), navY + navH - scaleValue(9), navW - scaleValue(52), scaleValue(5));
-          }
-
-          ctx.textAlign = "center";
-          ctx.fillStyle = isActive ? "#ffffff" : "#e2e8f0";
-          ctx.font = getScaledFont(24, "600");
-          ctx.fillText(item.icon, itemX + navW / 2, navY + navH / 2 - scaleValue(10));
-          ctx.font = isActive ? getScaledFont(16, "700") : getScaledFont(15, "500");
-          ctx.fillStyle = isActive ? "rgba(255, 255, 255, 0.98)" : "rgba(226, 232, 240, 0.85)";
-          ctx.fillText(item.label, itemX + navW / 2, navY + navH / 2 + scaleValue(22));
-        });
-        ctx.textAlign = "left";
-
-        const contentGradient = ctx.createLinearGradient(contentX, contentY, contentX, contentY + contentH);
-        contentGradient.addColorStop(0, "rgba(15, 23, 42, 0.92)");
-        contentGradient.addColorStop(1, "rgba(30, 41, 59, 0.84)");
-        ctx.save();
-        ctx.beginPath();
-        ctx.roundRect(contentX, contentY, contentW, contentH, scaledRadius(20));
-        ctx.fillStyle = contentGradient;
-        ctx.fill();
-        ctx.strokeStyle = "rgba(59, 130, 246, 0.25)";
-        ctx.lineWidth = Math.max(1, 1.2 * scale);
-        ctx.stroke();
-        ctx.restore();
-
-        const activeTab = gameState.pauseMenuTab;
-        const { headerHeight, footerSpace, scrollAreaTop, scrollAreaHeight } = getPauseMenuContentMetrics(activeTab, layout);
-        const scrollAreaBottom = scrollAreaTop + scrollAreaHeight;
-        const currentScroll = gameState.pauseMenuScroll[activeTab] ?? 0;
-        let clampedScroll = currentScroll;
-        let contentBottom = scrollAreaTop;
-
-        const activeNav = navItems.find(item => item.id === activeTab) ?? navItems[0];
-        const titleY = innerY + scaleValue(30);
-        const subtitleY = titleY + scaleValue(28);
-        ctx.textAlign = "left";
+        ctx.textAlign = "center";
         ctx.fillStyle = "#ffffff";
-        ctx.font = getScaledFont(24, "700");
-        ctx.fillText(`${activeNav.icon} ${activeNav.label}`, innerX, titleY);
-        ctx.fillStyle = "rgba(226, 232, 240, 0.85)";
-        ctx.font = getScaledFont(16, "400");
-        ctx.fillText(pm.tabSubtitles[activeTab], innerX, subtitleY);
+        ctx.font = getScaledFont(16, "600");
+        ctx.fillText(gameState.musicMuted ? "🔇" : "🎵", musicIcon.x + iconSize / 2, musicIcon.y + iconSize / 2 + scaleValue(6));
 
-        ctx.fillStyle = "rgba(96, 165, 250, 0.35)";
-        ctx.fillRect(innerX, scrollAreaTop - scaleValue(10), innerW, Math.max(1.5, 1.5 * scale));
-
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(innerX, scrollAreaTop, innerW, scrollAreaHeight);
-        ctx.clip();
-        ctx.translate(0, -clampedScroll);
-
-        switch (activeTab) {
-          case "home": {
-            let sectionY = scrollAreaTop + scaleValue(12);
-
-            ctx.fillStyle = "#bfdbfe";
-            ctx.font = getScaledFont(18, "600");
-            ctx.fillText(pm.summaryHeading, innerX, sectionY);
-
-            ctx.fillStyle = "rgba(226, 232, 240, 0.75)";
-            ctx.font = getScaledFont(14);
-            ctx.fillText(pm.summaryDescription, innerX, sectionY + scaleValue(22));
-
-            sectionY += scaleValue(48);
-
-            const summaryBoxes = [
-              { label: pm.summary.wave, value: `#${gameState.wave}`, icon: "🌊", color: "#38bdf8" },
-              { label: pm.summary.level, value: `Lv.${gameState.level}`, icon: "⭐", color: "#facc15" },
-              { label: pm.summary.score, value: gameState.score.toString(), icon: "🏆", color: "#34d399" },
-              { label: pm.summary.time, value: (() => {
-                const totalSeconds = Math.floor(gameState.time);
-                const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
-                const seconds = String(totalSeconds % 60).padStart(2, "0");
-                return `${minutes}:${seconds}`;
-              })(), icon: "⏱️", color: "#a855f7" },
-              { label: pm.summary.kills, value: gameState.waveKills.toString(), icon: "💀", color: "#f87171" },
-            ];
-
-            const columns = innerW > 560 ? 2 : 1;
-            const boxGap = scaleValue(18);
-            const boxW = columns === 2 ? (innerW - boxGap) / 2 : innerW;
-            const boxH = scaleValue(100);
-            const startX = innerX;
-            const startY = sectionY;
-            const lastRow = Math.floor((summaryBoxes.length - 1) / columns);
-            const lastRowCount = summaryBoxes.length % columns || columns;
-
-            summaryBoxes.forEach((box, index) => {
-              const row = Math.floor(index / columns);
-              let col = index % columns;
-              let boxX = startX + col * (boxW + boxGap);
-              const boxY = startY + row * (boxH + boxGap);
-              if (row === lastRow && lastRowCount === 1) {
-                boxX = innerX + (innerW - boxW) / 2;
-              }
-
-              const cardGradient = ctx.createLinearGradient(boxX, boxY, boxX, boxY + boxH);
-              cardGradient.addColorStop(0, `${box.color}33`);
-              cardGradient.addColorStop(1, "rgba(15, 23, 42, 0.72)");
-
-              ctx.save();
-              ctx.beginPath();
-              ctx.roundRect(boxX, boxY, boxW, boxH, scaledRadius(14));
-              ctx.fillStyle = cardGradient;
-              ctx.shadowColor = `${box.color}4d`;
-              ctx.shadowBlur = scaleValue(14);
-              ctx.fill();
-              ctx.shadowBlur = 0;
-              ctx.strokeStyle = `${box.color}66`;
-              ctx.lineWidth = Math.max(1, scale);
-              ctx.stroke();
-              ctx.restore();
-
-              const iconCircleX = boxX + scaleValue(28);
-              const iconCircleY = boxY + scaleValue(36);
-              ctx.save();
-              ctx.beginPath();
-              ctx.arc(iconCircleX, iconCircleY, scaleValue(18), 0, Math.PI * 2);
-              const iconGradient = ctx.createRadialGradient(iconCircleX, iconCircleY, scaleValue(6), iconCircleX, iconCircleY, scaleValue(18));
-              iconGradient.addColorStop(0, "rgba(15, 23, 42, 0.15)");
-              iconGradient.addColorStop(1, `${box.color}55`);
-              ctx.fillStyle = iconGradient;
-              ctx.fill();
-              ctx.restore();
-
-              ctx.fillStyle = "#f8fafc";
-              ctx.font = getScaledFont(18, "600");
-              ctx.textAlign = "center";
-              ctx.fillText(box.icon, iconCircleX, iconCircleY + scaleValue(6));
-              ctx.textAlign = "left";
-
-              const textX = iconCircleX + scaleValue(24);
-              ctx.fillStyle = "rgba(148, 163, 184, 0.85)";
-              ctx.font = getScaledFont(13);
-              ctx.fillText(box.label, textX, boxY + scaleValue(28));
-              ctx.fillStyle = "#f8fafc";
-              ctx.font = getScaledFont(24, "600");
-              ctx.fillText(box.value, textX, boxY + boxH / 2 + scaleValue(14));
-
-              contentBottom = Math.max(contentBottom, boxY + boxH);
-            });
-
-            break;
-          }
-          case "settings": {
-            const aimTitle = currentLanguage === "es" ? "🎯 Apuntado inteligente" : "🎯 Smart aiming";
-            const aimDescription = currentLanguage === "es"
-              ? [
-                  "El apuntado inteligente evalúa distancia, daño y urgencia",
-                  "para priorizar automáticamente al enemigo más peligroso.",
-                ]
-              : [
-                  "Smart aiming evaluates distance, damage and urgency",
-                  "to automatically focus the most dangerous target.",
-                ];
-
-            let sectionY = scrollAreaTop + scaleValue(12);
-            ctx.fillStyle = "#bfdbfe";
-            ctx.font = getScaledFont(18, "600");
-            ctx.fillText(aimTitle, innerX, sectionY);
-
-            ctx.fillStyle = "rgba(248, 250, 252, 0.75)";
-            ctx.font = getScaledFont(14);
-            aimDescription.forEach((line, idx) => {
-              ctx.fillText(line, innerX, sectionY + scaleValue(30) + idx * scaleValue(22));
-            });
-
-            sectionY += scaleValue(30) + aimDescription.length * scaleValue(22) + scaleValue(32);
-
-            ctx.fillStyle = "#bfdbfe";
-            ctx.font = getScaledFont(18, "600");
-            ctx.fillText(`🎚️ ${pm.musicVolume}`, innerX, sectionY);
-
-            const sliderX = innerX + scaleValue(8);
-            const sliderW = Math.max(scaleValue(220), innerW - scaleValue(16));
-            const sliderH = scaleValue(10);
-            const sliderY = sectionY + scaleValue(30);
-            ctx.fillStyle = "rgba(15, 23, 42, 0.7)";
-            ctx.beginPath();
-            ctx.roundRect(sliderX, sliderY, sliderW, sliderH, scaledRadius(5));
-            ctx.fill();
-
-            const fillW = sliderW * gameState.musicVolume;
-            const sliderFill = ctx.createLinearGradient(sliderX, 0, sliderX + fillW, 0);
-            sliderFill.addColorStop(0, "#60a5fa");
-            sliderFill.addColorStop(1, "#a855f7");
-            ctx.fillStyle = sliderFill;
-            ctx.beginPath();
-            ctx.roundRect(sliderX, sliderY, Math.max(sliderH, fillW), sliderH, scaledRadius(5));
-            ctx.fill();
-
-            const handleX = sliderX + fillW;
-            ctx.fillStyle = "#fcd34d";
-            ctx.beginPath();
-            ctx.arc(handleX, sliderY + sliderH / 2, scaleValue(10), 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = "rgba(250, 204, 21, 0.6)";
-            ctx.lineWidth = Math.max(1, 1.5 * scale);
-            ctx.stroke();
-
-            ctx.fillStyle = "rgba(226, 232, 240, 0.7)";
-            ctx.font = getScaledFont(14);
-            ctx.textAlign = "right";
-            ctx.fillText(`${Math.round(gameState.musicVolume * 100)}%`, sliderX + sliderW, sliderY - scaleValue(10));
-            ctx.textAlign = "left";
-
-            sectionY = sliderY + scaleValue(56);
-
-            const toggleH = scaleValue(52);
-            const toggleGap = scaleValue(18);
-            const togglesTwoCols = innerW > 520;
-            const toggleW = togglesTwoCols ? (innerW - toggleGap) / 2 : innerW;
-            const musicToggle = { x: innerX, y: sectionY, w: toggleW, h: toggleH };
-            const sfxToggle = togglesTwoCols
-              ? { x: innerX + toggleW + toggleGap, y: sectionY, w: toggleW, h: toggleH }
-              : { x: innerX, y: sectionY + toggleH + scaleValue(16), w: toggleW, h: toggleH };
-
-            const drawToggle = (area: { x: number; y: number; w: number; h: number }, label: string, active: boolean, onText: string, offText: string) => {
-              ctx.save();
-              ctx.beginPath();
-              ctx.roundRect(area.x, area.y, area.w, area.h, scaledRadius(12));
-              ctx.fillStyle = active ? "rgba(34, 197, 94, 0.28)" : "rgba(248, 113, 113, 0.2)";
-              ctx.fill();
-              ctx.strokeStyle = active ? "rgba(134, 239, 172, 0.6)" : "rgba(252, 165, 165, 0.45)";
-              ctx.lineWidth = Math.max(1, 1.5 * scale);
-              ctx.stroke();
-              ctx.restore();
-
-              ctx.fillStyle = "#f8fafc";
-              ctx.font = getScaledFont(18, "600");
-              ctx.textAlign = "center";
-              ctx.fillText(label, area.x + area.w / 2, area.y + scaleValue(24));
-              ctx.font = getScaledFont(14);
-              ctx.fillStyle = "rgba(248, 250, 252, 0.8)";
-              ctx.fillText(active ? onText : offText, area.x + area.w / 2, area.y + area.h - scaleValue(14));
-              ctx.textAlign = "left";
-
-              contentBottom = Math.max(contentBottom, area.y + area.h);
-            };
-
-            drawToggle(musicToggle, pm.music.label, !gameState.musicMuted, pm.music.on, pm.music.off);
-            drawToggle(sfxToggle, pm.sfx.label, !gameState.sfxMuted, pm.sfx.on, pm.sfx.off);
-
-            sectionY = (togglesTwoCols ? musicToggle.y + toggleH : sfxToggle.y + sfxToggle.h) + scaleValue(40);
-
-            ctx.fillStyle = "#bfdbfe";
-            ctx.font = getScaledFont(18, "600");
-            ctx.fillText(`🌐 ${pm.language}`, innerX, sectionY);
-
-            const langOptions: Language[] = ["es", "en"];
-            const langBtnH = scaleValue(44);
-            const langGap = scaleValue(16);
-            const langBtnW = Math.min(scaleValue(180), Math.max(scaleValue(140), (innerW - langGap) / langOptions.length));
-            const langTotalW = langOptions.length * langBtnW + (langOptions.length - 1) * langGap;
-            const langStartX = innerX + Math.max(0, (innerW - langTotalW) / 2);
-            const langY = sectionY + scaleValue(32);
-
-            gameState.pauseMenuHitAreas.settings.languages = [];
-
-            langOptions.forEach((langOption, idx) => {
-              const btnX = langStartX + idx * (langBtnW + langGap);
-              const isActive = currentLanguage === langOption;
-              const flag = langOption === "es" ? "🇪🇸" : "🇺🇸";
-              ctx.save();
-              ctx.beginPath();
-              ctx.roundRect(btnX, langY, langBtnW, langBtnH, scaledRadius(10));
-              ctx.fillStyle = isActive ? "rgba(56, 189, 248, 0.28)" : "rgba(15, 23, 42, 0.55)";
-              ctx.fill();
-              ctx.strokeStyle = isActive ? "rgba(125, 211, 252, 0.6)" : "rgba(148, 163, 184, 0.25)";
-              ctx.lineWidth = isActive ? Math.max(1, 1.5 * scale) : Math.max(1, scale);
-              ctx.stroke();
-              ctx.restore();
-
-              ctx.fillStyle = "#f8fafc";
-              ctx.font = isActive ? getScaledFont(16, "600") : getScaledFont(14);
-              ctx.textAlign = "center";
-              ctx.fillText(`${flag} ${pm.languages[langOption]}`, btnX + langBtnW / 2, langY + langBtnH / 2 + scaleValue(5));
-              ctx.textAlign = "left";
-
-              gameState.pauseMenuHitAreas.settings.languages.push({ x: btnX, y: langY, w: langBtnW, h: langBtnH, lang: langOption });
-              contentBottom = Math.max(contentBottom, langY + langBtnH);
-            });
-
-            sectionY = langY + langBtnH + scaleValue(48);
-
-            ctx.fillStyle = "#bfdbfe";
-            ctx.font = getScaledFont(18, "600");
-            ctx.textAlign = "left";
-            ctx.fillText("🖥️ UI Scale", innerX, sectionY);
-
-            const dropdownValues = [70, 80, 90, 100, 110, 120];
-            const dropdownH = scaleValue(44);
-            const dropdownGap = scaleValue(6);
-            const dropdownW = Math.min(innerW, Math.max(scaleValue(220), innerW * 0.65));
-            const dropdownX = innerX + (innerW - dropdownW) / 2;
-            const dropdownY = sectionY + scaleValue(28);
-            const uiScaleHitAreas = gameState.pauseMenuHitAreas.settings.uiScale;
-            uiScaleHitAreas.trigger = { x: dropdownX, y: dropdownY, w: dropdownW, h: dropdownH };
-            uiScaleHitAreas.options = [];
-
-            ctx.save();
-            ctx.beginPath();
-            ctx.roundRect(dropdownX, dropdownY, dropdownW, dropdownH, scaledRadius(10));
-            ctx.fillStyle = "rgba(15, 23, 42, 0.6)";
-            ctx.fill();
-            ctx.strokeStyle = gameState.pauseMenuUiScaleDropdownOpen ? "rgba(148, 197, 253, 0.6)" : "rgba(148, 163, 184, 0.3)";
-            ctx.lineWidth = Math.max(1, 1.25 * scale);
-            ctx.stroke();
-            ctx.restore();
-
-            ctx.fillStyle = "#f8fafc";
-            ctx.font = getScaledFont(16, "600");
-            ctx.textAlign = "left";
-            ctx.fillText(`${gameState.pauseMenuUiScalePercent}%`, dropdownX + scaleValue(16), dropdownY + dropdownH / 2 + scaleValue(5));
-            ctx.textAlign = "right";
-            ctx.font = getScaledFont(18, "600");
-            ctx.fillText(gameState.pauseMenuUiScaleDropdownOpen ? "▲" : "▼", dropdownX + dropdownW - scaleValue(16), dropdownY + dropdownH / 2 + scaleValue(6));
-            ctx.textAlign = "left";
-
-            let dropdownBottom = dropdownY + dropdownH;
-
-            if (gameState.pauseMenuUiScaleDropdownOpen) {
-              const optionRadius = scaledRadius(10);
-              let optionY = dropdownY + dropdownH + dropdownGap;
-              dropdownValues.forEach(value => {
-                ctx.save();
-                ctx.beginPath();
-                ctx.roundRect(dropdownX, optionY, dropdownW, dropdownH, optionRadius);
-                const isSelected = gameState.pauseMenuUiScalePercent === value;
-                ctx.fillStyle = isSelected ? "rgba(56, 189, 248, 0.28)" : "rgba(15, 23, 42, 0.72)";
-                ctx.fill();
-                ctx.strokeStyle = isSelected ? "rgba(125, 211, 252, 0.6)" : "rgba(148, 163, 184, 0.2)";
-                ctx.lineWidth = Math.max(1, scale);
-                ctx.stroke();
-                ctx.restore();
-
-                ctx.fillStyle = "#f8fafc";
-                ctx.font = isSelected ? getScaledFont(16, "600") : getScaledFont(15);
-                ctx.textAlign = "center";
-                ctx.fillText(`${value}%`, dropdownX + dropdownW / 2, optionY + dropdownH / 2 + scaleValue(5));
-                ctx.textAlign = "left";
-
-                uiScaleHitAreas.options.push({ x: dropdownX, y: optionY, w: dropdownW, h: dropdownH, value });
-                optionY += dropdownH + dropdownGap;
-                dropdownBottom = optionY - dropdownGap;
-              });
-            }
-
-            contentBottom = Math.max(contentBottom, dropdownBottom);
-
-            gameState.pauseMenuHitAreas.settings.slider = { x: sliderX, y: sliderY, w: sliderW, h: sliderH };
-            gameState.pauseMenuHitAreas.settings.toggles.music = musicToggle;
-            gameState.pauseMenuHitAreas.settings.toggles.sfx = sfxToggle;
-
-            break;
-          }
-          case "stats": {
-            const totalSeconds = Math.floor(gameState.time);
-            const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
-            const seconds = String(totalSeconds % 60).padStart(2, "0");
-            const highlightCards = [
-              { label: pm.summary.level, value: `Lv.${gameState.level}`, icon: "⭐", color: "#facc15" },
-              { label: pm.summary.wave, value: `#${gameState.wave}`, icon: "🌊", color: "#38bdf8" },
-              { label: pm.summary.score, value: gameState.score.toString(), icon: "🏆", color: "#34d399" },
-              { label: pm.summary.time, value: `${minutes}:${seconds}`, icon: "⏱️", color: "#a855f7" },
-              { label: pm.summary.kills, value: gameState.waveKills.toString(), icon: "💀", color: "#f87171" },
-            ];
-
-            const highlightCols = innerW > 560 ? 2 : 1;
-            const highlightGap = scaleValue(18);
-            const highlightW = highlightCols === 2 ? (innerW - highlightGap) / 2 : innerW;
-            const highlightH = scaleValue(92);
-            const highlightStartY = scrollAreaTop + scaleValue(12);
-            const highlightLastRow = Math.floor((highlightCards.length - 1) / highlightCols);
-            const highlightLastCount = highlightCards.length % highlightCols || highlightCols;
-
-            highlightCards.forEach((card, index) => {
-              const row = Math.floor(index / highlightCols);
-              let cardX = innerX + (index % highlightCols) * (highlightW + highlightGap);
-              const cardY = highlightStartY + row * (highlightH + scaleValue(18));
-              if (row === highlightLastRow && highlightLastCount === 1) {
-                cardX = innerX + (innerW - highlightW) / 2;
-              }
-
-              const grad = ctx.createLinearGradient(cardX, cardY, cardX, cardY + highlightH);
-              grad.addColorStop(0, `${card.color}29`);
-              grad.addColorStop(1, "rgba(15, 23, 42, 0.72)");
-              ctx.save();
-              ctx.beginPath();
-              ctx.roundRect(cardX, cardY, highlightW, highlightH, scaledRadius(12));
-              ctx.fillStyle = grad;
-              ctx.fill();
-              ctx.strokeStyle = `${card.color}55`;
-              ctx.lineWidth = Math.max(1, scale);
-              ctx.stroke();
-              ctx.restore();
-
-              ctx.fillStyle = "rgba(148, 163, 184, 0.85)";
-              ctx.font = getScaledFont(13);
-              ctx.fillText(card.label, cardX + scaleValue(16), cardY + scaleValue(26));
-              ctx.fillStyle = "#f8fafc";
-              ctx.font = getScaledFont(22, "600");
-              ctx.fillText(`${card.icon} ${card.value}`, cardX + scaleValue(16), cardY + highlightH / 2 + scaleValue(14));
-
-              contentBottom = Math.max(contentBottom, cardY + highlightH);
-            });
-
-            let detailY = highlightStartY + Math.ceil(highlightCards.length / highlightCols) * (highlightH + scaleValue(18)) + scaleValue(22);
-            ctx.fillStyle = "rgba(226, 232, 240, 0.7)";
-            ctx.font = getScaledFont(14);
-            ctx.fillText(pm.statsHighlights, innerX, detailY - scaleValue(12));
-
-            const formatPercent = (value: number) => {
-              const diff = (value - 1) * 100;
-              if (Math.abs(diff) < 0.1) return "0%";
-              return `${diff > 0 ? "+" : ""}${diff.toFixed(0)}%`;
-            };
-
-            const detailCards = [
-              { label: pm.statsDetails.damageMultiplier, value: formatPercent(gameState.player.stats.damageMultiplier), color: "#f87171" },
-              { label: pm.statsDetails.speedMultiplier, value: formatPercent(gameState.player.stats.speedMultiplier), color: "#34d399" },
-              { label: pm.statsDetails.rangeMultiplier, value: formatPercent(gameState.player.stats.rangeMultiplier), color: "#60a5fa" },
-              { label: pm.statsDetails.fireRateMultiplier, value: formatPercent(gameState.player.stats.fireRateMultiplier), color: "#fbbf24" },
-              { label: pm.statsDetails.bounces, value: gameState.player.stats.bounces.toString(), color: "#a855f7" },
-              { label: pm.statsDetails.multishot, value: gameState.player.stats.multishot.toString(), color: "#06b6d4" },
-              { label: pm.statsDetails.vampire, value: `${Math.round(gameState.player.stats.vampire * 100)}%`, color: "#ec4899" },
-              { label: pm.statsDetails.regen, value: gameState.player.stats.regenRate > 0 ? `+${gameState.player.stats.regenRate} HP / ${gameState.player.stats.regenInterval}s` : "—", color: "#facc15" },
-              { label: pm.statsDetails.magnet, value: formatPercent(gameState.player.stats.magnetMultiplier), color: "#38bdf8" },
-              { label: pm.statsDetails.xpBonus, value: `${Math.round((gameState.player.stats.xpMultiplier - 1) * 100 + gameState.player.stats.xpBonus)}%`, color: "#fb7185" },
-              { label: pm.statsDetails.damageReduction, value: `${Math.round(gameState.player.stats.damageReduction * 100)}%`, color: "#f472b6" },
-            ];
-
-            const detailCols = innerW > 560 ? 2 : 1;
-            const detailGap = scaleValue(16);
-            const detailW = detailCols === 2 ? (innerW - detailGap) / 2 : innerW;
-            const detailH = scaleValue(84);
-
-            detailCards.forEach((card, index) => {
-              const row = Math.floor(index / detailCols);
-              const col = index % detailCols;
-              let cardX = innerX + col * (detailW + detailGap);
-              const cardY = detailY + row * (detailH + scaleValue(16));
-              if (detailCols > 1 && col === detailCols - 1 && detailW > innerW) {
-                cardX = innerX + (innerW - detailW) / 2;
-              }
-
-              const grad = ctx.createLinearGradient(cardX, cardY, cardX, cardY + detailH);
-              grad.addColorStop(0, `${card.color}26`);
-              grad.addColorStop(1, "rgba(15, 23, 42, 0.75)");
-              ctx.save();
-              ctx.beginPath();
-              ctx.roundRect(cardX, cardY, detailW, detailH, scaledRadius(12));
-              ctx.fillStyle = grad;
-              ctx.fill();
-              ctx.strokeStyle = `${card.color}55`;
-              ctx.lineWidth = Math.max(1, scale);
-              ctx.stroke();
-              ctx.restore();
-
-              ctx.fillStyle = "rgba(148, 163, 184, 0.85)";
-              ctx.font = getScaledFont(13);
-              ctx.fillText(card.label, cardX + scaleValue(16), cardY + scaleValue(24));
-              ctx.fillStyle = "#f8fafc";
-              ctx.font = getScaledFont(20, "600");
-              ctx.fillText(card.value, cardX + scaleValue(16), cardY + detailH / 2 + scaleValue(12));
-
-              contentBottom = Math.max(contentBottom, cardY + detailH);
-            });
-            break;
-          }
-        }
-
-        ctx.restore();
-
-        const contentHeight = Math.max(scrollAreaHeight, contentBottom - scrollAreaTop);
-        const maxScroll = Math.max(0, contentHeight - scrollAreaHeight);
-        clampedScroll = clamp(clampedScroll, 0, maxScroll);
-        if (clampedScroll !== currentScroll) {
-          gameState.pauseMenuScroll[activeTab] = clampedScroll;
-        }
-        gameState.pauseMenuMaxScroll[activeTab] = maxScroll;
-
-        if (maxScroll > scaleValue(4)) {
-          const fadeHeight = Math.min(scaleValue(40), scrollAreaHeight / 3);
-          if (clampedScroll > 0) {
-            const fadeTop = ctx.createLinearGradient(innerX, scrollAreaTop, innerX, scrollAreaTop + fadeHeight);
-            fadeTop.addColorStop(0, "rgba(15, 23, 42, 0.85)");
-            fadeTop.addColorStop(1, "rgba(15, 23, 42, 0)");
-            ctx.fillStyle = fadeTop;
-            ctx.fillRect(innerX, scrollAreaTop, innerW, fadeHeight);
-          }
-          if (clampedScroll < maxScroll - 1) {
-            const fadeBottom = ctx.createLinearGradient(innerX, scrollAreaBottom - fadeHeight, innerX, scrollAreaBottom);
-            fadeBottom.addColorStop(0, "rgba(15, 23, 42, 0)");
-            fadeBottom.addColorStop(1, "rgba(15, 23, 42, 0.85)");
-            ctx.fillStyle = fadeBottom;
-            ctx.fillRect(innerX, scrollAreaBottom - fadeHeight, innerW, fadeHeight);
-          }
-
-          const trackX = innerX + innerW - scaleValue(8);
-          const trackY = scrollAreaTop + scaleValue(8);
-          const trackH = scrollAreaHeight - scaleValue(16);
-          const visibleRatio = scrollAreaHeight / contentHeight;
-          const indicatorH = Math.max(scaleValue(30), trackH * visibleRatio);
-          const indicatorY = trackY + (trackH - indicatorH) * (clampedScroll / maxScroll);
-
-          ctx.fillStyle = "rgba(148, 163, 184, 0.25)";
-          ctx.fillRect(trackX, trackY, scaleValue(4), trackH);
-          ctx.fillStyle = "rgba(148, 197, 253, 0.75)";
-          ctx.fillRect(trackX, indicatorY, scaleValue(4), indicatorH);
-        }
-
-        if (activeTab === "home") {
-          const buttonH = scaleValue(56);
-          const gap = innerW < 560 ? scaleValue(16) : scaleValue(22);
-          const resumeW = innerW < 560 ? innerW : Math.min(scaleValue(320), innerW * 0.5);
-          const restartW = innerW < 560 ? innerW : Math.min(scaleValue(220), innerW * 0.32);
-          const canFitHorizontal = resumeW + restartW + gap <= innerW && innerW >= 520;
-
-          const drawSoftButton = (x: number, y: number, w: number, label: string, fill: string, stroke: string) => {
-            ctx.save();
-            ctx.beginPath();
-            ctx.roundRect(x, y, w, buttonH, scaledRadius(12));
-            ctx.fillStyle = fill;
-            ctx.fill();
-            ctx.strokeStyle = stroke;
-            ctx.lineWidth = Math.max(1, 1.5 * scale);
-            ctx.stroke();
-            ctx.restore();
-
-            const gloss = ctx.createLinearGradient(x, y, x, y + buttonH);
-            gloss.addColorStop(0, "rgba(255, 255, 255, 0.14)");
-            gloss.addColorStop(1, "rgba(255, 255, 255, 0)");
-            ctx.save();
-            ctx.beginPath();
-            ctx.roundRect(x, y, w, buttonH, scaledRadius(12));
-            ctx.fillStyle = gloss;
-            ctx.fill();
-            ctx.restore();
-
-            ctx.fillStyle = "#f8fafc";
-            ctx.font = getScaledFont(18, "600");
-            ctx.textAlign = "center";
-            ctx.fillText(label, x + w / 2, y + buttonH / 2 + scaleValue(6));
-            ctx.textAlign = "left";
-          };
-
-          const drawQuickActionsLabel = (centerX: number, textY: number) => {
-            ctx.textAlign = "center";
-            ctx.fillStyle = "#bfdbfe";
-            ctx.font = getScaledFont(18, "600");
-            ctx.fillText(pm.quickActionsHeading, centerX, textY);
-            ctx.fillStyle = "rgba(226, 232, 240, 0.78)";
-            ctx.font = getScaledFont(14);
-            ctx.fillText(pm.quickActionsHint, centerX, textY + scaleValue(20));
-            ctx.textAlign = "left";
-          };
-
-          if (canFitHorizontal) {
-            const totalButtonsWidth = resumeW + restartW + gap;
-            const baseX = innerX + Math.max(0, (innerW - totalButtonsWidth) / 2);
-            const buttonY = innerY + innerH - buttonH - scaleValue(12);
-
-            drawQuickActionsLabel(innerX + innerW / 2, buttonY - scaleValue(32));
-
-            drawSoftButton(baseX, buttonY, resumeW, locale.continue, "rgba(34, 197, 94, 0.28)", "rgba(134, 239, 172, 0.6)");
-            const restartX = baseX + resumeW + gap;
-            drawSoftButton(restartX, buttonY, restartW, locale.restart, "rgba(248, 113, 113, 0.22)", "rgba(252, 165, 165, 0.55)");
-
-            gameState.pauseMenuHitAreas.home.layout = "horizontal";
-            gameState.pauseMenuHitAreas.home.resume = { x: baseX, y: buttonY, w: resumeW, h: buttonH };
-            gameState.pauseMenuHitAreas.home.restart = { x: restartX, y: buttonY, w: restartW, h: buttonH };
-          } else {
-            const buttonY = innerY + innerH - buttonH * 2 - gap - scaleValue(12);
-            const restartY = buttonY + buttonH + gap;
-
-            drawQuickActionsLabel(innerX + innerW / 2, buttonY - scaleValue(32));
-
-            drawSoftButton(innerX, buttonY, innerW, locale.continue, "rgba(34, 197, 94, 0.28)", "rgba(134, 239, 172, 0.6)");
-            drawSoftButton(innerX, restartY, innerW, locale.restart, "rgba(248, 113, 113, 0.22)", "rgba(252, 165, 165, 0.55)");
-
-            gameState.pauseMenuHitAreas.home.layout = "stacked";
-            gameState.pauseMenuHitAreas.home.resume = { x: innerX, y: buttonY, w: innerW, h: buttonH };
-            gameState.pauseMenuHitAreas.home.restart = { x: innerX, y: restartY, w: innerW, h: buttonH };
-          }
-        }
-
+        ctx.textAlign = "left";
         ctx.restore();
       }
 
