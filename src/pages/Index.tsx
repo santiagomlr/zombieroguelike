@@ -274,30 +274,30 @@ type PauseMenuTab = "home" | "settings" | "stats";
 const PAUSE_MENU_TABS: PauseMenuTab[] = ["home", "settings", "stats"];
 
 const getPauseMenuLayout = (W: number, H: number, uiScalePercent = 1) => {
-  const scaleBase = Math.min(0.92, Math.max(0.82, Math.min(W / 1366, H / 768)));
-  const base = Number.isFinite(scaleBase) ? scaleBase : 0.9;
-  const clampedUiScale = Math.min(1.2, Math.max(0.7, uiScalePercent));
-  const scale = Math.min(1.15, Math.max(0.7, base * clampedUiScale));
+  const scaleBase = Math.min(1.0, Math.max(0.88, Math.min(W / 1366, H / 768)));
+  const base = Number.isFinite(scaleBase) ? scaleBase : 0.95;
+  const clampedUiScale = Math.min(1.3, Math.max(0.8, uiScalePercent));
+  const scale = Math.min(1.25, Math.max(0.8, base * clampedUiScale));
 
-  const menuW = Math.min(820, Math.max(560, W - 160)) * scale;
-  const menuH = Math.min(560, Math.max(420, H - 180)) * scale;
+  const menuW = Math.min(1100, Math.max(720, W - 120)) * scale;
+  const menuH = Math.min(720, Math.max(540, H - 100)) * scale;
   const menuX = W / 2 - menuW / 2;
   const menuY = H / 2 - menuH / 2;
-  const padding = 28 * scale;
-  const headerHeight = 112 * scale;
-  const navGap = 14 * scale;
-  const navH = 56 * scale;
+  const padding = 36 * scale;
+  const headerHeight = 130 * scale;
+  const navGap = 16 * scale;
+  const navH = 68 * scale;
   const navCount = PAUSE_MENU_TABS.length;
   const navAreaWidth = menuW - padding * 2;
-  const navW = Math.max(140 * scale, (navAreaWidth - navGap * (navCount - 1)) / navCount);
+  const navW = Math.max(160 * scale, (navAreaWidth - navGap * (navCount - 1)) / navCount);
   const navTotalWidth = navW * navCount + navGap * (navCount - 1);
   const navX = menuX + padding + Math.max(0, (navAreaWidth - navTotalWidth) / 2);
-  const navY = menuY + headerHeight + 18 * scale;
+  const navY = menuY + headerHeight + 22 * scale;
   const contentX = menuX + padding;
-  const contentY = navY + navH + 24 * scale;
+  const contentY = navY + navH + 28 * scale;
   const contentW = menuW - padding * 2;
   const contentH = menuY + menuH - padding - contentY;
-  const innerPadding = 24 * scale;
+  const innerPadding = 28 * scale;
   const innerX = contentX + innerPadding;
   const innerY = contentY + innerPadding;
   const innerW = Math.max(0, contentW - innerPadding * 2);
@@ -332,10 +332,10 @@ const getPauseMenuContentMetrics = (
   tab: PauseMenuTab,
   layout: ReturnType<typeof getPauseMenuLayout>
 ) => {
-  const headerHeight = 72 * layout.scale;
-  const footerSpace = (tab === "home" ? 140 : 56) * layout.scale;
+  const headerHeight = 82 * layout.scale;
+  const footerSpace = (tab === "home" ? 160 : 64) * layout.scale;
   const scrollAreaTop = layout.innerY + headerHeight;
-  const scrollAreaHeight = Math.max(100 * layout.scale, layout.innerH - headerHeight - footerSpace);
+  const scrollAreaHeight = Math.max(120 * layout.scale, layout.innerH - headerHeight - footerSpace);
 
   return {
     headerHeight,
@@ -5938,45 +5938,47 @@ const Index = () => {
 
         ctx.save();
         ctx.beginPath();
-        ctx.roundRect(menuX, menuY, menuW, menuH, scaledRadius(22));
+        ctx.roundRect(menuX, menuY, menuW, menuH, scaledRadius(24));
         const bgGradient = ctx.createLinearGradient(menuX, menuY, menuX, menuY + menuH);
-        bgGradient.addColorStop(0, "rgba(15, 23, 42, 0.94)");
-        bgGradient.addColorStop(1, "rgba(15, 23, 42, 0.82)");
+        bgGradient.addColorStop(0, "rgba(12, 18, 35, 0.96)");
+        bgGradient.addColorStop(1, "rgba(15, 23, 42, 0.94)");
         ctx.fillStyle = bgGradient;
-        ctx.shadowColor = "rgba(30, 64, 175, 0.25)";
-        ctx.shadowBlur = scaleValue(18);
+        ctx.shadowColor = "rgba(30, 64, 175, 0.4)";
+        ctx.shadowBlur = scaleValue(30);
+        ctx.shadowOffsetY = scaleValue(10);
         ctx.fill();
         ctx.shadowBlur = 0;
-        ctx.strokeStyle = "rgba(148, 163, 184, 0.35)";
-        ctx.lineWidth = Math.max(1, 1.5 * scale);
+        ctx.shadowOffsetY = 0;
+        ctx.strokeStyle = "rgba(59, 130, 246, 0.5)";
+        ctx.lineWidth = Math.max(1.5, 2 * scale);
         ctx.stroke();
         ctx.restore();
 
         ctx.save();
         const layoutHeaderHeight = layout.headerHeight;
         ctx.beginPath();
-        ctx.roundRect(menuX + scaleValue(8), menuY + scaleValue(8), menuW - scaleValue(16), layoutHeaderHeight - scaleValue(16), scaledRadius(18));
+        ctx.roundRect(menuX + scaleValue(10), menuY + scaleValue(10), menuW - scaleValue(20), layoutHeaderHeight - scaleValue(20), scaledRadius(20));
         const headerGradient = ctx.createLinearGradient(menuX, menuY, menuX, menuY + layoutHeaderHeight);
-        headerGradient.addColorStop(0, "rgba(59, 130, 246, 0.22)");
-        headerGradient.addColorStop(1, "rgba(168, 85, 247, 0.18)");
+        headerGradient.addColorStop(0, "rgba(59, 130, 246, 0.28)");
+        headerGradient.addColorStop(1, "rgba(139, 92, 246, 0.22)");
         ctx.fillStyle = headerGradient;
-        ctx.strokeStyle = "rgba(148, 163, 184, 0.25)";
-        ctx.lineWidth = Math.max(1, scale);
+        ctx.strokeStyle = "rgba(96, 165, 250, 0.4)";
+        ctx.lineWidth = Math.max(1, 1.2 * scale);
         ctx.fill();
         ctx.stroke();
         ctx.restore();
 
         ctx.fillStyle = "#fcd34d";
-        ctx.font = getScaledFont(32, "600");
+        ctx.font = getScaledFont(38, "700");
         ctx.textAlign = "left";
-        ctx.shadowColor = "rgba(252, 211, 77, 0.45)";
-        ctx.shadowBlur = scaleValue(10);
-        ctx.fillText(pm.overviewTitle, menuX + padding + scaleValue(4), menuY + scaleValue(60));
+        ctx.shadowColor = "rgba(252, 211, 77, 0.6)";
+        ctx.shadowBlur = scaleValue(14);
+        ctx.fillText(pm.overviewTitle, menuX + padding + scaleValue(6), menuY + scaleValue(68));
         ctx.shadowBlur = 0;
 
-        ctx.fillStyle = "rgba(226, 232, 240, 0.82)";
-        ctx.font = getScaledFont(15);
-        ctx.fillText(pm.overviewSubtitle, menuX + padding + scaleValue(4), menuY + scaleValue(86));
+        ctx.fillStyle = "rgba(226, 232, 240, 0.88)";
+        ctx.font = getScaledFont(16, "400");
+        ctx.fillText(pm.overviewSubtitle, menuX + padding + scaleValue(6), menuY + scaleValue(96));
 
         const navItems = [
           { id: "home" as const, label: pm.home, icon: "🎮" },
@@ -5984,21 +5986,21 @@ const Index = () => {
           { id: "stats" as const, label: pm.stats, icon: "📊" },
         ];
 
-        const navBackgroundX = navX - scaleValue(12);
-        const navBackgroundY = navY - scaleValue(10);
-        const navBackgroundW = layout.navTotalWidth + scaleValue(24);
-        const navBackgroundH = navH + scaleValue(20);
+        const navBackgroundX = navX - scaleValue(14);
+        const navBackgroundY = navY - scaleValue(12);
+        const navBackgroundW = layout.navTotalWidth + scaleValue(28);
+        const navBackgroundH = navH + scaleValue(24);
 
         ctx.save();
         ctx.beginPath();
-        ctx.roundRect(navBackgroundX, navBackgroundY, navBackgroundW, navBackgroundH, scaledRadius(16));
+        ctx.roundRect(navBackgroundX, navBackgroundY, navBackgroundW, navBackgroundH, scaledRadius(18));
         const navBgGradient = ctx.createLinearGradient(navBackgroundX, navBackgroundY, navBackgroundX, navBackgroundY + navBackgroundH);
-        navBgGradient.addColorStop(0, "rgba(15, 23, 42, 0.78)");
-        navBgGradient.addColorStop(1, "rgba(30, 41, 59, 0.68)");
+        navBgGradient.addColorStop(0, "rgba(15, 23, 42, 0.85)");
+        navBgGradient.addColorStop(1, "rgba(30, 41, 59, 0.75)");
         ctx.fillStyle = navBgGradient;
         ctx.fill();
-        ctx.strokeStyle = "rgba(148, 163, 184, 0.28)";
-        ctx.lineWidth = Math.max(1, scale);
+        ctx.strokeStyle = "rgba(59, 130, 246, 0.35)";
+        ctx.lineWidth = Math.max(1, 1.2 * scale);
         ctx.stroke();
         ctx.restore();
 
@@ -6008,47 +6010,50 @@ const Index = () => {
 
           ctx.save();
           ctx.beginPath();
-          ctx.roundRect(itemX, navY, navW, navH, scaledRadius(14));
+          ctx.roundRect(itemX, navY, navW, navH, scaledRadius(16));
           const itemGradient = ctx.createLinearGradient(itemX, navY, itemX, navY + navH);
           if (isActive) {
-            itemGradient.addColorStop(0, "rgba(96, 165, 250, 0.38)");
-            itemGradient.addColorStop(1, "rgba(129, 140, 248, 0.26)");
+            itemGradient.addColorStop(0, "rgba(59, 130, 246, 0.5)");
+            itemGradient.addColorStop(1, "rgba(96, 165, 250, 0.35)");
+            ctx.shadowColor = "rgba(59, 130, 246, 0.4)";
+            ctx.shadowBlur = scaleValue(12);
           } else {
-            itemGradient.addColorStop(0, "rgba(15, 23, 42, 0.55)");
-            itemGradient.addColorStop(1, "rgba(30, 41, 59, 0.5)");
+            itemGradient.addColorStop(0, "rgba(15, 23, 42, 0.6)");
+            itemGradient.addColorStop(1, "rgba(30, 41, 59, 0.55)");
           }
           ctx.fillStyle = itemGradient;
           ctx.fill();
-          ctx.strokeStyle = isActive ? "rgba(148, 197, 253, 0.65)" : "rgba(148, 163, 184, 0.25)";
-          ctx.lineWidth = Math.max(1, isActive ? 1.5 * scale : scale);
+          ctx.shadowBlur = 0;
+          ctx.strokeStyle = isActive ? "rgba(96, 165, 250, 0.75)" : "rgba(148, 163, 184, 0.3)";
+          ctx.lineWidth = Math.max(1.5, isActive ? 2 * scale : 1.2 * scale);
           ctx.stroke();
           ctx.restore();
 
           if (isActive) {
-            ctx.fillStyle = "rgba(148, 197, 253, 0.85)";
-            ctx.fillRect(itemX + scaleValue(24), navY + navH - scaleValue(8), navW - scaleValue(48), scaleValue(4));
+            ctx.fillStyle = "rgba(96, 165, 250, 0.9)";
+            ctx.fillRect(itemX + scaleValue(26), navY + navH - scaleValue(9), navW - scaleValue(52), scaleValue(5));
           }
 
           ctx.textAlign = "center";
-          ctx.fillStyle = "#f8fafc";
-          ctx.font = getScaledFont(20, "600");
-          ctx.fillText(item.icon, itemX + navW / 2, navY + navH / 2 - scaleValue(8));
-          ctx.font = isActive ? getScaledFont(15, "600") : getScaledFont(14);
-          ctx.fillStyle = isActive ? "rgba(248, 250, 252, 0.96)" : "rgba(226, 232, 240, 0.82)";
-          ctx.fillText(item.label, itemX + navW / 2, navY + navH / 2 + scaleValue(20));
+          ctx.fillStyle = isActive ? "#ffffff" : "#e2e8f0";
+          ctx.font = getScaledFont(24, "600");
+          ctx.fillText(item.icon, itemX + navW / 2, navY + navH / 2 - scaleValue(10));
+          ctx.font = isActive ? getScaledFont(16, "700") : getScaledFont(15, "500");
+          ctx.fillStyle = isActive ? "rgba(255, 255, 255, 0.98)" : "rgba(226, 232, 240, 0.85)";
+          ctx.fillText(item.label, itemX + navW / 2, navY + navH / 2 + scaleValue(22));
         });
         ctx.textAlign = "left";
 
         const contentGradient = ctx.createLinearGradient(contentX, contentY, contentX, contentY + contentH);
-        contentGradient.addColorStop(0, "rgba(15, 23, 42, 0.88)");
-        contentGradient.addColorStop(1, "rgba(30, 41, 59, 0.76)");
+        contentGradient.addColorStop(0, "rgba(15, 23, 42, 0.92)");
+        contentGradient.addColorStop(1, "rgba(30, 41, 59, 0.84)");
         ctx.save();
         ctx.beginPath();
-        ctx.roundRect(contentX, contentY, contentW, contentH, scaledRadius(18));
+        ctx.roundRect(contentX, contentY, contentW, contentH, scaledRadius(20));
         ctx.fillStyle = contentGradient;
         ctx.fill();
-        ctx.strokeStyle = "rgba(148, 163, 184, 0.18)";
-        ctx.lineWidth = Math.max(1, scale);
+        ctx.strokeStyle = "rgba(59, 130, 246, 0.25)";
+        ctx.lineWidth = Math.max(1, 1.2 * scale);
         ctx.stroke();
         ctx.restore();
 
@@ -6060,18 +6065,18 @@ const Index = () => {
         let contentBottom = scrollAreaTop;
 
         const activeNav = navItems.find(item => item.id === activeTab) ?? navItems[0];
-        const titleY = innerY + scaleValue(26);
-        const subtitleY = titleY + scaleValue(24);
+        const titleY = innerY + scaleValue(30);
+        const subtitleY = titleY + scaleValue(28);
         ctx.textAlign = "left";
-        ctx.fillStyle = "#f8fafc";
-        ctx.font = getScaledFont(22, "600");
+        ctx.fillStyle = "#ffffff";
+        ctx.font = getScaledFont(24, "700");
         ctx.fillText(`${activeNav.icon} ${activeNav.label}`, innerX, titleY);
-        ctx.fillStyle = "rgba(226, 232, 240, 0.78)";
-        ctx.font = getScaledFont(15);
+        ctx.fillStyle = "rgba(226, 232, 240, 0.85)";
+        ctx.font = getScaledFont(16, "400");
         ctx.fillText(pm.tabSubtitles[activeTab], innerX, subtitleY);
 
-        ctx.fillStyle = "rgba(148, 197, 253, 0.22)";
-        ctx.fillRect(innerX, scrollAreaTop - scaleValue(8), innerW, Math.max(1, scale));
+        ctx.fillStyle = "rgba(96, 165, 250, 0.35)";
+        ctx.fillRect(innerX, scrollAreaTop - scaleValue(10), innerW, Math.max(1.5, 1.5 * scale));
 
         ctx.save();
         ctx.beginPath();
