@@ -4,6 +4,27 @@ import { useEffect, useRef, useState } from "react";
 type Rarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
 type Language = "es" | "en";
 
+interface WikiEntry {
+  icon: string;
+  color: string;
+  name: string;
+  desc: string;
+}
+
+interface WikiTranslations {
+  title: string;
+  pickupsTitle: string;
+  pickups: WikiEntry[];
+  upgradesTitle: string;
+  upgradesIntro: string;
+  upgradeTypes: WikiEntry[];
+  enemiesTitle: string;
+  enemies: WikiEntry[];
+  creditsTitle: string;
+  creditsName: string;
+  backButton: string;
+}
+
 interface Translations {
   levelUp: string;
   chooseUpgrade: string;
@@ -35,6 +56,7 @@ interface Translations {
   tutorial: {
     move: string;
   };
+  wiki: WikiTranslations;
 }
 
 const translations: Record<Language, Translations> = {
@@ -69,6 +91,34 @@ const translations: Record<Language, Translations> = {
     tutorial: {
       move: "Usa WASD para moverte",
     },
+    wiki: {
+      title: "📚 Wiki del Juego",
+      pickupsTitle: "💎 Pickups",
+      pickups: [
+        { icon: "💎", color: "#3b82f6", name: "Gema de XP", desc: "Sube tu nivel" },
+        { icon: "❤️", color: "#ef4444", name: "Corazón", desc: "+20 HP de curación" },
+        { icon: "⭐", color: "#fbbf24", name: "Powerup", desc: "Mejora temporal (escudo, magneto, etc.)" },
+      ],
+      upgradesTitle: "⚡ Sistema de Mejoras",
+      upgradesIntro: "Al subir de nivel, elige entre 3 tipos de mejoras:",
+      upgradeTypes: [
+        { icon: "🔫", color: "#f87171", name: "ARMAS", desc: "Pistola, Escopeta, SMG, Láser, etc." },
+        { icon: "📖", color: "#a855f7", name: "TOMOS", desc: "Poder, Velocidad, Rebote, Multi-shot" },
+        { icon: "🎒", color: "#fbbf24", name: "ÍTEMS", desc: "Pasivos permanentes y únicos" },
+      ],
+      enemiesTitle: "👾 Tipos de Enemigos",
+      enemies: [
+        { icon: "🟢", color: "#22c55e", name: "Normal", desc: "Común, equilibrado" },
+        { icon: "🟣", color: "#a855f7", name: "Rápido", desc: "Muy veloz, bajo HP" },
+        { icon: "🟡", color: "#fbbf24", name: "Tank", desc: "Alto HP, lento, resistente" },
+        { icon: "🔴", color: "#ef4444", name: "Bomber", desc: "Explota al morir" },
+        { icon: "🔵", color: "#3b82f6", name: "Mini-Boss", desc: "Aparece cada 5 waves" },
+        { icon: "💀", color: "#9333ea", name: "BOSS", desc: "Cada 5 waves, muy peligroso" },
+      ],
+      creditsTitle: "⚡ Desarrollado por",
+      creditsName: "Vela Digital",
+      backButton: "← Volver",
+    },
   },
   en: {
     levelUp: "LEVEL UP!",
@@ -100,6 +150,34 @@ const translations: Record<Language, Translations> = {
     paused: "PAUSED",
     tutorial: {
       move: "Use WASD to move",
+    },
+    wiki: {
+      title: "📚 Game Wiki",
+      pickupsTitle: "💎 Pickups",
+      pickups: [
+        { icon: "💎", color: "#3b82f6", name: "XP Gem", desc: "Levels you up" },
+        { icon: "❤️", color: "#ef4444", name: "Heart", desc: "+20 HP heal" },
+        { icon: "⭐", color: "#fbbf24", name: "Power-up", desc: "Temporary buff (shield, magnet, etc.)" },
+      ],
+      upgradesTitle: "⚡ Upgrade System",
+      upgradesIntro: "When leveling up, choose between 3 upgrade types:",
+      upgradeTypes: [
+        { icon: "🔫", color: "#f87171", name: "WEAPONS", desc: "Pistol, Shotgun, SMG, Laser, etc." },
+        { icon: "📖", color: "#a855f7", name: "TOMES", desc: "Power, Speed, Bounce, Multi-shot" },
+        { icon: "🎒", color: "#fbbf24", name: "ITEMS", desc: "Permanent and unique passives" },
+      ],
+      enemiesTitle: "👾 Enemy Types",
+      enemies: [
+        { icon: "🟢", color: "#22c55e", name: "Normal", desc: "Common, balanced" },
+        { icon: "🟣", color: "#a855f7", name: "Fast", desc: "Very fast, low HP" },
+        { icon: "🟡", color: "#fbbf24", name: "Tank", desc: "High HP, slow, resilient" },
+        { icon: "🔴", color: "#ef4444", name: "Bomber", desc: "Explodes on death" },
+        { icon: "🔵", color: "#3b82f6", name: "Mini-Boss", desc: "Appears every 5 waves" },
+        { icon: "💀", color: "#9333ea", name: "BOSS", desc: "Every 5 waves, very dangerous" },
+      ],
+      creditsTitle: "⚡ Developed by",
+      creditsName: "Vela Digital",
+      backButton: "← Back",
     },
   },
 };
@@ -381,6 +459,7 @@ const Index = () => {
       showWiki: false,
       gameOverAnimationTimer: 0,
       pauseMenuTab: "settings" as "settings" | "wiki" | "credits", // Tab del menú de pausa
+      language,
     };
 
     gameStateRef.current = gameState;
@@ -3996,6 +4075,8 @@ const Index = () => {
     }
 
     function drawHUD() {
+      const currentLanguage = (gameState.language ?? "es") as Language;
+      const t = translations[currentLanguage];
       ctx.save();
       
       // HP Bar - Barra horizontal con valor numérico
@@ -4523,6 +4604,8 @@ const Index = () => {
     }
 
     function drawUpgradeUI() {
+      const currentLanguage = (gameState.language ?? "es") as Language;
+      const t = translations[currentLanguage];
       if (!gameState.showUpgradeUI) return;
 
       ctx.save();
@@ -4765,6 +4848,8 @@ const Index = () => {
     }
 
     function draw() {
+      const currentLanguage = (gameState.language ?? "es") as Language;
+      const t = translations[currentLanguage];
       ctx.clearRect(0, 0, W, H);
       
       // Fondo
@@ -5663,7 +5748,8 @@ const Index = () => {
           ctx.textAlign = "center";
           ctx.shadowColor = "#a855f7";
           ctx.shadowBlur = 15;
-          ctx.fillText("📚 Wiki del Juego", wikiX + wikiW / 2, wikiY + 50);
+          const wikiContent = t.wiki;
+          ctx.fillText(wikiContent.title, wikiX + wikiW / 2, wikiY + 50);
           ctx.shadowBlur = 0;
           
           let contentY = wikiY + 95;
@@ -5675,17 +5761,13 @@ const Index = () => {
           ctx.textAlign = "left";
           ctx.shadowColor = "#fbbf24";
           ctx.shadowBlur = 8;
-          ctx.fillText("💎 Pickups", leftMargin, contentY);
+          ctx.fillText(wikiContent.pickupsTitle, leftMargin, contentY);
           ctx.shadowBlur = 0;
           contentY += 30;
-          
+
           ctx.font = "16px system-ui";
-          const pickups = [
-            { icon: "💎", color: "#3b82f6", name: "Gema de XP", desc: "Sube tu nivel" },
-            { icon: "❤️", color: "#ef4444", name: "Corazón", desc: "+20 HP de curación" },
-            { icon: "⭐", color: "#fbbf24", name: "Powerup", desc: "Mejora temporal (escudo, magneto, etc.)" },
-          ];
-          
+          const pickups = wikiContent.pickups;
+
           for (const pickup of pickups) {
             ctx.fillStyle = pickup.color;
             ctx.fillText(pickup.icon, leftMargin + 10, contentY);
@@ -5705,21 +5787,17 @@ const Index = () => {
           ctx.font = "bold 24px system-ui";
           ctx.shadowColor = "#fbbf24";
           ctx.shadowBlur = 8;
-          ctx.fillText("⚡ Sistema de Mejoras", leftMargin, contentY);
+          ctx.fillText(wikiContent.upgradesTitle, leftMargin, contentY);
           ctx.shadowBlur = 0;
           contentY += 30;
-          
+
           ctx.font = "15px system-ui";
           ctx.fillStyle = "#d1d5db";
-          ctx.fillText("Al subir de nivel, elige entre 3 tipos de mejoras:", leftMargin + 10, contentY);
+          ctx.fillText(wikiContent.upgradesIntro, leftMargin + 10, contentY);
           contentY += 28;
-          
-          const upgradeTypes = [
-            { icon: "🔫", color: "#f87171", name: "ARMAS", desc: "Pistola, Escopeta, SMG, Láser, etc." },
-            { icon: "📖", color: "#a855f7", name: "TOMOS", desc: "Poder, Velocidad, Rebote, Multi-shot" },
-            { icon: "🎒", color: "#fbbf24", name: "ÍTEMS", desc: "Pasivos permanentes y únicos" },
-          ];
-          
+
+          const upgradeTypes = wikiContent.upgradeTypes;
+
           for (const type of upgradeTypes) {
             ctx.fillStyle = type.color;
             ctx.font = "bold 16px system-ui";
@@ -5737,20 +5815,13 @@ const Index = () => {
           ctx.font = "bold 24px system-ui";
           ctx.shadowColor = "#fbbf24";
           ctx.shadowBlur = 8;
-          ctx.fillText("👾 Tipos de Enemigos", leftMargin, contentY);
+          ctx.fillText(wikiContent.enemiesTitle, leftMargin, contentY);
           ctx.shadowBlur = 0;
           contentY += 30;
-          
+
           ctx.font = "15px system-ui";
-          const enemies = [
-            { icon: "🟢", color: "#22c55e", name: "Normal", desc: "Común, equilibrado" },
-            { icon: "🟣", color: "#a855f7", name: "Rápido", desc: "Muy veloz, bajo HP" },
-            { icon: "🟡", color: "#fbbf24", name: "Tank", desc: "Alto HP, lento, resistente" },
-            { icon: "🔴", color: "#ef4444", name: "Bomber", desc: "Explota al morir" },
-            { icon: "🔵", color: "#3b82f6", name: "Mini-Boss", desc: "Aparece cada 5 waves" },
-            { icon: "💀", color: "#9333ea", name: "BOSS", desc: "Cada 5 waves, muy peligroso" },
-          ];
-          
+          const enemies = wikiContent.enemies;
+
           for (const enemy of enemies) {
             ctx.fillStyle = enemy.color;
             ctx.font = "bold 15px system-ui";
@@ -5784,14 +5855,14 @@ const Index = () => {
           ctx.textAlign = "center";
           ctx.shadowColor = "#fbbf24";
           ctx.shadowBlur = 8;
-          ctx.fillText("⚡ Desarrollado por", wikiX + wikiW / 2, contentY + 12);
+          ctx.fillText(wikiContent.creditsTitle, wikiX + wikiW / 2, contentY + 12);
           ctx.shadowBlur = 0;
-          
+
           ctx.fillStyle = "#fff";
           ctx.font = "bold 36px system-ui";
           ctx.shadowColor = "#a855f7";
           ctx.shadowBlur = 20;
-          ctx.fillText("Vela Digital", wikiX + wikiW / 2, contentY + 50);
+          ctx.fillText(wikiContent.creditsName, wikiX + wikiW / 2, contentY + 50);
           ctx.shadowBlur = 0;
           
           // Back button mejorado
@@ -5819,7 +5890,7 @@ const Index = () => {
           ctx.fillStyle = "#fff";
           ctx.font = "bold 26px system-ui";
           ctx.textAlign = "center";
-          ctx.fillText("← Volver", backBtnX + backBtnW / 2, backBtnY + backBtnH / 2 + 10);
+          ctx.fillText(wikiContent.backButton, backBtnX + backBtnW / 2, backBtnY + backBtnH / 2 + 10);
           
         } else if (gameState.showAudioSettings) {
           // PANEL DE AUDIO SETTINGS
@@ -6949,6 +7020,12 @@ const Index = () => {
       document.removeEventListener('gestureend', preventGesture);
     };
   }, []);
+
+  useEffect(() => {
+    if (gameStateRef.current) {
+      gameStateRef.current.language = language;
+    }
+  }, [language]);
 
   return (
     <div className="relative w-full h-screen overflow-hidden bg-background">
