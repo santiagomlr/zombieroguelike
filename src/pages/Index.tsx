@@ -339,14 +339,12 @@ type PauseMenuTab = "home" | "settings" | "stats" | "wiki" | "credits";
 
 const PAUSE_MENU_TABS: PauseMenuTab[] = ["home", "settings", "stats", "wiki", "credits"];
 
-const getPauseMenuLayout = (W: number, H: number, userScaleMultiplier = 1) => {
+const getPauseMenuLayout = (W: number, H: number) => {
   const scaleBase = Math.min(0.92, Math.max(0.82, Math.min(W / 1366, H / 768)));
-  const baseScale = Number.isFinite(scaleBase) ? scaleBase : 0.9;
-  const clampedMultiplier = Math.max(0.6, Math.min(1.4, userScaleMultiplier));
-  const scale = baseScale * clampedMultiplier;
+  const scale = Number.isFinite(scaleBase) ? scaleBase : 0.9;
 
-  const menuW = Math.min(780, Math.max(560, W - 220)) * scale;
-  const menuH = Math.min(660, Math.max(460, H - 160)) * scale;
+  const menuW = Math.min(760, Math.max(540, W - 220)) * scale;
+  const menuH = Math.min(520, Math.max(420, H - 220)) * scale;
   const menuX = W / 2 - menuW / 2;
   const menuY = H / 2 - menuH / 2;
   const padding = 24 * scale;
@@ -2401,9 +2399,6 @@ const Index = () => {
 
       if (mx >= layout.innerX && mx <= layout.innerX + layout.innerW && my >= scrollAreaTop && my <= scrollAreaTop + scrollAreaHeight) {
         e.preventDefault();
-        if (gameState.pauseMenuUiScaleDropdownOpen) {
-          gameState.pauseMenuUiScaleDropdownOpen = false;
-        }
         const delta = e.deltaMode === WheelEvent.DOM_DELTA_LINE ? e.deltaY * 24 * layout.scale : e.deltaY;
         const maxScroll = gameState.pauseMenuMaxScroll[activeTab] ?? 0;
         if (maxScroll <= 0) {
