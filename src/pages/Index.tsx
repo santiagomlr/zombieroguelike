@@ -834,7 +834,6 @@ const Index = () => {
       showWiki: false,
       gameOverAnimationTimer: 0,
       pauseMenuTab: "settings" as "settings" | "wiki" | "credits", // Tab del menú de pausa
-      language,
     };
 
     gameStateRef.current = gameState;
@@ -5022,13 +5021,10 @@ const Index = () => {
 
     function drawUpgradeUI() {
       const currentLanguage = (gameState.language ?? "es") as Language;
-      const t = translations[currentLanguage];
+      const currentTranslations = translations[currentLanguage];
       if (!gameState.showUpgradeUI) return;
 
       ctx.save();
-
-      const currentLanguage = (gameState.language ?? "es") as Language;
-      const currentTranslations = translations[currentLanguage];
 
       // Easing function for smooth animation
       const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
@@ -5284,11 +5280,8 @@ const Index = () => {
 
     function draw() {
       const currentLanguage = (gameState.language ?? "es") as Language;
-      const t = translations[currentLanguage];
-      ctx.clearRect(0, 0, W, H);
-
-      const currentLanguage = (gameState.language ?? "es") as Language;
       const currentTranslations = translations[currentLanguage];
+      ctx.clearRect(0, 0, W, H);
       
       // Fondo
       const gradient = ctx.createRadialGradient(W / 2, H / 3, 0, W / 2, H / 3, Math.max(W, H));
