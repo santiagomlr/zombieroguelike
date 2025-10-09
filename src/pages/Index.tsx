@@ -4,27 +4,6 @@ import { useEffect, useRef, useState } from "react";
 type Rarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
 type Language = "es" | "en";
 
-interface WikiEntry {
-  icon: string;
-  color: string;
-  name: string;
-  desc: string;
-}
-
-interface WikiTranslations {
-  title: string;
-  pickupsTitle: string;
-  pickups: WikiEntry[];
-  upgradesTitle: string;
-  upgradesIntro: string;
-  upgradeTypes: WikiEntry[];
-  enemiesTitle: string;
-  enemies: WikiEntry[];
-  creditsTitle: string;
-  creditsName: string;
-  backButton: string;
-}
-
 interface Translations {
   levelUp: string;
   chooseUpgrade: string;
@@ -58,15 +37,21 @@ interface Translations {
   tutorial: {
     move: string;
   };
-  wiki: WikiTranslations;
   pauseMenu: {
     home: string;
     settings: string;
     stats: string;
-    wiki: string;
-    credits: string;
     overviewTitle: string;
     overviewSubtitle: string;
+    tabSubtitles: {
+      home: string;
+      settings: string;
+      stats: string;
+    };
+    summaryHeading: string;
+    summaryDescription: string;
+    quickActionsHeading: string;
+    quickActionsHint: string;
     summary: {
       wave: string;
       level: string;
@@ -88,7 +73,6 @@ interface Translations {
     };
     language: string;
     languages: Record<Language, string>;
-    statsTitle: string;
     statsHighlights: string;
     statsDetails: {
       damageMultiplier: string;
@@ -103,8 +87,6 @@ interface Translations {
       xpBonus: string;
       damageReduction: string;
     };
-    wikiSubtitle: string;
-    creditsSubtitle: string;
   };
 }
 
@@ -142,42 +124,21 @@ const translations: Record<Language, Translations> = {
     tutorial: {
       move: "Usa WASD para moverte",
     },
-    wiki: {
-      title: "📚 Wiki del Juego",
-      pickupsTitle: "💎 Pickups",
-      pickups: [
-        { icon: "💎", color: "#3b82f6", name: "Gema de XP", desc: "Sube tu nivel" },
-        { icon: "❤️", color: "#ef4444", name: "Corazón", desc: "+20 HP de curación" },
-        { icon: "⭐", color: "#fbbf24", name: "Powerup", desc: "Mejora temporal (escudo, magneto, etc.)" },
-      ],
-      upgradesTitle: "⚡ Sistema de Mejoras",
-      upgradesIntro: "Al subir de nivel, elige entre 3 tipos de mejoras:",
-      upgradeTypes: [
-        { icon: "🔫", color: "#f87171", name: "ARMAS", desc: "Pistola, Escopeta, SMG, Láser, etc." },
-        { icon: "📖", color: "#a855f7", name: "TOMOS", desc: "Poder, Velocidad, Rebote, Multi-shot" },
-        { icon: "🎒", color: "#fbbf24", name: "ÍTEMS", desc: "Pasivos permanentes y únicos" },
-      ],
-      enemiesTitle: "👾 Tipos de Enemigos",
-      enemies: [
-        { icon: "🟢", color: "#22c55e", name: "Normal", desc: "Común, equilibrado" },
-        { icon: "🟣", color: "#a855f7", name: "Rápido", desc: "Muy veloz, bajo HP" },
-        { icon: "🟡", color: "#fbbf24", name: "Tank", desc: "Alto HP, lento, resistente" },
-        { icon: "🔴", color: "#ef4444", name: "Bomber", desc: "Explota al morir" },
-        { icon: "🔵", color: "#3b82f6", name: "Mini-Boss", desc: "Aparece cada 5 waves" },
-        { icon: "💀", color: "#9333ea", name: "BOSS", desc: "Cada 5 waves, muy peligroso" },
-      ],
-      creditsTitle: "⚡ Desarrollado por",
-      creditsName: "Vela Digital",
-      backButton: "← Volver",
-    },
     pauseMenu: {
       home: "Inicio",
       settings: "Ajustes",
       stats: "Estadísticas",
-      wiki: "Wiki",
-      credits: "Créditos",
       overviewTitle: "Partida en Pausa",
       overviewSubtitle: "Tómate un respiro y planifica tu próxima jugada.",
+      tabSubtitles: {
+        home: "Resumen instantáneo de la partida.",
+        settings: "Configura todo sin salir de la acción.",
+        stats: "Visualiza cómo escalan tus mejoras.",
+      },
+      summaryHeading: "Resumen de la partida",
+      summaryDescription: "Datos clave de tu carrera actual.",
+      quickActionsHeading: "Acciones rápidas",
+      quickActionsHint: "Todo listo para volver al combate.",
       summary: {
         wave: "Oleada",
         level: "Nivel",
@@ -202,7 +163,6 @@ const translations: Record<Language, Translations> = {
         es: "Español",
         en: "Inglés",
       },
-      statsTitle: "Resumen de progresión",
       statsHighlights: "Mejoras clave",
       statsDetails: {
         damageMultiplier: "Multiplicador de daño",
@@ -217,8 +177,6 @@ const translations: Record<Language, Translations> = {
         xpBonus: "Bonus de XP",
         damageReduction: "Reducción de daño",
       },
-      wikiSubtitle: "Descubre lo que puedes encontrar en el campo de batalla.",
-      creditsSubtitle: "Gracias por jugar y apoyar el proyecto.",
     },
   },
   en: {
@@ -254,42 +212,21 @@ const translations: Record<Language, Translations> = {
     tutorial: {
       move: "Use WASD to move",
     },
-    wiki: {
-      title: "📚 Game Wiki",
-      pickupsTitle: "💎 Pickups",
-      pickups: [
-        { icon: "💎", color: "#3b82f6", name: "XP Gem", desc: "Levels you up" },
-        { icon: "❤️", color: "#ef4444", name: "Heart", desc: "+20 HP heal" },
-        { icon: "⭐", color: "#fbbf24", name: "Power-up", desc: "Temporary buff (shield, magnet, etc.)" },
-      ],
-      upgradesTitle: "⚡ Upgrade System",
-      upgradesIntro: "When leveling up, choose between 3 upgrade types:",
-      upgradeTypes: [
-        { icon: "🔫", color: "#f87171", name: "WEAPONS", desc: "Pistol, Shotgun, SMG, Laser, etc." },
-        { icon: "📖", color: "#a855f7", name: "TOMES", desc: "Power, Speed, Bounce, Multi-shot" },
-        { icon: "🎒", color: "#fbbf24", name: "ITEMS", desc: "Permanent and unique passives" },
-      ],
-      enemiesTitle: "👾 Enemy Types",
-      enemies: [
-        { icon: "🟢", color: "#22c55e", name: "Normal", desc: "Common, balanced" },
-        { icon: "🟣", color: "#a855f7", name: "Fast", desc: "Very fast, low HP" },
-        { icon: "🟡", color: "#fbbf24", name: "Tank", desc: "High HP, slow, resilient" },
-        { icon: "🔴", color: "#ef4444", name: "Bomber", desc: "Explodes on death" },
-        { icon: "🔵", color: "#3b82f6", name: "Mini-Boss", desc: "Appears every 5 waves" },
-        { icon: "💀", color: "#9333ea", name: "BOSS", desc: "Every 5 waves, very dangerous" },
-      ],
-      creditsTitle: "⚡ Developed by",
-      creditsName: "Vela Digital",
-      backButton: "← Back",
-    },
     pauseMenu: {
       home: "Home",
       settings: "Settings",
       stats: "Stats",
-      wiki: "Wiki",
-      credits: "Credits",
       overviewTitle: "Game Paused",
       overviewSubtitle: "Take a breather and plan your next move.",
+      tabSubtitles: {
+        home: "Snapshot of your current run.",
+        settings: "Dial in the experience without missing a beat.",
+        stats: "See how your upgrades are stacking up.",
+      },
+      summaryHeading: "Run overview",
+      summaryDescription: "Key stats from this session.",
+      quickActionsHeading: "Quick actions",
+      quickActionsHint: "Ready when you are to jump back in.",
       summary: {
         wave: "Wave",
         level: "Level",
@@ -314,7 +251,6 @@ const translations: Record<Language, Translations> = {
         es: "Spanish",
         en: "English",
       },
-      statsTitle: "Progress overview",
       statsHighlights: "Key boosts",
       statsDetails: {
         damageMultiplier: "Damage multiplier",
@@ -329,36 +265,39 @@ const translations: Record<Language, Translations> = {
         xpBonus: "XP bonus",
         damageReduction: "Damage reduction",
       },
-      wikiSubtitle: "Discover what you can find on the battlefield.",
-      creditsSubtitle: "Thanks for playing and supporting the project.",
     },
   },
 };
 
-type PauseMenuTab = "home" | "settings" | "stats" | "wiki" | "credits";
+type PauseMenuTab = "home" | "settings" | "stats";
 
-const PAUSE_MENU_TABS: PauseMenuTab[] = ["home", "settings", "stats", "wiki", "credits"];
+const PAUSE_MENU_TABS: PauseMenuTab[] = ["home", "settings", "stats"];
 
-const getPauseMenuLayout = (W: number, H: number) => {
+const getPauseMenuLayout = (W: number, H: number, uiScalePercent = 1) => {
   const scaleBase = Math.min(0.92, Math.max(0.82, Math.min(W / 1366, H / 768)));
-  const scale = Number.isFinite(scaleBase) ? scaleBase : 0.9;
+  const base = Number.isFinite(scaleBase) ? scaleBase : 0.9;
+  const clampedUiScale = Math.min(1.2, Math.max(0.7, uiScalePercent));
+  const scale = Math.min(1.15, Math.max(0.7, base * clampedUiScale));
 
-  const menuW = Math.min(760, Math.max(540, W - 220)) * scale;
-  const menuH = Math.min(520, Math.max(420, H - 220)) * scale;
+  const menuW = Math.min(820, Math.max(560, W - 160)) * scale;
+  const menuH = Math.min(560, Math.max(420, H - 180)) * scale;
   const menuX = W / 2 - menuW / 2;
   const menuY = H / 2 - menuH / 2;
-  const padding = 24 * scale;
-  const headerHeight = 104 * scale;
-  const navW = Math.min(170, Math.max(140, menuW * 0.22));
-  const navX = menuX + padding;
-  const navY = menuY + headerHeight + 12 * scale;
-  const navH = 44 * scale;
-  const navGap = 12 * scale;
-  const contentX = navX + navW + 20 * scale;
-  const contentY = menuY + headerHeight + 16 * scale;
-  const contentW = menuW - (contentX - menuX) - padding;
-  const contentH = menuH - (contentY - menuY) - padding;
-  const innerPadding = 20 * scale;
+  const padding = 28 * scale;
+  const headerHeight = 112 * scale;
+  const navGap = 14 * scale;
+  const navH = 56 * scale;
+  const navCount = PAUSE_MENU_TABS.length;
+  const navAreaWidth = menuW - padding * 2;
+  const navW = Math.max(140 * scale, (navAreaWidth - navGap * (navCount - 1)) / navCount);
+  const navTotalWidth = navW * navCount + navGap * (navCount - 1);
+  const navX = menuX + padding + Math.max(0, (navAreaWidth - navTotalWidth) / 2);
+  const navY = menuY + headerHeight + 18 * scale;
+  const contentX = menuX + padding;
+  const contentY = navY + navH + 24 * scale;
+  const contentW = menuW - padding * 2;
+  const contentH = menuY + menuH - padding - contentY;
+  const innerPadding = 24 * scale;
   const innerX = contentX + innerPadding;
   const innerY = contentY + innerPadding;
   const innerW = Math.max(0, contentW - innerPadding * 2);
@@ -376,6 +315,7 @@ const getPauseMenuLayout = (W: number, H: number) => {
     navW,
     navH,
     navGap,
+    navTotalWidth,
     contentX,
     contentY,
     contentW,
@@ -392,10 +332,10 @@ const getPauseMenuContentMetrics = (
   tab: PauseMenuTab,
   layout: ReturnType<typeof getPauseMenuLayout>
 ) => {
-  const headerHeight = 64 * layout.scale;
-  const footerSpace = (tab === "home" ? 96 : 40) * layout.scale;
+  const headerHeight = 72 * layout.scale;
+  const footerSpace = (tab === "home" ? 140 : 56) * layout.scale;
   const scrollAreaTop = layout.innerY + headerHeight;
-  const scrollAreaHeight = Math.max(80 * layout.scale, layout.innerH - headerHeight - footerSpace);
+  const scrollAreaHeight = Math.max(100 * layout.scale, layout.innerH - headerHeight - footerSpace);
 
   return {
     headerHeight,
@@ -693,16 +633,12 @@ const Index = () => {
         home: 0,
         settings: 0,
         stats: 0,
-        wiki: 0,
-        credits: 0,
-      },
+      } as Record<PauseMenuTab, number>,
       pauseMenuMaxScroll: {
         home: 0,
         settings: 0,
         stats: 0,
-        wiki: 0,
-        credits: 0,
-      },
+      } as Record<PauseMenuTab, number>,
       pauseMenuUiScalePercent: (() => {
         const stored = localStorage.getItem("pauseMenuUiScalePercent");
         const allowed = [70, 80, 90, 100, 110, 120];
@@ -2247,8 +2183,8 @@ const Index = () => {
         const navItems = PAUSE_MENU_TABS;
 
         for (let i = 0; i < navItems.length; i++) {
-          const itemY = navY + i * (navH + navGap);
-          if (mx >= navX && mx <= navX + navW && my >= itemY && my <= itemY + navH) {
+          const itemX = navX + i * (navW + navGap);
+          if (mx >= itemX && mx <= itemX + navW && my >= navY && my <= navY + navH) {
             const newTab = navItems[i];
             gameState.pauseMenuTab = newTab;
             gameState.pauseMenuScroll[newTab] = 0;
@@ -5970,7 +5906,6 @@ const Index = () => {
         const currentLanguage = (gameState.language ?? language) as Language;
         const locale = translations[currentLanguage];
         const pm = locale.pauseMenu;
-        const wikiLocale = locale.wiki;
         const layout = getPauseMenuLayout(W, H, gameState.pauseMenuUiScalePercent / 100);
         const {
           menuX,
@@ -6044,37 +5979,65 @@ const Index = () => {
         ctx.fillText(pm.overviewSubtitle, menuX + padding + scaleValue(4), menuY + scaleValue(86));
 
         const navItems = [
-          { id: "home", label: `🏠 ${pm.home}` },
-          { id: "settings", label: `⚙️ ${pm.settings}` },
-          { id: "stats", label: `📊 ${pm.stats}` },
-          { id: "wiki", label: `📚 ${pm.wiki}` },
-          { id: "credits", label: `✨ ${pm.credits}` },
-        ] as const;
+          { id: "home" as const, label: pm.home, icon: "🎮" },
+          { id: "settings" as const, label: pm.settings, icon: "⚙️" },
+          { id: "stats" as const, label: pm.stats, icon: "📊" },
+        ];
+
+        const navBackgroundX = navX - scaleValue(12);
+        const navBackgroundY = navY - scaleValue(10);
+        const navBackgroundW = layout.navTotalWidth + scaleValue(24);
+        const navBackgroundH = navH + scaleValue(20);
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(navBackgroundX, navBackgroundY, navBackgroundW, navBackgroundH, scaledRadius(16));
+        const navBgGradient = ctx.createLinearGradient(navBackgroundX, navBackgroundY, navBackgroundX, navBackgroundY + navBackgroundH);
+        navBgGradient.addColorStop(0, "rgba(15, 23, 42, 0.78)");
+        navBgGradient.addColorStop(1, "rgba(30, 41, 59, 0.68)");
+        ctx.fillStyle = navBgGradient;
+        ctx.fill();
+        ctx.strokeStyle = "rgba(148, 163, 184, 0.28)";
+        ctx.lineWidth = Math.max(1, scale);
+        ctx.stroke();
+        ctx.restore();
 
         navItems.forEach((item, index) => {
-          const itemY = navY + index * (navH + navGap);
+          const itemX = navX + index * (navW + navGap);
           const isActive = gameState.pauseMenuTab === item.id;
 
           ctx.save();
           ctx.beginPath();
-          ctx.roundRect(navX, itemY, navW, navH, scaledRadius(12));
-          ctx.fillStyle = isActive ? "rgba(96, 165, 250, 0.28)" : "rgba(15, 23, 42, 0.55)";
+          ctx.roundRect(itemX, navY, navW, navH, scaledRadius(14));
+          const itemGradient = ctx.createLinearGradient(itemX, navY, itemX, navY + navH);
+          if (isActive) {
+            itemGradient.addColorStop(0, "rgba(96, 165, 250, 0.38)");
+            itemGradient.addColorStop(1, "rgba(129, 140, 248, 0.26)");
+          } else {
+            itemGradient.addColorStop(0, "rgba(15, 23, 42, 0.55)");
+            itemGradient.addColorStop(1, "rgba(30, 41, 59, 0.5)");
+          }
+          ctx.fillStyle = itemGradient;
           ctx.fill();
-          ctx.strokeStyle = isActive ? "rgba(129, 140, 248, 0.7)" : "rgba(148, 163, 184, 0.2)";
-          ctx.lineWidth = isActive ? Math.max(1, 1.5 * scale) : Math.max(1, scale * 0.9);
+          ctx.strokeStyle = isActive ? "rgba(148, 197, 253, 0.65)" : "rgba(148, 163, 184, 0.25)";
+          ctx.lineWidth = Math.max(1, isActive ? 1.5 * scale : scale);
           ctx.stroke();
           ctx.restore();
 
           if (isActive) {
-            ctx.fillStyle = "rgba(148, 197, 253, 0.8)";
-            ctx.fillRect(navX - scaleValue(3), itemY + scaleValue(10), scaleValue(3), Math.max(scaleValue(6), navH - scaleValue(20)));
+            ctx.fillStyle = "rgba(148, 197, 253, 0.85)";
+            ctx.fillRect(itemX + scaleValue(24), navY + navH - scaleValue(8), navW - scaleValue(48), scaleValue(4));
           }
 
+          ctx.textAlign = "center";
           ctx.fillStyle = "#f8fafc";
-          ctx.font = isActive ? getScaledFont(16, "600") : getScaledFont(15);
-          ctx.textAlign = "left";
-          ctx.fillText(item.label, navX + scaleValue(18), itemY + navH / 2 + scaleValue(5));
+          ctx.font = getScaledFont(20, "600");
+          ctx.fillText(item.icon, itemX + navW / 2, navY + navH / 2 - scaleValue(8));
+          ctx.font = isActive ? getScaledFont(15, "600") : getScaledFont(14);
+          ctx.fillStyle = isActive ? "rgba(248, 250, 252, 0.96)" : "rgba(226, 232, 240, 0.82)";
+          ctx.fillText(item.label, itemX + navW / 2, navY + navH / 2 + scaleValue(20));
         });
+        ctx.textAlign = "left";
 
         const contentGradient = ctx.createLinearGradient(contentX, contentY, contentX, contentY + contentH);
         contentGradient.addColorStop(0, "rgba(15, 23, 42, 0.88)");
@@ -6096,43 +6059,19 @@ const Index = () => {
         let clampedScroll = currentScroll;
         let contentBottom = scrollAreaTop;
 
-        const titleY = innerY + scaleValue(28);
-        const subtitleY = innerY + scaleValue(52);
+        const activeNav = navItems.find(item => item.id === activeTab) ?? navItems[0];
+        const titleY = innerY + scaleValue(26);
+        const subtitleY = titleY + scaleValue(24);
         ctx.textAlign = "left";
         ctx.fillStyle = "#f8fafc";
         ctx.font = getScaledFont(22, "600");
-        switch (activeTab) {
-          case "home":
-            ctx.fillText(pm.home, innerX, titleY);
-            ctx.fillStyle = "rgba(226, 232, 240, 0.75)";
-            ctx.font = getScaledFont(15);
-            ctx.fillText(pm.overviewSubtitle, innerX, subtitleY);
-            break;
-          case "settings":
-            ctx.fillText(pm.settings, innerX, titleY);
-            ctx.fillStyle = "rgba(226, 232, 240, 0.75)";
-            ctx.font = getScaledFont(15);
-            ctx.fillText(pm.audio, innerX, subtitleY);
-            break;
-          case "stats":
-            ctx.fillText(pm.statsTitle, innerX, titleY);
-            ctx.fillStyle = "rgba(226, 232, 240, 0.75)";
-            ctx.font = getScaledFont(15);
-            ctx.fillText(pm.statsHighlights, innerX, subtitleY);
-            break;
-          case "wiki":
-            ctx.fillText(pm.wiki, innerX, titleY);
-            ctx.fillStyle = "rgba(226, 232, 240, 0.75)";
-            ctx.font = getScaledFont(15);
-            ctx.fillText(pm.wikiSubtitle, innerX, subtitleY);
-            break;
-          case "credits":
-            ctx.fillText(pm.credits, innerX, titleY);
-            ctx.fillStyle = "rgba(226, 232, 240, 0.75)";
-            ctx.font = getScaledFont(15);
-            ctx.fillText(pm.creditsSubtitle, innerX, subtitleY);
-            break;
-        }
+        ctx.fillText(`${activeNav.icon} ${activeNav.label}`, innerX, titleY);
+        ctx.fillStyle = "rgba(226, 232, 240, 0.78)";
+        ctx.font = getScaledFont(15);
+        ctx.fillText(pm.tabSubtitles[activeTab], innerX, subtitleY);
+
+        ctx.fillStyle = "rgba(148, 197, 253, 0.22)";
+        ctx.fillRect(innerX, scrollAreaTop - scaleValue(8), innerW, Math.max(1, scale));
 
         ctx.save();
         ctx.beginPath();
@@ -6142,6 +6081,18 @@ const Index = () => {
 
         switch (activeTab) {
           case "home": {
+            let sectionY = scrollAreaTop + scaleValue(12);
+
+            ctx.fillStyle = "#bfdbfe";
+            ctx.font = getScaledFont(18, "600");
+            ctx.fillText(pm.summaryHeading, innerX, sectionY);
+
+            ctx.fillStyle = "rgba(226, 232, 240, 0.75)";
+            ctx.font = getScaledFont(14);
+            ctx.fillText(pm.summaryDescription, innerX, sectionY + scaleValue(22));
+
+            sectionY += scaleValue(48);
+
             const summaryBoxes = [
               { label: pm.summary.wave, value: `#${gameState.wave}`, icon: "🌊", color: "#38bdf8" },
               { label: pm.summary.level, value: `Lv.${gameState.level}`, icon: "⭐", color: "#facc15" },
@@ -6158,9 +6109,9 @@ const Index = () => {
             const columns = innerW > 560 ? 2 : 1;
             const boxGap = scaleValue(18);
             const boxW = columns === 2 ? (innerW - boxGap) / 2 : innerW;
-            const boxH = scaleValue(96);
+            const boxH = scaleValue(100);
             const startX = innerX;
-            const startY = scrollAreaTop + scaleValue(12);
+            const startY = sectionY;
             const lastRow = Math.floor((summaryBoxes.length - 1) / columns);
             const lastRowCount = summaryBoxes.length % columns || columns;
 
@@ -6174,15 +6125,15 @@ const Index = () => {
               }
 
               const cardGradient = ctx.createLinearGradient(boxX, boxY, boxX, boxY + boxH);
-              cardGradient.addColorStop(0, `${box.color}2a`);
-              cardGradient.addColorStop(1, "rgba(15, 23, 42, 0.75)");
+              cardGradient.addColorStop(0, `${box.color}33`);
+              cardGradient.addColorStop(1, "rgba(15, 23, 42, 0.72)");
 
               ctx.save();
               ctx.beginPath();
               ctx.roundRect(boxX, boxY, boxW, boxH, scaledRadius(14));
               ctx.fillStyle = cardGradient;
-              ctx.shadowColor = `${box.color}55`;
-              ctx.shadowBlur = scaleValue(12);
+              ctx.shadowColor = `${box.color}4d`;
+              ctx.shadowBlur = scaleValue(14);
               ctx.fill();
               ctx.shadowBlur = 0;
               ctx.strokeStyle = `${box.color}66`;
@@ -6190,16 +6141,35 @@ const Index = () => {
               ctx.stroke();
               ctx.restore();
 
-              ctx.fillStyle = "rgba(148, 163, 184, 0.85)";
-              ctx.font = getScaledFont(13);
-              ctx.fillText(box.label, boxX + scaleValue(18), boxY + scaleValue(28));
+              const iconCircleX = boxX + scaleValue(28);
+              const iconCircleY = boxY + scaleValue(36);
+              ctx.save();
+              ctx.beginPath();
+              ctx.arc(iconCircleX, iconCircleY, scaleValue(18), 0, Math.PI * 2);
+              const iconGradient = ctx.createRadialGradient(iconCircleX, iconCircleY, scaleValue(6), iconCircleX, iconCircleY, scaleValue(18));
+              iconGradient.addColorStop(0, "rgba(15, 23, 42, 0.15)");
+              iconGradient.addColorStop(1, `${box.color}55`);
+              ctx.fillStyle = iconGradient;
+              ctx.fill();
+              ctx.restore();
 
               ctx.fillStyle = "#f8fafc";
+              ctx.font = getScaledFont(18, "600");
+              ctx.textAlign = "center";
+              ctx.fillText(box.icon, iconCircleX, iconCircleY + scaleValue(6));
+              ctx.textAlign = "left";
+
+              const textX = iconCircleX + scaleValue(24);
+              ctx.fillStyle = "rgba(148, 163, 184, 0.85)";
+              ctx.font = getScaledFont(13);
+              ctx.fillText(box.label, textX, boxY + scaleValue(28));
+              ctx.fillStyle = "#f8fafc";
               ctx.font = getScaledFont(24, "600");
-              ctx.fillText(`${box.icon} ${box.value}`, boxX + scaleValue(18), boxY + boxH / 2 + scaleValue(14));
+              ctx.fillText(box.value, textX, boxY + boxH / 2 + scaleValue(14));
 
               contentBottom = Math.max(contentBottom, boxY + boxH);
             });
+
             break;
           }
           case "settings": {
@@ -6528,117 +6498,6 @@ const Index = () => {
             });
             break;
           }
-          case "wiki": {
-            const wikiLeft = innerX;
-            const descOffset = Math.min(scaleValue(240), innerW * 0.45);
-            let wikiY = scrollAreaTop + scaleValue(12);
-
-            ctx.fillStyle = "#bfdbfe";
-            ctx.font = getScaledFont(18, "600");
-            ctx.fillText(wikiLocale.pickupsTitle, wikiLeft, wikiY);
-            wikiY += scaleValue(30);
-
-            ctx.font = getScaledFont(14);
-            wikiLocale.pickups.forEach(pickup => {
-              ctx.fillStyle = pickup.color;
-              ctx.fillText(pickup.icon, wikiLeft, wikiY);
-              ctx.fillStyle = "#f8fafc";
-              ctx.fillText(`${pickup.name}:`, wikiLeft + scaleValue(28), wikiY);
-              ctx.fillStyle = "rgba(148, 163, 184, 0.9)";
-              ctx.fillText(pickup.desc, wikiLeft + descOffset, wikiY);
-              wikiY += scaleValue(24);
-            });
-
-            wikiY += scaleValue(20);
-            ctx.fillStyle = "#bfdbfe";
-            ctx.font = getScaledFont(18, "600");
-            ctx.fillText(wikiLocale.upgradesTitle, wikiLeft, wikiY);
-            wikiY += scaleValue(28);
-
-            ctx.fillStyle = "rgba(226, 232, 240, 0.72)";
-            ctx.font = getScaledFont(14);
-            ctx.fillText(wikiLocale.upgradesIntro, wikiLeft, wikiY);
-            wikiY += scaleValue(24);
-
-            wikiLocale.upgradeTypes.forEach(type => {
-              ctx.fillStyle = type.color;
-              ctx.fillText(`${type.icon} ${type.name}:`, wikiLeft, wikiY);
-              ctx.fillStyle = "rgba(148, 163, 184, 0.9)";
-              ctx.fillText(type.desc, wikiLeft + descOffset, wikiY);
-              wikiY += scaleValue(24);
-            });
-
-            wikiY += scaleValue(20);
-            ctx.fillStyle = "#bfdbfe";
-            ctx.font = getScaledFont(18, "600");
-            ctx.fillText(wikiLocale.enemiesTitle, wikiLeft, wikiY);
-            wikiY += scaleValue(28);
-
-            wikiLocale.enemies.forEach(enemy => {
-              ctx.fillStyle = enemy.color;
-              ctx.fillText(`${enemy.icon} ${enemy.name}`, wikiLeft, wikiY);
-              ctx.fillStyle = "rgba(148, 163, 184, 0.9)";
-              ctx.fillText(enemy.desc, wikiLeft + descOffset, wikiY);
-              wikiY += scaleValue(24);
-            });
-
-            wikiY += scaleValue(28);
-            ctx.save();
-            const creditsGrad = ctx.createLinearGradient(wikiLeft, wikiY, wikiLeft, wikiY + scaleValue(90));
-            creditsGrad.addColorStop(0, "rgba(168, 85, 247, 0.18)");
-            creditsGrad.addColorStop(1, "rgba(59, 130, 246, 0.14)");
-            ctx.fillStyle = creditsGrad;
-            ctx.beginPath();
-            ctx.roundRect(wikiLeft - scaleValue(10), wikiY - scaleValue(10), innerW - scaleValue(20), scaleValue(90), scaledRadius(16));
-            ctx.fill();
-            ctx.strokeStyle = "rgba(148, 163, 184, 0.3)";
-            ctx.lineWidth = Math.max(1, scale);
-            ctx.stroke();
-            ctx.restore();
-
-            ctx.fillStyle = "#bfdbfe";
-            ctx.font = getScaledFont(18, "600");
-            ctx.fillText(wikiLocale.creditsTitle, wikiLeft, wikiY + scaleValue(20));
-            ctx.fillStyle = "#f8fafc";
-            ctx.font = getScaledFont(26, "600");
-            ctx.fillText(wikiLocale.creditsName, wikiLeft, wikiY + scaleValue(56));
-
-            contentBottom = Math.max(contentBottom, wikiY + scaleValue(90));
-            break;
-          }
-          case "credits": {
-            const cardX = innerX + innerW / 2;
-            const cardY = scrollAreaTop + scrollAreaHeight / 2 - scaleValue(20);
-
-            ctx.save();
-            const creditsGrad = ctx.createRadialGradient(cardX, cardY, scaleValue(20), cardX, cardY, innerW / 1.6);
-            creditsGrad.addColorStop(0, "rgba(168, 85, 247, 0.22)");
-            creditsGrad.addColorStop(1, "rgba(59, 130, 246, 0.08)");
-            ctx.fillStyle = creditsGrad;
-            ctx.beginPath();
-            ctx.roundRect(innerX + scaleValue(20), cardY - scaleValue(110), innerW - scaleValue(40), scaleValue(220), scaledRadius(24));
-            ctx.fill();
-            ctx.restore();
-
-            ctx.fillStyle = "#bfdbfe";
-            ctx.font = getScaledFont(20, "600");
-            ctx.textAlign = "center";
-            ctx.fillText(wikiLocale.creditsTitle, cardX, cardY - scaleValue(40));
-            ctx.fillStyle = "#f8fafc";
-            ctx.font = getScaledFont(34, "600");
-            ctx.fillText(wikiLocale.creditsName, cardX, cardY + scaleValue(8));
-
-            ctx.fillStyle = "rgba(226, 232, 240, 0.7)";
-            ctx.font = getScaledFont(15);
-            const thanksText = currentLanguage === "es"
-              ? "Construido con pasión pixelada por el equipo de Vela Digital."
-              : "Crafted with pixelated passion by the Vela Digital team.";
-            ctx.fillText(thanksText, cardX, cardY + scaleValue(46));
-
-            contentBottom = Math.max(contentBottom, cardY + scaleValue(110));
-            ctx.textAlign = "left";
-            break;
-          }
         }
 
         ctx.restore();
@@ -6699,6 +6558,16 @@ const Index = () => {
             ctx.stroke();
             ctx.restore();
 
+            const gloss = ctx.createLinearGradient(x, y, x, y + buttonH);
+            gloss.addColorStop(0, "rgba(255, 255, 255, 0.14)");
+            gloss.addColorStop(1, "rgba(255, 255, 255, 0)");
+            ctx.save();
+            ctx.beginPath();
+            ctx.roundRect(x, y, w, buttonH, scaledRadius(12));
+            ctx.fillStyle = gloss;
+            ctx.fill();
+            ctx.restore();
+
             ctx.fillStyle = "#f8fafc";
             ctx.font = getScaledFont(18, "600");
             ctx.textAlign = "center";
@@ -6706,10 +6575,23 @@ const Index = () => {
             ctx.textAlign = "left";
           };
 
+          const drawQuickActionsLabel = (centerX: number, textY: number) => {
+            ctx.textAlign = "center";
+            ctx.fillStyle = "#bfdbfe";
+            ctx.font = getScaledFont(18, "600");
+            ctx.fillText(pm.quickActionsHeading, centerX, textY);
+            ctx.fillStyle = "rgba(226, 232, 240, 0.78)";
+            ctx.font = getScaledFont(14);
+            ctx.fillText(pm.quickActionsHint, centerX, textY + scaleValue(20));
+            ctx.textAlign = "left";
+          };
+
           if (canFitHorizontal) {
             const totalButtonsWidth = resumeW + restartW + gap;
             const baseX = innerX + Math.max(0, (innerW - totalButtonsWidth) / 2);
             const buttonY = innerY + innerH - buttonH - scaleValue(12);
+
+            drawQuickActionsLabel(innerX + innerW / 2, buttonY - scaleValue(32));
 
             drawSoftButton(baseX, buttonY, resumeW, locale.continue, "rgba(34, 197, 94, 0.28)", "rgba(134, 239, 172, 0.6)");
             const restartX = baseX + resumeW + gap;
@@ -6721,6 +6603,8 @@ const Index = () => {
           } else {
             const buttonY = innerY + innerH - buttonH * 2 - gap - scaleValue(12);
             const restartY = buttonY + buttonH + gap;
+
+            drawQuickActionsLabel(innerX + innerW / 2, buttonY - scaleValue(32));
 
             drawSoftButton(innerX, buttonY, innerW, locale.continue, "rgba(34, 197, 94, 0.28)", "rgba(134, 239, 172, 0.6)");
             drawSoftButton(innerX, restartY, innerW, locale.restart, "rgba(248, 113, 113, 0.22)", "rgba(252, 165, 165, 0.55)");
