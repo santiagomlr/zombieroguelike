@@ -6255,21 +6255,6 @@ const Index = () => {
         ctx.fillStyle = rarityColor;
         ctx.fillText(`★ ${option.rarity.toUpperCase()} ★`, x + cardW / 2, rarityBadgeY);
 
-        // Partículas flotantes alrededor de la carta
-        for (let j = 0; j < 5; j++) {
-          const angle = (gameState.time * 2 + (j * Math.PI * 2) / 5) % (Math.PI * 2);
-          const radius = 30 + Math.sin(gameState.time * 3 + j) * 10;
-          const px = x + cardW / 2 + Math.cos(angle) * radius;
-          const py = yOffset + cardH / 2 + Math.sin(angle) * radius;
-          const size = 2 + Math.sin(gameState.time * 4 + j) * 1;
-
-          ctx.fillStyle = rarityColor;
-          ctx.globalAlpha = (0.3 + Math.sin(gameState.time * 5 + j) * 0.2) * cardEase;
-          ctx.beginPath();
-          ctx.arc(px, py, size, 0, Math.PI * 2);
-          ctx.fill();
-        }
-
         ctx.restore();
       }
 
