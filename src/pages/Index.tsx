@@ -376,6 +376,7 @@ const Index = () => {
       spawnCooldown: 0, // Cooldown de 3 segundos después de matar todos los enemigos
       canSpawn: true, // Flag para controlar si se puede spawnar
       weaponCooldowns: {} as Record<string, number>,
+      autoAimMemory: {} as Record<string, { target: any | null; lostTimer: number; lastScore: number }>,
       audioContext: null as AudioContext | null,
       keys: {} as Record<string, boolean>,
       showUpgradeUI: false,
@@ -1389,71 +1390,118 @@ const Index = () => {
       });
     }
 
-    function nearestEnemy() {
-      const camera = gameState.camera ?? { x: gameState.player.x, y: gameState.player.y };
+    function scoreEnemyForAutoAim(enemy: any, range: number, preferredTarget: any | null) {
+      const player = gameState.player;
+      const dist = Math.hypot(enemy.x - player.x, enemy.y - player.y);
+
+      if (dist > range * 1.35) {
+        return { score: -Infinity, dist };
+      }
+
+      const camera = gameState.camera ?? { x: player.x, y: player.y };
       const halfViewW = W / 2;
       const halfViewH = H / 2;
-      const minX = camera.x - halfViewW - 50;
-      const maxX = camera.x + halfViewW + 50;
-      const minY = camera.y - halfViewH - 50;
-      const maxY = camera.y + halfViewH + 50;
-      const onScreenEnemies = gameState.enemies.filter(
-        (e: any) => e.x >= minX && e.x <= maxX && e.y >= minY && e.y <= maxY,
-      );
+      const detectionPadding = Math.max(120, Math.min(range * 0.4, 320));
+      const minX = camera.x - halfViewW - detectionPadding;
+      const maxX = camera.x + halfViewW + detectionPadding;
+      const minY = camera.y - halfViewH - detectionPadding;
+      const maxY = camera.y + halfViewH + detectionPadding;
+      const onScreen = enemy.x >= minX && enemy.x <= maxX && enemy.y >= minY && enemy.y <= maxY;
 
-      if (onScreenEnemies.length === 0) return null;
+      const normalizedDistance = 1 - Math.min(dist / range, 1);
+      const speed = enemy.spd || 0;
+      const approachScore = Math.min(1, speed / 3.5);
+      const timeToImpact = speed > 0 ? dist / (speed * 60) : Infinity;
+      const imminentImpactScore = Number.isFinite(timeToImpact) && timeToImpact < 4 ? Math.max(0, 1 - timeToImpact / 4) : 0;
 
-      let bestScore = -Infinity;
-      let bestEnemy = onScreenEnemies[0];
+      let typePriority = 0.3;
+      if (enemy.isBoss) typePriority = 1.4;
+      else if (enemy.isMiniBoss) typePriority = 1.2;
+      else if (enemy.specialType === "explosive") typePriority = 1.3;
+      else if (enemy.isElite) typePriority = 1.0;
+      else if (enemy.specialType) typePriority = 0.8;
+      else if (enemy.enemyType === "strong") typePriority = 0.7;
+      else if (enemy.enemyType === "medium") typePriority = 0.55;
 
-      for (const enemy of onScreenEnemies) {
-        const dist = Math.hypot(enemy.x - gameState.player.x, enemy.y - gameState.player.y);
-        const normalizedDistance = Math.max(0, 1 - dist / 600);
+      const damageScore = Math.min(1, (enemy.damage || 0) / 40);
 
-        const speed = enemy.spd || 0;
-        const approachScore = Math.min(1, speed / 2.5);
-        const timeToImpact = speed > 0 ? dist / (speed * 60) : Infinity;
-        const imminentImpactScore = timeToImpact < 5 ? Math.max(0, 1 - timeToImpact / 5) : 0;
-
-        let typeScore = 0.3;
-        if (enemy.isBoss) typeScore = 1.2;
-        else if (enemy.isMiniBoss) typeScore = 1.0;
-        else if (enemy.specialType === "explosive") typeScore = 1.1;
-        else if (enemy.isElite) typeScore = 0.9;
-        else if (enemy.specialType) typeScore = 0.8;
-        else if (enemy.enemyType === "strong") typeScore = 0.7;
-        else if (enemy.enemyType === "medium") typeScore = 0.5;
-
-        const damageScore = Math.min(1, (enemy.damage || 0) / 40);
-
-        let explosiveUrgency = 0;
-        if (enemy.specialType === "explosive") {
-          const timer = typeof enemy.explosionTimer === "number" ? enemy.explosionTimer : null;
-          if (timer !== null && timer >= 0) {
-            explosiveUrgency = Math.max(0, 1 - Math.min(timer, 2) / 2);
-          } else {
-            explosiveUrgency = 0.4;
-          }
-        }
-
-        const healthRatio = enemy.maxhp ? enemy.hp / enemy.maxhp : 1;
-        const finishingScore = (1 - healthRatio) * 0.3;
-
-        const totalScore =
-          typeScore * 0.35 +
-          damageScore * 0.15 +
-          normalizedDistance * 0.25 +
-          approachScore * 0.1 +
-          Math.max(imminentImpactScore, explosiveUrgency) * 0.1 +
-          finishingScore * 0.05;
-
-        if (totalScore > bestScore) {
-          bestScore = totalScore;
-          bestEnemy = enemy;
+      let explosiveUrgency = 0;
+      if (enemy.specialType === "explosive") {
+        const timer = typeof enemy.explosionTimer === "number" ? enemy.explosionTimer : null;
+        if (timer !== null && timer >= 0) {
+          explosiveUrgency = Math.max(0, 1 - Math.min(timer, 2) / 2);
+        } else {
+          explosiveUrgency = 0.4;
         }
       }
 
-      return bestEnemy;
+      const healthRatio = enemy.maxhp ? enemy.hp / enemy.maxhp : 1;
+      const finishingScore = (1 - healthRatio) * 0.35;
+
+      let clusterScore = 0;
+      if (gameState.enemies.length > 1) {
+        let closeCount = 0;
+        for (const other of gameState.enemies) {
+          if (other === enemy || other.hp <= 0) continue;
+          const dx = other.x - enemy.x;
+          if (Math.abs(dx) > 160) continue;
+          const dy = other.y - enemy.y;
+          if (Math.abs(dy) > 160) continue;
+          const neighborDist = Math.hypot(dx, dy);
+          if (neighborDist <= 180) {
+            closeCount++;
+            if (closeCount >= 6) break;
+          }
+        }
+        clusterScore = Math.min(1, closeCount / 4);
+      }
+
+      const baseScore =
+        typePriority * 0.3 +
+        damageScore * 0.12 +
+        normalizedDistance * 0.18 +
+        Math.max(imminentImpactScore, explosiveUrgency) * 0.18 +
+        approachScore * 0.08 +
+        finishingScore * 0.08 +
+        clusterScore * 0.06;
+
+      const sameTargetBonus = preferredTarget && enemy === preferredTarget ? 0.25 : 0;
+      const visibilityBonus = onScreen ? 0.05 : 0;
+
+      return { score: baseScore + sameTargetBonus + visibilityBonus, dist };
+    }
+
+    function selectSmartTarget(range: number, preferredTarget: any | null) {
+      let bestEnemy: any | null = null;
+      let bestScore = -Infinity;
+      let bestDistance = Infinity;
+
+      const consider = (enemy: any) => {
+        if (!enemy || enemy.hp <= 0) return;
+        const { score, dist } = scoreEnemyForAutoAim(enemy, range, preferredTarget);
+        if (score === -Infinity) return;
+
+        const betterScore = score > bestScore + 0.05;
+        const similarScore = Math.abs(score - bestScore) <= 0.05;
+        const closer = dist < bestDistance - 5;
+
+        if (!bestEnemy || betterScore || (similarScore && closer)) {
+          bestEnemy = enemy;
+          bestScore = score;
+          bestDistance = dist;
+        }
+      };
+
+      if (preferredTarget) {
+        consider(preferredTarget);
+      }
+
+      for (const enemy of gameState.enemies) {
+        if (enemy === preferredTarget) continue;
+        consider(enemy);
+      }
+
+      return { target: bestEnemy, score: bestScore, distance: bestDistance };
     }
 
     function shootWeapon(weapon: Weapon, target: any) {
@@ -1558,23 +1606,63 @@ const Index = () => {
     }
 
     function autoShoot(dt: number) {
-      const target = nearestEnemy();
-      if (!target) return;
+      const player = gameState.player;
 
-      const dist = Math.hypot(target.x - gameState.player.x, target.y - gameState.player.y);
-
-      for (const weapon of gameState.player.weapons) {
-        const range = weapon.range * gameState.player.stats.rangeMultiplier;
-        if (dist > range) continue;
-
+      for (const weapon of player.weapons) {
         const cooldownKey = weapon.id;
-        if (!gameState.weaponCooldowns[cooldownKey]) gameState.weaponCooldowns[cooldownKey] = 0;
+        if (!gameState.weaponCooldowns[cooldownKey]) {
+          gameState.weaponCooldowns[cooldownKey] = 0;
+        }
 
-        gameState.weaponCooldowns[cooldownKey] += dt;
-        const interval = 1 / (weapon.fireRate * gameState.player.stats.fireRateMultiplier);
+        const interval = 1 / (weapon.fireRate * player.stats.fireRateMultiplier);
+        const maxStored = interval * 2;
+        gameState.weaponCooldowns[cooldownKey] = Math.min(
+          gameState.weaponCooldowns[cooldownKey] + dt,
+          maxStored,
+        );
+
+        const memory =
+          gameState.autoAimMemory[cooldownKey] ??
+          (gameState.autoAimMemory[cooldownKey] = {
+            target: null,
+            lostTimer: 0,
+            lastScore: -Infinity,
+          });
+
+        if (memory.target && (!gameState.enemies.includes(memory.target) || memory.target.hp <= 0)) {
+          memory.target = null;
+          memory.lastScore = -Infinity;
+          memory.lostTimer = 0;
+        }
+
+        const range = weapon.range * player.stats.rangeMultiplier;
+        const { target, score, distance } = selectSmartTarget(range, memory.target);
+
+        memory.target = target;
+        memory.lastScore = score;
+
+        if (!target) {
+          memory.lostTimer = 0;
+          continue;
+        }
+
+        if (distance > range) {
+          memory.lostTimer += dt;
+          if (memory.lostTimer > 0.35) {
+            memory.target = null;
+            memory.lastScore = -Infinity;
+          }
+          continue;
+        }
+
+        memory.lostTimer = 0;
 
         if (gameState.weaponCooldowns[cooldownKey] >= interval) {
-          gameState.weaponCooldowns[cooldownKey] = 0;
+          gameState.weaponCooldowns[cooldownKey] -= interval;
+          if (gameState.weaponCooldowns[cooldownKey] < 0) {
+            gameState.weaponCooldowns[cooldownKey] = 0;
+          }
+
           shootWeapon(weapon, target);
         }
       }
