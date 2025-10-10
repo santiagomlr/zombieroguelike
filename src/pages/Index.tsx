@@ -5669,35 +5669,14 @@ const Index = () => {
       for (const e of gameState.enemies) {
         ctx.save();
 
-        // Efectos elementales visuales
-        if (e.frozenTimer > 0) {
-          // Efecto de congelamiento
-          ctx.shadowColor = "#38bdf8";
-          ctx.shadowBlur = 20;
-        } else if (e.burnTimer > 0) {
-          // Efecto de fuego
-          ctx.shadowColor = "#fb923c";
-          ctx.shadowBlur = 25;
-        } else if (e.poisonTimer > 0) {
-          // Efecto de veneno
-          ctx.shadowColor = "#84cc16";
-          ctx.shadowBlur = 15;
-        }
-
         // Si tenemos el logo cargado, dibujarlo con el color del enemigo
         const useGreenZombie = e.color === "#22c55e" && gameState.greenZombieImg && gameState.greenZombieImg.complete;
         
         if (useGreenZombie || (gameState.enemyLogo && gameState.enemyLogo.complete)) {
           ctx.translate(e.x, e.y);
 
-          // Aplicar sombra con el color del enemigo (o efecto elemental)
-          if (!e.frozenTimer && !e.burnTimer && !e.poisonTimer) {
-            ctx.shadowColor = e.color;
-            ctx.shadowBlur = e.isBoss ? 40 : e.isMiniBoss ? 25 : 15;
-          }
-
-          // Dibujar el logo escalado al tamaño del enemigo
-          const logoSize = e.rad * 2;
+          // Dibujar el logo escalado al tamaño del enemigo (3x bigger to scale with player)
+          const logoSize = e.rad * 3;
 
           if (useGreenZombie) {
             // Use the green zombie image directly without tinting
@@ -5717,19 +5696,13 @@ const Index = () => {
             }
           }
 
-          ctx.shadowBlur = 0;
           ctx.restore();
         } else {
           // Fallback: dibujar círculo si la imagen no está cargada
           ctx.fillStyle = e.color;
-          if (!e.frozenTimer && !e.burnTimer && !e.poisonTimer) {
-            ctx.shadowColor = e.color;
-            ctx.shadowBlur = e.isBoss ? 40 : e.isMiniBoss ? 25 : 15;
-          }
           ctx.beginPath();
           ctx.arc(e.x, e.y, e.rad, 0, Math.PI * 2);
           ctx.fill();
-          ctx.shadowBlur = 0;
           ctx.restore();
         }
 
