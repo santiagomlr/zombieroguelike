@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 60">
+  <defs>
+    <linearGradient id="chest-body" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#8b4513" />
+      <stop offset="50%" stop-color="#72330f" />
+      <stop offset="100%" stop-color="#5a250a" />
+    </linearGradient>
+    <linearGradient id="chest-lid" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#d97706" />
+      <stop offset="100%" stop-color="#b45309" />
+    </linearGradient>
+  </defs>
+  <rect x="6" y="20" width="68" height="32" rx="6" fill="url(#chest-body)" stroke="#3b1704" stroke-width="2" />
+  <rect x="6" y="10" width="68" height="18" rx="6" fill="url(#chest-lid)" stroke="#3b1704" stroke-width="2" />
+  <rect x="36" y="12" width="8" height="38" rx="3" fill="#facc15" stroke="#b45309" stroke-width="2" />
+  <rect x="10" y="24" width="60" height="12" fill="#00000020" />
+  <rect x="10" y="30" width="60" height="4" fill="#fcd34d40" />
+  <path d="M12 16h56" stroke="#fcd34d" stroke-width="2" stroke-linecap="round" />
+</svg>
