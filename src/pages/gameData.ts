@@ -566,10 +566,7 @@ export const upgradeDescriptionTexts: Record<Language, Record<string, string>> =
   },
 };
 
-export const getUpgradeDescriptionText = (
-  key: string | undefined,
-  language: Language,
-): string | undefined => {
+export const getUpgradeDescriptionText = (key: string | undefined, language: Language): string | undefined => {
   if (!key) return undefined;
   return upgradeDescriptionTexts[language][key] ?? upgradeDescriptionTexts.en[key];
 };
@@ -588,26 +585,26 @@ export type TomeDescriptionTemplate = {
 
 export const tomeDescriptionTemplates: Record<Language, TomeDescriptionTemplate> = {
   es: {
-    damage: value => `+${value}% Daño`,
-    speed: value => `+${value}% Velocidad`,
-    bounce: value => `${value} Rebotes (Enemigos)`,
-    range: value => `+${value}% Alcance`,
-    precision: value => `+${value}% Precisión`,
-    multishot: value => `+${value} Proyectiles`,
+    damage: (value) => `+${value}% Daño`,
+    speed: (value) => `+${value}% Velocidad`,
+    bounce: (value) => `${value} Rebotes (Enemigos)`,
+    range: (value) => `+${value}% Alcance`,
+    precision: (value) => `+${value}% Precisión`,
+    multishot: (value) => `+${value} Proyectiles`,
     regen: ({ rate, interval }) => `Regenera ${rate} HP cada ${interval}s`,
-    magnet: value => `+${value}% Rango imán`,
-    fire: value => `+${value}% Cadencia`,
+    magnet: (value) => `+${value}% Rango imán`,
+    fire: (value) => `+${value}% Cadencia`,
   },
   en: {
-    damage: value => `+${value}% Damage`,
-    speed: value => `+${value}% Speed`,
-    bounce: value => `${value} Bounces (Enemies)`,
-    range: value => `+${value}% Range`,
-    precision: value => `+${value}% Accuracy`,
-    multishot: value => `+${value} Projectiles`,
+    damage: (value) => `+${value}% Damage`,
+    speed: (value) => `+${value}% Speed`,
+    bounce: (value) => `${value} Bounces (Enemies)`,
+    range: (value) => `+${value}% Range`,
+    precision: (value) => `+${value}% Accuracy`,
+    multishot: (value) => `+${value} Projectiles`,
     regen: ({ rate, interval }) => `Regenerates ${rate} HP every ${interval}s`,
-    magnet: value => `+${value}% Magnet range`,
-    fire: value => `+${value}% Fire rate`,
+    magnet: (value) => `+${value}% Magnet range`,
+    fire: (value) => `+${value}% Fire rate`,
   },
 };
 
@@ -629,11 +626,7 @@ export const getItemText = (item: Item, language: Language): ItemLocalization =>
   return { name: item.id, description: "" };
 };
 
-export const getTomeDescription = (
-  tome: Tome,
-  language: Language,
-  stats?: PlayerStats,
-): string => {
+export const getTomeDescription = (tome: Tome, language: Language, stats?: PlayerStats): string => {
   const fallbackTemplates = tomeDescriptionTemplates.en;
   const templates = tomeDescriptionTemplates[language] ?? fallbackTemplates;
 
@@ -694,16 +687,105 @@ export const getTomeDescription = (
 };
 
 export const WEAPONS: Weapon[] = [
-  { id: "pistol", damage: 1, fireRate: 2, range: 250, projectileSpeed: 8, rarity: "common", color: "#6e6e6e", level: 1 },
-  { id: "shotgun", damage: 3, fireRate: 0.8, range: 180, projectileSpeed: 6, rarity: "uncommon", color: "#5dbb63", special: "spread", level: 1 },
-  { id: "smg", damage: 0.7, fireRate: 6, range: 200, projectileSpeed: 10, rarity: "rare", color: "#2e86c1", level: 1 },
-  { id: "rocket", damage: 8, fireRate: 0.5, range: 350, projectileSpeed: 5, rarity: "epic", color: "#8e44ad", special: "aoe", level: 1 },
-  { id: "laser", damage: 2, fireRate: 4, range: 400, projectileSpeed: 15, rarity: "uncommon", color: "#2e86c1", special: "pierce", level: 1 },
-  { id: "railgun", damage: 12, fireRate: 0.3, range: 500, projectileSpeed: 20, rarity: "legendary", color: "#ffc300", special: "pierce", level: 1 },
-  { id: "minigun", damage: 0.5, fireRate: 10, range: 220, projectileSpeed: 12, rarity: "legendary", color: "#ff3b3b", special: "rapid", level: 1 },
-  { id: "flamethrower", damage: 0.8, fireRate: 8, range: 150, projectileSpeed: 6, rarity: "rare", color: "#ff7a2a", special: "fire", level: 1 },
-  { id: "frostbow", damage: 1.2, fireRate: 2, range: 350, projectileSpeed: 9, rarity: "epic", color: "#2e86c1", special: "freeze", level: 1 },
-  { id: "homing", damage: 4, fireRate: 0.4, range: 400, projectileSpeed: 7, rarity: "rare", color: "#8e44ad", special: "homing", level: 1 },
+  {
+    id: "pistol",
+    damage: 1,
+    fireRate: 1.6,
+    range: 250,
+    projectileSpeed: 8,
+    rarity: "common",
+    color: "#6e6e6e",
+    level: 1,
+  },
+  {
+    id: "shotgun",
+    damage: 3,
+    fireRate: 0.7,
+    range: 180,
+    projectileSpeed: 6,
+    rarity: "uncommon",
+    color: "#5dbb63",
+    special: "spread",
+    level: 1,
+  },
+  { id: "smg", damage: 0.7, fireRate: 3, range: 200, projectileSpeed: 10, rarity: "rare", color: "#2e86c1", level: 1 },
+  {
+    id: "rocket",
+    damage: 8,
+    fireRate: 0.3,
+    range: 350,
+    projectileSpeed: 5,
+    rarity: "epic",
+    color: "#8e44ad",
+    special: "aoe",
+    level: 1,
+  },
+  {
+    id: "laser",
+    damage: 2,
+    fireRate: 4,
+    range: 400,
+    projectileSpeed: 15,
+    rarity: "uncommon",
+    color: "#2e86c1",
+    special: "pierce",
+    level: 1,
+  },
+  {
+    id: "railgun",
+    damage: 12,
+    fireRate: 0.3,
+    range: 500,
+    projectileSpeed: 20,
+    rarity: "legendary",
+    color: "#ffc300",
+    special: "pierce",
+    level: 1,
+  },
+  {
+    id: "minigun",
+    damage: 0.5,
+    fireRate: 8,
+    range: 220,
+    projectileSpeed: 12,
+    rarity: "legendary",
+    color: "#ff3b3b",
+    special: "rapid",
+    level: 1,
+  },
+  {
+    id: "flamethrower",
+    damage: 0.8,
+    fireRate: 6,
+    range: 150,
+    projectileSpeed: 6,
+    rarity: "rare",
+    color: "#ff7a2a",
+    special: "fire",
+    level: 1,
+  },
+  {
+    id: "frostbow",
+    damage: 1.2,
+    fireRate: 0.4,
+    range: 350,
+    projectileSpeed: 9,
+    rarity: "epic",
+    color: "#2e86c1",
+    special: "freeze",
+    level: 1,
+  },
+  {
+    id: "homing",
+    damage: 10,
+    fireRate: 0.2,
+    range: 400,
+    projectileSpeed: 7,
+    rarity: "rare",
+    color: "#8e44ad",
+    special: "homing",
+    level: 1,
+  },
 ];
 
 export const TOMES: Tome[] = [
