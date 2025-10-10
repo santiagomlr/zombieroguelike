@@ -1,7 +1,6 @@
 const DEFAULT_SFX_COOLDOWN_MS = 120;
 
 export type SfxKey =
-  | "shoot"
   | "hit"
   | "level_up"
   | "pickup"
@@ -48,12 +47,6 @@ type PooledSource = {
 };
 
 const SFX_DATA: Partial<Record<SfxKey, string>> = {
-  shoot:
-    "data:audio/wav;base64,UklGRmQBAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YUABAAB/qL61k2dGQVqErL+zjmJEQl6Jr7+viV5CRGKO" +
-    "s7+shFpBRmeTtb6of1ZASWuXuL2kelI/S3CcurygdU8/T3WgvLqccEs/UnqkvbiXa0lAVn+ovrWTZ0ZBWoSsv7OOYkRCXomvv6+JXkJEYo6zv6yEWkFGZ5O1vqh/VkBJ" +
-    "a5e4vaR6Uj9LcJy6vKB1Tz9PdaC8upxwSz9SeqS9uJdrSUBWf6i+tZNnRkFahKy/s45iREJeia+/r4leQkRijrO/rIRaQUZnk7W+qH9WQElrl7i9pHpSP0twnLq8oHVP" +
-    "P091oLy6nHBLP1J6pL24l2tJQFZ/qL61k2dGQVqErL+zjmJEQl6Jr7+viV5CRGKOs7+shFpBRmeTtb6of1ZASWuXuL2kelI/S3CcurygdU8/T3WgvLqccEs/UnqkvbiX" +
-    "a0lAVg==",
   hit:
     "data:audio/wav;base64,UklGRqQCAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YYACAAB/jpyqtb/GyszKxr+1qpyOf3BiVEk/ODQzNDg/SVRi" +
     "cH+OnKq1v8bKzMrGv7WqnI5/cGJUST84NDM0OD9JVGJwf46cqrW/xsrMysa/taqcjn9wYlRJPzg0MzQ4P0lUYnB/jpyqtb/GyszKxr+1qpyOf3BiVEk/ODQzNDg/SVRi" +
@@ -75,12 +68,6 @@ const SFX_DATA: Partial<Record<SfxKey, string>> = {
 };
 
 const SFX_DEFINITIONS: Record<SfxKey, SfxDefinition> = {
-  shoot: {
-    dataUrl: SFX_DATA.shoot,
-    cooldownMs: 45,
-    duplicateStrategy: "attenuate",
-    attenuation: 0.35,
-  },
   hit: {
     dataUrl: SFX_DATA.hit,
     cooldownMs: 90,

@@ -949,9 +949,6 @@ const Index = () => {
     audioManager.setSfxMuted(gameState.sfxMuted);
 
     // Sound effect functions
-    const playShootSound = () => {
-      audioManager.playSfx("shoot");
-    };
     const playHitSound = () => {
       audioManager.playSfx("hit");
     };
@@ -993,7 +990,6 @@ const Index = () => {
       onWeaponFired(weaponId: string) {
         const config = weaponSoundConfigs[weaponId];
         if (!config) {
-          playShootSound();
           return;
         }
 
@@ -1001,8 +997,6 @@ const Index = () => {
           const sounds = config.fireSounds;
           const key = sounds.length === 1 ? sounds[0] : sounds[Math.floor(Math.random() * sounds.length)];
           audioManager.playSfx(key);
-        } else if (!config.loopSound) {
-          playShootSound();
         }
 
         if (config.loopSound) {
