@@ -7728,15 +7728,18 @@ const Index = () => {
       const baseAlpha = ctx.globalAlpha;
 
       if (hasPlayerSprite) {
-        ctx.fillStyle = playerAccent;
-        ctx.beginPath();
-        ctx.arc(gameState.player.x, gameState.player.y, gameState.player.rad * 1.15, 0, Math.PI * 2);
-        ctx.globalAlpha = baseAlpha * (isRage ? 0.6 : 0.45);
-        ctx.fill();
-        ctx.globalAlpha = baseAlpha;
+        const baseCircleOpacity = 0;
+        if (baseCircleOpacity > 0) {
+          ctx.fillStyle = playerAccent;
+          ctx.beginPath();
+          ctx.arc(gameState.player.x, gameState.player.y, gameState.player.rad * 1.15, 0, Math.PI * 2);
+          ctx.globalAlpha = baseAlpha * baseCircleOpacity;
+          ctx.fill();
+          ctx.globalAlpha = baseAlpha;
+        }
 
         const aspectRatio = playerSprite.naturalWidth / playerSprite.naturalHeight || 1;
-        const baseHeight = gameState.player.rad * 2.4;
+        const baseHeight = gameState.player.rad * 2.7;
         const drawHeight = baseHeight;
         const drawWidth = baseHeight * aspectRatio;
 
