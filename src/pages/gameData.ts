@@ -126,7 +126,7 @@ export interface PlayerStats {
   damageReduction: number;
   powerupDuration: number;
   xpBonus: number;
-  firstHitImmuneUsed: boolean;
+  firstHitImmuneChargesUsed: number;
   chaosDamage: boolean;
   solarGauntletKills: number;
   bloodstoneKills: number;
@@ -159,6 +159,7 @@ export interface Item {
   effect: string;
   rarity: Rarity;
   color: string;
+  maxStacks?: number;
 }
 
 export interface Upgrade {
