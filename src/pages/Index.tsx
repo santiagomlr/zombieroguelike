@@ -34,6 +34,7 @@ interface Translations {
   paused: string;
   startMusicButton: string;
   shufflePlaylistReady: string;
+  clickToSelect: string;
   tutorial: {
     move: string;
   };
@@ -121,6 +122,7 @@ const translations: Record<Language, Translations> = {
     paused: "PAUSA",
     startMusicButton: "🎵 Iniciar música",
     shufflePlaylistReady: "Reproducción aleatoria lista",
+    clickToSelect: "Click para seleccionar",
     tutorial: {
       move: "Usa WASD para moverte",
     },
@@ -209,6 +211,7 @@ const translations: Record<Language, Translations> = {
     paused: "PAUSED",
     startMusicButton: "🎵 Start Music",
     shufflePlaylistReady: "Shuffle playlist ready",
+    clickToSelect: "Click to select",
     tutorial: {
       move: "Use WASD to move",
     },
@@ -269,6 +272,324 @@ const translations: Record<Language, Translations> = {
   },
 };
 
+interface WeaponLocalization {
+  name: string;
+}
+
+interface TomeLocalization {
+  name: string;
+}
+
+interface ItemLocalization {
+  name: string;
+  description: string;
+}
+
+const weaponTexts: Record<Language, Record<string, WeaponLocalization>> = {
+  es: {
+    pistol: { name: "Pistola" },
+    shotgun: { name: "Escopeta" },
+    smg: { name: "SMG" },
+    rocket: { name: "Lanzacohetes" },
+    laser: { name: "Láser" },
+    railgun: { name: "Railgun" },
+    minigun: { name: "Minigun" },
+    electric: { name: "Arma Eléctrica" },
+    flamethrower: { name: "Lanzallamas" },
+    frostbow: { name: "Arco Congelante" },
+    homing: { name: "Misil Teledirigido" },
+  },
+  en: {
+    pistol: { name: "Pistol" },
+    shotgun: { name: "Shotgun" },
+    smg: { name: "SMG" },
+    rocket: { name: "Rocket Launcher" },
+    laser: { name: "Laser" },
+    railgun: { name: "Railgun" },
+    minigun: { name: "Minigun" },
+    electric: { name: "Electric Blaster" },
+    flamethrower: { name: "Flamethrower" },
+    frostbow: { name: "Frost Bow" },
+    homing: { name: "Homing Missile" },
+  },
+};
+
+const tomeTexts: Record<Language, Record<string, TomeLocalization>> = {
+  es: {
+    power: { name: "Tomo de Poder" },
+    speed: { name: "Tomo de Velocidad" },
+    bounce: { name: "Tomo de Rebote" },
+    range: { name: "Tomo de Alcance" },
+    precision: { name: "Tomo de Precisión" },
+    multi: { name: "Tomo Múltiple" },
+    regen: { name: "Tomo de Regeneración" },
+    magnet: { name: "Tomo de Magnetismo" },
+    fire: { name: "Tomo de Cadencia" },
+  },
+  en: {
+    power: { name: "Power Tome" },
+    speed: { name: "Speed Tome" },
+    bounce: { name: "Bounce Tome" },
+    range: { name: "Range Tome" },
+    precision: { name: "Precision Tome" },
+    multi: { name: "Multishot Tome" },
+    regen: { name: "Regeneration Tome" },
+    magnet: { name: "Magnetism Tome" },
+    fire: { name: "Fire Rate Tome" },
+  },
+};
+
+const itemTexts: Record<Language, Record<string, ItemLocalization>> = {
+  es: {
+    windboots: { name: "Botas de Viento", description: "+5% velocidad" },
+    fastgloves: { name: "Guantes Rápidos", description: "+5% cadencia" },
+    lightvest: { name: "Chaleco Ligero", description: "+10 HP máximo" },
+    tacticalbelt: { name: "Cinturón Táctico", description: "+10% magnetismo" },
+    oldclock: { name: "Reloj Antiguo", description: "+5% duración powerups" },
+    rustyring: { name: "Anillo Oxidado", description: "+10 XP por kill" },
+    combatglasses: { name: "Gafas de Combate", description: "+10% precisión" },
+    reinforcedpants: { name: "Pantalones Reforzados", description: "-5% daño recibido" },
+    bouncegloves: { name: "Guantes de Rebote", description: "+1 rebote" },
+    energyclock: { name: "Reloj de Energía", description: "+10% cadencia global" },
+    ballistichelmet: { name: "Casco Balístico", description: "Inmunidad 1er golpe/wave" },
+    jetboots: { name: "Botas Jet", description: "+15% velocidad" },
+    reactiveshield: { name: "Escudo Reactivo", description: "Onda empuja enemigos" },
+    chaosamuleto: { name: "Amuleto del Caos", description: "Daño +10% a +50%" },
+    ironmedal: { name: "Medalla de Hierro", description: "+15% HP máximo" },
+    heavyvest: { name: "Chaleco Pesado", description: "-10% velocidad, -25% daño" },
+    plasmafragment: { name: "Fragmento de Plasma", description: "+1 rebote +15% alcance" },
+    voidcore: { name: "Núcleo del Vacío", description: "XP Doble" },
+    solargauntlet: { name: "Guantelete Solar", description: "Proyectil cada 10 kills" },
+    infernalengine: { name: "Motor Infernal", description: "+25% velocidad +20% daño, +10% daño recibido" },
+    bloodstone: { name: "Piedra de Sangre", description: "5 HP cada 30 kills" },
+    hordetotem: { name: "Tótem de la Horda", description: "+1 enemigo spawn, +2 XP/kill" },
+    artificialheart: { name: "Corazón Artificial", description: "+50 HP permanente" },
+    infinitylens: { name: "Lente del Infinito", description: "+10% todos los stats" },
+  },
+  en: {
+    windboots: { name: "Wind Boots", description: "+5% speed" },
+    fastgloves: { name: "Fast Gloves", description: "+5% fire rate" },
+    lightvest: { name: "Light Vest", description: "+10 max HP" },
+    tacticalbelt: { name: "Tactical Belt", description: "+10% magnetism" },
+    oldclock: { name: "Old Clock", description: "+5% power-up duration" },
+    rustyring: { name: "Rusty Ring", description: "+10 XP per kill" },
+    combatglasses: { name: "Combat Glasses", description: "+10% accuracy" },
+    reinforcedpants: { name: "Reinforced Pants", description: "-5% damage taken" },
+    bouncegloves: { name: "Bounce Gloves", description: "+1 bounce" },
+    energyclock: { name: "Energy Clock", description: "+10% global fire rate" },
+    ballistichelmet: { name: "Ballistic Helmet", description: "Immune first hit/wave" },
+    jetboots: { name: "Jet Boots", description: "+15% speed" },
+    reactiveshield: { name: "Reactive Shield", description: "Wave pushes enemies" },
+    chaosamuleto: { name: "Chaos Amulet", description: "Damage +10% to +50%" },
+    ironmedal: { name: "Iron Medal", description: "+15% max HP" },
+    heavyvest: { name: "Heavy Vest", description: "-10% speed, -25% damage" },
+    plasmafragment: { name: "Plasma Fragment", description: "+1 bounce +15% range" },
+    voidcore: { name: "Void Core", description: "Double XP" },
+    solargauntlet: { name: "Solar Gauntlet", description: "Projectile every 10 kills" },
+    infernalengine: { name: "Infernal Engine", description: "+25% speed +20% damage, +10% damage taken" },
+    bloodstone: { name: "Bloodstone", description: "5 HP every 30 kills" },
+    hordetotem: { name: "Horde Totem", description: "+1 enemy spawn, +2 XP/kill" },
+    artificialheart: { name: "Artificial Heart", description: "+50 permanent HP" },
+    infinitylens: { name: "Infinity Lens", description: "+10% all stats" },
+  },
+};
+
+const upgradeDescriptionTexts: Record<Language, Record<string, string>> = {
+  es: {
+    "weapon.damage": "+30% Daño",
+    "weapon.fireRate": "+25% Cadencia",
+    "weapon.range": "+20% Alcance",
+    "weapon.spread": "+1 Pellet adicional",
+    "weapon.aoe": "+50% Radio de explosión",
+    "weapon.pierce": "+2 Perforaciones",
+    "tome.damage.effect": "+20% Daño",
+    "tome.damage.special": "+15% Daño crítico",
+    "tome.speed.effect": "+15% Velocidad",
+    "tome.speed.special": "+10% Esquiva",
+    "tome.range.effect": "+20% Alcance",
+    "tome.range.special": "+15% Velocidad de proyectil",
+    "tome.fireRate.effect": "+20% Cadencia",
+    "tome.fireRate.special": "Recarga instantánea ocasional",
+    "tome.bounce.effect": "+1 Rebote",
+    "tome.bounce.special": "Rebotes explosivos",
+    "tome.multishot.effect": "+1 Proyectil",
+    "tome.multishot.special": "Patrón circular",
+    "tome.magnet.effect": "+15% radio imán",
+    "tome.magnet.special": "Atrae powerups lejanos",
+    "tome.regen.effect": "Duplica velocidad de regen",
+    "tome.regen.special": "Escudo temporal al regenerar",
+    "tome.precision.effect": "+15% Precisión",
+    "tome.precision.special": "+20% Chance crítico",
+    "tome.xp.effect": "+25% XP",
+    "tome.xp.special": "Doble XP de jefes",
+  },
+  en: {
+    "weapon.damage": "+30% Damage",
+    "weapon.fireRate": "+25% Fire rate",
+    "weapon.range": "+20% Range",
+    "weapon.spread": "+1 Additional pellet",
+    "weapon.aoe": "+50% Explosion radius",
+    "weapon.pierce": "+2 Pierces",
+    "tome.damage.effect": "+20% Damage",
+    "tome.damage.special": "+15% Critical damage",
+    "tome.speed.effect": "+15% Speed",
+    "tome.speed.special": "+10% Dodge chance",
+    "tome.range.effect": "+20% Range",
+    "tome.range.special": "+15% Projectile speed",
+    "tome.fireRate.effect": "+20% Fire rate",
+    "tome.fireRate.special": "Occasional instant reload",
+    "tome.bounce.effect": "+1 Bounce",
+    "tome.bounce.special": "Explosive bounces",
+    "tome.multishot.effect": "+1 Projectile",
+    "tome.multishot.special": "Circular pattern",
+    "tome.magnet.effect": "+15% Magnet radius",
+    "tome.magnet.special": "Pulls distant power-ups",
+    "tome.regen.effect": "Doubles regen speed",
+    "tome.regen.special": "Temporary shield on regen",
+    "tome.precision.effect": "+15% Accuracy",
+    "tome.precision.special": "+20% Critical chance",
+    "tome.xp.effect": "+25% XP",
+    "tome.xp.special": "Double boss XP",
+  },
+};
+
+const getUpgradeDescriptionText = (key: string | undefined, language: Language): string | undefined => {
+  if (!key) return undefined;
+  const localized = upgradeDescriptionTexts[language][key] ?? upgradeDescriptionTexts.en[key];
+  return localized;
+};
+
+type TomeDescriptionTemplate = {
+  damage: (value: number) => string;
+  speed: (value: number) => string;
+  bounce: (value: number) => string;
+  range: (value: number) => string;
+  precision: (value: number) => string;
+  multishot: (value: number) => string;
+  regen: (params: { rate: number; interval: number }) => string;
+  magnet: (value: number) => string;
+  fire: (value: number) => string;
+};
+
+const tomeDescriptionTemplates: Record<Language, TomeDescriptionTemplate> = {
+  es: {
+    damage: value => `+${value}% Daño`,
+    speed: value => `+${value}% Velocidad`,
+    bounce: value => `${value} Rebotes (Enemigos)`,
+    range: value => `+${value}% Alcance`,
+    precision: value => `+${value}% Precisión`,
+    multishot: value => `+${value} Proyectiles`,
+    regen: ({ rate, interval }) => `Regenera ${rate} HP cada ${interval}s`,
+    magnet: value => `+${value}% Rango imán`,
+    fire: value => `+${value}% Cadencia`,
+  },
+  en: {
+    damage: value => `+${value}% Damage`,
+    speed: value => `+${value}% Speed`,
+    bounce: value => `${value} Bounces (Enemies)`,
+    range: value => `+${value}% Range`,
+    precision: value => `+${value}% Accuracy`,
+    multishot: value => `+${value} Projectiles`,
+    regen: ({ rate, interval }) => `Regenerates ${rate} HP every ${interval}s`,
+    magnet: value => `+${value}% Magnet range`,
+    fire: value => `+${value}% Fire rate`,
+  },
+};
+
+const getWeaponName = (id: string, language: Language): string => {
+  const localized = weaponTexts[language][id] ?? weaponTexts.en[id];
+  return localized ? localized.name : id;
+};
+
+const getTomeName = (id: string, language: Language): string => {
+  const localized = tomeTexts[language][id] ?? tomeTexts.en[id];
+  return localized ? localized.name : id;
+};
+
+const getTomeDescription = (tome: Tome, language: Language, stats?: PlayerStats): string => {
+  const fallbackTemplates = tomeDescriptionTemplates.en;
+  const templates = tomeDescriptionTemplates[language] ?? fallbackTemplates;
+
+  switch (tome.effect) {
+    case "damage": {
+      const bonus = Math.round(tome.level * 10);
+      return (templates?.damage ?? fallbackTemplates.damage)(bonus);
+    }
+    case "speed": {
+      const bonus = Math.round(Math.min(tome.level, 5) * 5);
+      return (templates?.speed ?? fallbackTemplates.speed)(bonus);
+    }
+    case "bounce": {
+      const value = stats ? Math.max(1, stats.bounces) : Math.min(tome.level, 5);
+      return (templates?.bounce ?? fallbackTemplates.bounce)(value);
+    }
+    case "range": {
+      const percentages = [10, 25, 40, 60, 80];
+      const index = Math.min(tome.level, percentages.length) - 1;
+      const bonus = percentages[Math.max(0, index)] ?? percentages[percentages.length - 1];
+      return (templates?.range ?? fallbackTemplates.range)(bonus);
+    }
+    case "precision": {
+      const bonus = Math.min(tome.level, 5) * 10;
+      return (templates?.precision ?? fallbackTemplates.precision)(bonus);
+    }
+    case "multishot": {
+      const base = stats ? stats.multishot : tome.level;
+      const value = Math.max(1, base + (stats ? 1 : 0));
+      return (templates?.multishot ?? fallbackTemplates.multishot)(value);
+    }
+    case "regen": {
+      const regenLevels = [
+        { rate: 1, interval: 5 },
+        { rate: 1, interval: 4 },
+        { rate: 2, interval: 5 },
+        { rate: 2, interval: 4 },
+        { rate: 3, interval: 4 },
+      ];
+      let rate = stats?.regenRate ?? 1;
+      let interval = stats?.regenInterval ?? 5;
+      if (!stats) {
+        const index = Math.min(tome.level, regenLevels.length) - 1;
+        if (index >= 0) {
+          rate = regenLevels[index].rate;
+          interval = regenLevels[index].interval;
+        } else {
+          rate = 1;
+          interval = 5;
+        }
+        if (tome.level > regenLevels.length) {
+          const extra = tome.level - regenLevels.length;
+          rate = regenLevels[regenLevels.length - 1].rate + extra;
+          interval = 4;
+        }
+      }
+      return (templates?.regen ?? fallbackTemplates.regen)({ rate, interval });
+    }
+    case "magnet": {
+      const bonus = stats
+        ? Math.round((stats.magnetMultiplier - 1) * 100)
+        : Math.round((Math.pow(1.1, Math.min(tome.level, 5)) - 1) * 100);
+      return (templates?.magnet ?? fallbackTemplates.magnet)(bonus);
+    }
+    case "fireRate": {
+      const bonus = stats
+        ? Math.round((stats.fireRateMultiplier - 1) * 100)
+        : Math.round((Math.pow(1.1, tome.level) - 1) * 100);
+      return (templates?.fire ?? fallbackTemplates.fire)(bonus);
+    }
+    default:
+      return "";
+  }
+};
+
+const getItemText = (item: Item, language: Language) => {
+  const localized = itemTexts[language][item.id] ?? itemTexts.en[item.id];
+  if (localized) {
+    return localized;
+  }
+  return { name: item.id, description: "" };
+};
+
 const LANGUAGE_ORDER: Language[] = ["es", "en"];
 
 type PauseMenuTab = "home" | "settings" | "stats";
@@ -306,7 +627,6 @@ const clamp = (value: number, min: number, max: number) => Math.max(min, Math.mi
 
 interface Weapon {
   id: string;
-  name: string;
   damage: number;
   fireRate: number;
   range: number;
@@ -319,8 +639,6 @@ interface Weapon {
 
 interface Tome {
   id: string;
-  name: string;
-  description: string;
   effect: string;
   value: number;
   rarity: Rarity;
@@ -330,11 +648,34 @@ interface Tome {
 
 interface Item {
   id: string;
-  name: string;
-  description: string;
   effect: string;
   rarity: Rarity;
   color: string;
+}
+
+interface PlayerStats {
+  damageMultiplier: number;
+  speedMultiplier: number;
+  rangeMultiplier: number;
+  fireRateMultiplier: number;
+  bounces: number;
+  multishot: number;
+  auraRadius: number;
+  vampire: number;
+  xpMultiplier: number;
+  precision: number;
+  regenRate: number;
+  regenInterval: number;
+  magnetMultiplier: number;
+  bounceOnEnemies: boolean;
+  damageReduction: number;
+  powerupDuration: number;
+  xpBonus: number;
+  firstHitImmuneUsed: boolean;
+  chaosDamage: boolean;
+  solarGauntletKills: number;
+  bloodstoneKills: number;
+  reactiveShieldActive: boolean;
 }
 
 interface Upgrade {
@@ -344,69 +685,69 @@ interface Upgrade {
   isLevelUp?: boolean;
   targetIndex?: number;
   upgradeType?: "damage" | "fireRate" | "range" | "special" | "effect";
-  description?: string;
+  descriptionKey?: string;
 }
 
 const WEAPONS: Weapon[] = [
-  { id: "pistol", name: "Pistola", damage: 1, fireRate: 2, range: 250, projectileSpeed: 8, rarity: "common", color: "#9ca3af", level: 1 },
-  { id: "shotgun", name: "Escopeta", damage: 3, fireRate: 0.8, range: 180, projectileSpeed: 6, rarity: "uncommon", color: "#22c55e", special: "spread", level: 1 },
-  { id: "smg", name: "SMG", damage: 0.7, fireRate: 6, range: 200, projectileSpeed: 10, rarity: "rare", color: "#3b82f6", level: 1 },
-  { id: "rocket", name: "Lanzacohetes", damage: 8, fireRate: 0.5, range: 350, projectileSpeed: 5, rarity: "epic", color: "#a855f7", special: "aoe", level: 1 },
-  { id: "laser", name: "Láser", damage: 2, fireRate: 4, range: 400, projectileSpeed: 15, rarity: "epic", color: "#06b6d4", special: "pierce", level: 1 },
-  { id: "railgun", name: "Railgun", damage: 12, fireRate: 0.3, range: 500, projectileSpeed: 20, rarity: "legendary", color: "#fbbf24", special: "pierce", level: 1 },
-  { id: "minigun", name: "Minigun", damage: 0.5, fireRate: 10, range: 220, projectileSpeed: 12, rarity: "legendary", color: "#f87171", special: "rapid", level: 1 },
+  { id: "pistol", damage: 1, fireRate: 2, range: 250, projectileSpeed: 8, rarity: "common", color: "#9ca3af", level: 1 },
+  { id: "shotgun", damage: 3, fireRate: 0.8, range: 180, projectileSpeed: 6, rarity: "uncommon", color: "#22c55e", special: "spread", level: 1 },
+  { id: "smg", damage: 0.7, fireRate: 6, range: 200, projectileSpeed: 10, rarity: "rare", color: "#3b82f6", level: 1 },
+  { id: "rocket", damage: 8, fireRate: 0.5, range: 350, projectileSpeed: 5, rarity: "epic", color: "#a855f7", special: "aoe", level: 1 },
+  { id: "laser", damage: 2, fireRate: 4, range: 400, projectileSpeed: 15, rarity: "epic", color: "#06b6d4", special: "pierce", level: 1 },
+  { id: "railgun", damage: 12, fireRate: 0.3, range: 500, projectileSpeed: 20, rarity: "legendary", color: "#fbbf24", special: "pierce", level: 1 },
+  { id: "minigun", damage: 0.5, fireRate: 10, range: 220, projectileSpeed: 12, rarity: "legendary", color: "#f87171", special: "rapid", level: 1 },
   // Nuevas armas elementales
-  { id: "electric", name: "Arma Eléctrica", damage: 1.5, fireRate: 3, range: 300, projectileSpeed: 10, rarity: "epic", color: "#60a5fa", special: "chain", level: 1 },
-  { id: "flamethrower", name: "Lanzallamas", damage: 0.8, fireRate: 8, range: 150, projectileSpeed: 6, rarity: "rare", color: "#fb923c", special: "fire", level: 1 },
-  { id: "frostbow", name: "Arco Congelante", damage: 1.2, fireRate: 2, range: 350, projectileSpeed: 9, rarity: "epic", color: "#38bdf8", special: "freeze", level: 1 },
-  { id: "homing", name: "Misil Teledirigido", damage: 4, fireRate: 1, range: 400, projectileSpeed: 7, rarity: "legendary", color: "#f472b6", special: "homing", level: 1 },
+  { id: "electric", damage: 1.5, fireRate: 3, range: 300, projectileSpeed: 10, rarity: "epic", color: "#60a5fa", special: "chain", level: 1 },
+  { id: "flamethrower", damage: 0.8, fireRate: 8, range: 150, projectileSpeed: 6, rarity: "rare", color: "#fb923c", special: "fire", level: 1 },
+  { id: "frostbow", damage: 1.2, fireRate: 2, range: 350, projectileSpeed: 9, rarity: "epic", color: "#38bdf8", special: "freeze", level: 1 },
+  { id: "homing", damage: 4, fireRate: 1, range: 400, projectileSpeed: 7, rarity: "legendary", color: "#f472b6", special: "homing", level: 1 },
 ];
 
 const TOMES: Tome[] = [
-  { id: "power", name: "Tomo de Poder", description: "+10% Daño", effect: "damage", value: 1.1, rarity: "rare", color: "#f87171", level: 1 },
-  { id: "speed", name: "Tomo de Velocidad", description: "+5% Velocidad", effect: "speed", value: 1.05, rarity: "uncommon", color: "#22c55e", level: 1 },
-  { id: "bounce", name: "Tomo de Rebote", description: "+1 Rebote (Enemigos)", effect: "bounce", value: 1, rarity: "epic", color: "#a855f7", level: 1 },
-  { id: "range", name: "Tomo de Alcance", description: "+10% Alcance", effect: "range", value: 1.1, rarity: "uncommon", color: "#3b82f6", level: 1 },
-  { id: "precision", name: "Tomo de Precisión", description: "+10% Precisión", effect: "precision", value: 1.1, rarity: "rare", color: "#8b5cf6", level: 1 },
-  { id: "multi", name: "Tomo Múltiple", description: "+1 Proyectil", effect: "multishot", value: 1, rarity: "legendary", color: "#06b6d4", level: 1 },
-  { id: "regen", name: "Tomo de Regeneración", description: "Regenera 1 HP cada 5s", effect: "regen", value: 1, rarity: "uncommon", color: "#10b981", level: 1 },
-  { id: "magnet", name: "Tomo de Magnetismo", description: "+10% Rango de imán", effect: "magnet", value: 1.1, rarity: "common", color: "#64748b", level: 1 },
-  { id: "fire", name: "Tomo de Cadencia", description: "+10% Cadencia", effect: "fireRate", value: 1.1, rarity: "rare", color: "#fbbf24", level: 1 },
+  { id: "power", effect: "damage", value: 1.1, rarity: "rare", color: "#f87171", level: 1 },
+  { id: "speed", effect: "speed", value: 1.05, rarity: "uncommon", color: "#22c55e", level: 1 },
+  { id: "bounce", effect: "bounce", value: 1, rarity: "epic", color: "#a855f7", level: 1 },
+  { id: "range", effect: "range", value: 1.1, rarity: "uncommon", color: "#3b82f6", level: 1 },
+  { id: "precision", effect: "precision", value: 1.1, rarity: "rare", color: "#8b5cf6", level: 1 },
+  { id: "multi", effect: "multishot", value: 1, rarity: "legendary", color: "#06b6d4", level: 1 },
+  { id: "regen", effect: "regen", value: 1, rarity: "uncommon", color: "#10b981", level: 1 },
+  { id: "magnet", effect: "magnet", value: 1.1, rarity: "common", color: "#64748b", level: 1 },
+  { id: "fire", effect: "fireRate", value: 1.1, rarity: "rare", color: "#fbbf24", level: 1 },
 ];
 
 const ITEMS: Item[] = [
   // Común
-  { id: "windboots", name: "Botas de Viento", description: "+5% velocidad", effect: "speedboost", rarity: "common", color: "#9ca3af" },
-  { id: "fastgloves", name: "Guantes Rápidos", description: "+5% cadencia", effect: "firerateitem", rarity: "common", color: "#9ca3af" },
-  { id: "lightvest", name: "Chaleco Ligero", description: "+10 HP máximo", effect: "maxhp10", rarity: "common", color: "#9ca3af" },
-  { id: "tacticalbelt", name: "Cinturón Táctico", description: "+10% magnetismo", effect: "magnetitem", rarity: "common", color: "#9ca3af" },
-  { id: "oldclock", name: "Reloj Antiguo", description: "+5% duración powerups", effect: "powerupduration", rarity: "common", color: "#9ca3af" },
-  { id: "rustyring", name: "Anillo Oxidado", description: "+10 XP por kill", effect: "xpbonus", rarity: "common", color: "#9ca3af" },
-  
+  { id: "windboots", effect: "speedboost", rarity: "common", color: "#9ca3af" },
+  { id: "fastgloves", effect: "firerateitem", rarity: "common", color: "#9ca3af" },
+  { id: "lightvest", effect: "maxhp10", rarity: "common", color: "#9ca3af" },
+  { id: "tacticalbelt", effect: "magnetitem", rarity: "common", color: "#9ca3af" },
+  { id: "oldclock", effect: "powerupduration", rarity: "common", color: "#9ca3af" },
+  { id: "rustyring", effect: "xpbonus", rarity: "common", color: "#9ca3af" },
+
   // Raro
-  { id: "combatglasses", name: "Gafas de Combate", description: "+10% precisión", effect: "precisionitem", rarity: "rare", color: "#3b82f6" },
-  { id: "reinforcedpants", name: "Pantalones Reforzados", description: "-5% daño recibido", effect: "damagereduction", rarity: "rare", color: "#3b82f6" },
-  { id: "bouncegloves", name: "Guantes de Rebote", description: "+1 rebote", effect: "bounceitem", rarity: "rare", color: "#3b82f6" },
+  { id: "combatglasses", effect: "precisionitem", rarity: "rare", color: "#3b82f6" },
+  { id: "reinforcedpants", effect: "damagereduction", rarity: "rare", color: "#3b82f6" },
+  { id: "bouncegloves", effect: "bounceitem", rarity: "rare", color: "#3b82f6" },
   // ELIMINADO: extrabag (dropcapacity no implementado)
-  { id: "energyclock", name: "Reloj de Energía", description: "+10% cadencia global", effect: "globalfirerate", rarity: "rare", color: "#3b82f6" },
-  { id: "ballistichelmet", name: "Casco Balístico", description: "Inmunidad 1er golpe/wave", effect: "firsthitimmune", rarity: "rare", color: "#3b82f6" },
-  
+  { id: "energyclock", effect: "globalfirerate", rarity: "rare", color: "#3b82f6" },
+  { id: "ballistichelmet", effect: "firsthitimmune", rarity: "rare", color: "#3b82f6" },
+
   // Épico
-  { id: "jetboots", name: "Botas Jet", description: "+15% velocidad", effect: "jetspeed", rarity: "epic", color: "#a855f7" },
-  { id: "reactiveshield", name: "Escudo Reactivo", description: "Onda empuja enemigos", effect: "reactiveshield", rarity: "epic", color: "#a855f7" },
-  { id: "chaosamuleto", name: "Amuleto del Caos", description: "Daño +10% a +50%", effect: "chaosdamage", rarity: "epic", color: "#a855f7" },
-  { id: "ironmedal", name: "Medalla de Hierro", description: "+15% HP máximo", effect: "maxhp15", rarity: "epic", color: "#a855f7" },
-  { id: "heavyvest", name: "Chaleco Pesado", description: "-10% velocidad, -25% daño", effect: "heavyarmor", rarity: "epic", color: "#a855f7" },
-  { id: "plasmafragment", name: "Fragmento de Plasma", description: "+1 rebote +15% alcance", effect: "plasmafrag", rarity: "epic", color: "#a855f7" },
-  
+  { id: "jetboots", effect: "jetspeed", rarity: "epic", color: "#a855f7" },
+  { id: "reactiveshield", effect: "reactiveshield", rarity: "epic", color: "#a855f7" },
+  { id: "chaosamuleto", effect: "chaosdamage", rarity: "epic", color: "#a855f7" },
+  { id: "ironmedal", effect: "maxhp15", rarity: "epic", color: "#a855f7" },
+  { id: "heavyvest", effect: "heavyarmor", rarity: "epic", color: "#a855f7" },
+  { id: "plasmafragment", effect: "plasmafrag", rarity: "epic", color: "#a855f7" },
+
   // Legendario
-  { id: "voidcore", name: "Núcleo del Vacío", description: "XP Doble", effect: "doublexp", rarity: "legendary", color: "#fbbf24" },
-  { id: "solargauntlet", name: "Guantelete Solar", description: "Proyectil cada 10 kills", effect: "solargauntlet", rarity: "legendary", color: "#fbbf24" },
-  { id: "infernalengine", name: "Motor Infernal", description: "+25% velocidad +20% daño, +10% daño recibido", effect: "infernalengine", rarity: "legendary", color: "#fbbf24" },
-  { id: "bloodstone", name: "Piedra de Sangre", description: "5 HP cada 30 kills", effect: "bloodstone", rarity: "legendary", color: "#fbbf24" },
-  { id: "hordetotem", name: "Tótem de la Horda", description: "+1 enemigo spawn, +2 XP/kill", effect: "hordetotem", rarity: "legendary", color: "#fbbf24" },
-  { id: "artificialheart", name: "Corazón Artificial", description: "+50 HP permanente", effect: "artificialheart", rarity: "legendary", color: "#fbbf24" },
-  { id: "infinitylens", name: "Lente del Infinito", description: "+10% todos los stats", effect: "infinitylens", rarity: "legendary", color: "#fbbf24" },
+  { id: "voidcore", effect: "doublexp", rarity: "legendary", color: "#fbbf24" },
+  { id: "solargauntlet", effect: "solargauntlet", rarity: "legendary", color: "#fbbf24" },
+  { id: "infernalengine", effect: "infernalengine", rarity: "legendary", color: "#fbbf24" },
+  { id: "bloodstone", effect: "bloodstone", rarity: "legendary", color: "#fbbf24" },
+  { id: "hordetotem", effect: "hordetotem", rarity: "legendary", color: "#fbbf24" },
+  { id: "artificialheart", effect: "artificialheart", rarity: "legendary", color: "#fbbf24" },
+  { id: "infinitylens", effect: "infinitylens", rarity: "legendary", color: "#fbbf24" },
 ];
 
 const rarityColors = {
@@ -1655,22 +1996,22 @@ const Index = () => {
           const w = gameState.player.weapons[i];
           const upgradeVariants: Array<{
             upgradeType: "damage" | "fireRate" | "range" | "special";
-            description: string;
+            descriptionKey: string;
             rarity: Rarity;
           }> = [
             {
               upgradeType: "damage",
-              description: "+30% Daño",
+              descriptionKey: "weapon.damage",
               rarity: "uncommon",
             },
             {
               upgradeType: "fireRate",
-              description: "+25% Cadencia",
+              descriptionKey: "weapon.fireRate",
               rarity: "rare",
             },
             {
               upgradeType: "range",
-              description: "+20% Alcance",
+              descriptionKey: "weapon.range",
               rarity: "uncommon",
             },
           ];
@@ -1679,23 +2020,23 @@ const Index = () => {
           if (w.special === "spread") {
             upgradeVariants.push({
               upgradeType: "special" as const,
-              description: "+1 Pellet adicional",
+              descriptionKey: "weapon.spread",
               rarity: "rare" as Rarity,
             });
           } else if (w.special === "aoe") {
             upgradeVariants.push({
               upgradeType: "special" as const,
-              description: "+50% Radio de explosión",
+              descriptionKey: "weapon.aoe",
               rarity: "epic" as Rarity,
             });
           } else if (w.special === "pierce") {
             upgradeVariants.push({
               upgradeType: "special" as const,
-              description: "+2 Perforaciones",
+              descriptionKey: "weapon.pierce",
               rarity: "rare" as Rarity,
             });
           }
-          
+
           for (const variant of upgradeVariants) {
             availableUpgrades.push({
               type: "weapon",
@@ -1704,7 +2045,7 @@ const Index = () => {
               isLevelUp: true,
               targetIndex: i,
               upgradeType: variant.upgradeType,
-              description: variant.description,
+              descriptionKey: variant.descriptionKey,
             });
           }
         }
@@ -1729,48 +2070,48 @@ const Index = () => {
           const t = gameState.player.tomes[i];
           type UpgradeVariant = {
             upgradeType: "effect" | "special";
-            description: string;
+            descriptionKey: string;
             rarity: Rarity;
           };
           const upgradeVariants: UpgradeVariant[] = [];
-          
+
           if (t.effect === "damage") {
             upgradeVariants.push(
-              { upgradeType: "effect", description: "+20% Daño", rarity: "rare" },
-              { upgradeType: "special", description: "+15% Daño crítico", rarity: "epic" }
+              { upgradeType: "effect", descriptionKey: "tome.damage.effect", rarity: "rare" },
+              { upgradeType: "special", descriptionKey: "tome.damage.special", rarity: "epic" }
             );
           } else if (t.effect === "speed") {
             upgradeVariants.push(
-              { upgradeType: "effect", description: "+15% Velocidad", rarity: "uncommon" },
-              { upgradeType: "special", description: "+10% Esquiva", rarity: "rare" }
+              { upgradeType: "effect", descriptionKey: "tome.speed.effect", rarity: "uncommon" },
+              { upgradeType: "special", descriptionKey: "tome.speed.special", rarity: "rare" }
             );
           } else if (t.effect === "range") {
             upgradeVariants.push(
-              { upgradeType: "effect", description: "+20% Alcance", rarity: "uncommon" },
-              { upgradeType: "special", description: "+15% Velocidad de proyectil", rarity: "rare" }
+              { upgradeType: "effect", descriptionKey: "tome.range.effect", rarity: "uncommon" },
+              { upgradeType: "special", descriptionKey: "tome.range.special", rarity: "rare" }
             );
           } else if (t.effect === "fireRate") {
             upgradeVariants.push(
-              { upgradeType: "effect", description: "+20% Cadencia", rarity: "rare" },
-              { upgradeType: "special", description: "Recarga instantánea ocasional", rarity: "epic" }
+              { upgradeType: "effect", descriptionKey: "tome.fireRate.effect", rarity: "rare" },
+              { upgradeType: "special", descriptionKey: "tome.fireRate.special", rarity: "epic" }
             );
           } else if (t.effect === "bounce") {
             upgradeVariants.push(
-              { upgradeType: "effect", description: "+1 Rebote", rarity: "epic" },
-              { upgradeType: "special", description: "Rebotes explosivos", rarity: "legendary" }
+              { upgradeType: "effect", descriptionKey: "tome.bounce.effect", rarity: "epic" },
+              { upgradeType: "special", descriptionKey: "tome.bounce.special", rarity: "legendary" }
             );
           } else if (t.effect === "multishot") {
             upgradeVariants.push(
-              { upgradeType: "effect", description: "+1 Proyectil", rarity: "legendary" },
-              { upgradeType: "special", description: "Patrón circular", rarity: "epic" }
+              { upgradeType: "effect", descriptionKey: "tome.multishot.effect", rarity: "legendary" },
+              { upgradeType: "special", descriptionKey: "tome.multishot.special", rarity: "epic" }
             );
           } else if (t.effect === "xp") {
             upgradeVariants.push(
-              { upgradeType: "effect", description: "+25% XP", rarity: "rare" },
-              { upgradeType: "special", description: "Doble XP de jefes", rarity: "epic" }
+              { upgradeType: "effect", descriptionKey: "tome.xp.effect", rarity: "rare" },
+              { upgradeType: "special", descriptionKey: "tome.xp.special", rarity: "epic" }
             );
           }
-          
+
           for (const variant of upgradeVariants) {
             availableUpgrades.push({
               type: "tome",
@@ -1779,7 +2120,7 @@ const Index = () => {
               isLevelUp: true,
               targetIndex: i,
               upgradeType: variant.upgradeType,
-              description: variant.description,
+              descriptionKey: variant.descriptionKey,
             });
           }
         }
@@ -1904,18 +2245,15 @@ const Index = () => {
           if (existingTome.effect === "damage") {
             // +10% daño por nivel (sin límite)
             gameState.player.stats.damageMultiplier *= 1.1;
-            existingTome.description = `+${existingTome.level * 10}% Daño`;
           } else if (existingTome.effect === "speed") {
             // +5% velocidad por nivel (max 5 = 25%)
             if (currentLevel < 5) {
               gameState.player.stats.speedMultiplier *= 1.05;
-              existingTome.description = `+${existingTome.level * 5}% Velocidad`;
             }
           } else if (existingTome.effect === "bounce") {
             // +1 rebote por nivel (max 5 rebotes)
             if (currentLevel < 5) {
               gameState.player.stats.bounces += 1;
-              existingTome.description = `${gameState.player.stats.bounces} Rebotes (Enemigos)`;
             }
           } else if (existingTome.effect === "range") {
             // Niveles específicos: +10%, +25%, +40%, +60%, +80% (max 5)
@@ -1925,18 +2263,15 @@ const Index = () => {
               const newBonus = rangeBonuses[currentLevel];
               gameState.player.stats.rangeMultiplier = (gameState.player.stats.rangeMultiplier / prevBonus) * newBonus;
               const percentages = [10, 25, 40, 60, 80];
-              existingTome.description = `+${percentages[currentLevel]}% Alcance`;
             }
           } else if (existingTome.effect === "precision") {
             // +10% precisión por nivel, -10% dispersión por nivel (max 5 = 50%)
             if (currentLevel < 5) {
               gameState.player.stats.precision += 10;
-              existingTome.description = `+${gameState.player.stats.precision}% Precisión`;
             }
           } else if (existingTome.effect === "multishot") {
             // +1 proyectil por nivel (sin límite)
             gameState.player.stats.multishot += 1;
-            existingTome.description = `+${gameState.player.stats.multishot + 1} Proyectiles`;
           } else if (existingTome.effect === "regen") {
             // Niveles específicos de regeneración
             const regenLevels = [
@@ -1950,25 +2285,21 @@ const Index = () => {
               const config = regenLevels[currentLevel];
               gameState.player.stats.regenRate = config.rate;
               gameState.player.stats.regenInterval = config.interval;
-              existingTome.description = `Regen ${config.rate} HP cada ${config.interval}s`;
             } else {
               // Más allá del nivel 5, continuar mejorando
               const extraLevels = currentLevel - 4;
               gameState.player.stats.regenRate = 3 + extraLevels;
-              existingTome.description = `Regen ${gameState.player.stats.regenRate} HP cada 4s`;
             }
           } else if (existingTome.effect === "magnet") {
             // +10% por nivel hasta nivel 5 (80%)
             if (currentLevel < 5) {
               gameState.player.stats.magnetMultiplier *= 1.1;
               const totalBonus = Math.round((gameState.player.stats.magnetMultiplier - 1) * 100);
-              existingTome.description = `+${totalBonus}% Rango imán`;
             }
           } else if (existingTome.effect === "fireRate") {
             // +10% cadencia por nivel (sin límite)
             gameState.player.stats.fireRateMultiplier *= 1.1;
             const totalBonus = Math.round((gameState.player.stats.fireRateMultiplier - 1) * 100);
-            existingTome.description = `+${totalBonus}% Cadencia`;
           }
         } else {
           // Nuevo tomo
@@ -4488,14 +4819,15 @@ const Index = () => {
       ctx.textAlign = "left";
       ctx.fillStyle = "#fff";
       ctx.font = "bold 14px system-ui";
-      ctx.fillText("Armas:", W - 220, 70);
+      ctx.fillText(t.weapons, W - 220, 70);
       for (let i = 0; i < gameState.player.weapons.length; i++) {
         const w = gameState.player.weapons[i];
         ctx.fillStyle = w.color;
         ctx.fillRect(W - 220, 80 + i * 25, 18, 18);
         ctx.fillStyle = "#fff";
         ctx.font = "12px system-ui";
-        const weaponText = w.level > 1 ? `${w.name} LVL ${w.level}` : w.name;
+        const weaponName = getWeaponName(w.id, currentLanguage);
+        const weaponText = w.level > 1 ? `${weaponName} LVL ${w.level}` : weaponName;
         ctx.fillText(weaponText, W - 195, 93 + i * 25);
       }
 
@@ -4510,7 +4842,8 @@ const Index = () => {
         ctx.fillRect(W - 220, tomeY + 10 + i * 25, 18, 18);
         ctx.fillStyle = "#fff";
         ctx.font = "12px system-ui";
-        const tomeText = tome.level > 1 ? `${tome.name} LVL ${tome.level}` : tome.name;
+        const tomeName = getTomeName(tome.id, currentLanguage);
+        const tomeText = tome.level > 1 ? `${tomeName} LVL ${tome.level}` : tomeName;
         ctx.fillText(tomeText, W - 195, tomeY + 23 + i * 25);
       }
 
@@ -4530,33 +4863,36 @@ const Index = () => {
           ctx.fillStyle = "#fff";
           ctx.font = "10px system-ui";
           // Truncar nombre si es muy largo
-          const itemName = item.name.length > 18 ? item.name.substring(0, 16) + "..." : item.name;
+          const itemNameFull = getItemText(item, currentLanguage).name;
+          const itemName = itemNameFull.length > 18 ? itemNameFull.substring(0, 16) + "..." : itemNameFull;
           ctx.fillText(itemName, W - 202, itemY + 20 + i * 20);
         }
-        
+
         // Indicador de más ítems
         if (gameState.player.items.length > 10) {
           ctx.fillStyle = "#9ca3af";
           ctx.font = "10px system-ui";
-          ctx.fillText(`+${gameState.player.items.length - 10} más`, W - 220, itemY + 10 + maxItemsToShow * 20 + 15);
+          const remaining = gameState.player.items.length - 10;
+          const moreItemsText = currentLanguage === "es" ? `+${remaining} más` : `+${remaining} more`;
+          ctx.fillText(moreItemsText, W - 220, itemY + 10 + maxItemsToShow * 20 + 15);
         }
       }
 
       // Level up animation
-      if (gameState.levelUpAnimation > 0) {
-        const alpha = gameState.levelUpAnimation;
-        ctx.globalAlpha = alpha;
-        ctx.fillStyle = "#fbbf24";
-        ctx.font = "bold 72px system-ui";
-        ctx.textAlign = "center";
-        const scale = 1 + (1 - alpha) * 0.5;
-        ctx.save();
-        ctx.translate(W / 2, H / 2);
-        ctx.scale(scale, scale);
-        ctx.fillText("LEVEL UP!", 0, 0);
-        ctx.restore();
-        ctx.globalAlpha = 1;
-      }
+        if (gameState.levelUpAnimation > 0) {
+          const alpha = gameState.levelUpAnimation;
+          ctx.globalAlpha = alpha;
+          ctx.fillStyle = "#fbbf24";
+          ctx.font = "bold 72px system-ui";
+          ctx.textAlign = "center";
+          const scale = 1 + (1 - alpha) * 0.5;
+          ctx.save();
+          ctx.translate(W / 2, H / 2);
+          ctx.scale(scale, scale);
+          ctx.fillText(t.levelUp, 0, 0);
+          ctx.restore();
+          ctx.globalAlpha = 1;
+        }
       
       // Wave notification - Anuncio de la wave que viene
       if (gameState.waveNotification > 0) {
@@ -4784,11 +5120,11 @@ const Index = () => {
       ctx.fillStyle = "#fbbf24";
       ctx.font = "bold 56px system-ui";
       ctx.textAlign = "center";
-      ctx.fillText("¡SUBISTE DE NIVEL!", 0, 0);
+      ctx.fillText(t.levelUp, 0, 0);
       
       // Segundo glow para más intensidad
       ctx.shadowBlur = 60 * pulse * animProgress;
-      ctx.fillText("¡SUBISTE DE NIVEL!", 0, 0);
+      ctx.fillText(t.levelUp, 0, 0);
       ctx.shadowBlur = 0;
       
       ctx.restore();
@@ -4797,7 +5133,7 @@ const Index = () => {
       ctx.font = "28px system-ui";
       ctx.fillStyle = `rgba(156, 163, 175, ${animProgress})`;
       ctx.textAlign = "center";
-      ctx.fillText("Elige una mejora:", W / 2, H / 2 - 100);
+      ctx.fillText(t.chooseUpgrade, W / 2, H / 2 - 100);
       
       ctx.globalAlpha = 1;
       
@@ -4867,7 +5203,8 @@ const Index = () => {
         ctx.fillStyle = rarityColor;
         ctx.font = "bold 14px system-ui";
         ctx.textAlign = "center";
-        const typeText = option.type === "weapon" ? "⚔️ ARMA" : option.type === "tome" ? "📖 TOMO" : "✨ ÍTEM";
+        const typeLabel = option.type === "weapon" ? t.weapon : option.type === "tome" ? t.tome : t.item;
+        const typeText = `${option.type === "weapon" ? "⚔️" : option.type === "tome" ? "📖" : "✨"} ${typeLabel}`;
         
         // Badge background
         const badgeW = 100;
@@ -4888,8 +5225,20 @@ const Index = () => {
         ctx.font = "bold 22px system-ui";
         ctx.shadowColor = "#000";
         ctx.shadowBlur = 4;
-        const nameText = option.isLevelUp ? `${data.name} ★${data.level + 1}` : data.name;
-        
+        let nameText = "";
+        if (option.type === "weapon") {
+          const weaponData = data as Weapon;
+          const weaponName = getWeaponName(weaponData.id, currentLanguage);
+          nameText = option.isLevelUp ? `${weaponName} ★${weaponData.level + 1}` : weaponName;
+        } else if (option.type === "tome") {
+          const tomeData = data as Tome;
+          const tomeName = getTomeName(tomeData.id, currentLanguage);
+          nameText = option.isLevelUp ? `${tomeName} ★${tomeData.level + 1}` : tomeName;
+        } else {
+          const itemData = data as Item;
+          nameText = getItemText(itemData, currentLanguage).name;
+        }
+
         // Wrap text if too long
         const maxWidth = cardW - 30;
         ctx.fillText(nameText, x + cardW / 2, yOffset + 75, maxWidth);
@@ -4899,25 +5248,31 @@ const Index = () => {
         ctx.fillStyle = "#cbd5e1";
         ctx.font = "15px system-ui";
         
+        const descriptionText = getUpgradeDescriptionText(option.descriptionKey, currentLanguage);
+
         if (option.type === "weapon") {
           const w = data as Weapon;
-          if (option.isLevelUp && option.description) {
+          if (option.isLevelUp && descriptionText) {
             // Wrap description text
-            wrapText(ctx, option.description, x + cardW / 2, yOffset + 110, maxWidth, 20);
+            wrapText(ctx, descriptionText, x + cardW / 2, yOffset + 110, maxWidth, 20);
           } else {
             ctx.textAlign = "left";
             const statsX = x + 20;
-            ctx.fillText(`💥 Daño: ${w.damage.toFixed(1)}`, statsX, yOffset + 110);
-            ctx.fillText(`⚡ Cadencia: ${w.fireRate.toFixed(1)}/s`, statsX, yOffset + 135);
-            ctx.fillText(`🎯 Alcance: ${w.range}`, statsX, yOffset + 160);
+            ctx.fillText(`💥 ${t.damage}: ${w.damage.toFixed(1)}`, statsX, yOffset + 110);
+            ctx.fillText(`⚡ ${t.fireRate}: ${w.fireRate.toFixed(1)}/s`, statsX, yOffset + 135);
+            ctx.fillText(`🎯 ${t.range}: ${w.range}`, statsX, yOffset + 160);
             ctx.textAlign = "center";
           }
         } else if (option.type === "tome") {
-          const t = data as Tome;
-          const desc = option.isLevelUp && option.description ? option.description : t.description;
+          const tomeData = data as Tome;
+          const desc = option.isLevelUp && descriptionText
+            ? descriptionText
+            : getTomeDescription(tomeData, currentLanguage);
           wrapText(ctx, desc, x + cardW / 2, yOffset + 110, maxWidth, 20);
         } else {
-          wrapText(ctx, data.description, x + cardW / 2, yOffset + 110, maxWidth, 20);
+          const itemData = data as Item;
+          const itemText = getItemText(itemData, currentLanguage);
+          wrapText(ctx, itemText.description, x + cardW / 2, yOffset + 110, maxWidth, 20);
         }
         
         // Rareza badge en la parte inferior
@@ -4959,7 +5314,7 @@ const Index = () => {
       ctx.fillStyle = "rgba(156, 163, 175, 0.6)";
       ctx.font = "16px system-ui";
       ctx.textAlign = "center";
-      ctx.fillText("Click para seleccionar", W / 2, H - 60);
+      ctx.fillText(t.clickToSelect, W / 2, H - 60);
       
       ctx.restore();
     }
