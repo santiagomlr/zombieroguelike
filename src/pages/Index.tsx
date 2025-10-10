@@ -453,12 +453,6 @@ const upgradeDescriptionTexts: Record<Language, Record<string, string>> = {
   },
 };
 
-const ENABLE_AUDIO = false;
-const ENABLE_MUSIC = false;
-const ENABLE_ENVIRONMENTAL_EVENTS = false;
-const ENABLE_HOTSPOTS = false;
-const MAX_PARTICLES = 80;
-
 const getUpgradeDescriptionText = (key: string | undefined, language: Language): string | undefined => {
   if (!key) return undefined;
   const localized = upgradeDescriptionTexts[language][key] ?? upgradeDescriptionTexts.en[key];
@@ -786,9 +780,6 @@ const Index = () => {
   const t = translations[language];
 
   useEffect(() => {
-    if (gameStateRef.current) {
-      return;
-    }
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -856,7 +847,7 @@ const Index = () => {
       drops: [] as any[],
       particles: [] as any[],
       hotspots: [] as any[],
-      maxParticles: MAX_PARTICLES,
+      maxParticles: 200,
       bosses: [] as any[],
       score: 0,
       level: 1,
@@ -1016,18 +1007,15 @@ const Index = () => {
     };
     
     // Initialize Web Audio API
-    if (ENABLE_AUDIO) {
-      try {
-        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        gameState.audioContext = audioCtx;
-      } catch (e) {
-        console.warn("Web Audio API not supported");
-      }
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      gameState.audioContext = audioCtx;
+    } catch (e) {
+      console.warn("Web Audio API not supported");
     }
     
     // Initialize music system
     function initMusic() {
-      if (!ENABLE_MUSIC) return;
       if (!gameState.music) {
         const audio = new Audio();
         audio.volume = gameState.musicVolume;
@@ -1045,7 +1033,7 @@ const Index = () => {
     }
     
     function playNextTrack() {
-      if (!ENABLE_MUSIC || !gameState.music || !gameState.musicStarted) return;
+      if (!gameState.music || !gameState.musicStarted) return;
       
       const track = gameState.musicTracks[gameState.currentMusicIndex];
       gameState.music.src = track.path;
@@ -1061,57 +1049,227 @@ const Index = () => {
     }
     
     // Inicializar música pero sin auto-play
-    if (ENABLE_MUSIC) {
-      initMusic();
-    }
+    initMusic();
     
     // Sound effect functions
     const playSound = (frequency: number, duration: number, type: OscillatorType = "sine", volume: number = 0.3) => {
-      if (!ENABLE_AUDIO || gameState.sfxMuted || !gameState.audioContext) return;
+      if (!gameState.audioContext || gameState.sfxMuted) return;
       const oscillator = gameState.audioContext.createOscillator();
       const gainNode = gameState.audioContext.createGain();
-
+      
       oscillator.type = type;
       oscillator.frequency.setValueAtTime(frequency, gameState.audioContext.currentTime);
-
+      
       gainNode.gain.setValueAtTime(volume, gameState.audioContext.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(0.01, gameState.audioContext.currentTime + duration);
-
+      
       oscillator.connect(gainNode);
       gainNode.connect(gameState.audioContext.destination);
-
+      
       oscillator.start();
       oscillator.stop(gameState.audioContext.currentTime + duration);
     };
-
-    const playShootSound = () => {
-      if (!ENABLE_AUDIO) return;
-      playSound(200, 0.1, "square", 0.2);
-    };
-
-    const playHitSound = () => {
-      if (!ENABLE_AUDIO) return;
-      playSound(100, 0.15, "sawtooth", 0.2);
-    };
-
+    
+    const playShootSound = () => playSound(200, 0.1, "square", 0.2);
+    const playHitSound = () => playSound(100, 0.15, "sawtooth", 0.2);
     const playLevelUpSound = () => {
-      if (!ENABLE_AUDIO) return;
       playSound(300, 0.1, "sine", 0.3);
       setTimeout(() => playSound(400, 0.1, "sine", 0.3), 100);
       setTimeout(() => playSound(600, 0.2, "sine", 0.3), 200);
     };
-
     const playDeathSound = () => {
-      if (!ENABLE_AUDIO) return;
       playSound(400, 0.2, "sawtooth", 0.4);
       setTimeout(() => playSound(200, 0.3, "sawtooth", 0.4), 100);
     };
-
     const playPowerupSound = () => {
-      if (!ENABLE_AUDIO) return;
       playSound(400, 0.1, "sine", 0.25);
       setTimeout(() => playSound(500, 0.1, "sine", 0.25), 50);
       setTimeout(() => playSound(600, 0.15, "sine", 0.25), 100);
+    };
+    
+    // Game state management
+    function endGame() {
+      if (gameState.state === 'gameover') return; // Ya está en game over
+      
+      gameState.state = 'gameover';
+      gameState.player.hp = 0;
+      gameState.gameOverTimer = 0; // No auto-restart, mostrar pantalla de game over
+      
+      playDeathSound();
+      
+      // Detener música normal y reproducir música de game over
+      if (gameState.music) {
+        gameState.music.pause();
+      }
+      
+      if (!gameState.gameOverMusic) {
+        gameState.gameOverMusic = new Audio("/audio/Summer_Saxophone.mp3");
+        gameState.gameOverMusic.loop = true;
+      }
+      
+      gameState.gameOverMusic.volume = gameState.musicMuted ? 0 : gameState.musicVolume;
+      gameState.gameOverMusic.currentTime = 0;
+      gameState.gameOverMusic.play().catch(() => {});
+      
+      console.log('Game Over');
+    }
+    
+    function resetGame() {
+      // Limpiar arrays
+      gameState.bullets.length = 0;
+      gameState.enemies.length = 0;
+      gameState.drops.length = 0;
+      gameState.particles.length = 0;
+      gameState.hotspots.length = 0;
+      
+      // Resetear jugador
+      gameState.player.x = W / 2;
+      gameState.player.y = H / 2;
+      gameState.player.hp = 100;
+      gameState.player.maxhp = 100;
+      gameState.player.stamina = 20;
+      gameState.player.maxStamina = 20;
+      gameState.player.isSprinting = false;
+      gameState.player.shotsFired = 0;
+      gameState.player.shield = 0;
+      gameState.player.ifr = 0;
+      gameState.player.magnet = 120;
+      gameState.player.rageTimer = 0;
+      gameState.player.tempMagnetTimer = 0;
+      gameState.player.tempShieldTimer = 0;
+      gameState.player.weapons = [{ ...WEAPONS[0] }];
+      gameState.player.tomes = [];
+      gameState.player.items = [];
+      gameState.player.itemFlags = {};
+      gameState.player.stats = {
+        damageMultiplier: 1,
+        speedMultiplier: 1,
+        rangeMultiplier: 1,
+        fireRateMultiplier: 1,
+        bounces: 0,
+        multishot: 0,
+        auraRadius: 0,
+        vampire: 0,
+        xpMultiplier: 1,
+        precision: 0,
+        regenRate: 0,
+        regenInterval: 0,
+        magnetMultiplier: 1,
+        bounceOnEnemies: false,
+        damageReduction: 0,
+        powerupDuration: 1,
+        xpBonus: 0,
+        firstHitImmuneUsed: false,
+        chaosDamage: false,
+        solarGauntletKills: 0,
+        bloodstoneKills: 0,
+        reactiveShieldActive: false,
+      };
+      
+      // Resetear juego
+      gameState.score = 0;
+      gameState.level = 1;
+      gameState.xp = 0;
+      gameState.nextXP = 25;
+      gameState.time = 0;
+      gameState.wave = 1;
+      gameState.waveKills = 0;
+      gameState.waveEnemiesTotal = 10; // Wave 1 empieza con 10 enemigos (estilo COD Zombies)
+      gameState.waveEnemiesSpawned = 0;
+      gameState.maxConcurrentEnemies = 12;
+      gameState.lastSpawn = 0;
+      gameState.spawnCooldown = 0;
+      gameState.canSpawn = true;
+      gameState.lastMiniBossSpawn = 0;
+      gameState.weaponCooldowns = {};
+      gameState.regenTimer = 0;
+      gameState.auraTimer = 0;
+      gameState.hotspotTimer = 0;
+      gameState.dangerZoneTimer = 0;
+      gameState.inDangerZone = false;
+      gameState.levelUpAnimation = 0;
+      gameState.upgradeAnimation = 0;
+      gameState.xpBarRainbow = false;
+      gameState.waveNotification = 0;
+      gameState.musicNotificationTimer = 0;
+      gameState.musicMuted = false;
+      gameState.sfxMuted = false;
+      gameState.pauseMenuAudioOpen = false;
+      gameState.restartTimer = 0;
+      gameState.showUpgradeUI = false;
+      gameState.upgradeOptions = [];
+      gameState.environmentalEvent = null;
+      gameState.eventNotification = 0;
+      gameState.eventDuration = 0;
+      gameState.eventTimer = 0;
+      gameState.eventPhase = "none";
+      gameState.eventIntensity = 0;
+      gameState.eventActivatedThisWave = false;
+      gameState.lightningTimer = 0;
+      gameState.fogOpacity = 0;
+      gameState.fogZones = [];
+      gameState.fogWarningZones = [];
+      gameState.stormZone = null;
+      
+      // Reset tutorial
+      gameState.tutorialActive = true;
+      gameState.tutorialStartTime = performance.now();
+      setTutorialStep(0);
+      setTutorialCompleted(false);
+      
+      // Actualizar React state
+      setScore(0);
+      setLevel(1);
+      
+      // Reset timers/flags
+      gameState.gameOverTimer = 0;
+      
+      // Cambiar a running
+      gameState.state = 'running';
+    }
+    
+    // Exponer resetGame al ref para usarlo desde el JSX
+    resetGameRef.current = resetGame;
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      gameState.keys[e.key.toLowerCase()] = true;
+      
+      // Game Over: Enter para reiniciar inmediatamente
+      if (gameState.state === 'gameover' && (e.key === 'Enter' || e.key === 'r' || e.key === 'R')) {
+        if (gameState.gameOverMusic) {
+          gameState.gameOverMusic.pause();
+          gameState.gameOverMusic.currentTime = 0;
+        }
+        resetGame();
+        return;
+      }
+      
+      // Running: Sostener R para reiniciar (modo hold)
+      if (gameState.state === 'running' && e.key.toLowerCase() === 'r') {
+        // R key ya está siendo presionada, no hacer nada aquí
+      }
+      
+      // Escape para pausar/reanudar (solo en running o paused)
+      if (e.key === "Escape" && gameState.state !== 'gameover') {
+        if (gameState.state === 'running') {
+          gameState.state = 'paused';
+          gameState.pauseMenuTab = 'home';
+          gameState.pauseMenuAudioOpen = false;
+          PAUSE_MENU_TABS.forEach((tab) => {
+            gameState.pauseMenuScroll[tab] = 0;
+          });
+        } else if (gameState.state === 'paused' && gameState.countdownTimer > 0) {
+          gameState.countdownTimer = 0;
+        } else if (gameState.state === 'paused' && !gameState.showUpgradeUI) {
+          // Iniciar countdown de 3 segundos
+          gameState.countdownTimer = 3;
+          gameState.pauseMenuAudioOpen = false;
+        }
+      }
+    };
+    
+    const handleKeyUp = (e: KeyboardEvent) => {
+      gameState.keys[e.key.toLowerCase()] = false;
     };
 
     const handleResize = () => {
@@ -1783,10 +1941,9 @@ const Index = () => {
       }
       
       // Partículas de powerup con límite
-      if (gameState.particles.length < gameState.maxParticles - 5) {
-        const particleCount = 8;
-        for (let i = 0; i < particleCount; i++) {
-          const angle = (Math.PI * 2 * i) / particleCount;
+      if (gameState.particles.length < gameState.maxParticles - 20) {
+        for (let i = 0; i < 20; i++) {
+          const angle = (Math.PI * 2 * i) / 20;
           gameState.particles.push({
             x: drop.x,
             y: drop.y,
@@ -1801,7 +1958,6 @@ const Index = () => {
     }
 
     function spawnHotspot(isNegative = false) {
-      if (!ENABLE_HOTSPOTS) return;
       const x = Math.random() * (W - 200) + 100;
       const y = Math.random() * (H - 200) + 100;
       gameState.hotspots.push({
@@ -2284,7 +2440,7 @@ const Index = () => {
       const my = e.clientY - rect.top;
       
       // Botón de cambiar canción (solo cuando el juego está corriendo)
-      if (ENABLE_MUSIC && gameState.state === 'running') {
+      if (gameState.state === 'running') {
         const musicBtnW = 160;
         const musicBtnH = 45;
         const musicBtnX = W - musicBtnW - 20;
@@ -2486,12 +2642,8 @@ const Index = () => {
       if (gameState.upgradeUIAnimation < 1 && gameState.showUpgradeUI) gameState.upgradeUIAnimation = Math.min(1, gameState.upgradeUIAnimation + dt * 3);
       
       // Music notification timer
-      if (ENABLE_MUSIC) {
-        if (gameState.musicNotificationTimer > 0) {
-          gameState.musicNotificationTimer = Math.max(0, gameState.musicNotificationTimer - dt);
-        }
-      } else {
-        gameState.musicNotificationTimer = 0;
+      if (gameState.musicNotificationTimer > 0) {
+        gameState.musicNotificationTimer = Math.max(0, gameState.musicNotificationTimer - dt);
       }
       
       // Smooth volume transition (animación suave del volumen)
@@ -2657,8 +2809,8 @@ const Index = () => {
         if (gameState.wave % 5 === 0) {
           waveTarget += 1; // +1 por el boss
         }
-        const isMiniBossWaveForTarget = gameState.wave === 3 || (gameState.wave > 3 && (gameState.wave - 3) % 5 === 0 && gameState.wave % 5 !== 0);
-        if (isMiniBossWaveForTarget) {
+        const isMiniBossWave = gameState.wave === 3 || (gameState.wave > 3 && (gameState.wave - 3) % 5 === 0 && gameState.wave % 5 !== 0);
+        if (isMiniBossWave) {
           waveTarget += 1; // +1 por el mini-boss
         }
         
@@ -2685,112 +2837,459 @@ const Index = () => {
         // Recompensa por completar wave
         collectXP(20 + gameState.wave * 5);
         
-        // Eventos ambientales deshabilitados para mejorar rendimiento
-        gameState.environmentalEvent = null;
-        gameState.eventPhase = "none";
-        gameState.eventNotification = 0;
-        gameState.eventIntensity = 0;
+        // ═══════════════════════════════════════════════════════════
+        // LIMPIAR EVENTOS AL FINALIZAR WAVE
+        // ═══════════════════════════════════════════════════════════
+        // Cuando una wave termina, todos los eventos se detienen inmediatamente
+        if (gameState.environmentalEvent) {
+          gameState.environmentalEvent = null;
+          gameState.eventPhase = "none";
+          gameState.eventIntensity = 0;
+          gameState.eventNotification = 0;
+          gameState.fogOpacity = 0;
+          gameState.fogZones = [];
+          gameState.fogWarningZones = []; // Limpiar warnings también
+          gameState.stormZone = null;
+          
+          // FIX: Limpiar TODOS los hotspots radiactivos (lluvia radiactiva)
+          gameState.hotspots = gameState.hotspots.filter(h => !h.isRadioactive);
+        }
+        
+        // Reset flag para permitir nuevo evento en la siguiente wave
         gameState.eventActivatedThisWave = false;
-        gameState.fogOpacity = 0;
-        gameState.fogZones = [];
-        gameState.fogWarningZones = [];
-        gameState.stormZone = null;
-
+        
+        // ═══════════════════════════════════════════════════════════
+        // ACTIVACIÓN DE EVENTOS AMBIENTALES AL INICIO DE WAVE
+        // ═══════════════════════════════════════════════════════════
+        // Solo se puede activar 1 evento por wave, con probabilidad creciente (NO durante tutorial)
+        // Calcular probabilidad según wave actual (MUCHO MÁS BAJAS)
+        if (!gameState.tutorialActive) {
+          let eventProbability = 0;
+          if (gameState.wave >= 1 && gameState.wave <= 5) {
+            eventProbability = 0.01; // 1% en waves 1-5
+          } else if (gameState.wave >= 6 && gameState.wave <= 10) {
+            eventProbability = 0.03; // 3% en waves 6-10
+          } else if (gameState.wave >= 11 && gameState.wave <= 15) {
+            eventProbability = 0.06; // 6% en waves 11-15
+          } else if (gameState.wave >= 16) {
+            eventProbability = 0.10; // 10% en waves 16+
+          }
+          
+          // Intentar activar evento con la probabilidad calculada (UNA VEZ al inicio de la wave)
+          if (Math.random() < eventProbability) {
+            const events = ["storm", "fog", "rain"] as const;
+            const newEvent = events[Math.floor(Math.random() * events.length)];
+            
+            gameState.environmentalEvent = newEvent;
+            gameState.eventPhase = "notification";
+            gameState.eventIntensity = 0;
+            gameState.eventTimer = 0;
+            gameState.eventNotification = 5; // 5 segundos de aviso antes de que empiece
+            gameState.fogOpacity = 0;
+            gameState.fogZones = [];
+            gameState.fogWarningZones = [];
+            gameState.stormZone = null;
+            gameState.eventActivatedThisWave = true; // Marcar que ya se activó en esta wave
+          }
+        }
+      }
+      
       // Reducir timer de notificación de wave
       if (gameState.waveNotification > 0) {
         gameState.waveNotification = Math.max(0, gameState.waveNotification - dt);
       }
       
-      if (!ENABLE_HOTSPOTS) {
-        gameState.hotspots.length = 0;
-        gameState.inDangerZone = false;
-        gameState.dangerZoneTimer = 0;
+      // ═══════════════════════════════════════════════════════════
+      // EVENTOS AMBIENTALES - Lógica y Efectos
+      // ═══════════════════════════════════════════════════════════
+      
+      // Fase de notificación
+      if (gameState.eventNotification > 0) {
+        gameState.eventNotification = Math.max(0, gameState.eventNotification - dt);
+        
+        // Cuando termina la notificación, empezar fade in
+        if (gameState.eventNotification === 0 && gameState.eventPhase === "notification") {
+          gameState.eventPhase = "fadein";
+          gameState.eventIntensity = 0;
+        }
       }
-
-      if (ENABLE_HOTSPOTS) {
-        // Hotspot spawning (positivos)
-        gameState.hotspotTimer += dt;
-        if (gameState.hotspotTimer >= 30 && gameState.hotspots.filter(h => !h.isNegative).length < 2) {
-          gameState.hotspotTimer = 0;
-          spawnHotspot(false);
-        }
-
-        if (gameState.wave >= 3 && gameState.hotspots.filter(h => h.isNegative).length < (gameState.wave >= 11 ? 2 : 1)) {
-          let dangerChance = 0.02;
-          if (gameState.wave >= 6 && gameState.wave < 11) {
-            dangerChance = 0.025;
-          } else if (gameState.wave >= 11) {
-            dangerChance = 0.033;
-          }
-
-          if (Math.random() < dangerChance * dt) {
-            spawnHotspot(true);
+      
+      if (gameState.environmentalEvent && gameState.eventPhase !== "notification") {
+        // Fase de Fade In (5 segundos)
+        if (gameState.eventPhase === "fadein") {
+          gameState.eventIntensity = Math.min(1, gameState.eventIntensity + dt * 0.2); // 5 segundos para llegar a 1
+          
+          if (gameState.eventIntensity >= 1) {
+            gameState.eventPhase = "active";
           }
         }
-
-        gameState.inDangerZone = false;
-
-        for (let i = gameState.hotspots.length - 1; i >= 0; i--) {
-          const h = gameState.hotspots[i];
-          const d = Math.hypot(h.x - gameState.player.x, h.y - gameState.player.y);
-
-          if (h.isRadioactive) {
-            h.expirationTimer += dt;
-            if (h.expirationTimer >= h.maxExpiration) {
-              gameState.hotspots.splice(i, 1);
-            }
-            continue;
-          }
-
-          const isDangerZonePermanent = h.isNegative && gameState.wave >= 8;
-
-          if (d < h.rad) {
-            h.active = true;
-
-            if (h.isNegative) {
-              gameState.inDangerZone = true;
-              gameState.dangerZoneTimer += dt;
-              gameState.player.hp -= 8 * dt;
-
-              if (gameState.particles.length < gameState.maxParticles && Math.random() < 0.1) {
+        
+        // Verificar si la wave terminó (evento termina inmediatamente)
+        if (gameState.waveKills >= gameState.waveEnemiesTotal) {
+          // Limpiar todos los eventos inmediatamente
+          gameState.environmentalEvent = null;
+          gameState.fogOpacity = 0;
+          gameState.fogZones = [];
+          gameState.stormZone = null;
+          gameState.eventPhase = "none";
+          gameState.eventIntensity = 0;
+          gameState.eventNotification = 0;
+        }
+        
+        // Aplicar efectos solo en fase active
+        if (gameState.eventPhase === "active" || gameState.eventPhase === "fadein" || gameState.eventPhase === "fadeout") {
+          const intensity = gameState.eventIntensity;
+          
+          switch (gameState.environmentalEvent) {
+            case "storm":
+              // ⚡ TORMENTA: Sigue al jugador LENTAMENTE pero de forma impredecible
+              // Crear zona de tormenta si no existe
+              if (!gameState.stormZone) {
+                gameState.stormZone = {
+                  x: Math.random() * W,
+                  y: Math.random() * H,
+                  radius: 150,
+                  vx: 0,
+                  vy: 0,
+                };
+              }
+              
+              // Calcular dirección hacia el jugador
+              const dx = gameState.player.x - gameState.stormZone.x;
+              const dy = gameState.player.y - gameState.stormZone.y;
+              const distToPlayer = Math.hypot(dx, dy);
+              
+              // Velocidad base AUMENTADA (sigue al jugador más rápidamente)
+              const baseSpeed = 60; // Aumentado de 20 a 60
+              const maxSpeed = 120; // Aumentado de 40 a 120
+              
+              // Componente hacia el jugador (80% del tiempo)
+              const followStrength = Math.random() < 0.8 ? 1 : 0;
+              const targetVx = (dx / distToPlayer) * baseSpeed * followStrength;
+              const targetVy = (dy / distToPlayer) * baseSpeed * followStrength;
+              
+              // Componente aleatorio impredecible (20% del tiempo o cambio brusco)
+              if (Math.random() < 0.02 || followStrength === 0) {
+                // Cambio de dirección impredecible
+                const randomAngle = Math.random() * Math.PI * 2;
+                gameState.stormZone.vx = Math.cos(randomAngle) * baseSpeed * 1.5;
+                gameState.stormZone.vy = Math.sin(randomAngle) * baseSpeed * 1.5;
+              } else {
+                // Interpolar suavemente hacia la dirección objetivo
+                gameState.stormZone.vx += (targetVx - gameState.stormZone.vx) * 0.05;
+                gameState.stormZone.vy += (targetVy - gameState.stormZone.vy) * 0.05;
+              }
+              
+              // Añadir ruido aleatorio continuo (hace el movimiento impredecible)
+              gameState.stormZone.vx += (Math.random() - 0.5) * 15;
+              gameState.stormZone.vy += (Math.random() - 0.5) * 15;
+              
+              // Mover la tormenta
+              gameState.stormZone.x += gameState.stormZone.vx * dt;
+              gameState.stormZone.y += gameState.stormZone.vy * dt;
+              
+              // Mantener dentro del mapa (rebotar suavemente en bordes)
+              if (gameState.stormZone.x < gameState.stormZone.radius) {
+                gameState.stormZone.x = gameState.stormZone.radius;
+                gameState.stormZone.vx = Math.abs(gameState.stormZone.vx);
+              }
+              if (gameState.stormZone.x > W - gameState.stormZone.radius) {
+                gameState.stormZone.x = W - gameState.stormZone.radius;
+                gameState.stormZone.vx = -Math.abs(gameState.stormZone.vx);
+              }
+              if (gameState.stormZone.y < gameState.stormZone.radius) {
+                gameState.stormZone.y = gameState.stormZone.radius;
+                gameState.stormZone.vy = Math.abs(gameState.stormZone.vy);
+              }
+              if (gameState.stormZone.y > H - gameState.stormZone.radius) {
+                gameState.stormZone.y = H - gameState.stormZone.radius;
+                gameState.stormZone.vy = -Math.abs(gameState.stormZone.vy);
+              }
+              
+              // Limitar velocidad máxima
+              const stormSpeed = Math.hypot(gameState.stormZone.vx, gameState.stormZone.vy);
+              if (stormSpeed > maxSpeed) {
+                gameState.stormZone.vx = (gameState.stormZone.vx / stormSpeed) * maxSpeed;
+                gameState.stormZone.vy = (gameState.stormZone.vy / stormSpeed) * maxSpeed;
+              }
+              
+              // Daño continuo si el jugador está dentro (escalado por intensidad)
+              const distToStorm = Math.hypot(gameState.player.x - gameState.stormZone.x, gameState.player.y - gameState.stormZone.y);
+              if (distToStorm < gameState.stormZone.radius) {
+                gameState.player.hp -= 10 * dt * intensity; // 10 HP/s escalado por intensidad
+                if (gameState.player.hp <= 0) {
+                  gameState.state = 'gameover';
+                  gameState.gameOverTimer = 3;
+                }
+                
+                // Partículas de daño eléctrico
+                if (Math.random() < 0.3 * intensity && gameState.particles.length < gameState.maxParticles) {
+                  gameState.particles.push({
+                    x: gameState.player.x + (Math.random() - 0.5) * 30,
+                    y: gameState.player.y + (Math.random() - 0.5) * 30,
+                    vx: (Math.random() - 0.5) * 4,
+                    vy: (Math.random() - 0.5) * 4,
+                    life: 0.5,
+                    color: "#60a5fa",
+                    size: 4,
+                  });
+                }
+              }
+              
+              // Partículas de tormenta
+              if (Math.random() < 0.5 * intensity && gameState.particles.length < gameState.maxParticles) {
+                const angle = Math.random() * Math.PI * 2;
+                const dist = Math.random() * gameState.stormZone.radius;
                 gameState.particles.push({
-                  x: gameState.player.x + (Math.random() - 0.5) * 24,
-                  y: gameState.player.y + (Math.random() - 0.5) * 24,
-                  vx: (Math.random() - 0.5) * 1.5,
-                  vy: -Math.random() * 2,
-                  life: 0.6,
-                  color: "#ef4444",
+                  x: gameState.stormZone.x + Math.cos(angle) * dist,
+                  y: gameState.stormZone.y + Math.sin(angle) * dist,
+                  vx: (Math.random() - 0.5) * 2,
+                  vy: (Math.random() - 0.5) * 2,
+                  life: 0.8,
+                  color: "#60a5fa",
                   size: 3,
                 });
               }
-
-              if (gameState.player.hp <= 0) {
-                endGame();
+              break;
+              
+            case "fog":
+              // 🌫️ NIEBLA TÓXICA: Warning antes de aparecer, luego 1 zona rectangular
+              // Fase 1: Warning zones (mostrar dónde aparecerá)
+              if (gameState.fogWarningZones.length === 0 && intensity < 0.3) {
+                const width = 250 + Math.random() * 150;
+                const height = 200 + Math.random() * 100;
+                gameState.fogWarningZones.push({
+                  x: Math.random() * (W - width),
+                  y: Math.random() * (H - height),
+                  width,
+                  height,
+                  warningTime: 0,
+                });
               }
-            } else {
-              h.progress += dt;
-              if (h.progress >= h.required) {
-                collectXP(60);
-                gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + 2);
-                gameState.hotspots.splice(i, 1);
+              
+              // Actualizar warning timer
+              if (gameState.fogWarningZones.length > 0) {
+                gameState.fogWarningZones[0].warningTime += dt;
               }
-            }
-          } else {
-            h.active = false;
-            if (!isDangerZonePermanent) {
-              h.expirationTimer += dt;
-              if (h.expirationTimer >= h.maxExpiration) {
-                gameState.hotspots.splice(i, 1);
+              
+              // Fase 2: Crear zona de niebla real después del warning
+              if (gameState.fogZones.length === 0 && intensity > 0.3 && gameState.fogWarningZones.length > 0) {
+                const warning = gameState.fogWarningZones[0];
+                gameState.fogZones.push({
+                  x: warning.x,
+                  y: warning.y,
+                  width: warning.width,
+                  height: warning.height,
+                });
+                gameState.fogWarningZones = []; // Limpiar warnings
               }
-            }
+              
+              // Fade in niebla
+              if (gameState.fogOpacity < 0.8 * intensity) {
+                gameState.fogOpacity = Math.min(0.8 * intensity, gameState.fogOpacity + dt * 0.3);
+              }
+              
+              // Verificar si el jugador está en la zona de niebla
+              let inFogZone = false;
+              for (const zone of gameState.fogZones) {
+                if (gameState.player.x > zone.x && gameState.player.x < zone.x + zone.width &&
+                    gameState.player.y > zone.y && gameState.player.y < zone.y + zone.height) {
+                  inFogZone = true;
+                  break;
+                }
+              }
+              
+              // Daño aumentado si está en zona de niebla (escalado por intensidad)
+              if (inFogZone) {
+                gameState.player.hp -= 5 * dt * intensity; // 5 HP/s escalado por intensidad
+                if (gameState.player.hp <= 0) {
+                  gameState.state = 'gameover';
+                  gameState.gameOverTimer = 3;
+                }
+                
+                // Partículas de daño en el jugador
+                if (Math.random() < 0.2 * intensity && gameState.particles.length < gameState.maxParticles) {
+                  gameState.particles.push({
+                    x: gameState.player.x + (Math.random() - 0.5) * 30,
+                    y: gameState.player.y + (Math.random() - 0.5) * 30,
+                    vx: (Math.random() - 0.5) * 2,
+                    vy: -Math.random() * 3,
+                    life: 0.8,
+                    color: "#84cc16",
+                    size: 4,
+                  });
+                }
+              }
+              
+              // Partículas de niebla en las zonas
+              if (Math.random() < 0.3 * intensity && gameState.particles.length < gameState.maxParticles && gameState.fogZones.length > 0) {
+                const zone = gameState.fogZones[0];
+                gameState.particles.push({
+                  x: zone.x + Math.random() * zone.width,
+                  y: zone.y + Math.random() * zone.height,
+                  vx: (Math.random() - 0.5) * 0.5,
+                  vy: (Math.random() - 0.5) * 0.5,
+                  life: 3,
+                  color: "#84cc16",
+                  size: 20,
+                });
+              }
+              break;
+              
+            case "rain":
+              // ☢️ LLUVIA RADIACTIVA: Enemigos ganan velocidad en zonas específicas - SOLO 1 CÍRCULO
+              // Crear zona radiactiva tipo negative hotspot - MUY GRANDE
+              if (gameState.hotspots.filter(h => h.isRadioactive).length === 0 && intensity > 0.3) {
+                const x = Math.random() * (W - 600) + 300;
+                const y = Math.random() * (H - 600) + 300;
+                gameState.hotspots.push({
+                  x, y,
+                  rad: 300,
+                  progress: 0,
+                  required: 0,
+                  expirationTimer: 0,
+                  maxExpiration: 999, // No expira durante el evento
+                  active: false,
+                  isNegative: false,
+                  isRadioactive: true, // Marca especial para lluvia radiactiva
+                });
+              }
+              
+              // Partículas de lluvia
+              if (Math.random() < 0.3 * intensity && gameState.particles.length < gameState.maxParticles) {
+                gameState.particles.push({
+                  x: Math.random() * W,
+                  y: -10,
+                  vx: 0,
+                  vy: 15,
+                  life: 2,
+                  color: "#a855f7",
+                  size: 2,
+                });
+              }
+              break;
           }
-        }
-
-        if (!gameState.inDangerZone) {
-          gameState.dangerZoneTimer = 0;
         }
       }
 
+      // Hotspot spawning (positivos)
+      gameState.hotspotTimer += dt;
+      if (gameState.hotspotTimer >= 30 && gameState.hotspots.filter(h => !h.isNegative).length < 2) {
+        gameState.hotspotTimer = 0;
+        spawnHotspot(false);
+      }
+      
+      // Danger Zone spawning (negativos) - Más frecuentes estilo COD Zombies
+      if (gameState.wave >= 3 && gameState.hotspots.filter(h => h.isNegative).length < (gameState.wave >= 11 ? 2 : 1)) {
+        let dangerChance = 0.02;
+        if (gameState.wave >= 6 && gameState.wave < 11) {
+          dangerChance = 0.025; // Cada ~40s
+        } else if (gameState.wave >= 11) {
+          dangerChance = 0.033; // Cada ~30s, hasta 2 zonas
+        }
+        
+        if (Math.random() < dangerChance * dt) {
+          spawnHotspot(true);
+        }
+      }
+
+      // Resetear flag de zona peligrosa
+      gameState.inDangerZone = false;
+
+      // Hotspot logic
+      for (let i = gameState.hotspots.length - 1; i >= 0; i--) {
+        const h = gameState.hotspots[i];
+        const d = Math.hypot(h.x - gameState.player.x, h.y - gameState.player.y);
+        
+        // Zonas radiactivas solo afectan enemigos, no jugador
+        if (h.isRadioactive) {
+          h.expirationTimer += dt;
+          if (h.expirationTimer >= h.maxExpiration) {
+            gameState.hotspots.splice(i, 1);
+          }
+          continue; // Skip player interaction
+        }
+        
+        // Danger zones permanentes desde wave 8
+        const isDangerZonePermanent = h.isNegative && gameState.wave >= 8;
+        
+        if (d < h.rad) {
+          h.active = true;
+          
+          if (h.isNegative) {
+            // HOTSPOT NEGATIVO (Zona de Peligro)
+            gameState.inDangerZone = true;
+            gameState.dangerZoneTimer += dt;
+            
+            // Daño continuo: 8 HP/s (sin activar invulnerabilidad)
+            gameState.player.hp -= 8 * dt;
+            
+            // Partículas de daño
+            if (Math.random() < 0.15 && gameState.particles.length < gameState.maxParticles) {
+              gameState.particles.push({
+                x: gameState.player.x + (Math.random() - 0.5) * 30,
+                y: gameState.player.y + (Math.random() - 0.5) * 30,
+                vx: (Math.random() - 0.5) * 2,
+                vy: -Math.random() * 3,
+                life: 0.8,
+                color: "#ef4444",
+                size: 4,
+              });
+            }
+            
+            // No incrementa timer de caducación mientras el jugador está dentro
+            h.progress += dt;
+            
+            // Check game over
+            if (gameState.player.hp <= 0) {
+              gameState.state = 'gameover';
+              gameState.gameOverTimer = 3;
+            }
+          } else {
+            // HOTSPOT POSITIVO (recompensa)
+            h.progress += dt;
+            
+            if (h.progress >= h.required) {
+              // ¡Recompensa!
+              collectXP(100);
+              gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + 2);
+              gameState.hotspots.splice(i, 1);
+              // Particles
+              for (let j = 0; j < 30; j++) {
+                const angle = (Math.PI * 2 * j) / 30;
+                gameState.particles.push({
+                  x: h.x,
+                  y: h.y,
+                  vx: Math.cos(angle) * 8,
+                  vy: Math.sin(angle) * 8,
+                  life: 1,
+                  color: "#fbbf24",
+                  size: 4,
+                });
+              }
+            }
+          }
+        } else {
+          // Jugador FUERA
+          h.active = false;
+          
+          // Solo incrementar timer de expiración si no es permanente
+          if (!isDangerZonePermanent) {
+            h.expirationTimer += dt;
+            
+            // Si pasa el tiempo de caducación, eliminar
+            if (h.expirationTimer >= h.maxExpiration) {
+              gameState.hotspots.splice(i, 1);
+            }
+          }
+        }
+      }
+      
+      // Resetear timer si sale de la zona de peligro
+      if (!gameState.inDangerZone) {
+        gameState.dangerZoneTimer = 0;
+      }
+      
       // Temporary powerup timers
       if (gameState.player.tempMagnetTimer > 0) {
         gameState.player.tempMagnetTimer = Math.max(0, gameState.player.tempMagnetTimer - dt);
@@ -4001,6 +4500,28 @@ const Index = () => {
       }
 
 
+      // Colisión entre enemigos
+      for (let i = 0; i < gameState.enemies.length; i++) {
+        for (let j = i + 1; j < gameState.enemies.length; j++) {
+          const a = gameState.enemies[i];
+          const b = gameState.enemies[j];
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const d = Math.hypot(dx, dy);
+          const minDist = a.rad + b.rad;
+          
+          if (d < minDist && d > 0) {
+            const overlap = minDist - d;
+            const nx = dx / d;
+            const ny = dy / d;
+            a.x -= nx * overlap / 2;
+            a.y -= ny * overlap / 2;
+            b.x += nx * overlap / 2;
+            b.y += ny * overlap / 2;
+          }
+        }
+      }
+
       // Actualizar partículas
       for (let i = gameState.particles.length - 1; i >= 0; i--) {
         const p = gameState.particles[i];
@@ -4448,92 +4969,90 @@ const Index = () => {
       }
       
       
-      if (ENABLE_MUSIC) {
-        // Notificación de música
-        if (gameState.musicNotificationTimer > 0) {
-          const notifAlpha = Math.min(1, gameState.musicNotificationTimer);
-          ctx.globalAlpha = notifAlpha;
-          
-          const notifY = 120;
-          const notifPadding = 20;
-          const notifText = `♫ ${gameState.musicNotification}`;
-          
-          ctx.font = "bold 24px system-ui";
-          ctx.textAlign = "center";
-          const textMetrics = ctx.measureText(notifText);
-          const notifW = textMetrics.width + notifPadding * 2;
-          const notifH = 50;
-          const notifX = W / 2 - notifW / 2;
-          
-          // Background
-          ctx.fillStyle = "rgba(20, 25, 35, 0.95)";
-          ctx.beginPath();
-          ctx.roundRect(notifX, notifY, notifW, notifH, 10);
-          ctx.fill();
-          
-          // Border
-          ctx.strokeStyle = "#a855f7";
-          ctx.lineWidth = 2;
-          ctx.stroke();
-          
-          // Text
-          ctx.fillStyle = "#fff";
-          ctx.fillText(notifText, W / 2, notifY + notifH / 2 + 8);
-          
-          ctx.globalAlpha = 1;
-        }
+      // Notificación de música
+      if (gameState.musicNotificationTimer > 0) {
+        const notifAlpha = Math.min(1, gameState.musicNotificationTimer);
+        ctx.globalAlpha = notifAlpha;
         
-        // Botón de cambiar canción (esquina superior derecha)
-        const musicBtnW = 160;
-        const musicBtnH = 45;
-        const musicBtnX = W - musicBtnW - 20;
-        const musicBtnY = H - musicBtnH - 70;
+        const notifY = 120;
+        const notifPadding = 20;
+        const notifText = `♫ ${gameState.musicNotification}`;
         
-        // Background del botón con animación si no ha iniciado
-        const musicBtnGradient = ctx.createLinearGradient(musicBtnX, musicBtnY, musicBtnX, musicBtnY + musicBtnH);
-        if (!gameState.musicStarted) {
-          // Animación pulsante para llamar atención
-          const pulse = Math.sin(gameState.time * 3) * 0.2 + 0.8;
-          musicBtnGradient.addColorStop(0, `rgba(${168 * pulse}, ${85 * pulse}, 247, 0.95)`);
-          musicBtnGradient.addColorStop(1, `rgba(${124 * pulse}, ${58 * pulse}, 237, 0.95)`);
-        } else {
-          musicBtnGradient.addColorStop(0, "rgba(168, 85, 247, 0.9)");
-          musicBtnGradient.addColorStop(1, "rgba(124, 58, 237, 0.9)");
-        }
-        ctx.fillStyle = musicBtnGradient;
+        ctx.font = "bold 24px system-ui";
+        ctx.textAlign = "center";
+        const textMetrics = ctx.measureText(notifText);
+        const notifW = textMetrics.width + notifPadding * 2;
+        const notifH = 50;
+        const notifX = W / 2 - notifW / 2;
+        
+        // Background
+        ctx.fillStyle = "rgba(20, 25, 35, 0.95)";
         ctx.beginPath();
-        ctx.roundRect(musicBtnX, musicBtnY, musicBtnW, musicBtnH, 8);
+        ctx.roundRect(notifX, notifY, notifW, notifH, 10);
         ctx.fill();
         
-        // Border con glow si no ha iniciado
+        // Border
         ctx.strokeStyle = "#a855f7";
         ctx.lineWidth = 2;
-        ctx.shadowColor = "#a855f7";
-        ctx.shadowBlur = gameState.musicStarted ? 10 : 20;
         ctx.stroke();
-        ctx.shadowBlur = 0;
         
-        // Texto del botón
-        ctx.textAlign = "center";
-        if (!gameState.musicStarted) {
-          const musicTextX = musicBtnX + musicBtnW / 2;
-          ctx.fillStyle = "#fff";
-          ctx.font = "bold 16px system-ui";
-          ctx.fillText(t.startMusicButton, musicTextX, musicBtnY + musicBtnH / 2 - 2);
-
-          ctx.font = "12px system-ui";
-          ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
-          ctx.fillText(t.shufflePlaylistReady, musicTextX, musicBtnY + musicBtnH - 8);
-
-          ctx.fillStyle = "#fff";
-        } else {
-          ctx.fillStyle = "#fff";
-          ctx.font = "bold 16px system-ui";
-          const currentTrack = gameState.musicTracks[gameState.currentMusicIndex];
-          ctx.fillText(`♫ ${currentTrack.name.slice(0, 12)}...`, musicBtnX + musicBtnW / 2, musicBtnY + musicBtnH / 2 + 6);
-        }
+        // Text
+        ctx.fillStyle = "#fff";
+        ctx.fillText(notifText, W / 2, notifY + notifH / 2 + 8);
         
+        ctx.globalAlpha = 1;
       }
+      
+      // Botón de cambiar canción (esquina superior derecha)
+      const musicBtnW = 160;
+      const musicBtnH = 45;
+      const musicBtnX = W - musicBtnW - 20;
+      const musicBtnY = H - musicBtnH - 70;
+      
+      // Background del botón con animación si no ha iniciado
+      const musicBtnGradient = ctx.createLinearGradient(musicBtnX, musicBtnY, musicBtnX, musicBtnY + musicBtnH);
+      if (!gameState.musicStarted) {
+        // Animación pulsante para llamar atención
+        const pulse = Math.sin(gameState.time * 3) * 0.2 + 0.8;
+        musicBtnGradient.addColorStop(0, `rgba(${168 * pulse}, ${85 * pulse}, 247, 0.95)`);
+        musicBtnGradient.addColorStop(1, `rgba(${124 * pulse}, ${58 * pulse}, 237, 0.95)`);
+      } else {
+        musicBtnGradient.addColorStop(0, "rgba(168, 85, 247, 0.9)");
+        musicBtnGradient.addColorStop(1, "rgba(124, 58, 237, 0.9)");
+      }
+      ctx.fillStyle = musicBtnGradient;
+      ctx.beginPath();
+      ctx.roundRect(musicBtnX, musicBtnY, musicBtnW, musicBtnH, 8);
+      ctx.fill();
+      
+      // Border con glow si no ha iniciado
+      ctx.strokeStyle = "#a855f7";
+      ctx.lineWidth = 2;
+      ctx.shadowColor = "#a855f7";
+      ctx.shadowBlur = gameState.musicStarted ? 10 : 20;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      
+      // Texto del botón
+      ctx.textAlign = "center";
+      if (!gameState.musicStarted) {
+        const musicTextX = musicBtnX + musicBtnW / 2;
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 16px system-ui";
+        ctx.fillText(t.startMusicButton, musicTextX, musicBtnY + musicBtnH / 2 - 2);
+
+        ctx.font = "12px system-ui";
+        ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+        ctx.fillText(t.shufflePlaylistReady, musicTextX, musicBtnY + musicBtnH - 8);
+
+        ctx.fillStyle = "#fff";
+      } else {
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 16px system-ui";
+        const currentTrack = gameState.musicTracks[gameState.currentMusicIndex];
+        ctx.fillText(`♫ ${currentTrack.name.slice(0, 12)}...`, musicBtnX + musicBtnW / 2, musicBtnY + musicBtnH / 2 + 6);
+      }
+      
       // Overlay de Game Over con fade
       if (gameState.state === 'gameover') {
         ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
@@ -4861,7 +5380,124 @@ const Index = () => {
         ctx.restore();
       }
       
-      // Efectos ambientales deshabilitados para mejorar el rendimiento
+      // ═══════════════════════════════════════════════════════════
+      // EFECTOS AMBIENTALES - Renderizado
+      // ═══════════════════════════════════════════════════════════
+      
+      // Renderizar WARNING zones de niebla (antes de aparecer)
+      if (gameState.environmentalEvent === "fog" && gameState.fogWarningZones.length > 0) {
+        for (const warning of gameState.fogWarningZones) {
+          const warningPulse = Math.sin(gameState.time * 5) * 0.3 + 0.7;
+          
+          // Fondo rojo semitransparente
+          ctx.fillStyle = `rgba(239, 68, 68, ${0.2 * warningPulse})`;
+          ctx.fillRect(warning.x, warning.y, warning.width, warning.height);
+          
+          // Borde rojo pulsante
+          ctx.strokeStyle = `rgba(239, 68, 68, ${warningPulse})`;
+          ctx.lineWidth = 4;
+          ctx.shadowColor = "#ef4444";
+          ctx.shadowBlur = 20 * warningPulse;
+          ctx.setLineDash([15, 15]);
+          ctx.strokeRect(warning.x, warning.y, warning.width, warning.height);
+          ctx.setLineDash([]);
+          ctx.shadowBlur = 0;
+          
+          // Texto de warning
+          ctx.fillStyle = `rgba(239, 68, 68, ${warningPulse})`;
+          ctx.font = "bold 32px system-ui";
+          ctx.textAlign = "center";
+          ctx.shadowColor = "#ef4444";
+          ctx.shadowBlur = 15;
+          ctx.fillText("⚠️ NIEBLA ENTRANTE", warning.x + warning.width / 2, warning.y + warning.height / 2);
+          ctx.shadowBlur = 0;
+        }
+      }
+      
+      // Renderizar zonas de niebla (solo si el evento está activo y con intensidad)
+      if (gameState.environmentalEvent === "fog" && gameState.fogZones.length > 0 && 
+          (gameState.eventPhase === "fadein" || gameState.eventPhase === "active" || gameState.eventPhase === "fadeout")) {
+        const intensity = gameState.eventIntensity;
+        
+        for (const zone of gameState.fogZones) {
+          const pulse = Math.sin(gameState.time * 3) * 0.15 + 0.85;
+          
+          // Zona de niebla tóxica con intensidad
+          ctx.fillStyle = `rgba(132, 204, 22, ${gameState.fogOpacity * 0.4 * intensity})`;
+          ctx.fillRect(zone.x, zone.y, zone.width, zone.height);
+          
+          // Borde de la zona
+          ctx.strokeStyle = `rgba(132, 204, 22, ${pulse * intensity})`;
+          ctx.lineWidth = 3;
+          ctx.shadowColor = "#84cc16";
+          ctx.shadowBlur = 15 * pulse * intensity;
+          ctx.setLineDash([10, 10]);
+          ctx.strokeRect(zone.x, zone.y, zone.width, zone.height);
+          ctx.setLineDash([]);
+          ctx.shadowBlur = 0;
+          
+          // Icono de niebla en el centro
+          ctx.globalAlpha = intensity;
+          ctx.fillStyle = `rgba(132, 204, 22, ${pulse})`;
+          ctx.font = "bold 48px system-ui";
+          ctx.textAlign = "center";
+          ctx.shadowColor = "#84cc16";
+          ctx.shadowBlur = 20;
+          ctx.fillText("🌫️", zone.x + zone.width / 2, zone.y + zone.height / 2 + 16);
+          ctx.shadowBlur = 0;
+          ctx.globalAlpha = 1;
+        }
+      }
+      
+      // Renderizar zona de tormenta (solo si el evento está activo y con intensidad)
+      if (gameState.environmentalEvent === "storm" && gameState.stormZone && 
+          (gameState.eventPhase === "fadein" || gameState.eventPhase === "active" || gameState.eventPhase === "fadeout")) {
+        const intensity = gameState.eventIntensity;
+        const pulse = Math.sin(gameState.time * 4) * 0.2 + 0.8;
+        const storm = gameState.stormZone;
+        
+        // Círculo de tormenta con intensidad
+        const gradient = ctx.createRadialGradient(storm.x, storm.y, 0, storm.x, storm.y, storm.radius);
+        gradient.addColorStop(0, `rgba(96, 165, 250, ${0.4 * intensity})`);
+        gradient.addColorStop(0.7, `rgba(96, 165, 250, ${0.2 * intensity})`);
+        gradient.addColorStop(1, "rgba(59, 130, 246, 0)");
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(storm.x, storm.y, storm.radius, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Borde pulsante
+        ctx.strokeStyle = `rgba(96, 165, 250, ${pulse * intensity})`;
+        ctx.lineWidth = 4;
+        ctx.shadowColor = "#60a5fa";
+        ctx.shadowBlur = 20 * pulse * intensity;
+        ctx.setLineDash([8, 8]);
+        ctx.beginPath();
+        ctx.arc(storm.x, storm.y, storm.radius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.shadowBlur = 0;
+        
+        // Icono de tormenta
+        ctx.globalAlpha = intensity;
+        ctx.fillStyle = `rgba(96, 165, 250, ${pulse})`;
+        ctx.font = "bold 56px system-ui";
+        ctx.textAlign = "center";
+        ctx.shadowColor = "#60a5fa";
+        ctx.shadowBlur = 25;
+        ctx.fillText("⚡", storm.x, storm.y + 20);
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
+      }
+      
+      if (gameState.environmentalEvent) {
+        switch (gameState.environmentalEvent) {
+          case "rain":
+            // ☢️ LLUVIA RADIACTIVA: No hay overlay global, solo partículas
+            break;
+        }
+      }
+      
       // Hotspots
       for (const h of gameState.hotspots) {
         const pulse = Math.sin(gameState.time * 3) * 0.1 + 0.9;
@@ -5894,7 +6530,7 @@ const Index = () => {
         ctx.fillText(
           `${gameState.pauseMenuAudioOpen ? "🎚️" : "🎧"}  ${t.pauseMenu.audio}`,
           W / 2,
-          audioY + buttonH / 2 + scaleValue(6)
+          audioY + buttonH / 2 + scaleValue(6),
         );
 
         // Language button
@@ -5921,7 +6557,7 @@ const Index = () => {
         ctx.fillText(
           `${t.pauseMenu.language}: ${languageLabel ? languageLabel : currentLanguage.toUpperCase()}`,
           W / 2,
-          languageY + buttonH / 2 + scaleValue(6)
+          languageY + buttonH / 2 + scaleValue(6),
         );
 
         // Restart button
@@ -5998,8 +6634,6 @@ const Index = () => {
     document.addEventListener('gestureend', preventGesture, { passive: false });
 
     return () => {
-      gameStateRef.current = null;
-      resetGameRef.current = null;
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("resize", handleResize);
@@ -6009,7 +6643,7 @@ const Index = () => {
       document.removeEventListener('gesturechange', preventGesture);
       document.removeEventListener('gestureend', preventGesture);
     };
-  });
+  }, []);
 
   useEffect(() => {
     if (gameStateRef.current) {
