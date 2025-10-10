@@ -2087,6 +2087,53 @@ const Index = () => {
       const multishotTightening = 1 / (1 + gameState.player.stats.multishot * 0.5);
       const actualSpread = baseSpread * spreadReduction * multishotTightening;
       
+      const visualType =
+        weapon.id === "flamethrower"
+          ? "flame"
+          : weapon.id === "frostbow"
+            ? "frost"
+            : "bullet";
+      const muzzleColor =
+        visualType === "flame" ? "#fb923c" : visualType === "frost" ? "#60a5fa" : "#facc15";
+
+      const createPlayerBullet = (
+        bulletDir: number,
+        overrides: Partial<{
+          pierce: boolean;
+          aoe: boolean;
+          chain: boolean;
+          fire: boolean;
+          freeze: boolean;
+          homing: boolean;
+          homingTarget: any;
+          chainCount: number;
+        }> = {},
+      ) => ({
+        x: gameState.player.x,
+        y: gameState.player.y,
+        dir: bulletDir,
+        spd: weapon.projectileSpeed,
+        life: range / weapon.projectileSpeed / 60,
+        damage,
+        color: weapon.color,
+        weaponId: weapon.id,
+        bounces: gameState.player.stats.bounces,
+        bounceOnEnemies: gameState.player.stats.bounceOnEnemies,
+        pierce: overrides.pierce ?? isPierce,
+        aoe: overrides.aoe ?? isAoe,
+        chain: overrides.chain ?? isChain,
+        fire: overrides.fire ?? isFire,
+        freeze: overrides.freeze ?? isFreeze,
+        homing: overrides.homing ?? isHoming,
+        homingTarget: overrides.homingTarget ?? (isHoming ? target : null),
+        chainCount: overrides.chainCount ?? (isChain ? 3 : 0),
+        isCrit,
+        originX: gameState.player.x,
+        originY: gameState.player.y,
+        frostTarget: (overrides.freeze ?? isFreeze) ? target : null,
+        visualType,
+      });
+
       const shots = 1 + gameState.player.stats.multishot;
       for (let i = 0; i < shots; i++) {
         const spreadAngle = (i - (shots - 1) / 2) * actualSpread;
@@ -2095,43 +2142,21 @@ const Index = () => {
         if (isSpread) {
           const spreadVariance = 0.3 * spreadReduction * multishotTightening;
           for (let j = -1; j <= 1; j++) {
-            gameState.bullets.push({
-              x: gameState.player.x,
-              y: gameState.player.y,
-              dir: finalDir + j * spreadVariance,
-              spd: weapon.projectileSpeed,
-              life: range / weapon.projectileSpeed / 60,
-              damage,
-              color: weapon.color,
-              weaponId: weapon.id,
-              bounces: gameState.player.stats.bounces,
-              bounceOnEnemies: gameState.player.stats.bounceOnEnemies,
-              pierce: false,
-              aoe: false,
-            });
+            gameState.bullets.push(
+              createPlayerBullet(finalDir + j * spreadVariance, {
+                pierce: false,
+                aoe: false,
+                chain: false,
+                fire: false,
+                freeze: false,
+                homing: false,
+                homingTarget: null,
+                chainCount: 0,
+              }),
+            );
           }
         } else {
-          gameState.bullets.push({
-            x: gameState.player.x,
-            y: gameState.player.y,
-            dir: finalDir,
-            spd: weapon.projectileSpeed,
-            life: range / weapon.projectileSpeed / 60,
-            damage,
-            color: weapon.color,
-            weaponId: weapon.id,
-            bounces: gameState.player.stats.bounces,
-            bounceOnEnemies: gameState.player.stats.bounceOnEnemies,
-            pierce: isPierce,
-            aoe: isAoe,
-            chain: isChain,
-            fire: isFire,
-            freeze: isFreeze,
-            homing: isHoming,
-            homingTarget: isHoming ? target : null,
-            chainCount: isChain ? 3 : 0,
-            isCrit,
-          });
+          gameState.bullets.push(createPlayerBullet(finalDir));
         }
       }
 
@@ -2145,7 +2170,7 @@ const Index = () => {
             vx: Math.cos(dir) * 2 + (Math.random() - 0.5),
             vy: Math.sin(dir) * 2 + (Math.random() - 0.5),
             life: 0.3,
-            color: weapon.color,
+            color: muzzleColor,
             size: 2,
           });
         }
@@ -5159,6 +5184,12 @@ const Index = () => {
               bullet.dir = Math.atan2(closestEnemy.y - bullet.y, closestEnemy.x - bullet.x);
               bullet.bounces--;
               if (gameState.particles.length < gameState.maxParticles - 5) {
+                const bounceParticleColor =
+                  bullet.visualType === "flame"
+                    ? "#fb923c"
+                    : bullet.visualType === "frost"
+                      ? "#60a5fa"
+                      : "#facc15";
                 for (let j = 0; j < 5; j++) {
                   gameState.particles.push({
                     x: bullet.x,
@@ -5166,7 +5197,7 @@ const Index = () => {
                     vx: (Math.random() - 0.5) * 3,
                     vy: (Math.random() - 0.5) * 3,
                     life: 0.3,
-                    color: bullet.color,
+                    color: bounceParticleColor,
                     size: 2,
                   });
                 }
@@ -7189,65 +7220,138 @@ const Index = () => {
       // Balas
       for (const b of gameState.bullets) {
         ctx.save();
+        ctx.globalAlpha = 1;
+        ctx.shadowBlur = 0;
 
-        // Efectos visuales especiales
-        let bulletSize = 3;
-        let glowSize = 10;
-
-        if (b.aoe) {
-          bulletSize = 5;
-          glowSize = 20;
-        } else if (b.pierce) {
-          bulletSize = 4;
-          glowSize = 15;
-        } else if (b.homing) {
-          bulletSize = 4;
-          glowSize = 12;
-          // Trail para misiles teledirigidos
-          ctx.strokeStyle = b.color + "40";
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          const trailLength = 20;
-          ctx.moveTo(b.x, b.y);
-          ctx.lineTo(b.x - Math.cos(b.dir) * trailLength, b.y - Math.sin(b.dir) * trailLength);
-          ctx.stroke();
-        } else if (b.chain) {
-          // Efecto eléctrico
-          glowSize = 15;
-          ctx.shadowBlur = 0;
-          ctx.shadowColor = "#2e86c1";
-        } else if (b.fire) {
-          // Efecto de fuego
-          glowSize = 12;
-          ctx.shadowColor = "#ff7a2a";
-        } else if (b.freeze) {
-          // Efecto de hielo
-          glowSize = 12;
-          ctx.shadowColor = "#2e86c1";
-        }
-
-        // Balas de enemigos (rojo)
         if (b.isEnemyBullet) {
           ctx.fillStyle = UI_COLORS.healthHigh;
           ctx.shadowColor = UI_COLORS.healthHigh;
-          bulletSize = 4;
-          glowSize = 15;
-        } else {
-          ctx.fillStyle = b.color;
-          ctx.shadowColor = b.color;
+          ctx.shadowBlur = 8;
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, 4, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          ctx.restore();
+          continue;
         }
 
-        // Crítico: partículas adicionales y glow
-        if (b.isCrit) {
-          glowSize *= 1.5;
+        const visualType =
+          b.visualType ??
+          (b.weaponId === "flamethrower"
+            ? "flame"
+            : b.weaponId === "frostbow"
+              ? "frost"
+              : "bullet");
+
+        if (visualType === "flame") {
+          const time = gameState.time;
+          const flicker = 0.85 + Math.sin(time * 18 + (b.x + b.y) * 0.05) * 0.15;
+          const flameRadius = 6 * flicker;
+          const gradient = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, flameRadius);
+          gradient.addColorStop(0, "rgba(255, 248, 220, 0.95)");
+          gradient.addColorStop(0.4, "rgba(251, 146, 60, 0.9)");
+          gradient.addColorStop(1, "rgba(234, 88, 12, 0)");
+          ctx.globalAlpha = 0.95;
+          ctx.fillStyle = gradient;
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, flameRadius, 0, Math.PI * 2);
+          ctx.fill();
+
+          const tailLength = 18;
+          ctx.globalAlpha = 0.7;
+          ctx.strokeStyle = "rgba(249, 115, 22, 0.85)";
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.moveTo(b.x, b.y);
+          ctx.lineTo(b.x - Math.cos(b.dir) * tailLength, b.y - Math.sin(b.dir) * tailLength);
+          ctx.stroke();
+
+          ctx.globalAlpha = 1;
+          ctx.shadowBlur = 0;
+        } else if (visualType === "frost") {
+          const frostColor = "#60a5fa";
+          const target =
+            b.frostTarget && !(b.frostTarget as any).__removed && b.frostTarget.hp > 0
+              ? b.frostTarget
+              : null;
+          const startX = b.originX ?? gameState.player.x;
+          const startY = b.originY ?? gameState.player.y;
+          const endX = target ? target.x : b.x;
+          const endY = target ? target.y : b.y;
+
+          const beamGradient = ctx.createLinearGradient(startX, startY, endX, endY);
+          beamGradient.addColorStop(0, "rgba(191, 219, 254, 0)");
+          beamGradient.addColorStop(0.5, "rgba(125, 211, 252, 0.6)");
+          beamGradient.addColorStop(1, "rgba(59, 130, 246, 0.9)");
+          ctx.strokeStyle = beamGradient;
+          ctx.lineWidth = 4;
+          ctx.lineCap = "round";
+          ctx.beginPath();
+          ctx.moveTo(startX, startY);
+          ctx.lineTo(endX, endY);
+          ctx.stroke();
+
+          const dirAngle = Math.atan2(endY - startY, endX - startX);
+          const normalX = Math.sin(dirAngle);
+          const normalY = -Math.cos(dirAngle);
+          const oscillation = Math.sin(gameState.time * 12 + (b.x + b.y) * 0.05) * 3;
+          ctx.strokeStyle = "rgba(96, 165, 250, 0.35)";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(startX + normalX * oscillation, startY + normalY * oscillation);
+          ctx.lineTo(endX + normalX * oscillation, endY + normalY * oscillation);
+          ctx.stroke();
+
+          ctx.fillStyle = frostColor;
+          ctx.shadowColor = "rgba(96, 165, 250, 0.9)";
+          ctx.shadowBlur = 12;
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, 3.5, 0, Math.PI * 2);
+          ctx.fill();
           ctx.shadowBlur = 0;
         } else {
+          const bulletColor = "#facc15";
+          const bulletSize = 2.5;
+          const tailLength = 14;
+
+          ctx.strokeStyle = "rgba(250, 204, 21, 0.55)";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(b.x, b.y);
+          ctx.lineTo(b.x - Math.cos(b.dir) * tailLength, b.y - Math.sin(b.dir) * tailLength);
+          ctx.stroke();
+
+          if (b.homing) {
+            const extendedTail = 20;
+            ctx.strokeStyle = "rgba(250, 204, 21, 0.35)";
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(b.x, b.y);
+            ctx.lineTo(
+              b.x - Math.cos(b.dir) * extendedTail,
+              b.y - Math.sin(b.dir) * extendedTail,
+            );
+            ctx.stroke();
+          }
+
+          if (b.chain) {
+            ctx.strokeStyle = "rgba(96, 165, 250, 0.6)";
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, bulletSize + 2, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+
+          ctx.fillStyle = bulletColor;
+          ctx.shadowColor = bulletColor;
+          ctx.shadowBlur = b.isCrit ? 10 : 6;
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, bulletSize, 0, Math.PI * 2);
+          ctx.fill();
           ctx.shadowBlur = 0;
         }
 
-        ctx.beginPath();
-        ctx.arc(b.x, b.y, bulletSize, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.globalAlpha = 1;
         ctx.shadowBlur = 0;
         ctx.restore();
       }
