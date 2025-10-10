@@ -261,6 +261,11 @@ const Index = () => {
       sfxMuted: false,
       enemyLogo: null as HTMLImageElement | null,
       greenZombieImg: null as HTMLImageElement | null,
+      bomberImg: null as HTMLImageElement | null,
+      ghoulImg: null as HTMLImageElement | null,
+      purpleZombieImg: null as HTMLImageElement | null,
+      runnerImg: null as HTMLImageElement | null,
+      shieldImg: null as HTMLImageElement | null,
       tutorialActive: localStorage.getItem("gameHasTutorial") !== "completed",
       tutorialStartTime: performance.now(),
       gameOverAnimationTimer: 0,
@@ -368,7 +373,7 @@ const Index = () => {
       console.error("Failed to load enemy logo");
     };
 
-    // Load green zombie image
+    // Load all enemy images
     const greenZombieImg = new Image();
     greenZombieImg.src = "/images/green-zombie.png";
     greenZombieImg.onload = () => {
@@ -377,6 +382,56 @@ const Index = () => {
     };
     greenZombieImg.onerror = () => {
       console.error("Failed to load green zombie image");
+    };
+
+    const bomberImg = new Image();
+    bomberImg.src = "/images/bomber.png";
+    bomberImg.onload = () => {
+      gameState.bomberImg = bomberImg;
+      console.log("Bomber loaded successfully");
+    };
+    bomberImg.onerror = () => {
+      console.error("Failed to load bomber image");
+    };
+
+    const ghoulImg = new Image();
+    ghoulImg.src = "/images/ghoul.png";
+    ghoulImg.onload = () => {
+      gameState.ghoulImg = ghoulImg;
+      console.log("Ghoul loaded successfully");
+    };
+    ghoulImg.onerror = () => {
+      console.error("Failed to load ghoul image");
+    };
+
+    const purpleZombieImg = new Image();
+    purpleZombieImg.src = "/images/purple_zombie.png";
+    purpleZombieImg.onload = () => {
+      gameState.purpleZombieImg = purpleZombieImg;
+      console.log("Purple zombie loaded successfully");
+    };
+    purpleZombieImg.onerror = () => {
+      console.error("Failed to load purple zombie image");
+    };
+
+    const runnerImg = new Image();
+    runnerImg.src = "/images/runner.png";
+    runnerImg.onload = () => {
+      gameState.runnerImg = runnerImg;
+      console.log("Runner loaded successfully");
+    };
+    runnerImg.onerror = () => {
+      console.error("Failed to load runner image");
+    };
+
+    const shieldImg = new Image();
+    shieldImg.src = "/images/shield.png";
+    shieldImg.onload = () => {
+      gameState.shieldImg = shieldImg;
+      console.log("Shield loaded successfully");
+    };
+    shieldImg.onerror = () => {
+      console.error("Failed to load shield image");
     };
 
     // Initialize Web Audio API
@@ -5669,31 +5724,48 @@ const Index = () => {
       for (const e of gameState.enemies) {
         ctx.save();
 
-        // Si tenemos el logo cargado, dibujarlo con el color del enemigo
-        const useGreenZombie = e.color === "#22c55e" && gameState.greenZombieImg && gameState.greenZombieImg.complete;
+        // Determine which image to use based on enemy type and color
+        let enemyImage: HTMLImageElement | null = null;
         
-        if (useGreenZombie || (gameState.enemyLogo && gameState.enemyLogo.complete)) {
+        if (e.specialType === "explosive" && gameState.bomberImg?.complete) {
+          enemyImage = gameState.bomberImg;
+        } else if (e.specialType === "fast" && gameState.runnerImg?.complete) {
+          enemyImage = gameState.runnerImg;
+        } else if (e.specialType === "tank" && gameState.shieldImg?.complete) {
+          enemyImage = gameState.shieldImg;
+        } else if (e.specialType === "summoner" && gameState.purpleZombieImg?.complete) {
+          enemyImage = gameState.purpleZombieImg;
+        } else if (e.color === "#22c55e" && gameState.greenZombieImg?.complete) {
+          enemyImage = gameState.greenZombieImg;
+        } else if ((e.color === "#9333ea" || e.color === "#a855f7") && gameState.purpleZombieImg?.complete) {
+          enemyImage = gameState.purpleZombieImg;
+        } else if (e.color === "#78716c" && gameState.ghoulImg?.complete) {
+          enemyImage = gameState.ghoulImg;
+        }
+        
+        if (enemyImage) {
           ctx.translate(e.x, e.y);
 
           // Dibujar el logo escalado al tamaño del enemigo (3x bigger to scale with player)
           const logoSize = e.rad * 3;
+          ctx.drawImage(enemyImage, -logoSize / 2, -logoSize / 2, logoSize, logoSize);
 
-          if (useGreenZombie) {
-            // Use the green zombie image directly without tinting
-            ctx.drawImage(gameState.greenZombieImg!, -logoSize / 2, -logoSize / 2, logoSize, logoSize);
-          } else {
-            // Usar logo pre-renderizado si está disponible; en caso contrario, generarlo y guardarlo
-            let prerenderedLogo = prerenderedLogosRef.current[e.color];
-            if (!prerenderedLogo) {
-              const generatedLogo = ensureTintedLogo(e.color);
-              if (generatedLogo) {
-                prerenderedLogo = generatedLogo;
-              }
-            }
+          ctx.restore();
+        } else if (gameState.enemyLogo && gameState.enemyLogo.complete) {
+          // Fallback to colored logo
+          ctx.translate(e.x, e.y);
+          const logoSize = e.rad * 3;
 
-            if (prerenderedLogo) {
-              ctx.drawImage(prerenderedLogo, -logoSize / 2, -logoSize / 2, logoSize, logoSize);
+          let prerenderedLogo = prerenderedLogosRef.current[e.color];
+          if (!prerenderedLogo) {
+            const generatedLogo = ensureTintedLogo(e.color);
+            if (generatedLogo) {
+              prerenderedLogo = generatedLogo;
             }
+          }
+
+          if (prerenderedLogo) {
+            ctx.drawImage(prerenderedLogo, -logoSize / 2, -logoSize / 2, logoSize, logoSize);
           }
 
           ctx.restore();
