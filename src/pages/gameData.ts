@@ -469,6 +469,10 @@ export const itemTexts: Record<Language, Record<string, ItemLocalization>> = {
       name: "Escáner Horizonte",
       description: "Nv1: -30% zoom, Nv2: minimapa activado",
     },
+    horizonvisor: {
+      name: "Visor Horizonte",
+      description: "Reduce el zoom y prepara el minimapa",
+    },
     chaosamuleto: { name: "Amuleto del Caos", description: "Daño +10% a +50%" },
     ironmedal: { name: "Medalla de Hierro", description: "+15% HP máximo" },
     heavyvest: { name: "Chaleco Pesado", description: "-10% velocidad, -25% daño" },
@@ -496,6 +500,7 @@ export const itemTexts: Record<Language, Record<string, ItemLocalization>> = {
     jetboots: { name: "Jet Boots", description: "+15% speed" },
     reactiveshield: { name: "Reactive Shield", description: "Wave pushes enemies" },
     horizonscanner: { name: "Horizon Scanner", description: "Lvl1: -30% zoom, Lvl2: minimap on" },
+    horizonvisor: { name: "Horizon Visor", description: "Zooms out and readies the minimap" },
     chaosamuleto: { name: "Chaos Amulet", description: "Damage +10% to +50%" },
     ironmedal: { name: "Iron Medal", description: "+15% max HP" },
     heavyvest: { name: "Heavy Vest", description: "-10% speed, -25% damage" },
@@ -836,6 +841,14 @@ export const ITEMS: Item[] = [
   { id: "artificialheart", effect: "artificialheart", rarity: "legendary", color: "#ffc300" },
   { id: "infinitylens", effect: "infinitylens", rarity: "legendary", color: "#ffc300" },
 ];
+
+export const HORIZON_VISOR_ITEM: Item = {
+  id: "horizonvisor",
+  effect: "horizonvisor",
+  rarity: "epic",
+  color: "#8e44ad",
+  maxStacks: 1,
+};
 
 export const rarityColors: Record<Rarity, string> = {
   common: "#6e6e6e",

@@ -13,6 +13,7 @@ import {
 } from "../audio/enemyImpactSounds";
 
 import {
+  HORIZON_VISOR_ITEM,
   ITEMS,
   TOMES,
   WEAPONS,
@@ -708,6 +709,7 @@ const Index = () => {
       purpleZombieImg: null as HTMLImageElement | null,
       larvaImg: null as HTMLImageElement | null,
       shieldImg: null as HTMLImageElement | null,
+      horizonVisorImg: null as HTMLImageElement | null,
       chestImg: null as HTMLImageElement | null,
       mapBackground: null as HTMLImageElement | null,
       tutorialActive: localStorage.getItem("gameHasTutorial") !== "completed",
@@ -910,6 +912,16 @@ const Index = () => {
     };
     shieldImg.onerror = () => {
       console.error("Failed to load shield image");
+    };
+
+    const horizonVisorImg = new Image();
+    horizonVisorImg.src = "/images/horizon-visor.svg";
+    horizonVisorImg.onload = () => {
+      gameState.horizonVisorImg = horizonVisorImg;
+      console.log("Horizon visor image loaded successfully");
+    };
+    horizonVisorImg.onerror = () => {
+      console.error("Failed to load horizon visor image");
     };
 
     const chestImg = new Image();
@@ -2299,6 +2311,26 @@ const Index = () => {
       });
     }
 
+    function dropHorizonVisor(x: number, y: number) {
+      const currentStacks = getItemStacks(HORIZON_VISOR_ITEM.id);
+      const maxStacks = HORIZON_VISOR_ITEM.maxStacks ?? Infinity;
+
+      if (currentStacks >= maxStacks) {
+        return;
+      }
+
+      gameState.drops.push({
+        x,
+        y,
+        rad: scaleEntitySize(14),
+        type: "itemPickup",
+        item: { ...HORIZON_VISOR_ITEM },
+        color: HORIZON_VISOR_ITEM.color,
+        glowColor: "#b794f4",
+        spawnTime: gameState.time,
+      });
+    }
+
     function spawnChestParticles(x: number, y: number, color: string) {
       const availableSlots = gameState.maxParticles - gameState.particles.length;
       if (availableSlots <= 0) {
@@ -2839,6 +2871,20 @@ const Index = () => {
       gameState.upgradeOptions = options;
     }
 
+    function updateHorizonVisionEffect() {
+      const totalStacks =
+        getItemStacks("horizonscanner") + getItemStacks(HORIZON_VISOR_ITEM.id);
+      const stats = gameState.player.stats;
+
+      stats.cameraZoomMultiplier = totalStacks >= 1 ? 0.7 : 1;
+
+      if (gameState.camera) {
+        gameState.camera.zoom = getTargetCameraZoom();
+      }
+
+      gameState.minimapOpacity = totalStacks >= 2 ? 1 : 0;
+    }
+
     function applyItemEffect(item: Item) {
       const player = gameState.player;
       const stats = player.stats;
@@ -2884,13 +2930,9 @@ const Index = () => {
         case "reactiveshield":
           stats.reactiveShieldActive = true;
           break;
-        case "horizonscanner": {
-          const stacks = gameState.player.itemStacks[item.id] ?? 0;
-          stats.cameraZoomMultiplier = stacks >= 1 ? 0.7 : 1;
-          if (gameState.camera) {
-            gameState.camera.zoom = getTargetCameraZoom();
-          }
-          gameState.minimapOpacity = stacks >= 2 ? 1 : 0;
+        case "horizonscanner":
+        case "horizonvisor": {
+          updateHorizonVisionEffect();
           break;
         }
         case "chaosdamage":
@@ -5032,6 +5074,14 @@ const Index = () => {
           dropChest(enemy.x, enemy.y);
         }
 
+        if (
+          enemy.specialType === "tank" &&
+          getItemStacks(HORIZON_VISOR_ITEM.id) < (HORIZON_VISOR_ITEM.maxStacks ?? Infinity) &&
+          Math.random() < 0.15
+        ) {
+          dropHorizonVisor(enemy.x, enemy.y);
+        }
+
         if (gameState.player.stats.vampire > 0 && killer) {
           const healAmount = Math.floor(killer.damage * gameState.player.stats.vampire * 10);
           gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + healAmount);
@@ -5376,6 +5426,11 @@ const Index = () => {
             }
           } else if (g.type === "powerup") {
             collectPowerup(g);
+          } else if (g.type === "itemPickup") {
+            const dropItem = g.item as Item | null | undefined;
+            if (dropItem) {
+              grantItemToPlayer(dropItem, { notify: true, playSound: true });
+            }
           }
           gameState.drops.splice(i, 1);
         }
@@ -7181,6 +7236,7 @@ const Index = () => {
           alpha = Math.abs(Math.sin(gameState.time * blinkSpeed)) * 0.7 + 0.3;
         }
 
+        ctx.save();
         ctx.translate(d.x, d.y);
         ctx.globalAlpha = alpha;
         ctx.fillStyle = d.color;
@@ -7194,6 +7250,36 @@ const Index = () => {
           ctx.beginPath();
           ctx.arc(0, 0, d.rad + 5, 0, Math.PI * 2);
           ctx.stroke();
+        } else if (d.type === "itemPickup") {
+          const spawnTime = d.spawnTime ?? gameState.time;
+          const bounce = Math.sin((gameState.time - spawnTime) * 6) * 3;
+          ctx.translate(0, bounce);
+
+          const glowColor = d.glowColor ?? d.color ?? HORIZON_VISOR_ITEM.color;
+
+          ctx.save();
+          ctx.globalAlpha = 0.5;
+          ctx.fillStyle = glowColor;
+          ctx.shadowColor = glowColor;
+          ctx.shadowBlur = 28;
+          ctx.beginPath();
+          ctx.arc(0, 0, d.rad * 1.8, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+
+          const visorImg = gameState.horizonVisorImg;
+          const size = d.rad * 2.6;
+          if (visorImg?.complete) {
+            ctx.drawImage(visorImg, -size / 2, -size / 2, size, size);
+          } else {
+            ctx.fillStyle = glowColor;
+            ctx.beginPath();
+            ctx.arc(0, 0, d.rad, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          ctx.restore();
+          continue;
         } else {
           ctx.shadowBlur = 0;
         }
@@ -7202,6 +7288,7 @@ const Index = () => {
         ctx.shadowBlur = 0;
         ctx.shadowColor = "transparent";
         ctx.globalAlpha = 1;
+        ctx.restore();
       }
       ctx.setTransform(worldTransform);
 
