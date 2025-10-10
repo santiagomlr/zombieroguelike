@@ -122,6 +122,7 @@ export interface PlayerStats {
   regenRate: number;
   regenInterval: number;
   magnetMultiplier: number;
+  cameraZoomMultiplier: number;
   bounceOnEnemies: boolean;
   damageReduction: number;
   powerupDuration: number;
@@ -440,6 +441,10 @@ export const itemTexts: Record<Language, Record<string, ItemLocalization>> = {
     ballistichelmet: { name: "Casco Balístico", description: "Inmunidad 1er golpe/wave" },
     jetboots: { name: "Botas Jet", description: "+15% velocidad" },
     reactiveshield: { name: "Escudo Reactivo", description: "Onda empuja enemigos" },
+    horizonscanner: {
+      name: "Escáner Horizonte",
+      description: "Nv1: -30% zoom, Nv2: minimapa activado",
+    },
     chaosamuleto: { name: "Amuleto del Caos", description: "Daño +10% a +50%" },
     ironmedal: { name: "Medalla de Hierro", description: "+15% HP máximo" },
     heavyvest: { name: "Chaleco Pesado", description: "-10% velocidad, -25% daño" },
@@ -466,6 +471,7 @@ export const itemTexts: Record<Language, Record<string, ItemLocalization>> = {
     ballistichelmet: { name: "Ballistic Helmet", description: "Immune first hit/wave" },
     jetboots: { name: "Jet Boots", description: "+15% speed" },
     reactiveshield: { name: "Reactive Shield", description: "Wave pushes enemies" },
+    horizonscanner: { name: "Horizon Scanner", description: "Lvl1: -30% zoom, Lvl2: minimap on" },
     chaosamuleto: { name: "Chaos Amulet", description: "Damage +10% to +50%" },
     ironmedal: { name: "Iron Medal", description: "+15% max HP" },
     heavyvest: { name: "Heavy Vest", description: "-10% speed, -25% damage" },
@@ -706,6 +712,13 @@ export const ITEMS: Item[] = [
   { id: "ballistichelmet", effect: "firsthitimmune", rarity: "rare", color: "#2e86c1" },
   { id: "jetboots", effect: "jetspeed", rarity: "epic", color: "#8e44ad" },
   { id: "reactiveshield", effect: "reactiveshield", rarity: "epic", color: "#8e44ad" },
+  {
+    id: "horizonscanner",
+    effect: "horizonscanner",
+    rarity: "epic",
+    color: "#8e44ad",
+    maxStacks: 2,
+  },
   { id: "chaosamuleto", effect: "chaosdamage", rarity: "epic", color: "#8e44ad" },
   { id: "ironmedal", effect: "maxhp15", rarity: "epic", color: "#8e44ad" },
   { id: "heavyvest", effect: "heavyarmor", rarity: "epic", color: "#8e44ad" },
