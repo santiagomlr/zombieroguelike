@@ -393,7 +393,7 @@ const Index = () => {
       oscillator.stop(gameState.audioContext.currentTime + duration);
     };
 
-    const playShootSound = () => playSound(200, 0.1, "square", 0.2);
+    const playShootSound = () => {};
     const playHitSound = () => playSound(100, 0.15, "sawtooth", 0.2);
     const playLevelUpSound = () => {
       playSound(300, 0.1, "sine", 0.3);
