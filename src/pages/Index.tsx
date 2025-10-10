@@ -370,6 +370,55 @@ const getPauseMenuHomeLayout = (
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
+const getCameraViewExtents = (width: number, height: number, zoom: number) => {
+  const safeZoom = Math.max(zoom, 0.0001);
+  const viewWidth = width / safeZoom;
+  const viewHeight = height / safeZoom;
+
+  return {
+    halfViewW: viewWidth / 2,
+    halfViewH: viewHeight / 2,
+  };
+};
+
+const getCameraBounds = (
+  camera: { x: number; y: number; zoom?: number | null },
+  width: number,
+  height: number,
+  padding = 0,
+) => {
+  const zoom = camera.zoom ?? CAMERA_ZOOM;
+  const { halfViewW, halfViewH } = getCameraViewExtents(width, height, zoom);
+
+  return {
+    minX: camera.x - halfViewW + padding,
+    maxX: camera.x + halfViewW - padding,
+    minY: camera.y - halfViewH + padding,
+    maxY: camera.y + halfViewH - padding,
+  };
+};
+
+const drawRoundedRect = (
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+) => {
+  const r = Math.max(0, Math.min(radius, width / 2, height / 2));
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + width - r, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+  ctx.lineTo(x + width, y + height - r);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+  ctx.lineTo(x + r, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+};
+
 const getMusicStartButtonRect = (W: number, H: number) => {
   const width = 170;
   const height = 48;
@@ -3833,6 +3882,25 @@ const Index = () => {
         camera.y = clamp(camera.y, halfViewH, maxY);
       }
 
+      const visibilityCamera = gameState.camera ?? {
+        x: gameState.player.x,
+        y: gameState.player.y,
+        zoom: CAMERA_ZOOM,
+      };
+      const visibilityZoom = visibilityCamera.zoom ?? CAMERA_ZOOM;
+      const visibilityExtents = getCameraViewExtents(W, H, visibilityZoom);
+      const visibilityBounds: Bounds = {
+        left: visibilityCamera.x - visibilityExtents.halfViewW,
+        top: visibilityCamera.y - visibilityExtents.halfViewH,
+        right: visibilityCamera.x + visibilityExtents.halfViewW,
+        bottom: visibilityCamera.y + visibilityExtents.halfViewH,
+      };
+      const visibleEnemies = cullEntities(
+        gameState.enemies,
+        expandBounds(visibilityBounds, MAX_ENEMY_RADIUS),
+        (enemy) => enemy.rad,
+      );
+
       // ═══════════════════════════════════════════════════════════
       // SISTEMA DE SPAWN DE ENEMIGOS - Estilo COD Zombies
       // ═══════════════════════════════════════════════════════════
@@ -5327,7 +5395,7 @@ const Index = () => {
       // Fondo de la barra (redondeada)
       ctx.fillStyle = UI_COLORS.panelBg;
       ctx.beginPath();
-      ctx.roundRect(xpBarX, xpBarY, xpBarW, xpBarH, xpBarRadius);
+      drawRoundedRect(ctx, xpBarX, xpBarY, xpBarW, xpBarH, xpBarRadius);
       ctx.fill();
 
       // Borde exterior con glow
@@ -5347,7 +5415,7 @@ const Index = () => {
 
         // Clip para bordes redondeados
         ctx.beginPath();
-        ctx.roundRect(xpBarX + 4, xpBarY + 4, currentXpBarW, xpBarH - 8, xpBarRadius - 4);
+        drawRoundedRect(ctx, xpBarX + 4, xpBarY + 4, currentXpBarW, xpBarH - 8, xpBarRadius - 4);
         ctx.clip();
 
         // Animación Rainbow cuando sube de nivel
@@ -5615,7 +5683,7 @@ const Index = () => {
         // Background
         ctx.fillStyle = UI_COLORS.panelBg;
         ctx.beginPath();
-        ctx.roundRect(notifX, notifY, notifW, notifH, 10);
+        drawRoundedRect(ctx, notifX, notifY, notifW, notifH, 10);
         ctx.fill();
 
         // Border
@@ -5647,7 +5715,7 @@ const Index = () => {
 
         ctx.fillStyle = UI_COLORS.panelBg;
         ctx.beginPath();
-        ctx.roundRect(notifX, notifY - notifH / 2, notifW, notifH, 12);
+        drawRoundedRect(ctx, notifX, notifY - notifH / 2, notifW, notifH, 12);
         ctx.fill();
 
         ctx.strokeStyle = accentColor;
@@ -5678,7 +5746,7 @@ const Index = () => {
         ctx.translate(-centerX, -centerY);
 
           ctx.beginPath();
-          ctx.roundRect(startRect.x, startRect.y, startRect.w, startRect.h, 14);
+          drawRoundedRect(ctx, startRect.x, startRect.y, startRect.w, startRect.h, 14);
           ctx.fillStyle = UI_COLORS.panelBg;
           ctx.fill();
 
@@ -5703,7 +5771,7 @@ const Index = () => {
 
         ctx.save();
           ctx.beginPath();
-          ctx.roundRect(panelRect.x, panelRect.y, panelRect.w, panelRect.h, panelRadius);
+          drawRoundedRect(ctx, panelRect.x, panelRect.y, panelRect.w, panelRect.h, panelRadius);
           ctx.fillStyle = UI_COLORS.panelBg;
           ctx.fill();
 
@@ -5745,7 +5813,7 @@ const Index = () => {
 
           const roundedRadius = 12;
           ctx.beginPath();
-          ctx.roundRect(btnX, btnY, controlSize, controlSize, roundedRadius);
+          drawRoundedRect(ctx, btnX, btnY, controlSize, controlSize, roundedRadius);
 
           if (clickAnim > 0) {
             const shift = ((gameState.time * 70 + control.index * 40) % controlSize) / controlSize;
@@ -7026,7 +7094,7 @@ const Index = () => {
         btnGradient.addColorStop(1, UI_COLORS.healthLow);
         ctx.fillStyle = btnGradient;
         ctx.beginPath();
-        ctx.roundRect(btnX, btnY, btnW, btnH, 15);
+        drawRoundedRect(ctx, btnX, btnY, btnW, btnH, 15);
         ctx.fill();
 
         ctx.strokeStyle = textPrimary;
@@ -7074,7 +7142,7 @@ const Index = () => {
         // Main menu background with neon glow
         ctx.save();
         ctx.beginPath();
-        ctx.roundRect(menuX, menuY, menuW, menuH, scaledRadius(20));
+        drawRoundedRect(ctx, menuX, menuY, menuW, menuH, scaledRadius(20));
         const bgGradient = ctx.createLinearGradient(menuX, menuY, menuX, menuY + menuH);
         bgGradient.addColorStop(0, "rgba(10, 10, 10, 0.96)");
         bgGradient.addColorStop(1, "rgba(24, 24, 24, 0.92)");
@@ -7119,7 +7187,7 @@ const Index = () => {
 
             ctx.save();
             ctx.beginPath();
-            ctx.roundRect(statX, statsY, statBoxW, statBoxH, scaledRadius(12));
+            drawRoundedRect(ctx, statX, statsY, statBoxW, statBoxH, scaledRadius(12));
             const statGradient = ctx.createLinearGradient(statX, statsY, statX, statsY + statBoxH);
             statGradient.addColorStop(0, `${stat.color}2a`);
             statGradient.addColorStop(1, "rgba(15, 15, 15, 0.7)");
@@ -7163,7 +7231,7 @@ const Index = () => {
 
           ctx.save();
           ctx.beginPath();
-          ctx.roundRect(panelX, panelY, panelW, panelH, scaledRadius(18));
+          drawRoundedRect(ctx, panelX, panelY, panelW, panelH, scaledRadius(18));
           const panelGradient = ctx.createLinearGradient(panelX, panelY, panelX, panelY + panelH);
           panelGradient.addColorStop(0, `${UI_COLORS.shield}2f`);
           panelGradient.addColorStop(1, UI_COLORS.panelBg);
@@ -7203,7 +7271,7 @@ const Index = () => {
 
           ctx.save();
           ctx.beginPath();
-          ctx.roundRect(sliderX, sliderY, sliderW, sliderH, scaledRadius(12));
+          drawRoundedRect(ctx, sliderX, sliderY, sliderW, sliderH, scaledRadius(12));
           ctx.fillStyle = UI_COLORS.panelBg;
           ctx.fill();
           ctx.restore();
@@ -7213,7 +7281,7 @@ const Index = () => {
 
           ctx.save();
           ctx.beginPath();
-          ctx.roundRect(sliderX, sliderY, sliderFillW, sliderH, scaledRadius(12));
+          drawRoundedRect(ctx, sliderX, sliderY, sliderFillW, sliderH, scaledRadius(12));
           ctx.fillStyle = `${UI_COLORS.shield}bb`;
           ctx.fill();
           ctx.restore();
@@ -7239,7 +7307,7 @@ const Index = () => {
           ) => {
             ctx.save();
             ctx.beginPath();
-            ctx.roundRect(toggle.x, toggle.y, toggle.w, toggle.h, scaledRadius(14));
+            drawRoundedRect(ctx, toggle.x, toggle.y, toggle.w, toggle.h, scaledRadius(14));
             const gradient = ctx.createLinearGradient(toggle.x, toggle.y, toggle.x, toggle.y + toggle.h);
             if (active) {
               gradient.addColorStop(0, `${pauseAccent}33`);
@@ -7286,7 +7354,7 @@ const Index = () => {
         const continueY = continueBtn.y;
         ctx.save();
         ctx.beginPath();
-        ctx.roundRect(continueBtn.x, continueBtn.y, continueBtn.w, continueBtn.h, scaledRadius(14));
+        drawRoundedRect(ctx, continueBtn.x, continueBtn.y, continueBtn.w, continueBtn.h, scaledRadius(14));
         const continueBg = ctx.createLinearGradient(0, continueY, 0, continueY + buttonH);
         continueBg.addColorStop(0, `${pauseAccent}33`);
         continueBg.addColorStop(1, `${pauseAccent}1d`);
@@ -7309,7 +7377,7 @@ const Index = () => {
         const audioY = audioBtn.y;
         ctx.save();
         ctx.beginPath();
-        ctx.roundRect(audioBtn.x, audioBtn.y, audioBtn.w, audioBtn.h, scaledRadius(14));
+        drawRoundedRect(ctx, audioBtn.x, audioBtn.y, audioBtn.w, audioBtn.h, scaledRadius(14));
         const audioBg = ctx.createLinearGradient(0, audioY, 0, audioY + buttonH);
         audioBg.addColorStop(0, `${UI_COLORS.shield}33`);
         audioBg.addColorStop(1, `${UI_COLORS.shield}18`);
@@ -7335,7 +7403,7 @@ const Index = () => {
         const languageY = languageBtn.y;
         ctx.save();
         ctx.beginPath();
-        ctx.roundRect(languageBtn.x, languageBtn.y, languageBtn.w, languageBtn.h, scaledRadius(14));
+        drawRoundedRect(ctx, languageBtn.x, languageBtn.y, languageBtn.w, languageBtn.h, scaledRadius(14));
         const languageBg = ctx.createLinearGradient(0, languageY, 0, languageY + buttonH);
         languageBg.addColorStop(0, `${UI_COLORS.minimap}33`);
         languageBg.addColorStop(1, `${UI_COLORS.minimap}18`);
@@ -7362,7 +7430,7 @@ const Index = () => {
         const restartY = restartBtn.y;
         ctx.save();
         ctx.beginPath();
-        ctx.roundRect(restartBtn.x, restartBtn.y, restartBtn.w, restartBtn.h, scaledRadius(14));
+        drawRoundedRect(ctx, restartBtn.x, restartBtn.y, restartBtn.w, restartBtn.h, scaledRadius(14));
         const restartBg = ctx.createLinearGradient(0, restartY, 0, restartY + buttonH);
         restartBg.addColorStop(0, `${UI_COLORS.healthHigh}33`);
         restartBg.addColorStop(1, `${UI_COLORS.healthLow}1f`);
