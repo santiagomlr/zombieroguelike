@@ -3833,24 +3833,64 @@ const Index = () => {
       }
 
 
-      // Colisión entre enemigos
+      // Construir grilla espacial para colisiones entre enemigos
+      let enemyCellSize = 1;
+      const enemyGrid = new Map<string, number[]>();
+      if (gameState.enemies.length > 0) {
+        let maxEnemyRadius = 0;
+        for (const enemy of gameState.enemies) {
+          const radius = Number(enemy?.rad) || 0;
+          if (radius > maxEnemyRadius) {
+            maxEnemyRadius = radius;
+          }
+        }
+        enemyCellSize = Math.max(1, maxEnemyRadius * 2);
+
+        for (let i = 0; i < gameState.enemies.length; i++) {
+          const enemy = gameState.enemies[i];
+          const cellX = Math.floor(enemy.x / enemyCellSize);
+          const cellY = Math.floor(enemy.y / enemyCellSize);
+          const key = `${cellX},${cellY}`;
+          let bucket = enemyGrid.get(key);
+          if (!bucket) {
+            bucket = [];
+            enemyGrid.set(key, bucket);
+          }
+          bucket.push(i);
+        }
+      }
+
+      // Colisión entre enemigos utilizando la grilla espacial
       for (let i = 0; i < gameState.enemies.length; i++) {
-        for (let j = i + 1; j < gameState.enemies.length; j++) {
-          const a = gameState.enemies[i];
-          const b = gameState.enemies[j];
-          const dx = b.x - a.x;
-          const dy = b.y - a.y;
-          const d = Math.hypot(dx, dy);
-          const minDist = a.rad + b.rad;
-          
-          if (d < minDist && d > 0) {
-            const overlap = minDist - d;
-            const nx = dx / d;
-            const ny = dy / d;
-            a.x -= nx * overlap / 2;
-            a.y -= ny * overlap / 2;
-            b.x += nx * overlap / 2;
-            b.y += ny * overlap / 2;
+        const a = gameState.enemies[i];
+        const cellX = Math.floor(a.x / enemyCellSize);
+        const cellY = Math.floor(a.y / enemyCellSize);
+
+        for (let ox = -1; ox <= 1; ox++) {
+          for (let oy = -1; oy <= 1; oy++) {
+            const neighborKey = `${cellX + ox},${cellY + oy}`;
+            const bucket = enemyGrid.get(neighborKey);
+            if (!bucket) continue;
+
+            for (const j of bucket) {
+              if (j <= i) continue;
+
+              const b = gameState.enemies[j];
+              const dx = b.x - a.x;
+              const dy = b.y - a.y;
+              const d = Math.hypot(dx, dy);
+              const minDist = a.rad + b.rad;
+
+              if (d < minDist && d > 0) {
+                const overlap = minDist - d;
+                const nx = dx / d;
+                const ny = dy / d;
+                a.x -= (nx * overlap) / 2;
+                a.y -= (ny * overlap) / 2;
+                b.x += (nx * overlap) / 2;
+                b.y += (ny * overlap) / 2;
+              }
+            }
           }
         }
       }
