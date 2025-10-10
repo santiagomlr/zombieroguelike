@@ -4,6 +4,7 @@ import type {
   MinimapFrame,
   OverlayParticle,
 } from "../workers/overlayRenderer";
+import { audioManager } from "../audio/audioManager";
 
 import {
   ITEMS,
@@ -560,7 +561,6 @@ const Index = () => {
       canSpawn: true, // Flag para controlar si se puede spawnar
       weaponCooldowns: {} as Record<string, number>,
       autoAimMemory: {} as Record<string, { target: any | null; lostTimer: number; lastScore: number }>,
-      audioContext: null as AudioContext | null,
       keys: {} as Record<string, boolean>,
       showUpgradeUI: false,
       upgradeOptions: [] as Upgrade[],
@@ -593,13 +593,6 @@ const Index = () => {
       stormZone: null as { x: number; y: number; radius: number; vx: number; vy: number } | null,
       meleeCooldown: 0, // Cooldown de golpe melee
       explosionMarks: [] as Array<{ x: number; y: number; radius: number; life: number }>, // Marcas de explosión en el suelo
-      sounds: {
-        shoot: new Audio(),
-        hit: new Audio(),
-        levelUp: new Audio(),
-        pickup: new Audio(),
-        death: new Audio(),
-      },
       gameOverMusic: null as HTMLAudioElement | null,
       musicTracks: [
         { name: "Electronic Dreams", path: "/audio/Electronic_Dreams.mp3" },
@@ -817,72 +810,68 @@ const Index = () => {
       console.error("Failed to load map background");
     };
 
-    // Initialize Web Audio API
-    try {
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      gameState.audioContext = audioCtx;
-    } catch (e) {
-      console.warn("Web Audio API not supported");
-    }
+    // Initialize audio manager and preload SFX buffers
+    audioManager.initialize();
+    audioManager.preloadAllSfx().catch(() => {
+      console.warn("Failed to preload SFX buffers");
+    });
 
     // Initialize music system
+    const musicListenersCleanup: Array<() => void> = [];
+
     function initMusic() {
-      if (!gameState.music) {
-        const audio = new Audio();
-        audio.volume = gameState.musicVolume;
-        audio.loop = false;
+      const musicElement = audioManager.getMusicElement("background");
+      if (!musicElement) {
+        return;
+      }
 
-        audio.addEventListener("ended", () => {
-          // Pasar a la siguiente canción
-          gameState.currentMusicIndex = (gameState.currentMusicIndex + 1) % gameState.musicTracks.length;
-          playTrackAtCurrentIndex();
-        });
+      gameState.music = musicElement;
 
-        audio.addEventListener("play", () => {
-          gameState.musicIsPlaying = true;
-        });
+      audioManager.setMusicVolume("background", gameState.musicVolume);
+      audioManager.setMusicMuted("background", gameState.musicMuted);
+      audioManager.setMusicVolume("gameOver", gameState.musicVolume);
+      audioManager.setMusicMuted("gameOver", gameState.musicMuted);
 
-        audio.addEventListener("pause", () => {
-          // El evento pause también se dispara cuando termina la pista
-          if (audio.ended) {
-            return;
-          }
-          gameState.musicIsPlaying = false;
-        });
-
-        gameState.music = audio;
-        // No auto-play, esperar a que el usuario haga click
+      if (musicListenersCleanup.length === 0) {
+        musicListenersCleanup.push(
+          audioManager.addMusicEventListener("background", "ended", () => {
+            gameState.currentMusicIndex = (gameState.currentMusicIndex + 1) % gameState.musicTracks.length;
+            playTrackAtCurrentIndex();
+          }),
+          audioManager.addMusicEventListener("background", "play", () => {
+            gameState.musicIsPlaying = true;
+          }),
+          audioManager.addMusicEventListener("background", "pause", () => {
+            const element = audioManager.getMusicElement("background");
+            if (element?.ended) {
+              return;
+            }
+            gameState.musicIsPlaying = false;
+          }),
+        );
       }
     }
 
     function playTrackAtCurrentIndex(resetPosition: boolean = true) {
-      if (!gameState.music || !gameState.musicStarted) return;
+      if (!gameState.musicStarted) return;
 
       const track = gameState.musicTracks[gameState.currentMusicIndex];
 
-      if (resetPosition || !gameState.music.src.includes(track.path)) {
-        gameState.music.src = track.path;
-      }
+      audioManager.setMusicVolume("background", gameState.musicVolume);
+      audioManager.setMusicMuted("background", gameState.musicMuted);
 
-      if (resetPosition) {
-        gameState.music.currentTime = 0;
-      }
+      audioManager
+        .playMusic("background", track.path, { resetPosition, loop: false })
+        .then(() => {
+          gameState.musicIsPlaying = true;
+        })
+        .catch((e) => {
+          console.warn("Audio play failed:", e);
+          gameState.musicIsPlaying = false;
+        });
 
-      gameState.music.volume = gameState.musicMuted ? 0 : gameState.musicVolume;
-
-      const playPromise = gameState.music.play();
-      if (playPromise) {
-        playPromise
-          .then(() => {
-            gameState.musicIsPlaying = true;
-          })
-          .catch((e) => {
-            console.warn("Audio play failed:", e);
-            gameState.musicIsPlaying = false;
-          });
-      } else {
-        gameState.musicIsPlaying = true;
-      }
+      const element = audioManager.getMusicElement("background");
+      gameState.music = element ?? null;
 
       // Mostrar notificación
       gameState.musicNotification = track.name;
@@ -892,40 +881,23 @@ const Index = () => {
     // Inicializar música pero sin auto-play
     initMusic();
 
+    audioManager.setSfxMuted(gameState.sfxMuted);
+
     // Sound effect functions
-    const playSound = (frequency: number, duration: number, type: OscillatorType = "sine", volume: number = 0.3) => {
-      if (!gameState.audioContext || gameState.sfxMuted) return;
-      const oscillator = gameState.audioContext.createOscillator();
-      const gainNode = gameState.audioContext.createGain();
-
-      oscillator.type = type;
-      oscillator.frequency.setValueAtTime(frequency, gameState.audioContext.currentTime);
-
-      gainNode.gain.setValueAtTime(volume, gameState.audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, gameState.audioContext.currentTime + duration);
-
-      oscillator.connect(gainNode);
-      gainNode.connect(gameState.audioContext.destination);
-
-      oscillator.start();
-      oscillator.stop(gameState.audioContext.currentTime + duration);
+    const playShootSound = () => {
+      audioManager.playSfx("shoot");
     };
-
-    const playShootSound = () => {};
-    const playHitSound = () => playSound(100, 0.15, "sawtooth", 0.2);
+    const playHitSound = () => {
+      audioManager.playSfx("hit");
+    };
     const playLevelUpSound = () => {
-      playSound(300, 0.1, "sine", 0.3);
-      setTimeout(() => playSound(400, 0.1, "sine", 0.3), 100);
-      setTimeout(() => playSound(600, 0.2, "sine", 0.3), 200);
+      audioManager.playSfx("level_up");
     };
     const playDeathSound = () => {
-      playSound(400, 0.2, "sawtooth", 0.4);
-      setTimeout(() => playSound(200, 0.3, "sawtooth", 0.4), 100);
+      audioManager.playSfx("death");
     };
     const playPowerupSound = () => {
-      playSound(400, 0.1, "sine", 0.25);
-      setTimeout(() => playSound(500, 0.1, "sine", 0.25), 50);
-      setTimeout(() => playSound(600, 0.15, "sine", 0.25), 100);
+      audioManager.playSfx("pickup");
     };
 
     // Game state management
@@ -939,18 +911,18 @@ const Index = () => {
       playDeathSound();
 
       // Detener música normal y reproducir música de game over
-      if (gameState.music) {
-        gameState.music.pause();
-      }
+      audioManager.pauseMusic("background");
+      gameState.musicIsPlaying = false;
 
       if (!gameState.gameOverMusic) {
-        gameState.gameOverMusic = new Audio("/audio/Summer_Saxophone.mp3");
-        gameState.gameOverMusic.loop = true;
+        gameState.gameOverMusic = audioManager.getMusicElement("gameOver");
       }
 
-      gameState.gameOverMusic.volume = gameState.musicMuted ? 0 : gameState.musicVolume;
-      gameState.gameOverMusic.currentTime = 0;
-      gameState.gameOverMusic.play().catch(() => {});
+      audioManager.setMusicVolume("gameOver", gameState.musicVolume);
+      audioManager.setMusicMuted("gameOver", gameState.musicMuted);
+      audioManager
+        .playMusic("gameOver", "/audio/Summer_Saxophone.mp3", { resetPosition: true, loop: true })
+        .catch(() => {});
 
       console.log("Game Over");
     }
@@ -1050,6 +1022,11 @@ const Index = () => {
       gameState.itemNotificationTimer = 0;
       gameState.musicMuted = false;
       gameState.sfxMuted = false;
+      audioManager.setMusicMuted("background", false);
+      audioManager.setMusicMuted("gameOver", false);
+      audioManager.setSfxMuted(false);
+      audioManager.setMusicVolume("background", gameState.musicVolume);
+      audioManager.setMusicVolume("gameOver", gameState.musicVolume);
       gameState.pauseMenuAudioOpen = false;
       gameState.restartTimer = 0;
       gameState.showUpgradeUI = false;
@@ -1082,6 +1059,25 @@ const Index = () => {
 
       // Cambiar a running
       gameState.state = "running";
+
+      audioManager.stopMusic("gameOver");
+      gameState.gameOverMusic = audioManager.getMusicElement("gameOver");
+      if (gameState.musicStarted) {
+        audioManager.setMusicMuted("background", gameState.musicMuted);
+        audioManager.setMusicVolume("background", gameState.musicVolume);
+        if (!gameState.musicMuted) {
+          audioManager
+            .resumeMusic("background")
+            .then(() => {
+              gameState.musicIsPlaying = true;
+            })
+            .catch(() => {
+              gameState.musicIsPlaying = false;
+            });
+        } else {
+          gameState.musicIsPlaying = false;
+        }
+      }
     }
 
     // Exponer resetGame al ref para usarlo desde el JSX
@@ -1092,10 +1088,8 @@ const Index = () => {
 
       // Game Over: Enter para reiniciar inmediatamente
       if (gameState.state === "gameover" && (e.key === "Enter" || e.key === "r" || e.key === "R")) {
-        if (gameState.gameOverMusic) {
-          gameState.gameOverMusic.pause();
-          gameState.gameOverMusic.currentTime = 0;
-        }
+        audioManager.stopMusic("gameOver");
+        gameState.gameOverMusic = audioManager.getMusicElement("gameOver");
         resetGame();
         return;
       }
@@ -2742,17 +2736,20 @@ const Index = () => {
             gameState.musicControlsVisible = true;
             gameState.musicLastPointerTime = gameState.time;
             gameState.musicButtonClickAnim.pause = 1;
-            if (gameState.music) {
+            const musicElement = audioManager.getMusicElement("background");
+            gameState.music = musicElement ?? null;
+            if (musicElement) {
               if (gameState.musicIsPlaying) {
-                gameState.music.pause();
+                audioManager.pauseMusic("background");
                 gameState.musicIsPlaying = false;
               } else {
-                if (gameState.music.ended) {
+                if (musicElement.ended) {
                   playTrackAtCurrentIndex();
                 } else {
-                  gameState.music.volume = gameState.musicMuted ? 0 : gameState.musicVolume;
-                  gameState.music
-                    .play()
+                  audioManager.setMusicMuted("background", gameState.musicMuted);
+                  audioManager.setMusicVolume("background", gameState.musicVolume);
+                  audioManager
+                    .resumeMusic("background")
                     .then(() => {
                       gameState.musicIsPlaying = true;
                     })
@@ -2848,9 +2845,8 @@ const Index = () => {
             gameState.targetMusicVolume = relative;
             if (!gameState.musicMuted) {
               gameState.musicVolume = relative;
-              if (gameState.music) {
-                gameState.music.volume = relative;
-              }
+              audioManager.setMusicVolume("background", relative);
+              audioManager.setMusicVolume("gameOver", relative);
             }
             return;
           }
@@ -2862,12 +2858,23 @@ const Index = () => {
             my <= toggles.music.y + toggles.music.h
           ) {
             gameState.musicMuted = !gameState.musicMuted;
-            if (gameState.music) {
-              if (gameState.musicMuted) {
-                gameState.music.pause();
-              } else {
-                gameState.music.volume = gameState.targetMusicVolume;
-                gameState.music.play().catch((err) => console.warn("Audio play failed:", err));
+            audioManager.setMusicMuted("background", gameState.musicMuted);
+            audioManager.setMusicMuted("gameOver", gameState.musicMuted);
+            const musicElement = audioManager.getMusicElement("background");
+            gameState.music = musicElement ?? null;
+            if (gameState.musicMuted) {
+              audioManager.pauseMusic("background");
+              gameState.musicIsPlaying = false;
+            } else {
+              audioManager.setMusicVolume("background", gameState.targetMusicVolume);
+              audioManager.setMusicVolume("gameOver", gameState.targetMusicVolume);
+              if (gameState.musicStarted && !gameState.musicIsPlaying) {
+                audioManager
+                  .resumeMusic("background")
+                  .then(() => {
+                    gameState.musicIsPlaying = true;
+                  })
+                  .catch((err) => console.warn("Audio play failed:", err));
               }
             }
             return;
@@ -2880,6 +2887,7 @@ const Index = () => {
             my <= toggles.sfx.y + toggles.sfx.h
           ) {
             gameState.sfxMuted = !gameState.sfxMuted;
+            audioManager.setSfxMuted(gameState.sfxMuted);
             return;
           }
         }
@@ -2896,10 +2904,8 @@ const Index = () => {
         const btnY = menuY + menuH - 120;
 
         if (mx >= btnX && mx <= btnX + btnW && my >= btnY && my <= btnY + btnH) {
-          if (gameState.gameOverMusic) {
-            gameState.gameOverMusic.pause();
-            gameState.gameOverMusic.currentTime = 0;
-          }
+          audioManager.stopMusic("gameOver");
+          gameState.gameOverMusic = audioManager.getMusicElement("gameOver");
           resetGame();
         }
       }
@@ -3000,9 +3006,8 @@ const Index = () => {
         gameState.musicVolume += (gameState.targetMusicVolume - gameState.musicVolume) * dt * volumeSpeed;
 
         // Aplicar el volumen al audio
-        if (gameState.music) {
-          gameState.music.volume = gameState.musicVolume;
-        }
+        audioManager.setMusicVolume("background", gameState.musicVolume);
+        audioManager.setMusicVolume("gameOver", gameState.musicVolume);
 
         // Snap al valor final si está muy cerca
         if (Math.abs(gameState.musicVolume - gameState.targetMusicVolume) < 0.001) {
@@ -4086,7 +4091,7 @@ const Index = () => {
             });
 
             // Sonido de explosión (más fuerte)
-            playSound(80, 0.4, "sawtooth", 0.5);
+            audioManager.playSfx("death", { volume: 1 });
 
             // Eliminar bomber
             e.hp = 0;
@@ -7444,6 +7449,9 @@ const Index = () => {
       document.removeEventListener("gesturestart", preventGesture);
       document.removeEventListener("gesturechange", preventGesture);
       document.removeEventListener("gestureend", preventGesture);
+      musicListenersCleanup.forEach((dispose) => dispose());
+      audioManager.stopMusic("background");
+      audioManager.stopMusic("gameOver");
       if (overlayWorkerRef.current) {
         overlayWorkerRef.current.terminate();
         overlayWorkerRef.current = null;
