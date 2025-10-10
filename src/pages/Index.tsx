@@ -42,7 +42,6 @@ const CHEST_DROP_RATE = 0.07;
 const ENTITY_SCALE = 0.75;
 const CAMERA_DEADZONE_RADIUS = 80;
 const CAMERA_ZOOM = 1.8;
-const CHEST_INTERACTION_KEY = "f";
 
 const PLAYER_BASE_RADIUS = 16;
 const WEAK_ENEMY_BASE_RADIUS = 16;
@@ -605,6 +604,9 @@ const Index = () => {
         | null,
       nearbyChest: null as any | null,
       pendingChestDrop: null as any | null,
+      chestBanishesRemaining: 3,
+      chestSkipsRemaining: 3,
+      pausedForChest: false,
       particles: [] as any[],
       hotspots: [] as any[],
       worldWidth: worldW,
@@ -1167,6 +1169,9 @@ const Index = () => {
       gameState.hotspots.length = 0;
       gameState.nearbyChest = null;
       gameState.pendingChestDrop = null;
+      gameState.chestBanishesRemaining = 3;
+      gameState.chestSkipsRemaining = 3;
+      gameState.pausedForChest = false;
 
       // Resetear jugador
       gameState.worldWidth = Math.max(gameState.worldWidth, Math.max(W, 2200));
@@ -1334,18 +1339,6 @@ const Index = () => {
       // Running: Sostener R para reiniciar (modo hold)
       if (gameState.state === "running" && e.key.toLowerCase() === "r") {
         // R key ya está siendo presionada, no hacer nada aquí
-      }
-
-      if (
-        e.key.toLowerCase() === CHEST_INTERACTION_KEY &&
-        gameState.state === "running" &&
-        !gameState.showUpgradeUI &&
-        !gameState.activeChestChoice
-      ) {
-        const chest = gameState.nearbyChest;
-        if (chest && !chest.opened) {
-          openChest(chest);
-        }
       }
 
       // Escape para pausar/reanudar (solo en running o paused)
@@ -2456,6 +2449,17 @@ const Index = () => {
         return;
       }
 
+      const pausedByChest = gameState.state === "running";
+      if (pausedByChest) {
+        gameState.state = "paused";
+        gameState.pausedForChest = true;
+        audioManager.stopAllSfx();
+        weaponAudioController.stopAllLooping();
+        weaponAudioController.resetTimers();
+      } else {
+        gameState.pausedForChest = false;
+      }
+
       chest.opened = true;
       gameState.nearbyChest = null;
       gameState.pendingChestDrop = chest;
@@ -2504,6 +2508,11 @@ const Index = () => {
       }
 
       gameState.pendingChestDrop = null;
+
+      if (gameState.pausedForChest) {
+        gameState.state = "running";
+        gameState.pausedForChest = false;
+      }
     }
 
     function grantChestFallbackReward(position: { x: number; y: number }, color = "#5dbb63") {
@@ -2529,11 +2538,16 @@ const Index = () => {
     function banishChestItem() {
       const choice = gameState.activeChestChoice;
       if (!choice) return;
+      if (gameState.chestBanishesRemaining <= 0) {
+        return;
+      }
 
       if (!gameState.chestBlacklist) {
         gameState.chestBlacklist = new Set<string>();
       }
       gameState.chestBlacklist.add(choice.item.id);
+
+      gameState.chestBanishesRemaining = Math.max(0, gameState.chestBanishesRemaining - 1);
 
       gameState.activeChestChoice = null;
       finalizeChestDrop();
@@ -2541,7 +2555,11 @@ const Index = () => {
 
     function skipChestItem() {
       if (!gameState.activeChestChoice) return;
+      if (gameState.chestSkipsRemaining <= 0) {
+        return;
+      }
 
+      gameState.chestSkipsRemaining = Math.max(0, gameState.chestSkipsRemaining - 1);
       gameState.activeChestChoice = null;
       finalizeChestDrop();
     }
@@ -3246,9 +3264,13 @@ const Index = () => {
         if (pointInRect(keepBtn)) {
           keepChestItem();
         } else if (pointInRect(banishBtn)) {
-          banishChestItem();
+          if (gameState.chestBanishesRemaining > 0) {
+            banishChestItem();
+          }
         } else if (pointInRect(skipBtn)) {
-          skipChestItem();
+          if (gameState.chestSkipsRemaining > 0) {
+            skipChestItem();
+          }
         }
         return;
       }
@@ -5334,6 +5356,9 @@ const Index = () => {
             const interactRange = gameState.player.rad + g.rad;
             if (d < interactRange) {
               nearbyChest = g;
+              if (gameState.state === "running") {
+                openChest(g);
+              }
             }
           }
           continue;
@@ -6057,21 +6082,6 @@ const Index = () => {
         }
       }
 
-      if (!gameState.activeChestChoice && gameState.nearbyChest) {
-        const hintText = t.chestUI.interactHint.replace(
-          "{key}",
-          CHEST_INTERACTION_KEY.toUpperCase(),
-        );
-        ctx.save();
-        ctx.textAlign = "center";
-        ctx.font = "bold 18px system-ui";
-        ctx.fillStyle = textPrimary;
-        ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-        ctx.shadowBlur = 0;
-        ctx.fillText(hintText, W / 2, H - 90);
-        ctx.restore();
-      }
-
       if (isNightVision) {
         ctx.save();
         ctx.textAlign = "right";
@@ -6386,33 +6396,44 @@ const Index = () => {
     }
 
     function getChestChoiceLayout(W: number, H: number) {
-      const panelW = Math.min(460, W * 0.7);
-      const panelH = Math.min(360, H * 0.6);
+      const panelW = Math.min(520, W * 0.75);
+      const panelH = Math.min(420, H * 0.7);
       const panelX = W / 2 - panelW / 2;
       const panelY = H / 2 - panelH / 2;
       const horizontalPadding = 32;
       const buttonGap = 16;
-      const buttonW = (panelW - horizontalPadding * 2 - buttonGap * 2) / 3;
-      const buttonH = 48;
-      const buttonY = panelY + panelH - buttonH - 32;
-      const firstButtonX = panelX + horizontalPadding;
+      const buttonH = 54;
+      const keepButton = {
+        x: panelX + horizontalPadding,
+        y: panelY + panelH - buttonH - 32,
+        w: panelW - horizontalPadding * 2,
+        h: buttonH,
+      };
+      const secondaryY = keepButton.y - buttonH - buttonGap;
+      const secondaryW = (keepButton.w - buttonGap) / 2;
 
       return {
         panel: { x: panelX, y: panelY, w: panelW, h: panelH },
         buttons: {
-          keep: { x: firstButtonX, y: buttonY, w: buttonW, h: buttonH },
+          keep: keepButton,
           banish: {
-            x: firstButtonX + buttonW + buttonGap,
-            y: buttonY,
-            w: buttonW,
+            x: keepButton.x,
+            y: secondaryY,
+            w: secondaryW,
             h: buttonH,
           },
           skip: {
-            x: firstButtonX + (buttonW + buttonGap) * 2,
-            y: buttonY,
-            w: buttonW,
+            x: keepButton.x + secondaryW + buttonGap,
+            y: secondaryY,
+            w: secondaryW,
             h: buttonH,
           },
+        },
+        content: {
+          x: panelX + horizontalPadding,
+          y: panelY + 96,
+          w: panelW - horizontalPadding * 2,
+          h: Math.max(140, secondaryY - (panelY + 96) - 16),
         },
       };
     }
@@ -6424,71 +6445,170 @@ const Index = () => {
       const currentLanguage = (gameState.language ?? "es") as Language;
       const t = translations[currentLanguage];
       const layout = getChestChoiceLayout(W, H);
-      const { panel, buttons } = layout;
+      const { panel, buttons, content } = layout;
       const rarityColor = rarityColors[choice.item.rarity];
       const itemText = getItemText(choice.item, currentLanguage);
 
       ctx.save();
 
-      ctx.globalAlpha = 0.85;
+      ctx.globalAlpha = 0.78;
       ctx.fillStyle = UI_COLORS.overlay;
       ctx.fillRect(0, 0, W, H);
       ctx.globalAlpha = 1;
 
-      ctx.fillStyle = UI_COLORS.panelBg;
-      ctx.strokeStyle = UI_COLORS.panelBorder;
-      ctx.lineWidth = 2;
-      ctx.shadowColor = "rgba(0, 0, 0, 0.45)";
-      ctx.shadowBlur = 20;
-      ctx.fillRect(panel.x, panel.y, panel.w, panel.h);
+      const drawRoundedRectPath = (x: number, y: number, w: number, h: number, r: number) => {
+        const radius = Math.min(r, w / 2, h / 2);
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + w - radius, y);
+        ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+        ctx.lineTo(x + w, y + h - radius);
+        ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+        ctx.lineTo(x + radius, y + h);
+        ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+        ctx.lineTo(x, y + radius);
+        ctx.quadraticCurveTo(x, y, x + radius, y);
+        ctx.closePath();
+      };
+
+      const panelGradient = ctx.createLinearGradient(panel.x, panel.y, panel.x, panel.y + panel.h);
+      panelGradient.addColorStop(0, "rgba(15, 23, 42, 0.96)");
+      panelGradient.addColorStop(1, "rgba(10, 13, 24, 0.94)");
+      ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+      ctx.shadowBlur = 28;
+      drawRoundedRectPath(panel.x, panel.y, panel.w, panel.h, 28);
+      ctx.fillStyle = panelGradient;
+      ctx.fill();
       ctx.shadowBlur = 0;
-      ctx.strokeRect(panel.x, panel.y, panel.w, panel.h);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = `${rarityColor}55`;
+      ctx.stroke();
 
-      ctx.strokeStyle = `${rarityColor}88`;
-      ctx.lineWidth = 3;
-      ctx.strokeRect(panel.x + 4, panel.y + 4, panel.w - 8, panel.h - 8);
-
-      ctx.fillStyle = rarityColor;
-      ctx.font = "bold 26px system-ui";
+      ctx.fillStyle = "#f8fafc";
+      ctx.font = "600 28px system-ui";
       ctx.textAlign = "center";
-      ctx.fillText(t.chestUI.title, panel.x + panel.w / 2, panel.y + 50);
+      ctx.fillText(t.chestUI.title, panel.x + panel.w / 2, panel.y + 58);
 
-      ctx.fillStyle = UI_COLORS.textSecondary;
-      ctx.font = "16px system-ui";
-      wrapText(ctx, t.chestUI.description, panel.x + panel.w / 2, panel.y + 80, panel.w - 64, 20);
+      const accentLineWidth = Math.min(panel.w - 140, 180);
+      const accentLineX = panel.x + panel.w / 2 - accentLineWidth / 2;
+      const accentLineY = panel.y + 76;
+      const accentGradient = ctx.createLinearGradient(accentLineX, accentLineY, accentLineX + accentLineWidth, accentLineY);
+      accentGradient.addColorStop(0, `${rarityColor}00`);
+      accentGradient.addColorStop(0.5, `${rarityColor}aa`);
+      accentGradient.addColorStop(1, `${rarityColor}00`);
+      ctx.strokeStyle = accentGradient;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(accentLineX, accentLineY);
+      ctx.lineTo(accentLineX + accentLineWidth, accentLineY);
+      ctx.stroke();
 
+      const cardX = content.x;
+      const cardY = content.y;
+      const cardW = content.w;
+      const cardH = content.h;
+      const cardGradient = ctx.createLinearGradient(cardX, cardY, cardX, cardY + cardH);
+      cardGradient.addColorStop(0, `${rarityColor}1f`);
+      cardGradient.addColorStop(0.35, "rgba(18, 24, 39, 0.92)");
+      cardGradient.addColorStop(1, "rgba(12, 16, 28, 0.95)");
+      drawRoundedRectPath(cardX, cardY, cardW, cardH, 20);
+      ctx.fillStyle = cardGradient;
+      ctx.fill();
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = `${rarityColor}55`;
+      ctx.stroke();
+
+      const sheenGradient = ctx.createLinearGradient(cardX, cardY, cardX + cardW, cardY);
+      sheenGradient.addColorStop(0, "rgba(255, 255, 255, 0.04)");
+      sheenGradient.addColorStop(0.5, "rgba(255, 255, 255, 0)");
+      sheenGradient.addColorStop(1, "rgba(255, 255, 255, 0.04)");
+      ctx.fillStyle = sheenGradient;
+      drawRoundedRectPath(cardX + 2, cardY + 2, cardW - 4, cardH - 4, 18);
+      ctx.fill();
+
+      const rarityLabel = choice.item.rarity.toUpperCase();
+      ctx.font = "600 13px system-ui";
+      const rarityLabelWidth = ctx.measureText(rarityLabel).width + 28;
+      const rarityLabelHeight = 28;
+      const rarityLabelX = cardX + cardW / 2 - rarityLabelWidth / 2;
+      const rarityLabelY = cardY - rarityLabelHeight / 2;
+      drawRoundedRectPath(rarityLabelX, rarityLabelY, rarityLabelWidth, rarityLabelHeight, rarityLabelHeight / 2);
+      ctx.fillStyle = `${rarityColor}28`;
+      ctx.fill();
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = `${rarityColor}aa`;
+      ctx.stroke();
       ctx.fillStyle = rarityColor;
-      ctx.font = "bold 24px system-ui";
-      ctx.fillText(itemText.name, panel.x + panel.w / 2, panel.y + 140);
+      ctx.fillText(rarityLabel, rarityLabelX + rarityLabelWidth / 2, rarityLabelY + rarityLabelHeight / 2 + 4);
 
-      ctx.fillStyle = `${rarityColor}60`;
-      ctx.font = "13px system-ui";
-      ctx.fillText(choice.item.rarity.toUpperCase(), panel.x + panel.w / 2, panel.y + 170);
+      ctx.fillStyle = "#f8fafc";
+      ctx.font = "600 30px system-ui";
+      ctx.fillText(itemText.name, cardX + cardW / 2, cardY + 68);
 
-      ctx.fillStyle = UI_COLORS.textPrimary;
+      ctx.fillStyle = "rgba(226, 232, 240, 0.92)";
       ctx.font = "16px system-ui";
-      wrapText(ctx, itemText.description, panel.x + panel.w / 2, panel.y + 210, panel.w - 64, 22);
+      wrapText(ctx, itemText.description, cardX + cardW / 2, cardY + 118, cardW - 60, 24);
 
       const drawButton = (
         rect: { x: number; y: number; w: number; h: number },
         label: string,
-        background: string,
-        textColor: string,
+        options: {
+          background: string;
+          textColor: string;
+          subtitle?: string | null;
+          disabled?: boolean;
+        },
       ) => {
-        ctx.fillStyle = background;
-        ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
-        ctx.strokeStyle = `${textColor}90`;
-        ctx.lineWidth = 2;
-        ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
-        ctx.fillStyle = textColor;
-        ctx.font = "bold 16px system-ui";
+        const { background, textColor, subtitle = null, disabled = false } = options;
+        const radius = 14;
+        const gradient = ctx.createLinearGradient(rect.x, rect.y, rect.x, rect.y + rect.h);
+        if (disabled) {
+          gradient.addColorStop(0, "rgba(148, 163, 184, 0.18)");
+          gradient.addColorStop(1, "rgba(71, 85, 105, 0.18)");
+        } else if (background.startsWith("#")) {
+          gradient.addColorStop(0, `${background}f0`);
+          gradient.addColorStop(1, `${background}cc`);
+        } else {
+          gradient.addColorStop(0, background);
+          gradient.addColorStop(1, background);
+        }
+
+        drawRoundedRectPath(rect.x, rect.y, rect.w, rect.h, radius);
+        ctx.fillStyle = gradient;
+        ctx.fill();
+        ctx.lineWidth = 1.6;
+        ctx.strokeStyle = disabled ? "rgba(148, 163, 184, 0.4)" : `${textColor}55`;
+        ctx.stroke();
+
         ctx.textAlign = "center";
-        ctx.fillText(label, rect.x + rect.w / 2, rect.y + rect.h / 2 + 6);
+        ctx.fillStyle = disabled ? "rgba(226, 232, 240, 0.55)" : textColor;
+        ctx.font = subtitle ? "600 18px system-ui" : "600 20px system-ui";
+        const labelY = subtitle ? rect.y + rect.h / 2 - 2 : rect.y + rect.h / 2 + 6;
+        ctx.fillText(label, rect.x + rect.w / 2, labelY);
+
+        if (subtitle) {
+          ctx.font = "600 13px system-ui";
+          ctx.fillStyle = disabled ? "rgba(203, 213, 225, 0.55)" : "rgba(248, 250, 252, 0.88)";
+          ctx.fillText(subtitle, rect.x + rect.w / 2, rect.y + rect.h - 14);
+        }
       };
 
-      drawButton(buttons.keep, t.chestUI.keep, UI_COLORS.accent, "#0d1f12");
-      drawButton(buttons.banish, t.chestUI.banish, "#ef4444", "#1f0d0d");
-      drawButton(buttons.skip, t.chestUI.skip, UI_COLORS.panelBorder, UI_COLORS.textPrimary);
+      drawButton(buttons.keep, t.chestUI.keep, {
+        background: UI_COLORS.accent,
+        textColor: "#02210f",
+      });
+      drawButton(buttons.banish, t.chestUI.banish, {
+        background: "#ef4444",
+        textColor: "#1f0d0d",
+        subtitle: `×${gameState.chestBanishesRemaining}`,
+        disabled: gameState.chestBanishesRemaining <= 0,
+      });
+      drawButton(buttons.skip, t.chestUI.skip, {
+        background: "#334155",
+        textColor: "#e2e8f0",
+        subtitle: `×${gameState.chestSkipsRemaining}`,
+        disabled: gameState.chestSkipsRemaining <= 0,
+      });
 
       ctx.restore();
     }
