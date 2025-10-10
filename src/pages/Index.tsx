@@ -34,7 +34,7 @@ const PAUSE_MENU_TABS: PauseMenuTab[] = ["home", "settings", "stats"];
 
 const CHEST_DROP_RATE = 0.07;
 const ENTITY_SCALE = 0.75;
-const CAMERA_DEADZONE_RADIUS = 140;
+const CAMERA_DEADZONE_RADIUS = 80;
 const CAMERA_ZOOM = 1.8;
 
 const PLAYER_BASE_RADIUS = 16;
@@ -48,16 +48,28 @@ const TANK_ENEMY_BASE_RADIUS = 28;
 
 const scaleEntitySize = (value: number) => Math.max(1, Math.round(value * ENTITY_SCALE));
 
+const ENEMY_SIZE_MULTIPLIER = 1.3;
+const ENEMY_SPEED_MULTIPLIER = 0.7;
+const HOTSPOT_SIZE_MULTIPLIER = 1.3;
+
+const scaleEnemyRadius = (value: number) =>
+  Math.max(1, Math.round(scaleEntitySize(value) * ENEMY_SIZE_MULTIPLIER));
+
+const scaleHotspotRadius = (value: number) =>
+  Math.max(1, Math.round(scaleEntitySize(value) * HOTSPOT_SIZE_MULTIPLIER));
+
+const applyEnemySpeedModifier = (value: number) => value * ENEMY_SPEED_MULTIPLIER;
+
 const BULLET_RADIUS = 4;
 const MAX_ENEMY_RADIUS = Math.max(
-  WEAK_ENEMY_BASE_RADIUS,
-  MEDIUM_ENEMY_BASE_RADIUS,
-  STRONG_ENEMY_BASE_RADIUS,
-  FAST_ENEMY_BASE_RADIUS,
-  EXPLOSIVE_ENEMY_BASE_RADIUS,
-  SUMMONER_ENEMY_BASE_RADIUS,
-  TANK_ENEMY_BASE_RADIUS,
-  scaleEntitySize(40),
+  scaleEnemyRadius(WEAK_ENEMY_BASE_RADIUS),
+  scaleEnemyRadius(MEDIUM_ENEMY_BASE_RADIUS),
+  scaleEnemyRadius(STRONG_ENEMY_BASE_RADIUS),
+  scaleEnemyRadius(FAST_ENEMY_BASE_RADIUS),
+  scaleEnemyRadius(EXPLOSIVE_ENEMY_BASE_RADIUS),
+  scaleEnemyRadius(SUMMONER_ENEMY_BASE_RADIUS),
+  scaleEnemyRadius(TANK_ENEMY_BASE_RADIUS),
+  scaleEnemyRadius(40),
 );
 const MAX_CHAIN_RADIUS = 150;
 const MAX_BOUNCE_RADIUS = 200;
@@ -527,7 +539,7 @@ const Index = () => {
         y: worldH / 2,
         vx: 0,
         vy: 0,
-        spd: 3.5,
+        spd: 2.45,
         rad: scaleEntitySize(PLAYER_BASE_RADIUS),
         hp: 100,
         maxhp: 100,
@@ -1517,6 +1529,7 @@ const Index = () => {
           }
 
           spd *= speedScale;
+          spd = applyEnemySpeedModifier(spd);
           // IMPORTANTE: NO escalar daño de bombers otra vez (ya escalaron arriba)
           if (specialType !== "explosive") {
             damage = Math.floor(damage * damageScale);
@@ -1533,7 +1546,7 @@ const Index = () => {
           hpMultiplier = 1 + (gameState.wave - 1) * 0.5;
         }
         const scaledHp = Math.floor(baseHp * hpMultiplier);
-        rad = scaleEntitySize(rad);
+        rad = scaleEnemyRadius(rad);
 
         const enemy = {
           x,
@@ -1577,10 +1590,10 @@ const Index = () => {
       gameState.enemies.push({
         x,
         y,
-        rad: scaleEntitySize(40),
+        rad: scaleEnemyRadius(40),
         hp: scaledHp,
         maxhp: scaledHp,
-        spd: 0.8,
+        spd: applyEnemySpeedModifier(0.8),
         enemyType: "strong",
         damage: 30,
         isElite: false,
@@ -1625,10 +1638,10 @@ const Index = () => {
       gameState.enemies.push({
         x,
         y,
-        rad: scaleEntitySize(28),
+        rad: scaleEnemyRadius(28),
         hp: scaledHp,
         maxhp: scaledHp,
-        spd: 1.0,
+        spd: applyEnemySpeedModifier(1.0),
         isElite: false,
         isMiniBoss: true,
         color: "#ffc300",
@@ -2206,7 +2219,7 @@ const Index = () => {
       gameState.hotspots.push({
         x,
         y,
-        rad: scaleEntitySize(isNegative ? 120 : 80), // Hotspots negativos son más grandes
+        rad: scaleHotspotRadius(isNegative ? 120 : 80), // Hotspots negativos son más grandes
         progress: 0,
         required: isNegative ? 10 : 3, // Positivos: 3s para completar, Negativos: no aplica
         expirationTimer: 0,
@@ -3900,11 +3913,14 @@ const Index = () => {
         right: visibilityCamera.x + visibilityExtents.halfViewW,
         bottom: visibilityCamera.y + visibilityExtents.halfViewH,
       };
+      const allEnemies = gameState.enemies;
       const visibleEnemies = cullEntities(
-        gameState.enemies,
+        allEnemies,
         expandBounds(visibilityBounds, MAX_ENEMY_RADIUS),
         (enemy) => enemy.rad,
       );
+      const visibleEnemySet =
+        visibleEnemies.length === allEnemies.length ? null : new Set(visibleEnemies);
 
       // ═══════════════════════════════════════════════════════════
       // SISTEMA DE SPAWN DE ENEMIGOS - Estilo COD Zombies
@@ -4016,13 +4032,18 @@ const Index = () => {
       }
 
       // Mover enemigos y aplicar efectos elementales
-      for (const e of visibleEnemies) {
+      for (const e of allEnemies) {
+        const isVisible = visibleEnemySet ? visibleEnemySet.has(e) : true;
         // Efectos elementales (DoT)
         if (e.burnTimer > 0) {
           e.burnTimer -= dt;
           e.hp -= 0.5 * dt; // 0.5 daño por segundo
           // Partículas de fuego
-          if (Math.random() < 0.1 && gameState.particles.length < gameState.maxParticles) {
+          if (
+            isVisible &&
+            Math.random() < 0.1 &&
+            gameState.particles.length < gameState.maxParticles
+          ) {
             gameState.particles.push({
               x: e.x + (Math.random() - 0.5) * e.rad,
               y: e.y + (Math.random() - 0.5) * e.rad,
@@ -4039,7 +4060,11 @@ const Index = () => {
           e.poisonTimer -= dt;
           e.hp -= 0.3 * dt; // 0.3 daño por segundo (ignora defensa)
           // Partículas de veneno
-          if (Math.random() < 0.1 && gameState.particles.length < gameState.maxParticles) {
+          if (
+            isVisible &&
+            Math.random() < 0.1 &&
+            gameState.particles.length < gameState.maxParticles
+          ) {
             gameState.particles.push({
               x: e.x + (Math.random() - 0.5) * e.rad,
               y: e.y + (Math.random() - 0.5) * e.rad,
@@ -4067,7 +4092,11 @@ const Index = () => {
 
           // Partículas de advertencia (más intensas cerca de explotar)
           const warningIntensity = e.explosionTimer < 0.5 ? 0.8 : 0.3;
-          if (Math.random() < warningIntensity && gameState.particles.length < gameState.maxParticles) {
+          if (
+            isVisible &&
+            Math.random() < warningIntensity &&
+            gameState.particles.length < gameState.maxParticles
+          ) {
             gameState.particles.push({
               x: e.x + (Math.random() - 0.5) * e.rad * 2,
               y: e.y + (Math.random() - 0.5) * e.rad * 2,
@@ -4134,7 +4163,7 @@ const Index = () => {
             }
 
             // Explosión visual GRANDE
-            if (gameState.particles.length < gameState.maxParticles - 50) {
+            if (isVisible && gameState.particles.length < gameState.maxParticles - 50) {
               for (let j = 0; j < 50; j++) {
                 const angle = (Math.PI * 2 * j) / 50;
                 const speed = 8 + Math.random() * 8;
@@ -4176,10 +4205,10 @@ const Index = () => {
               const summonedEnemy = {
                 x: e.x + Math.cos(angle) * dist,
                 y: e.y + Math.sin(angle) * dist,
-                rad: 8,
+                rad: scaleEnemyRadius(8),
                 hp: 1,
                 maxhp: 1,
-                spd: 1.2,
+                spd: applyEnemySpeedModifier(1.2),
                 enemyType: "weak",
                 damage: 3,
                 isElite: false,
@@ -4269,17 +4298,19 @@ const Index = () => {
               e.jumpCooldown = 4;
 
               // Partículas de salto
-              for (let j = 0; j < 20; j++) {
-                const angle = (Math.PI * 2 * j) / 20;
-                gameState.particles.push({
-                  x: e.x,
-                  y: e.y,
-                  vx: Math.cos(angle) * 8,
-                  vy: Math.sin(angle) * 8,
-                  life: 0.8,
-                  color: "#dc2626",
-                  size: 4,
-                });
+              if (isVisible) {
+                for (let j = 0; j < 20; j++) {
+                  const angle = (Math.PI * 2 * j) / 20;
+                  gameState.particles.push({
+                    x: e.x,
+                    y: e.y,
+                    vx: Math.cos(angle) * 8,
+                    vy: Math.sin(angle) * 8,
+                    life: 0.8,
+                    color: "#dc2626",
+                    size: 4,
+                  });
+                }
               }
             }
 
@@ -4332,17 +4363,19 @@ const Index = () => {
               }
 
               // Partículas de salto
-              for (let j = 0; j < 30; j++) {
-                const angle = (Math.PI * 2 * j) / 30;
-                gameState.particles.push({
-                  x: e.x,
-                  y: e.y,
-                  vx: Math.cos(angle) * 10,
-                  vy: Math.sin(angle) * 10,
-                  life: 1,
-                  color: "#dc2626",
-                  size: 5,
-                });
+              if (isVisible) {
+                for (let j = 0; j < 30; j++) {
+                  const angle = (Math.PI * 2 * j) / 30;
+                  gameState.particles.push({
+                    x: e.x,
+                    y: e.y,
+                    vx: Math.cos(angle) * 10,
+                    vy: Math.sin(angle) * 10,
+                    life: 1,
+                    color: "#dc2626",
+                    size: 5,
+                  });
+                }
               }
             }
           }
