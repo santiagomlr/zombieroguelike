@@ -255,6 +255,8 @@ const Index = () => {
         pause: 0,
         next: 0,
       } as Record<"start" | "previous" | "pause" | "next", number>,
+      musicControlsVisible: false,
+      musicLastPointerTime: 0,
       sfxMuted: false,
       enemyLogo: null as HTMLImageElement | null,
       tutorialActive: localStorage.getItem("gameHasTutorial") !== "completed",
@@ -2004,11 +2006,16 @@ const Index = () => {
             my <= startRect.y + startRect.h
           ) {
             gameState.musicStarted = true;
+            gameState.musicControlsVisible = true;
+            gameState.musicLastPointerTime = gameState.time;
             gameState.musicButtonClickAnim.start = 1;
             playTrackAtCurrentIndex();
             return;
           }
         } else {
+          if (!gameState.musicControlsVisible) {
+            return;
+          }
           const panelRect = getMusicControlPanelRect(W, H);
           const controlsPaddingY = 16;
           const controlSize = 44;
@@ -2041,6 +2048,8 @@ const Index = () => {
 
           if (pointInRect(previousBtn)) {
             if (gameState.musicTracks.length > 0) {
+              gameState.musicControlsVisible = true;
+              gameState.musicLastPointerTime = gameState.time;
               gameState.musicButtonClickAnim.previous = 1;
               gameState.currentMusicIndex =
                 (gameState.currentMusicIndex - 1 + gameState.musicTracks.length) % gameState.musicTracks.length;
@@ -2051,6 +2060,8 @@ const Index = () => {
 
           if (pointInRect(nextBtn)) {
             if (gameState.musicTracks.length > 0) {
+              gameState.musicControlsVisible = true;
+              gameState.musicLastPointerTime = gameState.time;
               gameState.musicButtonClickAnim.next = 1;
               gameState.currentMusicIndex = (gameState.currentMusicIndex + 1) % gameState.musicTracks.length;
               playTrackAtCurrentIndex();
@@ -2059,6 +2070,8 @@ const Index = () => {
           }
 
           if (pointInRect(pauseBtn)) {
+            gameState.musicControlsVisible = true;
+            gameState.musicLastPointerTime = gameState.time;
             gameState.musicButtonClickAnim.pause = 1;
             if (gameState.music) {
               if (gameState.musicIsPlaying) {
@@ -2268,6 +2281,14 @@ const Index = () => {
       }
     });
 
+    const handlePointerMove = () => {
+      if (!gameState.musicStarted) return;
+      gameState.musicControlsVisible = true;
+      gameState.musicLastPointerTime = gameState.time;
+    };
+
+    canvas.addEventListener("mousemove", handlePointerMove);
+
     const handlePauseMenuScroll = (e: WheelEvent) => {
       // Simplified - no scrolling needed in new design
       e.preventDefault();
@@ -2284,7 +2305,14 @@ const Index = () => {
       >) {
         const value = gameState.musicButtonClickAnim[key];
         if (value > 0) {
-          gameState.musicButtonClickAnim[key] = Math.max(0, value - dt * 6);
+          gameState.musicButtonClickAnim[key] = Math.max(0, value - dt * 3);
+        }
+      }
+
+      if (gameState.musicStarted && gameState.musicControlsVisible) {
+        const idleDuration = 1.5;
+        if (gameState.time - gameState.musicLastPointerTime > idleDuration) {
+          gameState.musicControlsVisible = false;
         }
       }
 
@@ -4854,7 +4882,7 @@ const Index = () => {
         ctx.fillStyle = "rgba(226, 232, 240, 0.75)";
         ctx.fillText(t.shufflePlaylistReady, centerX, startRect.y + startRect.h - 10);
         ctx.restore();
-      } else {
+      } else if (gameState.musicControlsVisible) {
         const panelRect = getMusicControlPanelRect(W, H);
         const panelRadius = 16;
 
@@ -4905,7 +4933,7 @@ const Index = () => {
           ctx.roundRect(btnX, btnY, controlSize, controlSize, roundedRadius);
 
           if (clickAnim > 0) {
-            const shift = ((gameState.time * 140 + control.index * 40) % controlSize) / controlSize;
+            const shift = ((gameState.time * 70 + control.index * 40) % controlSize) / controlSize;
             const gradient = ctx.createLinearGradient(
               btnX - shift * controlSize,
               btnY,
@@ -6553,6 +6581,7 @@ const Index = () => {
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("resize", handleResize);
       canvas.removeEventListener("wheel", handlePauseMenuScroll);
+      canvas.removeEventListener("mousemove", handlePointerMove);
       document.removeEventListener("touchmove", preventScroll);
       document.removeEventListener("gesturestart", preventGesture);
       document.removeEventListener("gesturechange", preventGesture);
