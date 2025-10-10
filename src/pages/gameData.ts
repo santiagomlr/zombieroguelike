@@ -31,6 +31,13 @@ export interface Translations {
   paused: string;
   startMusicButton: string;
   shufflePlaylistReady: string;
+  musicControls: {
+    previous: string;
+    pause: string;
+    resume: string;
+    next: string;
+    nowPlaying: string;
+  };
   clickToSelect: string;
   tutorial: {
     move: string;
@@ -168,7 +175,7 @@ const translationsES: Translations = {
   levelUp: "¡SUBISTE DE NIVEL!",
   chooseUpgrade: "Elige una mejora:",
   weapon: "ARMA",
-  tome: "TOMO",
+  tome: "LIBRO",
   item: "ÍTEM",
   damage: "Daño",
   fireRate: "Cadencia",
@@ -176,7 +183,7 @@ const translationsES: Translations = {
   level: "Nivel",
   wave: "Wave",
   weapons: "Armas:",
-  tomes: "Tomos:",
+  tomes: "Libros:",
   items: "Ítems:",
   movement: "WASD - Movimiento",
   restart: "R - Reiniciar",
@@ -194,6 +201,13 @@ const translationsES: Translations = {
   paused: "PAUSA",
   startMusicButton: "🎵 Iniciar música",
   shufflePlaylistReady: "Reproducción aleatoria lista",
+  musicControls: {
+    previous: "Canción anterior",
+    pause: "Pausar",
+    resume: "Reanudar",
+    next: "Siguiente canción",
+    nowPlaying: "Reproduciendo ahora",
+  },
   clickToSelect: "Click para seleccionar",
   tutorial: {
     move: "Usa WASD para moverte",
@@ -258,7 +272,7 @@ const translationsEN: Translations = {
   levelUp: "LEVEL UP!",
   chooseUpgrade: "Choose an upgrade:",
   weapon: "WEAPON",
-  tome: "TOME",
+  tome: "BOOK",
   item: "ITEM",
   damage: "Damage",
   fireRate: "Fire Rate",
@@ -266,7 +280,7 @@ const translationsEN: Translations = {
   level: "Level",
   wave: "Wave",
   weapons: "Weapons:",
-  tomes: "Tomes:",
+  tomes: "Books:",
   items: "Items:",
   movement: "WASD - Movement",
   restart: "R - Restart",
@@ -284,6 +298,13 @@ const translationsEN: Translations = {
   paused: "PAUSED",
   startMusicButton: "🎵 Start Music",
   shufflePlaylistReady: "Shuffle playlist ready",
+  musicControls: {
+    previous: "Previous song",
+    pause: "Pause",
+    resume: "Resume",
+    next: "Next song",
+    nowPlaying: "Now playing",
+  },
   clickToSelect: "Click to select",
   tutorial: {
     move: "Use WASD to move",
@@ -380,26 +401,26 @@ export const weaponTexts: Record<Language, Record<string, WeaponLocalization>> =
 
 export const tomeTexts: Record<Language, Record<string, TomeLocalization>> = {
   es: {
-    power: { name: "Tomo de Poder" },
-    speed: { name: "Tomo de Velocidad" },
-    bounce: { name: "Tomo de Rebote" },
-    range: { name: "Tomo de Alcance" },
-    precision: { name: "Tomo de Precisión" },
-    multi: { name: "Tomo Múltiple" },
-    regen: { name: "Tomo de Regeneración" },
-    magnet: { name: "Tomo de Magnetismo" },
-    fire: { name: "Tomo de Cadencia" },
+    power: { name: "Libro de Poder" },
+    speed: { name: "Libro de Velocidad" },
+    bounce: { name: "Libro de Rebote" },
+    range: { name: "Libro de Alcance" },
+    precision: { name: "Libro de Precisión" },
+    multi: { name: "Libro Múltiple" },
+    regen: { name: "Libro de Regeneración" },
+    magnet: { name: "Libro de Magnetismo" },
+    fire: { name: "Libro de Cadencia" },
   },
   en: {
-    power: { name: "Power Tome" },
-    speed: { name: "Speed Tome" },
-    bounce: { name: "Bounce Tome" },
-    range: { name: "Range Tome" },
-    precision: { name: "Precision Tome" },
-    multi: { name: "Multishot Tome" },
-    regen: { name: "Regeneration Tome" },
-    magnet: { name: "Magnetism Tome" },
-    fire: { name: "Fire Rate Tome" },
+    power: { name: "Power Book" },
+    speed: { name: "Speed Book" },
+    bounce: { name: "Bounce Book" },
+    range: { name: "Range Book" },
+    precision: { name: "Precision Book" },
+    multi: { name: "Multishot Book" },
+    regen: { name: "Regeneration Book" },
+    magnet: { name: "Magnetism Book" },
+    fire: { name: "Fire Rate Book" },
   },
 };
 

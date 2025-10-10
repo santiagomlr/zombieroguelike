@@ -225,6 +225,34 @@ const getPauseMenuHomeLayout = (
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
+const getMusicStartButtonRect = (W: number, H: number) => {
+  const width = 170;
+  const height = 48;
+  const marginX = 20;
+  const marginY = 72;
+
+  return {
+    x: W - width - marginX,
+    y: H - height - marginY,
+    w: width,
+    h: height,
+  };
+};
+
+const getMusicControlPanelRect = (W: number, H: number) => {
+  const width = 220;
+  const height = 76;
+  const marginX = 20;
+  const marginY = 82;
+
+  return {
+    x: W - width - marginX,
+    y: H - height - marginY,
+    w: width,
+    h: height,
+  };
+};
+
 const Index = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [score, setScore] = useState(0);
@@ -322,6 +350,7 @@ const Index = () => {
       xp: 0,
       nextXP: 25,
       time: 0,
+      elapsedTime: 0,
       wave: 1,
       waveKills: 0,
       waveEnemiesTotal: 10, // Wave 1 empieza con 10 (estilo COD Zombies)
@@ -391,8 +420,24 @@ const Index = () => {
       musicVolume: 0.3, // Volumen de la música (0 a 1)
       targetMusicVolume: 0.3, // Volumen objetivo para animación suave
       musicStarted: false, // Flag para saber si el usuario ya inició la música
+      musicIsPlaying: false,
+      musicButtonClickAnim: {
+        start: 0,
+        previous: 0,
+        pause: 0,
+        next: 0,
+      } as Record<"start" | "previous" | "pause" | "next", number>,
+      musicControlsVisible: false,
+      musicLastPointerTime: 0,
       sfxMuted: false,
       enemyLogo: null as HTMLImageElement | null,
+      greenZombieImg: null as HTMLImageElement | null,
+      bomberImg: null as HTMLImageElement | null,
+      ghoulImg: null as HTMLImageElement | null,
+      purpleZombieImg: null as HTMLImageElement | null,
+      runnerImg: null as HTMLImageElement | null,
+      shieldImg: null as HTMLImageElement | null,
+      mapBackground: null as HTMLImageElement | null,
       tutorialActive: localStorage.getItem("gameHasTutorial") !== "completed",
       tutorialStartTime: performance.now(),
       gameOverAnimationTimer: 0,
@@ -489,8 +534,8 @@ const Index = () => {
       gameState.enemyLogo = enemyLogoImg;
       console.log("Enemy logo loaded successfully");
 
-      // Pre-render colored enemy logos for performance
-      const spawnEnemyColors = ["#22c55e", "#a855f7", "#fbbf24", "#16a34a", "#9333ea", "#f59e0b", "#ef4444", "#78716c"];
+      // Pre-render colored enemy logos for performance (excluding green since we have a custom image)
+      const spawnEnemyColors = ["#a855f7", "#fbbf24", "#16a34a", "#9333ea", "#f59e0b", "#ef4444", "#78716c"];
 
       spawnEnemyColors.forEach((color) => {
         ensureTintedLogo(color);
@@ -498,6 +543,78 @@ const Index = () => {
     };
     enemyLogoImg.onerror = () => {
       console.error("Failed to load enemy logo");
+    };
+
+    // Load all enemy images
+    const greenZombieImg = new Image();
+    greenZombieImg.src = "/images/green-zombie.png";
+    greenZombieImg.onload = () => {
+      gameState.greenZombieImg = greenZombieImg;
+      console.log("Green zombie loaded successfully");
+    };
+    greenZombieImg.onerror = () => {
+      console.error("Failed to load green zombie image");
+    };
+
+    const bomberImg = new Image();
+    bomberImg.src = "/images/bomber.png";
+    bomberImg.onload = () => {
+      gameState.bomberImg = bomberImg;
+      console.log("Bomber loaded successfully");
+    };
+    bomberImg.onerror = () => {
+      console.error("Failed to load bomber image");
+    };
+
+    const ghoulImg = new Image();
+    ghoulImg.src = "/images/ghoul.png";
+    ghoulImg.onload = () => {
+      gameState.ghoulImg = ghoulImg;
+      console.log("Ghoul loaded successfully");
+    };
+    ghoulImg.onerror = () => {
+      console.error("Failed to load ghoul image");
+    };
+
+    const purpleZombieImg = new Image();
+    purpleZombieImg.src = "/images/purple_zombie.png";
+    purpleZombieImg.onload = () => {
+      gameState.purpleZombieImg = purpleZombieImg;
+      console.log("Purple zombie loaded successfully");
+    };
+    purpleZombieImg.onerror = () => {
+      console.error("Failed to load purple zombie image");
+    };
+
+    const runnerImg = new Image();
+    runnerImg.src = "/images/runner.png";
+    runnerImg.onload = () => {
+      gameState.runnerImg = runnerImg;
+      console.log("Runner loaded successfully");
+    };
+    runnerImg.onerror = () => {
+      console.error("Failed to load runner image");
+    };
+
+    const shieldImg = new Image();
+    shieldImg.src = "/images/shield.png";
+    shieldImg.onload = () => {
+      gameState.shieldImg = shieldImg;
+      console.log("Shield loaded successfully");
+    };
+    shieldImg.onerror = () => {
+      console.error("Failed to load shield image");
+    };
+
+    // Load map background
+    const mapBackground = new Image();
+    mapBackground.src = "/images/map1.png";
+    mapBackground.onload = () => {
+      gameState.mapBackground = mapBackground;
+      console.log("Map background loaded successfully");
+    };
+    mapBackground.onerror = () => {
+      console.error("Failed to load map background");
     };
 
     // Initialize Web Audio API
@@ -518,7 +635,19 @@ const Index = () => {
         audio.addEventListener("ended", () => {
           // Pasar a la siguiente canción
           gameState.currentMusicIndex = (gameState.currentMusicIndex + 1) % gameState.musicTracks.length;
-          playNextTrack();
+          playTrackAtCurrentIndex();
+        });
+
+        audio.addEventListener("play", () => {
+          gameState.musicIsPlaying = true;
+        });
+
+        audio.addEventListener("pause", () => {
+          // El evento pause también se dispara cuando termina la pista
+          if (audio.ended) {
+            return;
+          }
+          gameState.musicIsPlaying = false;
         });
 
         gameState.music = audio;
@@ -526,15 +655,33 @@ const Index = () => {
       }
     }
 
-    function playNextTrack() {
+    function playTrackAtCurrentIndex(resetPosition: boolean = true) {
       if (!gameState.music || !gameState.musicStarted) return;
 
       const track = gameState.musicTracks[gameState.currentMusicIndex];
-      gameState.music.src = track.path;
+
+      if (resetPosition || !gameState.music.src.includes(track.path)) {
+        gameState.music.src = track.path;
+      }
+
+      if (resetPosition) {
+        gameState.music.currentTime = 0;
+      }
+
       gameState.music.volume = gameState.musicMuted ? 0 : gameState.musicVolume;
 
-      if (!gameState.musicMuted) {
-        gameState.music.play().catch((e) => console.warn("Audio play failed:", e));
+      const playPromise = gameState.music.play();
+      if (playPromise) {
+        playPromise
+          .then(() => {
+            gameState.musicIsPlaying = true;
+          })
+          .catch((e) => {
+            console.warn("Audio play failed:", e);
+            gameState.musicIsPlaying = false;
+          });
+      } else {
+        gameState.musicIsPlaying = true;
       }
 
       // Mostrar notificación
@@ -564,7 +711,7 @@ const Index = () => {
       oscillator.stop(gameState.audioContext.currentTime + duration);
     };
 
-    const playShootSound = () => playSound(200, 0.1, "square", 0.2);
+    const playShootSound = () => {};
     const playHitSound = () => playSound(100, 0.15, "sawtooth", 0.2);
     const playLevelUpSound = () => {
       playSound(300, 0.1, "sine", 0.3);
@@ -667,6 +814,7 @@ const Index = () => {
       gameState.xp = 0;
       gameState.nextXP = 25;
       gameState.time = 0;
+      gameState.elapsedTime = 0;
       gameState.wave = 1;
       gameState.waveKills = 0;
       gameState.waveEnemiesTotal = 10; // Wave 1 empieza con 10 enemigos (estilo COD Zombies)
@@ -1700,9 +1848,9 @@ const Index = () => {
         }
       }
 
-      // Tome upgrades
+      // Book upgrades
       if (tomesFull) {
-        // Ofrecer mejoras variadas para tomos existentes
+        // Ofrecer mejoras variadas para libros existentes
         for (let i = 0; i < gameState.player.tomes.length; i++) {
           const t = gameState.player.tomes[i];
           type UpgradeVariant = {
@@ -1762,7 +1910,7 @@ const Index = () => {
           }
         }
       } else {
-        // Tomos nuevos disponibles
+        // Libros nuevos disponibles
         const available = TOMES.filter((t) => !gameState.player.tomes.find((pt: Tome) => pt.id === t.id));
         for (const tome of available) {
           availableUpgrades.push({
@@ -1988,12 +2136,12 @@ const Index = () => {
         const tome = option.data as Tome;
 
         if (option.isLevelUp && option.targetIndex !== undefined) {
-          // Mejora de nivel de tomo existente
+          // Mejora de nivel de libro existente
           const existingTome = gameState.player.tomes[option.targetIndex];
           const currentLevel = existingTome.level;
           existingTome.level++;
 
-          // Aplicar bonificación según el efecto del tomo y su nivel específico
+          // Aplicar bonificación según el efecto del libro y su nivel específico
           if (existingTome.effect === "damage") {
             // +10% daño por nivel (sin límite)
             gameState.player.stats.damageMultiplier *= 1.1;
@@ -2054,7 +2202,7 @@ const Index = () => {
             const totalBonus = Math.round((gameState.player.stats.fireRateMultiplier - 1) * 100);
           }
         } else {
-          // Nuevo tomo
+          // Nuevo libro
           if (gameState.player.tomes.length < 3) {
             gameState.player.tomes.push(tome);
 
@@ -2098,24 +2246,112 @@ const Index = () => {
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
 
-      // Botón de cambiar canción (solo cuando el juego está corriendo)
+      // Controles de música (solo cuando el juego está corriendo)
       if (gameState.state === "running") {
-        const musicBtnW = 160;
-        const musicBtnH = 45;
-        const musicBtnX = W - musicBtnW - 20;
-        const musicBtnY = H - musicBtnH - 70;
+        if (!gameState.musicStarted) {
+          const startRect = getMusicStartButtonRect(W, H);
 
-        if (mx >= musicBtnX && mx <= musicBtnX + musicBtnW && my >= musicBtnY && my <= musicBtnY + musicBtnH) {
-          // Si la música no ha iniciado, iniciarla
-          if (!gameState.musicStarted) {
+          if (
+            mx >= startRect.x &&
+            mx <= startRect.x + startRect.w &&
+            my >= startRect.y &&
+            my <= startRect.y + startRect.h
+          ) {
             gameState.musicStarted = true;
-            playNextTrack();
-          } else {
-            // Cambiar a la siguiente canción
-            gameState.currentMusicIndex = (gameState.currentMusicIndex + 1) % gameState.musicTracks.length;
-            playNextTrack();
+            gameState.musicControlsVisible = true;
+            gameState.musicLastPointerTime = gameState.time;
+            gameState.musicButtonClickAnim.start = 1;
+            playTrackAtCurrentIndex();
+            return;
           }
-          return;
+        } else {
+          if (!gameState.musicControlsVisible) {
+            return;
+          }
+          const panelRect = getMusicControlPanelRect(W, H);
+          const controlsPaddingY = 16;
+          const controlSize = 44;
+          const controlGap = 12;
+          const controlY = panelRect.y + controlsPaddingY;
+          const totalControlsWidth = controlSize * 3 + controlGap * 2;
+          const controlsStartX = panelRect.x + (panelRect.w - totalControlsWidth) / 2;
+
+          const previousBtn = {
+            x: controlsStartX,
+            y: controlY,
+            w: controlSize,
+            h: controlSize,
+          };
+          const pauseBtn = {
+            x: previousBtn.x + controlSize + controlGap,
+            y: controlY,
+            w: controlSize,
+            h: controlSize,
+          };
+          const nextBtn = {
+            x: pauseBtn.x + controlSize + controlGap,
+            y: controlY,
+            w: controlSize,
+            h: controlSize,
+          };
+
+          const pointInRect = (rect: { x: number; y: number; w: number; h: number }) =>
+            mx >= rect.x && mx <= rect.x + rect.w && my >= rect.y && my <= rect.y + rect.h;
+
+          if (pointInRect(previousBtn)) {
+            if (gameState.musicTracks.length > 0) {
+              gameState.musicControlsVisible = true;
+              gameState.musicLastPointerTime = gameState.time;
+              gameState.musicButtonClickAnim.previous = 1;
+              gameState.currentMusicIndex =
+                (gameState.currentMusicIndex - 1 + gameState.musicTracks.length) % gameState.musicTracks.length;
+              playTrackAtCurrentIndex();
+            }
+            return;
+          }
+
+          if (pointInRect(nextBtn)) {
+            if (gameState.musicTracks.length > 0) {
+              gameState.musicControlsVisible = true;
+              gameState.musicLastPointerTime = gameState.time;
+              gameState.musicButtonClickAnim.next = 1;
+              gameState.currentMusicIndex = (gameState.currentMusicIndex + 1) % gameState.musicTracks.length;
+              playTrackAtCurrentIndex();
+            }
+            return;
+          }
+
+          if (pointInRect(pauseBtn)) {
+            gameState.musicControlsVisible = true;
+            gameState.musicLastPointerTime = gameState.time;
+            gameState.musicButtonClickAnim.pause = 1;
+            if (gameState.music) {
+              if (gameState.musicIsPlaying) {
+                gameState.music.pause();
+                gameState.musicIsPlaying = false;
+              } else {
+                if (gameState.music.ended) {
+                  playTrackAtCurrentIndex();
+                } else {
+                  gameState.music.volume = gameState.musicMuted ? 0 : gameState.musicVolume;
+                  gameState.music
+                    .play()
+                    .then(() => {
+                      gameState.musicIsPlaying = true;
+                    })
+                    .catch((e) => {
+                      console.warn("Audio resume failed:", e);
+                      gameState.musicIsPlaying = false;
+                    });
+                }
+                if (gameState.musicTracks[gameState.currentMusicIndex]) {
+                  gameState.musicNotification = gameState.musicTracks[gameState.currentMusicIndex].name;
+                  gameState.musicNotificationTimer = 2;
+                }
+              }
+            }
+            return;
+          }
         }
       }
 
@@ -2252,6 +2488,14 @@ const Index = () => {
       }
     });
 
+    const handlePointerMove = () => {
+      if (!gameState.musicStarted) return;
+      gameState.musicControlsVisible = true;
+      gameState.musicLastPointerTime = gameState.time;
+    };
+
+    canvas.addEventListener("mousemove", handlePointerMove);
+
     const handlePauseMenuScroll = (e: WheelEvent) => {
       // Simplified - no scrolling needed in new design
       e.preventDefault();
@@ -2262,6 +2506,27 @@ const Index = () => {
     function update(dt: number) {
       // Actualizar tiempo siempre (necesario para animaciones)
       gameState.time += dt;
+
+      // Solo incrementar el temporizador de partida cuando el juego está corriendo
+      if (gameState.state === "running" && gameState.countdownTimer <= 0) {
+        gameState.elapsedTime += dt;
+      }
+
+      for (const key of Object.keys(gameState.musicButtonClickAnim) as Array<
+        keyof typeof gameState.musicButtonClickAnim
+      >) {
+        const value = gameState.musicButtonClickAnim[key];
+        if (value > 0) {
+          gameState.musicButtonClickAnim[key] = Math.max(0, value - dt * 3);
+        }
+      }
+
+      if (gameState.musicStarted && gameState.musicControlsVisible) {
+        const idleDuration = 1.5;
+        if (gameState.time - gameState.musicLastPointerTime > idleDuration) {
+          gameState.musicControlsVisible = false;
+        }
+      }
 
       // Animations que deben correr siempre
       if (gameState.levelUpAnimation > 0) gameState.levelUpAnimation = Math.max(0, gameState.levelUpAnimation - dt * 2);
@@ -2319,7 +2584,6 @@ const Index = () => {
       // Game Over - seguir corriendo el tiempo durante la animación
       if (gameState.state === "gameover") {
         gameState.gameOverAnimationTimer += dt;
-        gameState.time += dt; // El tiempo sigue corriendo
         return;
       }
 
@@ -2995,7 +3259,7 @@ const Index = () => {
         gameState.player.isSprinting = false;
       }
 
-      // Regeneración del tomo
+      // Regeneración del libro
       if (gameState.player.stats.regenRate > 0 && gameState.player.stats.regenInterval > 0) {
         gameState.regenTimer += dt;
         if (gameState.regenTimer >= gameState.player.stats.regenInterval) {
@@ -3009,7 +3273,7 @@ const Index = () => {
 
       // Regeneración del item (si lo tiene)
       if (gameState.player.items.find((it: Item) => it.id === "regen")) {
-        // El item de regeneración es adicional al tomo
+        // El item de regeneración es adicional al libro
         if (gameState.regenTimer >= 10) {
           gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + 1);
         }
@@ -3970,7 +4234,7 @@ const Index = () => {
         const dy = gameState.player.y - g.y;
         const d = Math.hypot(dx, dy) || 1;
 
-        // Magnet: aplicar multiplicadores del tomo y del powerup temporal
+        // Magnet: aplicar multiplicadores del libro y del powerup temporal
         let magnetRange = gameState.player.magnet * gameState.player.stats.magnetMultiplier;
         if (gameState.player.tempMagnetTimer > 0) {
           magnetRange *= 2; // Powerup temporal duplica el rango
@@ -4591,7 +4855,7 @@ const Index = () => {
         ctx.fillText(weaponText, W - 195, 93 + i * 25);
       }
 
-      // Tomes display
+      // Books display
       ctx.fillStyle = "#fff";
       ctx.font = "bold 14px system-ui";
       const tomeY = 80 + gameState.player.weapons.length * 25 + 10;
@@ -4795,58 +5059,119 @@ const Index = () => {
         ctx.shadowBlur = 0;
       }
 
-      // Botón de cambiar canción (esquina superior derecha)
-      const musicBtnW = 160;
-      const musicBtnH = 45;
-      const musicBtnX = W - musicBtnW - 20;
-      const musicBtnY = H - musicBtnH - 70;
-
-      // Background del botón con animación si no ha iniciado
-      const musicBtnGradient = ctx.createLinearGradient(musicBtnX, musicBtnY, musicBtnX, musicBtnY + musicBtnH);
-      if (!gameState.musicStarted) {
-        // Animación pulsante para llamar atención
-        const pulse = Math.sin(gameState.time * 3) * 0.2 + 0.8;
-        musicBtnGradient.addColorStop(0, `rgba(${168 * pulse}, ${85 * pulse}, 247, 0.95)`);
-        musicBtnGradient.addColorStop(1, `rgba(${124 * pulse}, ${58 * pulse}, 237, 0.95)`);
-      } else {
-        musicBtnGradient.addColorStop(0, "rgba(168, 85, 247, 0.9)");
-        musicBtnGradient.addColorStop(1, "rgba(124, 58, 237, 0.9)");
-      }
-      ctx.fillStyle = musicBtnGradient;
-      ctx.beginPath();
-      ctx.roundRect(musicBtnX, musicBtnY, musicBtnW, musicBtnH, 8);
-      ctx.fill();
-
-      // Border con glow si no ha iniciado
-      ctx.strokeStyle = "#a855f7";
-      ctx.lineWidth = 2;
-      ctx.shadowColor = "#a855f7";
-      ctx.shadowBlur = gameState.musicStarted ? 10 : 20;
-      ctx.stroke();
-      ctx.shadowBlur = 0;
-
-      // Texto del botón
+      // Controles de música (esquina inferior derecha)
       ctx.textAlign = "center";
       if (!gameState.musicStarted) {
-        const musicTextX = musicBtnX + musicBtnW / 2;
-        ctx.fillStyle = "#fff";
-        ctx.font = "bold 16px system-ui";
-        ctx.fillText(t.startMusicButton, musicTextX, musicBtnY + musicBtnH / 2 - 2);
+        const startRect = getMusicStartButtonRect(W, H);
+        const clickAnim = gameState.musicButtonClickAnim.start ?? 0;
+        const scaleFactor = 1 - clickAnim * 0.12;
+        const centerX = startRect.x + startRect.w / 2;
+        const centerY = startRect.y + startRect.h / 2;
+
+        ctx.save();
+        ctx.translate(centerX, centerY);
+        ctx.scale(scaleFactor, scaleFactor);
+        ctx.translate(-centerX, -centerY);
+
+        ctx.beginPath();
+        ctx.roundRect(startRect.x, startRect.y, startRect.w, startRect.h, 14);
+        ctx.fillStyle = "rgba(71, 85, 105, 0.98)";
+        ctx.fill();
+
+        ctx.strokeStyle = "rgba(226, 232, 240, 0.25)";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.save();
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#e2e8f0";
+        ctx.font = "600 16px system-ui";
+        ctx.fillText(t.startMusicButton, centerX, startRect.y + startRect.h / 2 + 2);
 
         ctx.font = "12px system-ui";
-        ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
-        ctx.fillText(t.shufflePlaylistReady, musicTextX, musicBtnY + musicBtnH - 8);
+        ctx.fillStyle = "rgba(226, 232, 240, 0.75)";
+        ctx.fillText(t.shufflePlaylistReady, centerX, startRect.y + startRect.h - 10);
+        ctx.restore();
+      } else if (gameState.musicControlsVisible) {
+        const panelRect = getMusicControlPanelRect(W, H);
+        const panelRadius = 16;
 
-        ctx.fillStyle = "#fff";
-      } else {
-        ctx.fillStyle = "#fff";
-        ctx.font = "bold 16px system-ui";
-        const currentTrack = gameState.musicTracks[gameState.currentMusicIndex];
-        ctx.fillText(
-          `♫ ${currentTrack.name.slice(0, 12)}...`,
-          musicBtnX + musicBtnW / 2,
-          musicBtnY + musicBtnH / 2 + 6,
-        );
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(panelRect.x, panelRect.y, panelRect.w, panelRect.h, panelRadius);
+        ctx.fillStyle = "rgba(15, 23, 42, 0.88)";
+        ctx.fill();
+
+        ctx.strokeStyle = "rgba(148, 163, 184, 0.3)";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
+
+        const controlSize = 44;
+        const controlGap = 12;
+        const totalControlsWidth = controlSize * 3 + controlGap * 2;
+        const controlStartX = panelRect.x + (panelRect.w - totalControlsWidth) / 2;
+        const controlY = panelRect.y + 16;
+
+        const rainbowColors = ["#38bdf8", "#34d399", "#facc15", "#f97316", "#a855f7"];
+
+        const controls: Array<{ key: "previous" | "pause" | "next"; icon: string; index: number }> = [
+          { key: "previous", icon: "⏮", index: 0 },
+          { key: "pause", icon: gameState.musicIsPlaying ? "⏸" : "▶", index: 1 },
+          { key: "next", icon: "⏭", index: 2 },
+        ];
+
+        ctx.save();
+        ctx.textAlign = "center";
+        ctx.font = "600 24px system-ui";
+
+        controls.forEach((control) => {
+          const btnX = controlStartX + control.index * (controlSize + controlGap);
+          const btnY = controlY;
+          const centerX = btnX + controlSize / 2;
+          const centerY = btnY + controlSize / 2;
+          const clickAnim = gameState.musicButtonClickAnim[control.key] ?? 0;
+          const scaleFactor = 1 - clickAnim * 0.14;
+
+          ctx.save();
+          ctx.translate(centerX, centerY);
+          ctx.scale(scaleFactor, scaleFactor);
+          ctx.translate(-centerX, -centerY);
+
+          const roundedRadius = 12;
+          ctx.beginPath();
+          ctx.roundRect(btnX, btnY, controlSize, controlSize, roundedRadius);
+
+          if (clickAnim > 0) {
+            const shift = ((gameState.time * 70 + control.index * 40) % controlSize) / controlSize;
+            const gradient = ctx.createLinearGradient(
+              btnX - shift * controlSize,
+              btnY,
+              btnX + controlSize - shift * controlSize,
+              btnY,
+            );
+            rainbowColors.forEach((color, colorIndex) => {
+              gradient.addColorStop(colorIndex / (rainbowColors.length - 1), color);
+            });
+            ctx.fillStyle = gradient;
+          } else {
+            ctx.fillStyle = "rgba(71, 85, 105, 0.98)";
+          }
+
+          ctx.fill();
+
+          ctx.strokeStyle = "rgba(15, 23, 42, 0.55)";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          ctx.fillStyle = clickAnim > 0 ? "#0f172a" : "#e2e8f0";
+          ctx.fillText(control.icon, btnX + controlSize / 2, btnY + controlSize / 2 + 7);
+
+          ctx.restore();
+        });
+
+        ctx.restore();
       }
 
       // Overlay de Game Over con fade
@@ -5147,13 +5472,30 @@ const Index = () => {
       const t = translations[currentLanguage];
       ctx.clearRect(0, 0, W, H);
 
-      // Fondo
-      const gradient = ctx.createRadialGradient(W / 2, H / 3, 0, W / 2, H / 3, Math.max(W, H));
-      gradient.addColorStop(0, "#0f1729");
-      gradient.addColorStop(0.5, "#0a0f1a");
-      gradient.addColorStop(1, "#060a10");
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, W, H);
+      // Draw tiled background map
+      if (gameState.mapBackground && gameState.mapBackground.complete) {
+        const imgW = gameState.mapBackground.width;
+        const imgH = gameState.mapBackground.height;
+        
+        // Calculate how many tiles we need
+        const tilesX = Math.ceil(W / imgW) + 1;
+        const tilesY = Math.ceil(H / imgH) + 1;
+        
+        // Draw tiles to fill the entire canvas
+        for (let x = 0; x < tilesX; x++) {
+          for (let y = 0; y < tilesY; y++) {
+            ctx.drawImage(gameState.mapBackground, x * imgW, y * imgH, imgW, imgH);
+          }
+        }
+      } else {
+        // Fallback gradient background
+        const gradient = ctx.createRadialGradient(W / 2, H / 3, 0, W / 2, H / 3, Math.max(W, H));
+        gradient.addColorStop(0, "#0f1729");
+        gradient.addColorStop(0.5, "#0a0f1a");
+        gradient.addColorStop(1, "#060a10");
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, W, H);
+      }
 
       // Marcas de explosión en el suelo (quemadura)
       for (const mark of gameState.explosionMarks) {
@@ -5537,35 +5879,41 @@ const Index = () => {
       for (const e of gameState.enemies) {
         ctx.save();
 
-        // Efectos elementales visuales
-        if (e.frozenTimer > 0) {
-          // Efecto de congelamiento
-          ctx.shadowColor = "#38bdf8";
-          ctx.shadowBlur = 20;
-        } else if (e.burnTimer > 0) {
-          // Efecto de fuego
-          ctx.shadowColor = "#fb923c";
-          ctx.shadowBlur = 25;
-        } else if (e.poisonTimer > 0) {
-          // Efecto de veneno
-          ctx.shadowColor = "#84cc16";
-          ctx.shadowBlur = 15;
+        // Determine which image to use based on enemy type and color
+        let enemyImage: HTMLImageElement | null = null;
+        
+        if (e.specialType === "explosive" && gameState.bomberImg?.complete) {
+          enemyImage = gameState.bomberImg;
+        } else if (e.specialType === "fast" && gameState.runnerImg?.complete) {
+          enemyImage = gameState.runnerImg;
+        } else if (e.specialType === "tank" && gameState.shieldImg?.complete) {
+          enemyImage = gameState.shieldImg;
+        } else if (e.specialType === "summoner" && gameState.ghoulImg?.complete) {
+          enemyImage = gameState.ghoulImg;
+        } else if (e.isSummoned && gameState.ghoulImg?.complete) {
+          // Ghoul summons should use the same sprite as their summoner
+          enemyImage = gameState.ghoulImg;
+        } else if (e.color === "#22c55e" && gameState.greenZombieImg?.complete) {
+          enemyImage = gameState.greenZombieImg;
+        } else if ((e.color === "#9333ea" || e.color === "#a855f7") && gameState.purpleZombieImg?.complete) {
+          enemyImage = gameState.purpleZombieImg;
+        } else if (e.color === "#78716c" && gameState.shieldImg?.complete) {
+          enemyImage = gameState.shieldImg;
         }
-
-        // Si tenemos el logo cargado, dibujarlo con el color del enemigo
-        if (gameState.enemyLogo && gameState.enemyLogo.complete) {
+        
+        if (enemyImage) {
           ctx.translate(e.x, e.y);
 
-          // Aplicar sombra con el color del enemigo (o efecto elemental)
-          if (!e.frozenTimer && !e.burnTimer && !e.poisonTimer) {
-            ctx.shadowColor = e.color;
-            ctx.shadowBlur = e.isBoss ? 40 : e.isMiniBoss ? 25 : 15;
-          }
+          // Dibujar el logo escalado al tamaño del enemigo (3x bigger to scale with player)
+          const logoSize = e.rad * 3;
+          ctx.drawImage(enemyImage, -logoSize / 2, -logoSize / 2, logoSize, logoSize);
 
-          // Dibujar el logo escalado al tamaño del enemigo
-          const logoSize = e.rad * 2;
+          ctx.restore();
+        } else if (gameState.enemyLogo && gameState.enemyLogo.complete) {
+          // Fallback to colored logo
+          ctx.translate(e.x, e.y);
+          const logoSize = e.rad * 3;
 
-          // Usar logo pre-renderizado si está disponible; en caso contrario, generarlo y guardarlo
           let prerenderedLogo = prerenderedLogosRef.current[e.color];
           if (!prerenderedLogo) {
             const generatedLogo = ensureTintedLogo(e.color);
@@ -5578,19 +5926,13 @@ const Index = () => {
             ctx.drawImage(prerenderedLogo, -logoSize / 2, -logoSize / 2, logoSize, logoSize);
           }
 
-          ctx.shadowBlur = 0;
           ctx.restore();
         } else {
           // Fallback: dibujar círculo si la imagen no está cargada
           ctx.fillStyle = e.color;
-          if (!e.frozenTimer && !e.burnTimer && !e.poisonTimer) {
-            ctx.shadowColor = e.color;
-            ctx.shadowBlur = e.isBoss ? 40 : e.isMiniBoss ? 25 : 15;
-          }
           ctx.beginPath();
           ctx.arc(e.x, e.y, e.rad, 0, Math.PI * 2);
           ctx.fill();
-          ctx.shadowBlur = 0;
           ctx.restore();
         }
 
@@ -5623,56 +5965,6 @@ const Index = () => {
           ctx.stroke();
           ctx.setLineDash([]);
 
-          ctx.shadowBlur = 0;
-          ctx.restore();
-        }
-
-        // Indicador de tipo especial
-        if (e.specialType) {
-          ctx.save();
-          ctx.textAlign = "center";
-          ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-          ctx.shadowBlur = 4;
-
-          // Bomber con countdown visual
-          if (e.specialType === "explosive" && e.explosionTimer !== undefined && e.explosionTimer >= 0) {
-            // Countdown timer
-            const timeLeft = Math.ceil(e.explosionTimer * 10) / 10; // Redondear a 1 decimal
-            ctx.font = "bold 20px system-ui";
-            const pulse = Math.sin(gameState.time * 10) * 0.3 + 0.7;
-            ctx.fillStyle = timeLeft < 0.5 ? "#fbbf24" : "#ef4444";
-            ctx.shadowColor = timeLeft < 0.5 ? "#fbbf24" : "#ef4444";
-            ctx.shadowBlur = 20 * pulse;
-            ctx.fillText(timeLeft.toFixed(1) + "s", e.x, e.y - e.rad - 35);
-
-            // Emoji pulsante
-            ctx.font = "bold 24px system-ui";
-            ctx.fillText("💣", e.x, e.y - e.rad - 10);
-            ctx.shadowBlur = 0;
-          } else {
-            // Emojis normales para otros tipos
-            ctx.font = "bold 16px system-ui";
-            let emoji = "";
-            if (e.specialType === "explosive") emoji = "💣";
-            else if (e.specialType === "fast") emoji = "⚡";
-            else if (e.specialType === "tank") emoji = "🛡️";
-            else if (e.specialType === "summoner") emoji = "👻";
-            ctx.fillText(emoji, e.x, e.y - e.rad - 20);
-            ctx.shadowBlur = 0;
-          }
-
-          ctx.restore();
-        }
-
-        // Indicador de boss
-        if (e.isBoss) {
-          ctx.save();
-          ctx.textAlign = "center";
-          ctx.font = "bold 24px system-ui";
-          ctx.fillStyle = "#fbbf24";
-          ctx.shadowColor = "#dc2626";
-          ctx.shadowBlur = 20;
-          ctx.fillText("👑 BOSS 👑", e.x, e.y - e.rad - 25);
           ctx.shadowBlur = 0;
           ctx.restore();
         }
@@ -5904,7 +6196,7 @@ const Index = () => {
           if (gameState.gameOverAnimationTimer > 1.5) {
             const timeAlpha = Math.min(1, (gameState.gameOverAnimationTimer - 1.5) / 1);
             ctx.globalAlpha = timeAlpha;
-            const time = Math.floor(gameState.time);
+            const time = Math.floor(gameState.elapsedTime);
             const mm = String(Math.floor(time / 60)).padStart(2, "0");
             const ss = String(time % 60).padStart(2, "0");
             ctx.fillStyle = "#fbbf24";
@@ -6004,7 +6296,7 @@ const Index = () => {
         contentY += 50;
 
         // Tiempo
-        const time = Math.floor(gameState.time);
+        const time = Math.floor(gameState.elapsedTime);
         const mm = String(Math.floor(time / 60)).padStart(2, "0");
         const ss = String(time % 60).padStart(2, "0");
         ctx.fillStyle = "#d1d5db";
@@ -6432,6 +6724,7 @@ const Index = () => {
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("resize", handleResize);
       canvas.removeEventListener("wheel", handlePauseMenuScroll);
+      canvas.removeEventListener("mousemove", handlePointerMove);
       document.removeEventListener("touchmove", preventScroll);
       document.removeEventListener("gesturestart", preventGesture);
       document.removeEventListener("gesturechange", preventGesture);
