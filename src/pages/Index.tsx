@@ -25,6 +25,8 @@ type PauseMenuTab = "home" | "settings" | "stats";
 
 const PAUSE_MENU_TABS: PauseMenuTab[] = ["home", "settings", "stats"];
 
+const CHEST_DROP_RATE = 0.03;
+
 const getPauseMenuLayout = (W: number, H: number) => {
   const scale = Math.min(1, Math.max(0.7, Math.min(W / 1280, H / 720)));
   
@@ -1218,7 +1220,7 @@ const Index = () => {
         rage: { color: "#ef4444", rarity: "epic" as Rarity, duration: 8 },
         speed: { color: "#fbbf24", rarity: "common" as Rarity, duration: 0 }, // duration 0 porque es permanente
       };
-      
+
       const data = powerupData[type];
       gameState.drops.push({
         x, y, rad: 12,
@@ -1228,6 +1230,122 @@ const Index = () => {
         color: data.color,
         rarity: data.rarity,
       });
+    }
+
+    function dropChest(x: number, y: number) {
+      gameState.drops.push({
+        x,
+        y,
+        rad: 14,
+        type: "chest",
+        color: "#f97316",
+        spawnTime: gameState.time,
+      });
+    }
+
+    function spawnChestParticles(x: number, y: number, color: string) {
+      if (gameState.particles.length < gameState.maxParticles - 25) {
+        for (let i = 0; i < 25; i++) {
+          const angle = (Math.PI * 2 * i) / 25;
+          const speed = 4 + Math.random() * 3;
+          gameState.particles.push({
+            x,
+            y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            life: 0.8,
+            color,
+            size: 4,
+          });
+        }
+      }
+    }
+
+    function chooseChestItem(): Item | null {
+      const availableItems = ITEMS.filter(
+        (item) => !gameState.player.itemFlags[item.id]
+      );
+
+      if (availableItems.length === 0) {
+        return null;
+      }
+
+      const rarityBuckets: Record<Rarity, Item[]> = {
+        common: [],
+        uncommon: [],
+        rare: [],
+        epic: [],
+        legendary: [],
+      };
+
+      for (const item of availableItems) {
+        rarityBuckets[item.rarity].push(item);
+      }
+
+      const rarityWeights: Record<Rarity, number> = {
+        common: 0.5,
+        uncommon: 0.15,
+        rare: 0.2,
+        epic: 0.1,
+        legendary: 0.05,
+      };
+
+      const availableRarities = (Object.keys(rarityBuckets) as Rarity[]).filter(
+        (rarity) => rarityBuckets[rarity].length > 0
+      );
+
+      if (availableRarities.length === 0) {
+        return null;
+      }
+
+      const totalWeight = availableRarities.reduce((sum, rarity) => {
+        return sum + (rarityWeights[rarity] ?? 0);
+      }, 0);
+
+      if (totalWeight <= 0) {
+        const fallbackRarity =
+          availableRarities[Math.floor(Math.random() * availableRarities.length)];
+        const pool = rarityBuckets[fallbackRarity];
+        return pool[Math.floor(Math.random() * pool.length)];
+      }
+
+      let roll = Math.random() * totalWeight;
+      for (const rarity of availableRarities) {
+        const weight = rarityWeights[rarity] ?? 0;
+        if (weight <= 0) {
+          continue;
+        }
+        if (roll < weight) {
+          const pool = rarityBuckets[rarity];
+          return pool[Math.floor(Math.random() * pool.length)];
+        }
+        roll -= weight;
+      }
+
+      const lastRarity = availableRarities[availableRarities.length - 1];
+      const pool = rarityBuckets[lastRarity];
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+
+    function openChest(chest: any) {
+      const item = chooseChestItem();
+
+      if (!item) {
+        collectXP(25);
+        playPowerupSound();
+        spawnChestParticles(chest.x, chest.y, "#22c55e");
+        return;
+      }
+
+      const granted = grantItemToPlayer(item, { notify: true, playSound: true });
+
+      if (granted) {
+        spawnChestParticles(chest.x, chest.y, rarityColors[item.rarity]);
+      } else {
+        collectXP(25);
+        playPowerupSound();
+        spawnChestParticles(chest.x, chest.y, "#22c55e");
+      }
     }
 
     function collectXP(v: number) {
@@ -3528,6 +3646,10 @@ const Index = () => {
                 dropPowerup(e.x, e.y, powerupType);
               }
 
+              if (Math.random() < CHEST_DROP_RATE) {
+                dropChest(e.x, e.y);
+              }
+
               // Vampirismo
               if (gameState.player.stats.vampire > 0) {
                 const healAmount = Math.floor(b.damage * gameState.player.stats.vampire * 10);
@@ -3675,6 +3797,8 @@ const Index = () => {
             }
           } else if (g.type === "powerup") {
             collectPowerup(g);
+          } else if (g.type === "chest") {
+            openChest(g);
           }
           gameState.drops.splice(i, 1);
         }
@@ -5074,8 +5198,52 @@ const Index = () => {
         }
       }
 
-      // Drops con glow de rareza para powerups
+      // Drops con glow de rareza para powerups y cofres
       for (const d of gameState.drops) {
+        if (d.type === "chest") {
+          ctx.save();
+          const spawnTime = d.spawnTime ?? gameState.time;
+          const bounce = Math.sin((gameState.time - spawnTime) * 5) * 4;
+          ctx.translate(d.x, d.y + bounce);
+
+          const chestWidth = d.rad * 2.4;
+          const chestHeight = d.rad * 1.6;
+          const lidHeight = chestHeight * 0.45;
+
+          ctx.shadowColor = d.color;
+          ctx.shadowBlur = 20;
+
+          // Base del cofre
+          ctx.fillStyle = "#7c2d12";
+          ctx.fillRect(
+            -chestWidth / 2,
+            -chestHeight / 2 + lidHeight,
+            chestWidth,
+            chestHeight - lidHeight
+          );
+
+          // Tapa del cofre
+          ctx.fillStyle = d.color;
+          ctx.fillRect(-chestWidth / 2, -chestHeight / 2, chestWidth, lidHeight);
+
+          // Detalles dorados
+          ctx.fillStyle = "#fcd34d";
+          ctx.fillRect(-3, -chestHeight / 2, 6, chestHeight);
+          ctx.strokeStyle = "#fcd34d";
+          ctx.lineWidth = 2;
+          ctx.strokeRect(-chestWidth / 2, -chestHeight / 2, chestWidth, chestHeight);
+
+          ctx.strokeStyle = "rgba(252, 211, 77, 0.6)";
+          ctx.beginPath();
+          ctx.moveTo(-chestWidth / 2, -chestHeight / 2 + lidHeight);
+          ctx.lineTo(chestWidth / 2, -chestHeight / 2 + lidHeight);
+          ctx.stroke();
+
+          ctx.shadowBlur = 0;
+          ctx.restore();
+          continue;
+        }
+
         // Parpadeo para XP que está por expirar
         let alpha = 1;
         if (d.type === "xp" && d.lifetime !== undefined && d.lifetime < 3) {
@@ -5083,17 +5251,17 @@ const Index = () => {
           const blinkSpeed = d.lifetime < 1 ? 10 : 6;
           alpha = Math.abs(Math.sin(gameState.time * blinkSpeed)) * 0.7 + 0.3;
         }
-        
+
         ctx.save();
         ctx.globalAlpha = alpha;
         ctx.fillStyle = d.color;
         ctx.shadowColor = d.color;
-        
+
         // Powerups tienen glow animado según rareza
         if (d.type === "powerup") {
           const pulse = Math.sin(gameState.time * 5) * 10 + 20;
           ctx.shadowBlur = pulse;
-          
+
           // Anillo exterior de rareza
           ctx.strokeStyle = d.color;
           ctx.lineWidth = 3;
@@ -5103,7 +5271,7 @@ const Index = () => {
         } else {
           ctx.shadowBlur = 10;
         }
-        
+
         ctx.beginPath();
         ctx.moveTo(d.x, d.y - d.rad);
         ctx.lineTo(d.x + d.rad, d.y);
