@@ -18,6 +18,7 @@ import {
   type Upgrade,
   type Weapon,
 } from "./gameData";
+import { SpatialHash } from "../game/collision/spatialHash";
 
 const LANGUAGE_ORDER: Language[] = ["es", "en"];
 
@@ -40,6 +41,22 @@ const SUMMONER_ENEMY_BASE_RADIUS = 20;
 const TANK_ENEMY_BASE_RADIUS = 28;
 
 const scaleEntitySize = (value: number) => Math.max(1, Math.round(value * ENTITY_SCALE));
+
+const BULLET_RADIUS = 4;
+const MAX_ENEMY_RADIUS = Math.max(
+  WEAK_ENEMY_BASE_RADIUS,
+  MEDIUM_ENEMY_BASE_RADIUS,
+  STRONG_ENEMY_BASE_RADIUS,
+  FAST_ENEMY_BASE_RADIUS,
+  EXPLOSIVE_ENEMY_BASE_RADIUS,
+  SUMMONER_ENEMY_BASE_RADIUS,
+  TANK_ENEMY_BASE_RADIUS,
+  scaleEntitySize(40),
+);
+const MAX_CHAIN_RADIUS = 150;
+const MAX_BOUNCE_RADIUS = 200;
+const SPATIAL_HASH_CELL_SIZE = Math.max(1, Math.round((MAX_ENEMY_RADIUS + BULLET_RADIUS) * 2));
+const BULLET_QUERY_RADIUS = Math.max(MAX_ENEMY_RADIUS + BULLET_RADIUS, MAX_BOUNCE_RADIUS);
 
 const UI_COLORS = {
   textPrimary: "#d9d9d9",
@@ -314,6 +331,10 @@ const Index = () => {
   const gameStateRef = useRef<any>(null);
   const resetGameRef = useRef<(() => void) | null>(null);
   const prerenderedLogosRef = useRef<{ [key: string]: HTMLCanvasElement }>({});
+  const spatialHashRef = useRef(new SpatialHash<any, any>(SPATIAL_HASH_CELL_SIZE));
+  const bulletNeighborBufferRef = useRef<any[]>([]);
+  const fallbackEnemyListRef = useRef<any[]>([]);
+  const chainedEnemiesRef = useRef<any[]>([]);
 
   const t = translations[language];
 
@@ -4176,372 +4197,429 @@ const Index = () => {
         );
       }
 
-      // Colisiones bala-enemigo
-      for (let i = gameState.enemies.length - 1; i >= 0; i--) {
-        const e = gameState.enemies[i];
-        for (const b of gameState.bullets) {
-          // Skip balas de enemigos
-          if (b.isEnemyBullet) continue;
+      const spatialHash = spatialHashRef.current;
+      const neighborBuffer = bulletNeighborBufferRef.current;
+      const fallbackEnemies = fallbackEnemyListRef.current;
+      const chainedEnemies = chainedEnemiesRef.current;
+      const useSpatialHash = gameState.enemies.length >= 6 && gameState.bullets.length >= 4;
 
-          if (Math.hypot(e.x - b.x, e.y - b.y) < e.rad + 4) {
-            e.hp -= b.damage;
+      spatialHash.reset();
+      fallbackEnemies.length = 0;
 
-            // Aplicar efectos elementales
-            if (b.fire) {
-              e.burnTimer = 3; // 3 segundos de fuego
+      for (const enemy of gameState.enemies) {
+        spatialHash.insertEnemy(enemy);
+        if (!useSpatialHash) {
+          fallbackEnemies.push(enemy);
+        }
+        (enemy as any).__removed = false;
+      }
+
+      for (const bullet of gameState.bullets) {
+        const projectile = bullet as typeof bullet & { rad?: number };
+        if (projectile.rad === undefined) {
+          projectile.rad = BULLET_RADIUS;
+        }
+        spatialHash.insertProjectile(projectile as any);
+      }
+
+      const handleEnemyDeath = (enemy: any, killer: any | null) => {
+        if (!enemy || (enemy as any).__removed) {
+          return;
+        }
+
+        const enemyIndex = gameState.enemies.indexOf(enemy);
+        if (enemyIndex === -1) {
+          (enemy as any).__removed = true;
+          return;
+        }
+
+        (enemy as any).__removed = true;
+
+        if (!enemy.isBoss && !enemy.isMiniBoss) {
+          gameState.normalEnemyCount = Math.max(0, gameState.normalEnemyCount - 1);
+          normalEnemyCount = gameState.normalEnemyCount;
+        }
+        gameState.enemies.splice(enemyIndex, 1);
+
+        if (enemy.specialType === "explosive") {
+          for (const otherEnemy of gameState.enemies) {
+            const dx = otherEnemy.x - enemy.x;
+            const dy = otherEnemy.y - enemy.y;
+            if (dx * dx + dy * dy < 80 * 80) {
+              otherEnemy.hp -= 10;
             }
-            if (b.freeze) {
-              e.frozenTimer = 2; // 2 segundos congelado
+          }
+          const playerDx = gameState.player.x - enemy.x;
+          const playerDy = gameState.player.y - enemy.y;
+          if (playerDx * playerDx + playerDy * playerDy < 80 * 80) {
+            if (gameState.player.ifr <= 0 && gameState.player.shield === 0) {
+              gameState.player.hp -= 10;
+              gameState.player.ifr = gameState.player.ifrDuration;
             }
-
-            // Chain lightning
-            if (b.chain && b.chainCount > 0) {
-              b.chainCount--;
-              // Buscar el enemigo más cercano que no haya sido golpeado
-              let closestEnemy = null;
-              let closestDist = Infinity;
-              for (const e2 of gameState.enemies) {
-                if (e2 !== e && !e2.chainedThisShot) {
-                  const dist = Math.hypot(e2.x - b.x, e2.y - b.y);
-                  if (dist < closestDist && dist < 150) {
-                    closestDist = dist;
-                    closestEnemy = e2;
-                  }
-                }
-              }
-
-              if (closestEnemy) {
-                closestEnemy.hp -= b.damage * 0.7;
-                closestEnemy.chainedThisShot = true;
-                // Efecto visual de chain
-                if (gameState.particles.length < gameState.maxParticles - 5) {
-                  for (let j = 0; j < 5; j++) {
-                    const t = j / 5;
-                    gameState.particles.push({
-                      x: b.x + (closestEnemy.x - b.x) * t,
-                      y: b.y + (closestEnemy.y - b.y) * t,
-                      vx: (Math.random() - 0.5) * 2,
-                      vy: (Math.random() - 0.5) * 2,
-                      life: 0.3,
-                      color: "#2e86c1",
-                      size: 3,
-                    });
-                  }
-                }
-                // Continuar la cadena
-                b.x = closestEnemy.x;
-                b.y = closestEnemy.y;
-              } else {
-                b.life = 0;
-              }
-            }
-
-            // Limpiar flag de chain
-            for (const enemy of gameState.enemies) {
-              enemy.chainedThisShot = false;
-            }
-
-            // 💥 EXPLOSIÓN AOE (Lanzacohetes y armas explosivas)
-            // Splash damage en área grande
-            if (b.aoe) {
-              const explosionRadius = 100; // Radio grande de explosión
-              const splashDamage = b.damage * 0.75; // 75% del daño a todos en el área
-
-              for (const e2 of gameState.enemies) {
-                const distToExplosion = Math.hypot(e2.x - b.x, e2.y - b.y);
-                if (distToExplosion < explosionRadius) {
-                  // Daño que disminuye con la distancia
-                  const damageMultiplier = 1 - (distToExplosion / explosionRadius) * 0.5;
-                  e2.hp -= splashDamage * damageMultiplier;
-
-                  // Partículas de impacto en cada enemigo afectado
-                  if (gameState.particles.length < gameState.maxParticles - 3) {
-                    for (let k = 0; k < 3; k++) {
-                      gameState.particles.push({
-                        x: e2.x,
-                        y: e2.y,
-                        vx: (Math.random() - 0.5) * 3,
-                        vy: (Math.random() - 0.5) * 3,
-                        life: 0.4,
-                        color: "#ef4444",
-                        size: 4,
-                      });
-                    }
-                  }
-                }
-              }
-
-              // Partículas de explosión central
-              if (gameState.particles.length < gameState.maxParticles - 30) {
-                for (let j = 0; j < 30; j++) {
-                  const angle = (Math.PI * 2 * j) / 30;
-                  const speed = 3 + Math.random() * 5;
-                  gameState.particles.push({
-                    x: b.x,
-                    y: b.y,
-                    vx: Math.cos(angle) * speed,
-                    vy: Math.sin(angle) * speed,
-                    life: 0.8,
-                    color: j % 2 === 0 ? "#8e44ad" : "#ff7a2a",
-                    size: 4,
-                  });
-                }
-              }
-            }
-
-            // Rebote en enemigos (si bounceOnEnemies está activado)
-            if (b.bounceOnEnemies && b.bounces > 0) {
-              // Buscar el enemigo más cercano que no sea el actual
-              let closestEnemy = null;
-              let closestDist = Infinity;
-              for (const e2 of gameState.enemies) {
-                if (e2 !== e) {
-                  const dist = Math.hypot(e2.x - b.x, e2.y - b.y);
-                  if (dist < closestDist) {
-                    closestDist = dist;
-                    closestEnemy = e2;
-                  }
-                }
-              }
-
-              // Si hay un enemigo cercano, dirigir la bala hacia él
-              if (closestEnemy && closestDist < 200) {
-                b.dir = Math.atan2(closestEnemy.y - b.y, closestEnemy.x - b.x);
-                b.bounces--;
-                // Partículas de rebote con límite
-                if (gameState.particles.length < gameState.maxParticles - 5) {
-                  for (let j = 0; j < 5; j++) {
-                    gameState.particles.push({
-                      x: b.x,
-                      y: b.y,
-                      vx: (Math.random() - 0.5) * 3,
-                      vy: (Math.random() - 0.5) * 3,
-                      life: 0.3,
-                      color: b.color,
-                      size: 2,
-                    });
-                  }
-                }
-              } else if (!b.pierce) {
-                b.life = 0;
-              }
-            } else if (!b.pierce) {
-              b.life = 0;
-            }
-
-            if (e.hp <= 0) {
-              if (!e.isBoss && !e.isMiniBoss) {
-                gameState.normalEnemyCount = Math.max(0, gameState.normalEnemyCount - 1);
-                normalEnemyCount = gameState.normalEnemyCount;
-              }
-              gameState.enemies.splice(i, 1);
-
-              // Explosivos: explotan al morir
-              if (e.specialType === "explosive") {
-                for (const e2 of gameState.enemies) {
-                  if (Math.hypot(e2.x - e.x, e2.y - e.y) < 80) {
-                    e2.hp -= 10;
-                  }
-                }
-                // Daño al jugador si está cerca
-                if (Math.hypot(gameState.player.x - e.x, gameState.player.y - e.y) < 80) {
-                  if (gameState.player.ifr <= 0 && gameState.player.shield === 0) {
-                    gameState.player.hp -= 10;
-                    gameState.player.ifr = gameState.player.ifrDuration;
-                  }
-                }
-                // Partículas de explosión grande
-                if (gameState.particles.length < gameState.maxParticles - 30) {
-                  for (let j = 0; j < 30; j++) {
-                    const angle = (Math.PI * 2 * j) / 30;
-                    gameState.particles.push({
-                      x: e.x,
-                      y: e.y,
-                      vx: Math.cos(angle) * 10,
-                      vy: Math.sin(angle) * 10,
-                      life: 1,
-                      color: "#ef4444",
-                      size: 5,
-                    });
-                  }
-                }
-              }
-
-              // Incrementar contador de muertes de la wave (solo si no es invocado)
-              if (!e.isSummoned) {
-                gameState.waveKills++;
-              }
-
-              // Puntos y XP según tipo de enemigo
-              let points = 10;
-              let xpBundles = 1;
-              let dropChance = 0;
-
-              if (e.isBoss) {
-                // Boss muerto: recompensas legendarias
-                points = 500;
-                xpBundles = 10;
-                // Drop garantizado: item legendario
-                const legendaryItems = ITEMS.filter((it) => {
-                  if (it.rarity !== "legendary") return false;
-                  const currentStacks = gameState.player.itemStacks[it.id] ?? 0;
-                  if (it.maxStacks !== undefined && currentStacks >= it.maxStacks) {
-                    return false;
-                  }
-                  return true;
-                });
-                if (legendaryItems.length > 0) {
-                  const randomLegendary = legendaryItems[Math.floor(Math.random() * legendaryItems.length)];
-                  grantItemToPlayer(randomLegendary, { notify: true, playSound: true });
-                }
-                // Curación completa
-                gameState.player.hp = gameState.player.maxhp;
-              } else if (e.isMiniBoss) {
-                points = 100;
-                xpBundles = Math.floor(Math.random() * 3) + 4; // 4-6 bundles
-                dropChance = 0.1; // 10% chance de drop temporal
-              } else if (e.isElite) {
-                // Élites: Mejor loot
-                points = 25;
-                xpBundles = 2;
-                dropChance = 0.15; // 15% chance
-              } else if (e.specialType) {
-                // Enemigos especiales
-                points = 15;
-                xpBundles = 1;
-                dropChance = 0.08;
-              } else if (e.enemyType === "strong") {
-                points = 10;
-                xpBundles = 1;
-                dropChance = 0.05;
-              } else if (e.enemyType === "medium") {
-                points = 7;
-                xpBundles = 1;
-                dropChance = 0.03;
-              } else {
-                points = 5;
-                xpBundles = 1;
-                dropChance = 0.02;
-              }
-
-              gameState.score += points;
-              setScore(gameState.score);
-
-              // Drop multiple XP bundles
-              for (let k = 0; k < xpBundles; k++) {
-                const offsetX = (Math.random() - 0.5) * 40;
-                const offsetY = (Math.random() - 0.5) * 40;
-                let xpValue = e.isMiniBoss ? 30 : e.enemyType === "strong" ? 5 : e.enemyType === "medium" ? 3 : 2;
-
-                // Horde Totem: +2 XP por kill
-                const hordeStacksForXp = getItemStacks("hordetotem");
-                if (hordeStacksForXp > 0) {
-                  xpValue += 2 * hordeStacksForXp;
-                }
-
-                dropXP(e.x + offsetX, e.y + offsetY, xpValue);
-              }
-
-              // Drop de curación (5% de probabilidad - más raro)
-              const healRoll = Math.random();
-              const luckStacks = getItemStacks("luck");
-              const luckMultiplier = luckStacks > 0 ? 1 + 0.5 * luckStacks : 1;
-
-              if (healRoll < 0.05 * luckMultiplier) {
-                dropHeal(e.x, e.y);
-              }
-
-              // Drop temporal con probabilidad
-              if (Math.random() < dropChance) {
-                const roll = Math.random();
-                const powerupType = roll < 0.3 ? "magnet" : roll < 0.5 ? "shield" : roll < 0.65 ? "rage" : "speed";
-                dropPowerup(e.x, e.y, powerupType);
-              }
-
-              if (Math.random() < CHEST_DROP_RATE) {
-                dropChest(e.x, e.y);
-              }
-
-              // Vampirismo
-              if (gameState.player.stats.vampire > 0) {
-                const healAmount = Math.floor(b.damage * gameState.player.stats.vampire * 10);
-                gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + healAmount);
-              }
-
-              // Solar Gauntlet: cada 10 kills dispara proyectil masivo
-              const solarStacks = getItemStacks("solargauntlet");
-              if (solarStacks > 0) {
-                gameState.player.stats.solarGauntletKills++;
-                const requiredKills = Math.max(2, 10 - (solarStacks - 1) * 2);
-                if (gameState.player.stats.solarGauntletKills >= requiredKills) {
-                  gameState.player.stats.solarGauntletKills = 0;
-                  // Disparar proyectil masivo en todas direcciones
-                  for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
-                    gameState.bullets.push({
-                      x: gameState.player.x,
-                      y: gameState.player.y,
-                      dir: angle,
-                      spd: 15,
-                      life: 3,
-                      damage: gameState.player.stats.damageMultiplier * 50 * solarStacks,
-                      color: "#ffc300",
-                      bounces: 0,
-                      bounceOnEnemies: false,
-                      pierce: true,
-                      aoe: false,
-                    });
-                  }
-                  // Efecto visual con límite
-                  if (gameState.particles.length < gameState.maxParticles - 30) {
-                    for (let j = 0; j < 30; j++) {
-                      const angle = (Math.PI * 2 * j) / 30;
-                      gameState.particles.push({
-                        x: gameState.player.x,
-                        y: gameState.player.y,
-                        vx: Math.cos(angle) * 10,
-                        vy: Math.sin(angle) * 10,
-                        life: 1,
-                        color: "#ffc300",
-                        size: 5,
-                      });
-                    }
-                  }
-                  playPowerupSound();
-                }
-              }
-
-              // Bloodstone: cada 30 kills recupera 5 HP
-              const bloodstoneStacks = getItemStacks("bloodstone");
-              if (bloodstoneStacks > 0) {
-                gameState.player.stats.bloodstoneKills++;
-                const killsRequired = Math.max(10, 30 - (bloodstoneStacks - 1) * 5);
-                if (gameState.player.stats.bloodstoneKills >= killsRequired) {
-                  gameState.player.stats.bloodstoneKills = 0;
-                  const healAmount = 5 * bloodstoneStacks;
-                  gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + healAmount);
-                  // Efecto visual de curación con límite
-                  if (gameState.particles.length < gameState.maxParticles - 12) {
-                    for (let j = 0; j < 12; j++) {
-                      const angle = (Math.PI * 2 * j) / 12;
-                      gameState.particles.push({
-                        x: gameState.player.x,
-                        y: gameState.player.y,
-                        vx: Math.cos(angle) * 4,
-                        vy: Math.sin(angle) * 4,
-                        life: 0.8,
-                        color: "#dc2626",
-                        size: 4,
-                      });
-                    }
-                  }
-                }
-              }
-
-              playHitSound();
-              break;
+          }
+          if (gameState.particles.length < gameState.maxParticles - 30) {
+            for (let j = 0; j < 30; j++) {
+              const angle = (Math.PI * 2 * j) / 30;
+              gameState.particles.push({
+                x: enemy.x,
+                y: enemy.y,
+                vx: Math.cos(angle) * 10,
+                vy: Math.sin(angle) * 10,
+                life: 1,
+                color: "#ef4444",
+                size: 5,
+              });
             }
           }
         }
+
+        if (!enemy.isSummoned) {
+          gameState.waveKills++;
+        }
+
+        let points = 10;
+        let xpBundles = 1;
+        let dropChance = 0;
+
+        if (enemy.isBoss) {
+          points = 500;
+          xpBundles = 10;
+          const legendaryItems = ITEMS.filter((it) => {
+            if (it.rarity !== "legendary") return false;
+            const currentStacks = gameState.player.itemStacks[it.id] ?? 0;
+            if (it.maxStacks !== undefined && currentStacks >= it.maxStacks) {
+              return false;
+            }
+            return true;
+          });
+          if (legendaryItems.length > 0) {
+            const randomLegendary = legendaryItems[Math.floor(Math.random() * legendaryItems.length)];
+            grantItemToPlayer(randomLegendary, { notify: true, playSound: true });
+          }
+          gameState.player.hp = gameState.player.maxhp;
+        } else if (enemy.isMiniBoss) {
+          points = 100;
+          xpBundles = Math.floor(Math.random() * 3) + 4;
+          dropChance = 0.1;
+        } else if (enemy.isElite) {
+          points = 25;
+          xpBundles = 2;
+          dropChance = 0.15;
+        } else if (enemy.specialType) {
+          points = 15;
+          xpBundles = 1;
+          dropChance = 0.08;
+        } else if (enemy.enemyType === "strong") {
+          points = 10;
+          xpBundles = 1;
+          dropChance = 0.05;
+        } else if (enemy.enemyType === "medium") {
+          points = 7;
+          xpBundles = 1;
+          dropChance = 0.03;
+        } else {
+          points = 5;
+          xpBundles = 1;
+          dropChance = 0.02;
+        }
+
+        gameState.score += points;
+        setScore(gameState.score);
+
+        for (let k = 0; k < xpBundles; k++) {
+          const offsetX = (Math.random() - 0.5) * 40;
+          const offsetY = (Math.random() - 0.5) * 40;
+          let xpValue = enemy.isMiniBoss
+            ? 30
+            : enemy.enemyType === "strong"
+              ? 5
+              : enemy.enemyType === "medium"
+                ? 3
+                : 2;
+
+          const hordeStacksForXp = getItemStacks("hordetotem");
+          if (hordeStacksForXp > 0) {
+            xpValue += 2 * hordeStacksForXp;
+          }
+
+          dropXP(enemy.x + offsetX, enemy.y + offsetY, xpValue);
+        }
+
+        const healRoll = Math.random();
+        const luckStacks = getItemStacks("luck");
+        const luckMultiplier = luckStacks > 0 ? 1 + 0.5 * luckStacks : 1;
+
+        if (healRoll < 0.05 * luckMultiplier) {
+          dropHeal(enemy.x, enemy.y);
+        }
+
+        if (Math.random() < dropChance) {
+          const roll = Math.random();
+          const powerupType = roll < 0.3 ? "magnet" : roll < 0.5 ? "shield" : roll < 0.65 ? "rage" : "speed";
+          dropPowerup(enemy.x, enemy.y, powerupType);
+        }
+
+        if (Math.random() < CHEST_DROP_RATE) {
+          dropChest(enemy.x, enemy.y);
+        }
+
+        if (gameState.player.stats.vampire > 0 && killer) {
+          const healAmount = Math.floor(killer.damage * gameState.player.stats.vampire * 10);
+          gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + healAmount);
+        }
+
+        const solarStacks = getItemStacks("solargauntlet");
+        if (solarStacks > 0) {
+          gameState.player.stats.solarGauntletKills++;
+          const requiredKills = Math.max(2, 10 - (solarStacks - 1) * 2);
+          if (gameState.player.stats.solarGauntletKills >= requiredKills) {
+            gameState.player.stats.solarGauntletKills = 0;
+            for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
+              gameState.bullets.push({
+                x: gameState.player.x,
+                y: gameState.player.y,
+                dir: angle,
+                spd: 15,
+                life: 3,
+                damage: gameState.player.stats.damageMultiplier * 50 * solarStacks,
+                color: "#ffc300",
+                bounces: 0,
+                bounceOnEnemies: false,
+                pierce: true,
+                aoe: false,
+              });
+            }
+            if (gameState.particles.length < gameState.maxParticles - 30) {
+              for (let j = 0; j < 30; j++) {
+                const angle = (Math.PI * 2 * j) / 30;
+                gameState.particles.push({
+                  x: gameState.player.x,
+                  y: gameState.player.y,
+                  vx: Math.cos(angle) * 10,
+                  vy: Math.sin(angle) * 10,
+                  life: 1,
+                  color: "#ffc300",
+                  size: 5,
+                });
+              }
+            }
+            playPowerupSound();
+          }
+        }
+
+        const bloodstoneStacks = getItemStacks("bloodstone");
+        if (bloodstoneStacks > 0) {
+          gameState.player.stats.bloodstoneKills++;
+          const killsRequired = Math.max(10, 30 - (bloodstoneStacks - 1) * 5);
+          if (gameState.player.stats.bloodstoneKills >= killsRequired) {
+            gameState.player.stats.bloodstoneKills = 0;
+            const healAmount = 5 * bloodstoneStacks;
+            gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + healAmount);
+            if (gameState.particles.length < gameState.maxParticles - 12) {
+              for (let j = 0; j < 12; j++) {
+                const angle = (Math.PI * 2 * j) / 12;
+                gameState.particles.push({
+                  x: gameState.player.x,
+                  y: gameState.player.y,
+                  vx: Math.cos(angle) * 4,
+                  vy: Math.sin(angle) * 4,
+                  life: 0.8,
+                  color: "#dc2626",
+                  size: 4,
+                });
+              }
+            }
+          }
+        }
+      };
+
+      for (const bullet of gameState.bullets) {
+        if (bullet.isEnemyBullet || bullet.life <= 0) continue;
+
+        neighborBuffer.length = 0;
+        const neighbors = useSpatialHash
+          ? spatialHash.queryEnemies(bullet.x, bullet.y, BULLET_QUERY_RADIUS, neighborBuffer)
+          : fallbackEnemies;
+
+        if (neighbors.length === 0) continue;
+
+        let hitSomething = false;
+
+        for (const enemy of neighbors) {
+          if (!enemy || enemy.hp <= 0 || (enemy as any).__removed) continue;
+
+          const combinedRadius = enemy.rad + BULLET_RADIUS;
+          const dx = enemy.x - bullet.x;
+          if (Math.abs(dx) > combinedRadius) continue;
+          const dy = enemy.y - bullet.y;
+          if (Math.abs(dy) > combinedRadius) continue;
+
+          const distSq = dx * dx + dy * dy;
+          if (distSq > combinedRadius * combinedRadius) continue;
+
+          hitSomething = true;
+          enemy.hp -= bullet.damage;
+
+          if (bullet.fire) {
+            enemy.burnTimer = 3;
+          }
+          if (bullet.freeze) {
+            enemy.frozenTimer = 2;
+          }
+
+          if (bullet.chain && bullet.chainCount > 0) {
+            bullet.chainCount--;
+            let closestEnemy: any = null;
+            let closestDistSq = MAX_CHAIN_RADIUS * MAX_CHAIN_RADIUS;
+            for (const candidate of neighbors) {
+              if (!candidate || candidate === enemy || candidate.hp <= 0 || (candidate as any).__removed) continue;
+              if (candidate.chainedThisShot) continue;
+              const cdx = candidate.x - bullet.x;
+              const cdy = candidate.y - bullet.y;
+              const candidateDistSq = cdx * cdx + cdy * cdy;
+              if (candidateDistSq < closestDistSq) {
+                closestDistSq = candidateDistSq;
+                closestEnemy = candidate;
+              }
+            }
+
+            if (closestEnemy) {
+              closestEnemy.hp -= bullet.damage * 0.7;
+              closestEnemy.chainedThisShot = true;
+              if (!chainedEnemies.includes(closestEnemy)) {
+                chainedEnemies.push(closestEnemy);
+              }
+              if (gameState.particles.length < gameState.maxParticles - 5) {
+                for (let j = 0; j < 5; j++) {
+                  const t = j / 5;
+                  gameState.particles.push({
+                    x: bullet.x + (closestEnemy.x - bullet.x) * t,
+                    y: bullet.y + (closestEnemy.y - bullet.y) * t,
+                    vx: (Math.random() - 0.5) * 2,
+                    vy: (Math.random() - 0.5) * 2,
+                    life: 0.3,
+                    color: "#2e86c1",
+                    size: 3,
+                  });
+                }
+              }
+              bullet.x = closestEnemy.x;
+              bullet.y = closestEnemy.y;
+              if (closestEnemy.hp <= 0) {
+                handleEnemyDeath(closestEnemy, bullet);
+              }
+            } else {
+              bullet.life = 0;
+            }
+          }
+
+          if (bullet.aoe) {
+            const explosionRadius = 100;
+            const splashDamage = bullet.damage * 0.75;
+            const explosionRadiusSq = explosionRadius * explosionRadius;
+
+            for (const candidate of neighbors) {
+              if (!candidate || (candidate as any).__removed) continue;
+              const cdx = candidate.x - bullet.x;
+              const cdy = candidate.y - bullet.y;
+              const candidateDistSq = cdx * cdx + cdy * cdy;
+              if (candidateDistSq < explosionRadiusSq) {
+                const distance = Math.sqrt(candidateDistSq);
+                const damageMultiplier = 1 - (distance / explosionRadius) * 0.5;
+                candidate.hp -= splashDamage * damageMultiplier;
+
+                if (gameState.particles.length < gameState.maxParticles - 3) {
+                  for (let k = 0; k < 3; k++) {
+                    gameState.particles.push({
+                      x: candidate.x,
+                      y: candidate.y,
+                      vx: (Math.random() - 0.5) * 3,
+                      vy: (Math.random() - 0.5) * 3,
+                      life: 0.4,
+                      color: "#ef4444",
+                      size: 4,
+                    });
+                  }
+                }
+
+                if (candidate.hp <= 0) {
+                  handleEnemyDeath(candidate, bullet);
+                }
+              }
+            }
+
+            if (gameState.particles.length < gameState.maxParticles - 30) {
+              for (let j = 0; j < 30; j++) {
+                const angle = (Math.PI * 2 * j) / 30;
+                const speed = 3 + Math.random() * 5;
+                gameState.particles.push({
+                  x: bullet.x,
+                  y: bullet.y,
+                  vx: Math.cos(angle) * speed,
+                  vy: Math.sin(angle) * speed,
+                  life: 0.8,
+                  color: j % 2 === 0 ? "#8e44ad" : "#ff7a2a",
+                  size: 4,
+                });
+              }
+            }
+          }
+
+          if (bullet.bounceOnEnemies && bullet.bounces > 0) {
+            let closestEnemy: any = null;
+            let closestDistSq = MAX_BOUNCE_RADIUS * MAX_BOUNCE_RADIUS;
+            for (const candidate of neighbors) {
+              if (!candidate || candidate === enemy || (candidate as any).__removed || candidate.hp <= 0) continue;
+              const cdx = candidate.x - bullet.x;
+              const cdy = candidate.y - bullet.y;
+              const candidateDistSq = cdx * cdx + cdy * cdy;
+              if (candidateDistSq < closestDistSq) {
+                closestDistSq = candidateDistSq;
+                closestEnemy = candidate;
+              }
+            }
+
+            if (closestEnemy) {
+              bullet.dir = Math.atan2(closestEnemy.y - bullet.y, closestEnemy.x - bullet.x);
+              bullet.bounces--;
+              if (gameState.particles.length < gameState.maxParticles - 5) {
+                for (let j = 0; j < 5; j++) {
+                  gameState.particles.push({
+                    x: bullet.x,
+                    y: bullet.y,
+                    vx: (Math.random() - 0.5) * 3,
+                    vy: (Math.random() - 0.5) * 3,
+                    life: 0.3,
+                    color: bullet.color,
+                    size: 2,
+                  });
+                }
+              }
+            } else if (!bullet.pierce) {
+              bullet.life = 0;
+            }
+          } else if (!bullet.pierce) {
+            bullet.life = 0;
+          }
+
+          if (enemy.hp <= 0) {
+            handleEnemyDeath(enemy, bullet);
+          }
+
+          if (bullet.life <= 0) {
+            break;
+          }
+        }
+
+        if (hitSomething) {
+          playHitSound();
+        }
+
+        for (let i = chainedEnemies.length - 1; i >= 0; i--) {
+          const chainedEnemy = chainedEnemies[i];
+          chainedEnemy.chainedThisShot = false;
+        }
+        chainedEnemies.length = 0;
       }
 
       // Actualizar lifetime de drops y eliminar expirados
