@@ -708,6 +708,7 @@ const Index = () => {
       purpleZombieImg: null as HTMLImageElement | null,
       larvaImg: null as HTMLImageElement | null,
       shieldImg: null as HTMLImageElement | null,
+      chestImg: null as HTMLImageElement | null,
       mapBackground: null as HTMLImageElement | null,
       tutorialActive: localStorage.getItem("gameHasTutorial") !== "completed",
       tutorialStartTime: performance.now(),
@@ -909,6 +910,16 @@ const Index = () => {
     };
     shieldImg.onerror = () => {
       console.error("Failed to load shield image");
+    };
+
+    const chestImg = new Image();
+    chestImg.src = "/images/chest.svg";
+    chestImg.onload = () => {
+      gameState.chestImg = chestImg;
+      console.log("Chest image loaded successfully");
+    };
+    chestImg.onerror = () => {
+      console.error("Failed to load chest image");
     };
 
     // Load map background
@@ -2263,6 +2274,63 @@ const Index = () => {
       });
     }
 
+    function spawnChestParticles(x: number, y: number, color: string) {
+      const availableSlots = gameState.maxParticles - gameState.particles.length;
+      if (availableSlots <= 0) {
+        return;
+      }
+
+      const particleCount = Math.min(18, availableSlots);
+      if (particleCount <= 0) {
+        return;
+      }
+
+      const distributionCount = Math.max(8, particleCount);
+      const angleOffset = Math.random() * Math.PI * 2;
+      for (let i = 0; i < particleCount; i++) {
+        const angle = angleOffset + (Math.PI * 2 * i) / distributionCount + Math.random() * 0.35;
+        const speed = 1.6 + Math.random() * 2.1;
+        gameState.particles.push({
+          x,
+          y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          life: 0.7 + Math.random() * 0.5,
+          color,
+          size: 2.5 + Math.random() * 1.5,
+        });
+      }
+    }
+
+    function spawnChestSpawnParticles(x: number, y: number, rarity: Rarity | null) {
+      const baseColor = (rarity && rarityColors[rarity]) || "#ff7a2a";
+      const availableSlots = gameState.maxParticles - gameState.particles.length;
+      if (availableSlots <= 0) {
+        return;
+      }
+
+      const particleCount = Math.min(12, availableSlots);
+      if (particleCount <= 0) {
+        return;
+      }
+
+      for (let i = 0; i < particleCount; i++) {
+        const angle = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 0.9;
+        const speed = 2 + Math.random() * 2.5;
+        const vx = Math.cos(angle) * speed;
+        const vy = Math.sin(angle) * speed - Math.random() * 0.3;
+        gameState.particles.push({
+          x,
+          y,
+          vx,
+          vy,
+          life: 0.55 + Math.random() * 0.35,
+          color: baseColor,
+          size: 2 + Math.random() * 1.2,
+        });
+      }
+    }
+
     function dropChest(x: number, y: number) {
       const cachedLoot = chooseChestItem();
 
@@ -2277,6 +2345,8 @@ const Index = () => {
         lootRarity: cachedLoot?.rarity ?? null,
         opened: false,
       });
+
+      spawnChestSpawnParticles(x, y, cachedLoot?.rarity ?? null);
     }
 
     function chooseChestItem(): Item | null {
@@ -2366,11 +2436,13 @@ const Index = () => {
       gameState.pendingChestDrop = chest;
 
       const lootItemId = chest.lootItemId as string | null;
+      const lootRarity = (chest.lootRarity as Rarity | null) ?? null;
+      const chestBurstColor = lootRarity ? rarityColors[lootRarity] : "#5dbb63";
 
       if (!lootItemId) {
         collectXP(25);
         playPowerupSound();
-        spawnChestParticles(chest.x, chest.y, "#5dbb63");
+        spawnChestParticles(chest.x, chest.y, chestBurstColor);
         finalizeChestDrop();
         return;
       }
@@ -2380,7 +2452,7 @@ const Index = () => {
       if (!item) {
         collectXP(25);
         playPowerupSound();
-        spawnChestParticles(chest.x, chest.y, "#5dbb63");
+        spawnChestParticles(chest.x, chest.y, chestBurstColor);
         finalizeChestDrop();
         return;
       }
@@ -2409,10 +2481,10 @@ const Index = () => {
       gameState.pendingChestDrop = null;
     }
 
-    function grantChestFallbackReward(position: { x: number; y: number }) {
+    function grantChestFallbackReward(position: { x: number; y: number }, color = "#5dbb63") {
       collectXP(25);
       playPowerupSound();
-      spawnChestParticles(position.x, position.y, "#5dbb63");
+      spawnChestParticles(position.x, position.y, color);
     }
 
     function keepChestItem() {
@@ -2422,7 +2494,7 @@ const Index = () => {
       const granted = grantItemToPlayer(choice.item, { notify: true, playSound: true });
 
       if (!granted) {
-        grantChestFallbackReward(choice.chestPosition);
+        grantChestFallbackReward(choice.chestPosition, rarityColors[choice.item.rarity]);
       }
 
       gameState.activeChestChoice = null;
@@ -7012,35 +7084,63 @@ const Index = () => {
         if (d.type === "chest") {
           const spawnTime = d.spawnTime ?? gameState.time;
           const bounce = Math.sin((gameState.time - spawnTime) * 5) * 4;
+          const lootRarity = (d.lootRarity as Rarity | null) ?? null;
+          const glowColor = (lootRarity && rarityColors[lootRarity]) || d.color || "#ff7a2a";
+
+          ctx.save();
+          ctx.setTransform(worldTransform);
           ctx.translate(d.x, d.y + bounce);
 
-          const chestWidth = d.rad * 2.4;
-          const chestHeight = d.rad * 1.6;
-          const lidHeight = chestHeight * 0.45;
-
-          ctx.shadowColor = d.color;
-          ctx.shadowBlur = 0;
-
-          ctx.fillStyle = "#7c2d12";
-          ctx.fillRect(-chestWidth / 2, -chestHeight / 2 + lidHeight, chestWidth, chestHeight - lidHeight);
-
-          ctx.fillStyle = d.color;
-          ctx.fillRect(-chestWidth / 2, -chestHeight / 2, chestWidth, lidHeight);
-
-          ctx.fillStyle = "#fcd34d";
-          ctx.fillRect(-3, -chestHeight / 2, 6, chestHeight);
-          ctx.strokeStyle = "#fcd34d";
-          ctx.lineWidth = 2;
-          ctx.strokeRect(-chestWidth / 2, -chestHeight / 2, chestWidth, chestHeight);
-
-          ctx.strokeStyle = "rgba(252, 211, 77, 0.6)";
+          ctx.save();
+          ctx.globalAlpha = 0.45;
+          ctx.fillStyle = glowColor;
+          ctx.shadowColor = glowColor;
+          ctx.shadowBlur = 32;
           ctx.beginPath();
-          ctx.moveTo(-chestWidth / 2, -chestHeight / 2 + lidHeight);
-          ctx.lineTo(chestWidth / 2, -chestHeight / 2 + lidHeight);
-          ctx.stroke();
+          ctx.arc(0, 0, d.rad * 2.1, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
 
-          ctx.shadowBlur = 0;
-          ctx.shadowColor = "transparent";
+          ctx.save();
+          ctx.globalAlpha = 0.85;
+          ctx.strokeStyle = glowColor;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(0, 0, d.rad * 1.25, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+
+          const chestImage = gameState.chestImg;
+          if (chestImage?.complete) {
+            const aspect = chestImage.width && chestImage.height ? chestImage.width / chestImage.height : 1;
+            const drawHeight = d.rad * 2.2;
+            const drawWidth = drawHeight * aspect;
+            ctx.drawImage(chestImage, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+          } else {
+            const chestWidth = d.rad * 2.4;
+            const chestHeight = d.rad * 1.6;
+            const lidHeight = chestHeight * 0.45;
+
+            ctx.fillStyle = "#7c2d12";
+            ctx.fillRect(-chestWidth / 2, -chestHeight / 2 + lidHeight, chestWidth, chestHeight - lidHeight);
+
+            ctx.fillStyle = d.color ?? "#ff7a2a";
+            ctx.fillRect(-chestWidth / 2, -chestHeight / 2, chestWidth, lidHeight);
+
+            ctx.fillStyle = "#fcd34d";
+            ctx.fillRect(-3, -chestHeight / 2, 6, chestHeight);
+            ctx.strokeStyle = "#fcd34d";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(-chestWidth / 2, -chestHeight / 2, chestWidth, chestHeight);
+
+            ctx.strokeStyle = "rgba(252, 211, 77, 0.6)";
+            ctx.beginPath();
+            ctx.moveTo(-chestWidth / 2, -chestHeight / 2 + lidHeight);
+            ctx.lineTo(chestWidth / 2, -chestHeight / 2 + lidHeight);
+            ctx.stroke();
+          }
+
+          ctx.restore();
           continue;
         }
 
