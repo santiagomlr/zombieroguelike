@@ -214,6 +214,8 @@ const Index = () => {
       music: null as HTMLAudioElement | null,
       musicNotification: "",
       musicNotificationTimer: 0,
+      itemNotification: "",
+      itemNotificationTimer: 0,
       musicMuted: false,
       musicVolume: 0.3, // Volumen de la música (0 a 1)
       targetMusicVolume: 0.3, // Volumen objetivo para animación suave
@@ -490,6 +492,8 @@ const Index = () => {
       gameState.xpBarRainbow = false;
       gameState.waveNotification = 0;
       gameState.musicNotificationTimer = 0;
+      gameState.itemNotification = "";
+      gameState.itemNotificationTimer = 0;
       gameState.musicMuted = false;
       gameState.sfxMuted = false;
       gameState.pauseMenuAudioOpen = false;
@@ -1491,6 +1495,126 @@ const Index = () => {
       gameState.upgradeOptions = options;
     }
 
+    function applyItemEffect(item: Item) {
+      const player = gameState.player;
+      const stats = player.stats;
+
+      switch (item.effect) {
+        case "speedboost":
+          stats.speedMultiplier *= 1.05;
+          break;
+        case "firerateitem":
+          stats.fireRateMultiplier *= 1.05;
+          break;
+        case "maxhp10":
+          player.maxhp += 10;
+          player.hp = Math.min(player.maxhp, player.hp + 10);
+          break;
+        case "magnetitem":
+          stats.magnetMultiplier *= 1.1;
+          break;
+        case "powerupduration":
+          stats.powerupDuration *= 1.05;
+          break;
+        case "xpbonus":
+          stats.xpBonus += 10;
+          break;
+        case "precisionitem":
+          stats.precision += 10;
+          break;
+        case "damagereduction":
+          stats.damageReduction += 0.05;
+          break;
+        case "bounceitem":
+          stats.bounces += 1;
+          break;
+        case "globalfirerate":
+          stats.fireRateMultiplier *= 1.1;
+          break;
+        case "firsthitimmune":
+          // Se maneja en la colisión
+          break;
+        case "jetspeed":
+          stats.speedMultiplier *= 1.15;
+          break;
+        case "reactiveshield":
+          stats.reactiveShieldActive = true;
+          break;
+        case "chaosdamage":
+          stats.chaosDamage = true;
+          break;
+        case "maxhp15": {
+          const bonus15 = Math.floor(player.maxhp * 0.15);
+          player.maxhp += bonus15;
+          player.hp = Math.min(player.maxhp, player.hp + bonus15);
+          break;
+        }
+        case "heavyarmor":
+          stats.speedMultiplier *= 0.9;
+          stats.damageReduction += 0.25;
+          break;
+        case "plasmafrag":
+          stats.bounces += 1;
+          stats.rangeMultiplier *= 1.15;
+          break;
+        case "doublexp":
+          stats.xpMultiplier *= 2;
+          break;
+        case "solargauntlet":
+          stats.solarGauntletKills = 0;
+          break;
+        case "infernalengine":
+          stats.speedMultiplier *= 1.25;
+          stats.damageMultiplier *= 1.2;
+          stats.damageReduction -= 0.1;
+          break;
+        case "bloodstone":
+          stats.bloodstoneKills = 0;
+          break;
+        case "hordetotem":
+          // Se maneja en spawn de enemigos y XP
+          break;
+        case "artificialheart":
+          player.maxhp += 50;
+          player.hp = Math.min(player.maxhp, player.hp + 50);
+          break;
+        case "infinitylens":
+          stats.speedMultiplier *= 1.1;
+          stats.damageMultiplier *= 1.1;
+          stats.rangeMultiplier *= 1.1;
+          stats.xpMultiplier *= 1.1;
+          break;
+      }
+    }
+
+    function grantItemToPlayer(
+      item: Item,
+      options: { notify?: boolean; playSound?: boolean } = {}
+    ) {
+      if (gameState.player.itemFlags[item.id]) {
+        return false;
+      }
+
+      gameState.player.items.push(item);
+      gameState.player.itemFlags[item.id] = true;
+
+      applyItemEffect(item);
+
+      if (options.playSound) {
+        playPowerupSound();
+      }
+
+      if (options.notify) {
+        const currentLanguage = (gameState.language ?? language) as Language;
+        const itemText = getItemText(item, currentLanguage);
+        const prefix = currentLanguage === "es" ? "Nuevo ítem" : "New item";
+        gameState.itemNotification = `${prefix}: ${itemText.name}`;
+        gameState.itemNotificationTimer = 3;
+      }
+
+      return true;
+    }
+
     function selectUpgrade(index: number) {
       const option = gameState.upgradeOptions[index];
       if (!option) return;
@@ -1636,100 +1760,7 @@ const Index = () => {
         }
       } else if (option.type === "item") {
         const item = option.data as Item;
-        
-        // Verificar que no esté duplicado
-        if (!gameState.player.itemFlags[item.id]) {
-          gameState.player.items.push(item);
-          gameState.player.itemFlags[item.id] = true;
-          
-          // Aplicar efectos de ítems
-          switch(item.effect) {
-            case "speedboost":
-              gameState.player.stats.speedMultiplier *= 1.05;
-              break;
-            case "firerateitem":
-              gameState.player.stats.fireRateMultiplier *= 1.05;
-              break;
-            case "maxhp10":
-              gameState.player.maxhp += 10;
-              gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + 10);
-              break;
-            case "magnetitem":
-              gameState.player.stats.magnetMultiplier *= 1.1;
-              break;
-            case "powerupduration":
-              gameState.player.stats.powerupDuration *= 1.05;
-              break;
-            case "xpbonus":
-              gameState.player.stats.xpBonus += 10;
-              break;
-            case "precisionitem":
-              gameState.player.stats.precision += 10;
-              break;
-            case "damagereduction":
-              gameState.player.stats.damageReduction += 0.05;
-              break;
-            case "bounceitem":
-              gameState.player.stats.bounces += 1;
-              break;
-            // dropcapacity eliminado - no estaba implementado
-            case "globalfirerate":
-              gameState.player.stats.fireRateMultiplier *= 1.1;
-              break;
-            case "firsthitimmune":
-              // Se maneja en la colisión
-              break;
-            case "jetspeed":
-              gameState.player.stats.speedMultiplier *= 1.15;
-              break;
-            case "reactiveshield":
-              gameState.player.stats.reactiveShieldActive = true;
-              break;
-            case "chaosdamage":
-              gameState.player.stats.chaosDamage = true;
-              break;
-            case "maxhp15":
-              const bonus15 = Math.floor(gameState.player.maxhp * 0.15);
-              gameState.player.maxhp += bonus15;
-              gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + bonus15);
-              break;
-            case "heavyarmor":
-              gameState.player.stats.speedMultiplier *= 0.9;
-              gameState.player.stats.damageReduction += 0.25;
-              break;
-            case "plasmafrag":
-              gameState.player.stats.bounces += 1;
-              gameState.player.stats.rangeMultiplier *= 1.15;
-              break;
-            case "doublexp":
-              gameState.player.stats.xpMultiplier *= 2;
-              break;
-            case "solargauntlet":
-              gameState.player.stats.solarGauntletKills = 0;
-              break;
-            case "infernalengine":
-              gameState.player.stats.speedMultiplier *= 1.25;
-              gameState.player.stats.damageMultiplier *= 1.2;
-              gameState.player.stats.damageReduction -= 0.1; // Recibe +10% daño
-              break;
-            case "bloodstone":
-              gameState.player.stats.bloodstoneKills = 0;
-              break;
-            case "hordetotem":
-              // Se maneja en spawn de enemigos y XP
-              break;
-            case "artificialheart":
-              gameState.player.maxhp += 50;
-              gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + 50);
-              break;
-            case "infinitylens":
-              gameState.player.stats.speedMultiplier *= 1.1;
-              gameState.player.stats.damageMultiplier *= 1.1;
-              gameState.player.stats.rangeMultiplier *= 1.1;
-              gameState.player.stats.xpMultiplier *= 1.1;
-              break;
-          }
-        }
+        grantItemToPlayer(item);
       }
 
       gameState.showUpgradeUI = false;
@@ -1948,6 +1979,13 @@ const Index = () => {
       // Music notification timer
       if (gameState.musicNotificationTimer > 0) {
         gameState.musicNotificationTimer = Math.max(0, gameState.musicNotificationTimer - dt);
+      }
+
+      if (gameState.itemNotificationTimer > 0) {
+        gameState.itemNotificationTimer = Math.max(0, gameState.itemNotificationTimer - dt);
+        if (gameState.itemNotificationTimer === 0) {
+          gameState.itemNotification = "";
+        }
       }
       
       // Smooth volume transition (animación suave del volumen)
@@ -2555,8 +2593,16 @@ const Index = () => {
             
             if (h.progress >= h.required) {
               // ¡Recompensa!
-              collectXP(100);
-              gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + 2);
+              const availableItems = ITEMS.filter(item => !gameState.player.itemFlags[item.id]);
+              if (availableItems.length > 0) {
+                const rewardItem = availableItems[Math.floor(Math.random() * availableItems.length)];
+                grantItemToPlayer(rewardItem, { notify: true, playSound: true });
+              } else {
+                const currentLanguage = (gameState.language ?? language) as Language;
+                const prefix = currentLanguage === "es" ? "Todos los ítems obtenidos" : "All items unlocked";
+                gameState.itemNotification = prefix;
+                gameState.itemNotificationTimer = 3;
+              }
               gameState.hotspots.splice(i, 1);
               // Particles
               for (let j = 0; j < 30; j++) {
@@ -3385,31 +3431,7 @@ const Index = () => {
                 const legendaryItems = ITEMS.filter(it => it.rarity === "legendary" && !gameState.player.items.find((pi: Item) => pi.id === it.id));
                 if (legendaryItems.length > 0) {
                   const randomLegendary = legendaryItems[Math.floor(Math.random() * legendaryItems.length)];
-                  gameState.player.items.push(randomLegendary);
-                  gameState.player.itemFlags[randomLegendary.id] = true;
-                  
-                  // Aplicar efecto del item
-                  switch(randomLegendary.effect) {
-                    case "doublexp": gameState.player.stats.xpMultiplier *= 2; break;
-                    case "solargauntlet": gameState.player.stats.solarGauntletKills = 0; break;
-                    case "infernalengine":
-                      gameState.player.stats.speedMultiplier *= 1.25;
-                      gameState.player.stats.damageMultiplier *= 1.20;
-                      gameState.player.stats.damageReduction -= 0.10;
-                      break;
-                    case "bloodstone": gameState.player.stats.bloodstoneKills = 0; break;
-                    case "hordetotem": break;
-                    case "artificialheart":
-                      gameState.player.maxhp += 50;
-                      gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + 50);
-                      break;
-                    case "infinitylens":
-                      gameState.player.stats.speedMultiplier *= 1.1;
-                      gameState.player.stats.damageMultiplier *= 1.1;
-                      gameState.player.stats.rangeMultiplier *= 1.1;
-                      gameState.player.stats.xpMultiplier *= 1.1;
-                      break;
-                  }
+                  grantItemToPlayer(randomLegendary, { notify: true, playSound: true });
                 }
                 // Curación completa
                 gameState.player.hp = gameState.player.maxhp;
@@ -4284,7 +4306,7 @@ const Index = () => {
       if (gameState.musicNotificationTimer > 0) {
         const notifAlpha = Math.min(1, gameState.musicNotificationTimer);
         ctx.globalAlpha = notifAlpha;
-        
+
         const notifY = 120;
         const notifPadding = 20;
         const notifText = `♫ ${gameState.musicNotification}`;
@@ -4310,10 +4332,43 @@ const Index = () => {
         // Text
         ctx.fillStyle = "#fff";
         ctx.fillText(notifText, W / 2, notifY + notifH / 2 + 8);
-        
+
         ctx.globalAlpha = 1;
       }
-      
+
+      if (gameState.itemNotificationTimer > 0 && gameState.itemNotification) {
+        const notifAlpha = Math.min(1, gameState.itemNotificationTimer);
+        ctx.globalAlpha = notifAlpha;
+
+        const notifY = 170;
+        const notifPadding = 20;
+        const notifText = `🎁 ${gameState.itemNotification}`;
+
+        ctx.font = "bold 22px system-ui";
+        ctx.textAlign = "center";
+        const textMetrics = ctx.measureText(notifText);
+        const notifW = textMetrics.width + notifPadding * 2;
+        const notifH = 44;
+        const notifX = W / 2 - notifW / 2;
+
+        ctx.fillStyle = "rgba(15, 23, 42, 0.9)";
+        ctx.beginPath();
+        ctx.roundRect(notifX, notifY - notifH / 2, notifW, notifH, 12);
+        ctx.fill();
+
+        ctx.strokeStyle = "rgba(14, 165, 233, 0.8)";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.fillStyle = "#f8fafc";
+        ctx.shadowColor = "rgba(14, 165, 233, 0.6)";
+        ctx.shadowBlur = 10;
+        ctx.fillText(notifText, W / 2, notifY + 6);
+
+        ctx.globalAlpha = 1;
+        ctx.shadowBlur = 0;
+      }
+
       // Botón de cambiar canción (esquina superior derecha)
       const musicBtnW = 160;
       const musicBtnH = 45;
