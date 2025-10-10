@@ -25,7 +25,7 @@ type PauseMenuTab = "home" | "settings" | "stats";
 
 const PAUSE_MENU_TABS: PauseMenuTab[] = ["home", "settings", "stats"];
 
-const CHEST_DROP_RATE = 1;
+const CHEST_DROP_RATE = 0.03;
 
 const getPauseMenuLayout = (W: number, H: number) => {
   const scale = Math.min(1, Math.max(0.7, Math.min(W / 1280, H / 720)));
