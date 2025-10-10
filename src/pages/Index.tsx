@@ -395,7 +395,11 @@ const Index = () => {
       score: 0,
       level: 1,
       xp: 0,
+      xpDisplay: 0,
+      xpDisplayTarget: 0,
       nextXP: 25,
+      nextXpDisplay: 25,
+      nextXpDisplayTarget: 25,
       time: 0,
       elapsedTime: 0,
       wave: 1,
@@ -409,6 +413,7 @@ const Index = () => {
       spawnCooldown: 0, // Cooldown de 3 segundos después de matar todos los enemigos
       canSpawn: true, // Flag para controlar si se puede spawnar
       weaponCooldowns: {} as Record<string, number>,
+      autoAimMemory: {} as Record<string, { target: any | null; lostTimer: number; lastScore: number }>,
       audioContext: null as AudioContext | null,
       keys: {} as Record<string, boolean>,
       showUpgradeUI: false,
@@ -868,7 +873,11 @@ const Index = () => {
       gameState.score = 0;
       gameState.level = 1;
       gameState.xp = 0;
+      gameState.xpDisplay = 0;
+      gameState.xpDisplayTarget = 0;
       gameState.nextXP = 25;
+      gameState.nextXpDisplay = 25;
+      gameState.nextXpDisplayTarget = 25;
       gameState.time = 0;
       gameState.elapsedTime = 0;
       gameState.wave = 1;
@@ -1437,57 +1446,73 @@ const Index = () => {
 
       if (onScreenEnemies.length === 0) return null;
 
-      let bestScore = -Infinity;
-      let bestEnemy = onScreenEnemies[0];
+      const healthRatio = enemy.maxhp ? enemy.hp / enemy.maxhp : 1;
+      const finishingScore = (1 - healthRatio) * 0.35;
 
-      for (const enemy of onScreenEnemies) {
-        const dist = Math.hypot(enemy.x - gameState.player.x, enemy.y - gameState.player.y);
-        const normalizedDistance = Math.max(0, 1 - dist / 600);
-
-        const speed = enemy.spd || 0;
-        const approachScore = Math.min(1, speed / 2.5);
-        const timeToImpact = speed > 0 ? dist / (speed * 60) : Infinity;
-        const imminentImpactScore = timeToImpact < 5 ? Math.max(0, 1 - timeToImpact / 5) : 0;
-
-        let typeScore = 0.3;
-        if (enemy.isBoss) typeScore = 1.2;
-        else if (enemy.isMiniBoss) typeScore = 1.0;
-        else if (enemy.specialType === "explosive") typeScore = 1.1;
-        else if (enemy.isElite) typeScore = 0.9;
-        else if (enemy.specialType) typeScore = 0.8;
-        else if (enemy.enemyType === "strong") typeScore = 0.7;
-        else if (enemy.enemyType === "medium") typeScore = 0.5;
-
-        const damageScore = Math.min(1, (enemy.damage || 0) / 40);
-
-        let explosiveUrgency = 0;
-        if (enemy.specialType === "explosive") {
-          const timer = typeof enemy.explosionTimer === "number" ? enemy.explosionTimer : null;
-          if (timer !== null && timer >= 0) {
-            explosiveUrgency = Math.max(0, 1 - Math.min(timer, 2) / 2);
-          } else {
-            explosiveUrgency = 0.4;
+      let clusterScore = 0;
+      if (gameState.enemies.length > 1) {
+        let closeCount = 0;
+        for (const other of gameState.enemies) {
+          if (other === enemy || other.hp <= 0) continue;
+          const dx = other.x - enemy.x;
+          if (Math.abs(dx) > 160) continue;
+          const dy = other.y - enemy.y;
+          if (Math.abs(dy) > 160) continue;
+          const neighborDist = Math.hypot(dx, dy);
+          if (neighborDist <= 180) {
+            closeCount++;
+            if (closeCount >= 6) break;
           }
         }
-
-        const healthRatio = enemy.maxhp ? enemy.hp / enemy.maxhp : 1;
-        const finishingScore = (1 - healthRatio) * 0.3;
-
-        const totalScore =
-          typeScore * 0.35 +
-          damageScore * 0.15 +
-          normalizedDistance * 0.25 +
-          approachScore * 0.1 +
-          Math.max(imminentImpactScore, explosiveUrgency) * 0.1 +
-          finishingScore * 0.05;
-
-        if (totalScore > bestScore) {
-          bestScore = totalScore;
-          bestEnemy = enemy;
-        }
+        clusterScore = Math.min(1, closeCount / 4);
       }
 
-      return bestEnemy;
+      const baseScore =
+        typePriority * 0.3 +
+        damageScore * 0.12 +
+        normalizedDistance * 0.18 +
+        Math.max(imminentImpactScore, explosiveUrgency) * 0.18 +
+        approachScore * 0.08 +
+        finishingScore * 0.08 +
+        clusterScore * 0.06;
+
+      const sameTargetBonus = preferredTarget && enemy === preferredTarget ? 0.25 : 0;
+      const visibilityBonus = onScreen ? 0.05 : 0;
+
+      return { score: baseScore + sameTargetBonus + visibilityBonus, dist };
+    }
+
+    function selectSmartTarget(range: number, preferredTarget: any | null) {
+      let bestEnemy: any | null = null;
+      let bestScore = -Infinity;
+      let bestDistance = Infinity;
+
+      const consider = (enemy: any) => {
+        if (!enemy || enemy.hp <= 0) return;
+        const { score, dist } = scoreEnemyForAutoAim(enemy, range, preferredTarget);
+        if (score === -Infinity) return;
+
+        const betterScore = score > bestScore + 0.05;
+        const similarScore = Math.abs(score - bestScore) <= 0.05;
+        const closer = dist < bestDistance - 5;
+
+        if (!bestEnemy || betterScore || (similarScore && closer)) {
+          bestEnemy = enemy;
+          bestScore = score;
+          bestDistance = dist;
+        }
+      };
+
+      if (preferredTarget) {
+        consider(preferredTarget);
+      }
+
+      for (const enemy of gameState.enemies) {
+        if (enemy === preferredTarget) continue;
+        consider(enemy);
+      }
+
+      return { target: bestEnemy, score: bestScore, distance: bestDistance };
     }
 
     function shootWeapon(weapon: Weapon, target: any) {
@@ -1592,23 +1617,63 @@ const Index = () => {
     }
 
     function autoShoot(dt: number) {
-      const target = nearestEnemy();
-      if (!target) return;
+      const player = gameState.player;
 
-      const dist = Math.hypot(target.x - gameState.player.x, target.y - gameState.player.y);
-
-      for (const weapon of gameState.player.weapons) {
-        const range = weapon.range * gameState.player.stats.rangeMultiplier;
-        if (dist > range) continue;
-
+      for (const weapon of player.weapons) {
         const cooldownKey = weapon.id;
-        if (!gameState.weaponCooldowns[cooldownKey]) gameState.weaponCooldowns[cooldownKey] = 0;
+        if (!gameState.weaponCooldowns[cooldownKey]) {
+          gameState.weaponCooldowns[cooldownKey] = 0;
+        }
 
-        gameState.weaponCooldowns[cooldownKey] += dt;
-        const interval = 1 / (weapon.fireRate * gameState.player.stats.fireRateMultiplier);
+        const interval = 1 / (weapon.fireRate * player.stats.fireRateMultiplier);
+        const maxStored = interval * 2;
+        gameState.weaponCooldowns[cooldownKey] = Math.min(
+          gameState.weaponCooldowns[cooldownKey] + dt,
+          maxStored,
+        );
+
+        const memory =
+          gameState.autoAimMemory[cooldownKey] ??
+          (gameState.autoAimMemory[cooldownKey] = {
+            target: null,
+            lostTimer: 0,
+            lastScore: -Infinity,
+          });
+
+        if (memory.target && (!gameState.enemies.includes(memory.target) || memory.target.hp <= 0)) {
+          memory.target = null;
+          memory.lastScore = -Infinity;
+          memory.lostTimer = 0;
+        }
+
+        const range = weapon.range * player.stats.rangeMultiplier;
+        const { target, score, distance } = selectSmartTarget(range, memory.target);
+
+        memory.target = target;
+        memory.lastScore = score;
+
+        if (!target) {
+          memory.lostTimer = 0;
+          continue;
+        }
+
+        if (distance > range) {
+          memory.lostTimer += dt;
+          if (memory.lostTimer > 0.35) {
+            memory.target = null;
+            memory.lastScore = -Infinity;
+          }
+          continue;
+        }
+
+        memory.lostTimer = 0;
 
         if (gameState.weaponCooldowns[cooldownKey] >= interval) {
-          gameState.weaponCooldowns[cooldownKey] = 0;
+          gameState.weaponCooldowns[cooldownKey] -= interval;
+          if (gameState.weaponCooldowns[cooldownKey] < 0) {
+            gameState.weaponCooldowns[cooldownKey] = 0;
+          }
+
           shootWeapon(weapon, target);
         }
       }
@@ -1782,6 +1847,7 @@ const Index = () => {
       // Aplicar multiplicador y bonus de XP
       const xpGained = (v + gameState.player.stats.xpBonus) * gameState.player.stats.xpMultiplier;
       gameState.xp += xpGained;
+      let leveledUp = false;
       while (gameState.xp >= gameState.nextXP) {
         gameState.xp -= gameState.nextXP;
         gameState.level++;
@@ -1803,6 +1869,15 @@ const Index = () => {
         gameState.xpBarRainbow = true; // Activar animación rainbow
         playLevelUpSound();
         showUpgradeScreen();
+        leveledUp = true;
+      }
+
+      gameState.xpDisplayTarget = gameState.xp;
+      gameState.nextXpDisplayTarget = gameState.nextXP;
+
+      if (leveledUp) {
+        gameState.nextXpDisplay = gameState.nextXpDisplayTarget;
+        gameState.xpDisplay = gameState.nextXpDisplayTarget;
       }
     }
 
@@ -2650,6 +2725,24 @@ const Index = () => {
         if (gameState.itemNotificationTimer === 0) {
           gameState.itemNotification = "";
         }
+      }
+
+      const xpApproachSpeed = 12;
+      const xpDiff = gameState.xpDisplayTarget - gameState.xpDisplay;
+      if (Math.abs(xpDiff) > 0.01) {
+        const lerpFactor = Math.min(1, dt * xpApproachSpeed);
+        gameState.xpDisplay += xpDiff * lerpFactor;
+      } else {
+        gameState.xpDisplay = gameState.xpDisplayTarget;
+      }
+
+      const nextXpApproachSpeed = 8;
+      const nextXpDiff = gameState.nextXpDisplayTarget - gameState.nextXpDisplay;
+      if (Math.abs(nextXpDiff) > 0.01) {
+        const lerpFactor = Math.min(1, dt * nextXpApproachSpeed);
+        gameState.nextXpDisplay += nextXpDiff * lerpFactor;
+      } else {
+        gameState.nextXpDisplay = gameState.nextXpDisplayTarget;
       }
 
       // Smooth volume transition (animación suave del volumen)
@@ -4924,7 +5017,7 @@ const Index = () => {
       ctx.shadowBlur = 0;
 
       // Progreso de XP
-      const xpProgress = Math.min(1, gameState.xp / gameState.nextXP);
+      const xpProgress = Math.min(1, gameState.xpDisplay / Math.max(1, gameState.nextXpDisplay));
       const currentXpBarW = (xpBarW - 8) * xpProgress;
 
       if (currentXpBarW > 0) {
@@ -4996,7 +5089,7 @@ const Index = () => {
       ctx.shadowColor = "rgba(0, 0, 0, 0.9)";
       ctx.shadowBlur = 6;
       ctx.fillText(
-        `XP: ${Math.floor(gameState.xp)} / ${gameState.nextXP}`,
+        `XP: ${Math.floor(gameState.xpDisplay)} / ${Math.max(1, Math.floor(gameState.nextXpDisplay))}`,
         xpBarX + xpBarW / 2,
         xpBarY + xpBarH / 2 + 7,
       );
@@ -5341,21 +5434,6 @@ const Index = () => {
       if (gameState.state === "gameover") {
         ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
         ctx.fillRect(0, 0, W, H);
-      }
-
-      // Upgrade animation
-      if (gameState.upgradeAnimation > 0) {
-        const alpha = Math.min(1, gameState.upgradeAnimation);
-        ctx.globalAlpha = alpha;
-        ctx.strokeStyle = "#06b6d4";
-        ctx.lineWidth = 8;
-        const radius = gameState.player.rad + 20;
-        for (let i = 0; i < 3; i++) {
-          ctx.beginPath();
-          ctx.arc(gameState.player.x, gameState.player.y, radius + i * 10, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-        ctx.globalAlpha = 1;
       }
 
       ctx.restore();
