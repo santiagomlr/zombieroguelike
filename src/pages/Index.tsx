@@ -1034,6 +1034,19 @@ const Index = () => {
       playHitSound();
     };
 
+    const trackEnemyCategoryHit = (
+      enemy: EnemyWithCategory | null | undefined,
+      enemyCategories: EnemyCategory[],
+    ) => {
+      if (!enemy) {
+        return;
+      }
+      const category = (enemy.category as EnemyCategory | undefined) ?? "zombie";
+      if (!enemyCategories.includes(category)) {
+        enemyCategories.push(category);
+      }
+    };
+
     const weaponLastShotTime: Record<string, number> = {};
 
     const weaponAudioController = {
@@ -4864,13 +4877,6 @@ const Index = () => {
         let hitSomething = false;
         const hitCategories: EnemyCategory[] = [];
 
-        const registerHitCategory = (entity: EnemyWithCategory) => {
-          const category = (entity?.category as EnemyCategory | undefined) ?? "zombie";
-          if (!hitCategories.includes(category)) {
-            hitCategories.push(category);
-          }
-        };
-
         for (const enemy of neighbors) {
           if (!enemy || enemy.hp <= 0 || (enemy as any).__removed) continue;
 
@@ -4885,7 +4891,7 @@ const Index = () => {
 
           hitSomething = true;
           enemy.hp -= bullet.damage;
-          registerHitCategory(enemy);
+          trackEnemyCategoryHit(enemy as EnemyWithCategory, hitCategories);
 
           if (bullet.fire) {
             enemy.burnTimer = 3;
@@ -4912,7 +4918,7 @@ const Index = () => {
 
             if (closestEnemy) {
               closestEnemy.hp -= bullet.damage * 0.7;
-              registerHitCategory(closestEnemy as EnemyWithCategory);
+              trackEnemyCategoryHit(closestEnemy as EnemyWithCategory, hitCategories);
               closestEnemy.chainedThisShot = true;
               if (!chainedEnemies.includes(closestEnemy)) {
                 chainedEnemies.push(closestEnemy);
@@ -4955,7 +4961,7 @@ const Index = () => {
                 const distance = Math.sqrt(candidateDistSq);
                 const damageMultiplier = 1 - (distance / explosionRadius) * 0.5;
                 candidate.hp -= splashDamage * damageMultiplier;
-                registerHitCategory(candidate as EnemyWithCategory);
+                trackEnemyCategoryHit(candidate as EnemyWithCategory, hitCategories);
 
                 if (gameState.particles.length < gameState.maxParticles - 3) {
                   for (let k = 0; k < 3; k++) {
@@ -5180,6 +5186,9 @@ const Index = () => {
               continue; // No hacer daño de contacto normal, solo explosión
             }
 
+            const impactCategories: EnemyCategory[] = [];
+            trackEnemyCategoryHit(e as EnemyWithCategory, impactCategories);
+
             // First Hit Immune: revisar si es el primer golpe de la wave
             const helmetStacks = getItemStacks("ballistichelmet");
             if (helmetStacks > gameState.player.stats.firstHitImmuneChargesUsed) {
@@ -5246,6 +5255,7 @@ const Index = () => {
                     enemy.y += Math.sin(pushDir) * reactivePush;
                     // Daño a enemigos empujados
                     enemy.hp -= gameState.player.stats.damageMultiplier * 5 * reactiveStacks;
+                    trackEnemyCategoryHit(enemy as EnemyWithCategory, impactCategories);
                   }
                 }
                 // Efecto visual de onda con límite
@@ -5286,7 +5296,7 @@ const Index = () => {
               endGame();
             }
 
-            playHitSound();
+            playImpactSoundForWeapon(undefined, impactCategories);
           }
         }
       }
