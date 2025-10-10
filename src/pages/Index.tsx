@@ -6189,21 +6189,66 @@ const Index = () => {
 
       // Wave notification - Anuncio de la wave que viene
       if (gameState.waveNotification > 0) {
-        const alpha = Math.min(1, gameState.waveNotification);
-        const fadeOut = gameState.waveNotification < 1 ? gameState.waveNotification : 1;
-        ctx.globalAlpha = fadeOut;
+        const totalDuration = 3;
+        const timeRemaining = gameState.waveNotification;
+        const timeElapsed = Math.max(0, totalDuration - timeRemaining);
+        const introProgress = Math.min(1, timeElapsed / 0.5);
+        const outroProgress = timeRemaining < 0.8 ? Math.max(0, timeRemaining / 0.8) : 1;
+        const overlayAlpha = introProgress * outroProgress;
+        const scaleBase = 1 + (1 - introProgress) * 0.25;
+        const pulse = 1 + Math.sin(timeElapsed * 4) * 0.05 * outroProgress;
+        const scale = scaleBase * pulse;
 
-        // Fondo semitransparente
-        ctx.fillStyle = UI_COLORS.overlay;
-        ctx.fillRect(0, H / 2 - 80, W, 160);
+        const waveTitle = `WAVE ${gameState.wave}`;
+        let waveTagline = "";
+        let taglineColor = UI_COLORS.xp;
 
-        // Texto principal con glow - Wave que viene
+        if (gameState.wave === 2) {
+          waveTagline = "THE DEAD DON'T STAY DOWN";
+          taglineColor = UI_COLORS.rageAccent;
+        }
+
+        ctx.save();
+        ctx.globalAlpha = overlayAlpha;
+
+        const bannerHeight = 200;
+        const bannerY = H / 2 - bannerHeight / 2;
+        const bannerGradient = ctx.createLinearGradient(0, bannerY, 0, bannerY + bannerHeight);
+        bannerGradient.addColorStop(0, "rgba(0, 0, 0, 0)");
+        bannerGradient.addColorStop(0.45, "rgba(0, 0, 0, 0.75)");
+        bannerGradient.addColorStop(0.55, "rgba(0, 0, 0, 0.75)");
+        bannerGradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+        ctx.fillStyle = bannerGradient;
+        ctx.fillRect(0, bannerY, W, bannerHeight);
+
+        ctx.strokeStyle = `${UI_COLORS.ammo}aa`;
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(W / 2 - 220, H / 2 - 60);
+        ctx.lineTo(W / 2 + 220, H / 2 - 60);
+        ctx.moveTo(W / 2 - 220, H / 2 + 90);
+        ctx.lineTo(W / 2 + 220, H / 2 + 90);
+        ctx.stroke();
+
+        ctx.translate(W / 2, H / 2 + 10);
+        ctx.scale(scale, scale);
+
         ctx.fillStyle = UI_COLORS.ammo;
-        ctx.shadowColor = UI_COLORS.ammo;
-        ctx.shadowBlur = 0;
-        ctx.font = "bold 56px system-ui";
-        ctx.fillText(`WAVE ${gameState.wave}`, W / 2, H / 2 + 50);
+        ctx.shadowColor = `${UI_COLORS.ammo}dd`;
+        ctx.shadowBlur = 24;
+        ctx.font = "900 62px system-ui";
+        ctx.textAlign = "center";
+        ctx.fillText(waveTitle, 0, 0);
 
+        if (waveTagline) {
+          ctx.shadowColor = `${taglineColor}cc`;
+          ctx.shadowBlur = 18;
+          ctx.fillStyle = taglineColor;
+          ctx.font = "700 26px system-ui";
+          ctx.fillText(waveTagline, 0, 60);
+        }
+
+        ctx.restore();
         ctx.globalAlpha = 1;
         ctx.shadowBlur = 0;
       }
