@@ -266,6 +266,7 @@ const Index = () => {
       purpleZombieImg: null as HTMLImageElement | null,
       runnerImg: null as HTMLImageElement | null,
       shieldImg: null as HTMLImageElement | null,
+      mapBackground: null as HTMLImageElement | null,
       tutorialActive: localStorage.getItem("gameHasTutorial") !== "completed",
       tutorialStartTime: performance.now(),
       gameOverAnimationTimer: 0,
@@ -432,6 +433,17 @@ const Index = () => {
     };
     shieldImg.onerror = () => {
       console.error("Failed to load shield image");
+    };
+
+    // Load map background
+    const mapBackground = new Image();
+    mapBackground.src = "/images/map1.png";
+    mapBackground.onload = () => {
+      gameState.mapBackground = mapBackground;
+      console.log("Map background loaded successfully");
+    };
+    mapBackground.onerror = () => {
+      console.error("Failed to load map background");
     };
 
     // Initialize Web Audio API
@@ -5334,13 +5346,30 @@ const Index = () => {
       const t = translations[currentLanguage];
       ctx.clearRect(0, 0, W, H);
 
-      // Fondo
-      const gradient = ctx.createRadialGradient(W / 2, H / 3, 0, W / 2, H / 3, Math.max(W, H));
-      gradient.addColorStop(0, "#0f1729");
-      gradient.addColorStop(0.5, "#0a0f1a");
-      gradient.addColorStop(1, "#060a10");
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, W, H);
+      // Draw tiled background map
+      if (gameState.mapBackground && gameState.mapBackground.complete) {
+        const imgW = gameState.mapBackground.width;
+        const imgH = gameState.mapBackground.height;
+        
+        // Calculate how many tiles we need
+        const tilesX = Math.ceil(W / imgW) + 1;
+        const tilesY = Math.ceil(H / imgH) + 1;
+        
+        // Draw tiles to fill the entire canvas
+        for (let x = 0; x < tilesX; x++) {
+          for (let y = 0; y < tilesY; y++) {
+            ctx.drawImage(gameState.mapBackground, x * imgW, y * imgH, imgW, imgH);
+          }
+        }
+      } else {
+        // Fallback gradient background
+        const gradient = ctx.createRadialGradient(W / 2, H / 3, 0, W / 2, H / 3, Math.max(W, H));
+        gradient.addColorStop(0, "#0f1729");
+        gradient.addColorStop(0.5, "#0a0f1a");
+        gradient.addColorStop(1, "#060a10");
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, W, H);
+      }
 
       // Marcas de explosión en el suelo (quemadura)
       for (const mark of gameState.explosionMarks) {
@@ -5733,14 +5762,14 @@ const Index = () => {
           enemyImage = gameState.runnerImg;
         } else if (e.specialType === "tank" && gameState.shieldImg?.complete) {
           enemyImage = gameState.shieldImg;
-        } else if (e.specialType === "summoner" && gameState.purpleZombieImg?.complete) {
-          enemyImage = gameState.purpleZombieImg;
+        } else if (e.specialType === "summoner" && gameState.ghoulImg?.complete) {
+          enemyImage = gameState.ghoulImg;
         } else if (e.color === "#22c55e" && gameState.greenZombieImg?.complete) {
           enemyImage = gameState.greenZombieImg;
         } else if ((e.color === "#9333ea" || e.color === "#a855f7") && gameState.purpleZombieImg?.complete) {
           enemyImage = gameState.purpleZombieImg;
-        } else if (e.color === "#78716c" && gameState.ghoulImg?.complete) {
-          enemyImage = gameState.ghoulImg;
+        } else if (e.color === "#78716c" && gameState.shieldImg?.complete) {
+          enemyImage = gameState.shieldImg;
         }
         
         if (enemyImage) {
@@ -5807,56 +5836,6 @@ const Index = () => {
           ctx.stroke();
           ctx.setLineDash([]);
 
-          ctx.shadowBlur = 0;
-          ctx.restore();
-        }
-
-        // Indicador de tipo especial
-        if (e.specialType) {
-          ctx.save();
-          ctx.textAlign = "center";
-          ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-          ctx.shadowBlur = 4;
-
-          // Bomber con countdown visual
-          if (e.specialType === "explosive" && e.explosionTimer !== undefined && e.explosionTimer >= 0) {
-            // Countdown timer
-            const timeLeft = Math.ceil(e.explosionTimer * 10) / 10; // Redondear a 1 decimal
-            ctx.font = "bold 20px system-ui";
-            const pulse = Math.sin(gameState.time * 10) * 0.3 + 0.7;
-            ctx.fillStyle = timeLeft < 0.5 ? "#fbbf24" : "#ef4444";
-            ctx.shadowColor = timeLeft < 0.5 ? "#fbbf24" : "#ef4444";
-            ctx.shadowBlur = 20 * pulse;
-            ctx.fillText(timeLeft.toFixed(1) + "s", e.x, e.y - e.rad - 35);
-
-            // Emoji pulsante
-            ctx.font = "bold 24px system-ui";
-            ctx.fillText("💣", e.x, e.y - e.rad - 10);
-            ctx.shadowBlur = 0;
-          } else {
-            // Emojis normales para otros tipos
-            ctx.font = "bold 16px system-ui";
-            let emoji = "";
-            if (e.specialType === "explosive") emoji = "💣";
-            else if (e.specialType === "fast") emoji = "⚡";
-            else if (e.specialType === "tank") emoji = "🛡️";
-            else if (e.specialType === "summoner") emoji = "👻";
-            ctx.fillText(emoji, e.x, e.y - e.rad - 20);
-            ctx.shadowBlur = 0;
-          }
-
-          ctx.restore();
-        }
-
-        // Indicador de boss
-        if (e.isBoss) {
-          ctx.save();
-          ctx.textAlign = "center";
-          ctx.font = "bold 24px system-ui";
-          ctx.fillStyle = "#fbbf24";
-          ctx.shadowColor = "#dc2626";
-          ctx.shadowBlur = 20;
-          ctx.fillText("👑 BOSS 👑", e.x, e.y - e.rad - 25);
           ctx.shadowBlur = 0;
           ctx.restore();
         }
