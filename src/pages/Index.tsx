@@ -140,6 +140,7 @@ const Index = () => {
       },
       bullets: [] as any[],
       enemies: [] as any[],
+      normalEnemyCount: 0,
       drops: [] as any[],
       particles: [] as any[],
       hotspots: [] as any[],
@@ -414,6 +415,7 @@ const Index = () => {
       // Limpiar arrays
       gameState.bullets.length = 0;
       gameState.enemies.length = 0;
+      gameState.normalEnemyCount = 0;
       gameState.drops.length = 0;
       gameState.particles.length = 0;
       gameState.hotspots.length = 0;
@@ -887,8 +889,9 @@ const Index = () => {
       }
       const scaledHp = Math.floor(baseHp * hpMultiplier);
       
-      gameState.enemies.push({
-        x, y,
+      const enemy = {
+        x,
+        y,
         rad,
         hp: scaledHp,
         maxhp: scaledHp,
@@ -907,7 +910,12 @@ const Index = () => {
         // Bomber-specific properties
         explosionTimer: specialType === "explosive" ? -1 : undefined, // -1 = no activado, >= 0 = contando
         explosionDelay: specialType === "explosive" ? (Math.random() < 0.5 ? 0 : 1) : undefined, // 50% instant, 50% 1s delay
-      });
+      };
+
+      gameState.enemies.push(enemy);
+      if (!enemy.isBoss && !enemy.isMiniBoss) {
+        gameState.normalEnemyCount++;
+      }
       }
     }
     
@@ -2743,10 +2751,10 @@ const Index = () => {
       // 2. No hemos alcanzado el total de la wave
       // 3. Hay cupo (normalEnemies < maxConcurrentEnemies)
       // 4. El cooldown ha terminado (canSpawn = true)
-      const normalEnemies = gameState.enemies.filter(e => !e.isBoss && !e.isMiniBoss).length;
+      let normalEnemyCount = gameState.normalEnemyCount;
       const canSpawnNow = !gameState.tutorialActive &&
-                          gameState.waveEnemiesSpawned < gameState.waveEnemiesTotal && 
-                          normalEnemies < gameState.maxConcurrentEnemies &&
+                          gameState.waveEnemiesSpawned < gameState.waveEnemiesTotal &&
+                          normalEnemyCount < gameState.maxConcurrentEnemies &&
                           gameState.canSpawn;
       
       if (canSpawnNow) {
@@ -2778,10 +2786,10 @@ const Index = () => {
           }
           
           for (let i = 0; i < spawnCount; i++) {
-            const normalEnemies = gameState.enemies.filter(e => !e.isBoss && !e.isMiniBoss).length;
-            if (gameState.waveEnemiesSpawned < gameState.waveEnemiesTotal && 
-                normalEnemies < gameState.maxConcurrentEnemies) {
+            if (gameState.waveEnemiesSpawned < gameState.waveEnemiesTotal &&
+                normalEnemyCount < gameState.maxConcurrentEnemies) {
               spawnEnemy();
+              normalEnemyCount = gameState.normalEnemyCount;
               gameState.waveEnemiesSpawned++;
             }
           }
@@ -2949,13 +2957,12 @@ const Index = () => {
         
         if (e.specialType === "summoner" && e.summonCooldown !== undefined) {
           e.summonCooldown -= dt;
-          const normalEnemies = gameState.enemies.filter(en => !en.isBoss && !en.isMiniBoss).length;
-          if (e.summonCooldown <= 0 && normalEnemies < gameState.maxConcurrentEnemies) {
+          if (e.summonCooldown <= 0 && normalEnemyCount < gameState.maxConcurrentEnemies) {
             // Invocar zombi pequeño (NO cuenta en límite si viene de summoner en wave boss)
-            for (let i = 0; i < 2; i++) {
+            for (let i = 0; i < 2 && normalEnemyCount < gameState.maxConcurrentEnemies; i++) {
               const angle = Math.random() * Math.PI * 2;
               const dist = 30;
-              gameState.enemies.push({
+              const summonedEnemy = {
                 x: e.x + Math.cos(angle) * dist,
                 y: e.y + Math.sin(angle) * dist,
                 rad: 8,
@@ -2973,7 +2980,11 @@ const Index = () => {
                 frozenTimer: 0,
                 burnTimer: 0,
                 poisonTimer: 0,
-              });
+              };
+
+              gameState.enemies.push(summonedEnemy);
+              gameState.normalEnemyCount++;
+              normalEnemyCount = gameState.normalEnemyCount;
             }
             e.summonCooldown = 8; // 8 segundos entre invocaciones
           }
@@ -3319,6 +3330,10 @@ const Index = () => {
             }
 
             if (e.hp <= 0) {
+              if (!e.isBoss && !e.isMiniBoss) {
+                gameState.normalEnemyCount = Math.max(0, gameState.normalEnemyCount - 1);
+                normalEnemyCount = gameState.normalEnemyCount;
+              }
               gameState.enemies.splice(i, 1);
               
               // Explosivos: explotan al morir
