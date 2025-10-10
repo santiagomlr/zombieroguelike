@@ -17,7 +17,21 @@ export type SfxKey =
   | "weapon_railgun"
   | "weapon_flamethrower"
   | "weapon_bow"
-  | "weapon_homing_missile";
+  | "weapon_homing_missile"
+  | "impact_zombie_hit_1"
+  | "impact_zombie_hit_2"
+  | "impact_zombie_hit_3"
+  | "impact_zombie_growl_1"
+  | "impact_zombie_growl_2"
+  | "impact_zombie_short_grunt"
+  | "impact_zombie_snarl"
+  | "impact_zombie_dog_hit"
+  | "impact_zombie_dog_growl_1"
+  | "impact_zombie_dog_growl_2"
+  | "impact_insect_smash_1"
+  | "impact_insect_smash_2"
+  | "impact_insect_move_1"
+  | "impact_insect_move_2";
 
 type DuplicateStrategy = "drop" | "attenuate";
 
@@ -160,6 +174,90 @@ const SFX_DEFINITIONS: Record<SfxKey, SfxDefinition> = {
     url: "/audio/weapons/homingmissle.wav",
     cooldownMs: 180,
     duplicateStrategy: "drop",
+  },
+  impact_zombie_hit_1: {
+    url: "/audio/impacts/zombie/zombie_hit_1.wav",
+    cooldownMs: 90,
+    duplicateStrategy: "attenuate",
+    attenuation: 0.5,
+  },
+  impact_zombie_hit_2: {
+    url: "/audio/impacts/zombie/zombie_hit_2.wav",
+    cooldownMs: 90,
+    duplicateStrategy: "attenuate",
+    attenuation: 0.5,
+  },
+  impact_zombie_hit_3: {
+    url: "/audio/impacts/zombie/zombie_hit_3.wav",
+    cooldownMs: 90,
+    duplicateStrategy: "attenuate",
+    attenuation: 0.5,
+  },
+  impact_zombie_growl_1: {
+    url: "/audio/impacts/zombie/zombie_growl_1.mp3",
+    cooldownMs: 120,
+    duplicateStrategy: "attenuate",
+    attenuation: 0.6,
+  },
+  impact_zombie_growl_2: {
+    url: "/audio/impacts/zombie/zombie_growl_2.wav",
+    cooldownMs: 120,
+    duplicateStrategy: "attenuate",
+    attenuation: 0.6,
+  },
+  impact_zombie_short_grunt: {
+    url: "/audio/impacts/zombie/zombie_short_grunt.wav",
+    cooldownMs: 90,
+    duplicateStrategy: "attenuate",
+    attenuation: 0.5,
+  },
+  impact_zombie_snarl: {
+    url: "/audio/impacts/zombie/snarling_zombie.wav",
+    cooldownMs: 120,
+    duplicateStrategy: "attenuate",
+    attenuation: 0.6,
+  },
+  impact_zombie_dog_hit: {
+    url: "/audio/impacts/zombie-animal/zombie_dog_hit.wav",
+    cooldownMs: 90,
+    duplicateStrategy: "attenuate",
+    attenuation: 0.5,
+  },
+  impact_zombie_dog_growl_1: {
+    url: "/audio/impacts/zombie-animal/zombie_dog_growl_1.wav",
+    cooldownMs: 120,
+    duplicateStrategy: "attenuate",
+    attenuation: 0.6,
+  },
+  impact_zombie_dog_growl_2: {
+    url: "/audio/impacts/zombie-animal/zombie_dog_growl_2.wav",
+    cooldownMs: 120,
+    duplicateStrategy: "attenuate",
+    attenuation: 0.6,
+  },
+  impact_insect_smash_1: {
+    url: "/audio/impacts/insect/insect_smash_01.mp3",
+    cooldownMs: 90,
+    duplicateStrategy: "attenuate",
+    attenuation: 0.5,
+  },
+  impact_insect_smash_2: {
+    url: "/audio/impacts/insect/insect_smash_02.mp3",
+    cooldownMs: 90,
+    duplicateStrategy: "attenuate",
+    attenuation: 0.5,
+  },
+  impact_insect_move_1: {
+    url: "/audio/impacts/insect/larva_move_1.wav",
+    cooldownMs: 120,
+    duplicateStrategy: "attenuate",
+    attenuation: 0.6,
+  },
+  impact_insect_move_2: {
+    url: "/audio/impacts/insect/larva_move_2.wav",
+    cooldownMs: 120,
+    duplicateStrategy: "attenuate",
+    attenuation: 0.6,
   },
 };
 
