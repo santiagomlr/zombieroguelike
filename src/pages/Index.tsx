@@ -460,7 +460,7 @@ const Index = () => {
       oscillator.stop(gameState.audioContext.currentTime + duration);
     };
 
-    const playShootSound = () => playSound(200, 0.1, "square", 0.2);
+    const playShootSound = () => {};
     const playHitSound = () => playSound(100, 0.15, "sawtooth", 0.2);
     const playLevelUpSound = () => {
       playSound(300, 0.1, "sine", 0.3);
@@ -1596,9 +1596,9 @@ const Index = () => {
         }
       }
 
-      // Tome upgrades
+      // Book upgrades
       if (tomesFull) {
-        // Ofrecer mejoras variadas para tomos existentes
+        // Ofrecer mejoras variadas para libros existentes
         for (let i = 0; i < gameState.player.tomes.length; i++) {
           const t = gameState.player.tomes[i];
           type UpgradeVariant = {
@@ -1658,7 +1658,7 @@ const Index = () => {
           }
         }
       } else {
-        // Tomos nuevos disponibles
+        // Libros nuevos disponibles
         const available = TOMES.filter((t) => !gameState.player.tomes.find((pt: Tome) => pt.id === t.id));
         for (const tome of available) {
           availableUpgrades.push({
@@ -1884,12 +1884,12 @@ const Index = () => {
         const tome = option.data as Tome;
 
         if (option.isLevelUp && option.targetIndex !== undefined) {
-          // Mejora de nivel de tomo existente
+          // Mejora de nivel de libro existente
           const existingTome = gameState.player.tomes[option.targetIndex];
           const currentLevel = existingTome.level;
           existingTome.level++;
 
-          // Aplicar bonificación según el efecto del tomo y su nivel específico
+          // Aplicar bonificación según el efecto del libro y su nivel específico
           if (existingTome.effect === "damage") {
             // +10% daño por nivel (sin límite)
             gameState.player.stats.damageMultiplier *= 1.1;
@@ -1950,7 +1950,7 @@ const Index = () => {
             const totalBonus = Math.round((gameState.player.stats.fireRateMultiplier - 1) * 100);
           }
         } else {
-          // Nuevo tomo
+          // Nuevo libro
           if (gameState.player.tomes.length < 3) {
             gameState.player.tomes.push(tome);
 
@@ -3048,7 +3048,7 @@ const Index = () => {
         gameState.player.isSprinting = false;
       }
 
-      // Regeneración del tomo
+      // Regeneración del libro
       if (gameState.player.stats.regenRate > 0 && gameState.player.stats.regenInterval > 0) {
         gameState.regenTimer += dt;
         if (gameState.regenTimer >= gameState.player.stats.regenInterval) {
@@ -3062,7 +3062,7 @@ const Index = () => {
 
       // Regeneración del item (si lo tiene)
       if (gameState.player.items.find((it: Item) => it.id === "regen")) {
-        // El item de regeneración es adicional al tomo
+        // El item de regeneración es adicional al libro
         if (gameState.regenTimer >= 10) {
           gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + 1);
         }
@@ -4023,7 +4023,7 @@ const Index = () => {
         const dy = gameState.player.y - g.y;
         const d = Math.hypot(dx, dy) || 1;
 
-        // Magnet: aplicar multiplicadores del tomo y del powerup temporal
+        // Magnet: aplicar multiplicadores del libro y del powerup temporal
         let magnetRange = gameState.player.magnet * gameState.player.stats.magnetMultiplier;
         if (gameState.player.tempMagnetTimer > 0) {
           magnetRange *= 2; // Powerup temporal duplica el rango
@@ -4644,7 +4644,7 @@ const Index = () => {
         ctx.fillText(weaponText, W - 195, 93 + i * 25);
       }
 
-      // Tomes display
+      // Books display
       ctx.fillStyle = "#fff";
       ctx.font = "bold 14px system-ui";
       const tomeY = 80 + gameState.player.weapons.length * 25 + 10;
