@@ -1446,7 +1446,7 @@ const Index = () => {
 
           // Progresión detallada por wave
           if (gameState.wave === 1) {
-            // Wave 1: Solo verdes 🟢
+            // Wave 1: Solo verdes
             enemyType = "weak";
             color = "#5dbb63";
             damage = 5;
@@ -3247,14 +3247,14 @@ const Index = () => {
       // SISTEMA DE OLEADAS (WAVES) - Estilo Call of Duty Zombies
       // ═══════════════════════════════════════════════════════════
       //
-      // 📊 LÓGICA DE OLEADAS:
+      // LÓGICA DE OLEADAS:
       // • Cada wave tiene un número fijo de enemigos (waveEnemiesTotal)
       // • Los enemigos solo spawnean si hay cupo (normalEnemies < maxConcurrentEnemies)
       // • Boss/Mini-boss NO cuentan en el límite de enemigos concurrentes
       // • La siguiente wave NO inicia hasta que waveKills >= waveEnemiesTotal
-      // • Al completar: bono de XP + mensaje "✔ Wave X completada" por 3s
+      // • Al completar: bono de XP + mensaje "Wave X completada" por 3s
       //
-      // 📈 PROGRESIÓN:
+      // PROGRESIÓN:
       // • Enemigos totales: W1: 10 → W10: 90 → W20: ~350 → W25+: ~700+
       // • Concurrentes: 12-15 (W1-5) → 25-30 (W10-15) → 50-60 (W21+)
       // • Spawn rate: 1.2s (W1-2) → 0.5s (W10) → 0.1-0.3s (W16+) + bursts
@@ -3263,12 +3263,12 @@ const Index = () => {
       // • Daño: +15%/wave → +25%/wave → +35%/wave
       // • Especiales: 5% (W1-3) → 15% (W6-10) → 45% (W19+)
       //
-      // 🔴 BOSS/MINI-BOSS:
+      // BOSS/MINI-BOSS:
       // • Boss cada 5 waves: HP = base × wave × 3
       // • Mini-boss en W3, W7, W12, W17, W22...: HP = base × wave × 2
       // • Ambos se agregan sin importar el límite concurrente
       //
-      // ⚠️ DANGER ZONES:
+      // DANGER ZONES:
       // • Desde W11+: hasta 2 zonas simultáneas
       // • Duración: 6 segundos
       // • Daño continuo: 8 HP/s
@@ -3473,7 +3473,7 @@ const Index = () => {
 
           switch (gameState.environmentalEvent) {
             case "storm":
-              // ⚡ TORMENTA: Sigue al jugador LENTAMENTE pero de forma impredecible
+              // TORMENTA: Sigue al jugador LENTAMENTE pero de forma impredecible
               // Crear zona de tormenta si no existe
               if (!gameState.stormZone) {
                 gameState.stormZone = {
@@ -3587,7 +3587,7 @@ const Index = () => {
               break;
 
             case "fog":
-              // 🌫️ NIEBLA TÓXICA: Warning antes de aparecer, luego 1 zona rectangular
+              // NIEBLA TÓXICA: Warning antes de aparecer, luego 1 zona rectangular
               // Fase 1: Warning zones (mostrar dónde aparecerá)
               if (gameState.fogWarningZones.length === 0 && intensity < 0.3) {
                 const width = 250 + Math.random() * 150;
@@ -3679,7 +3679,7 @@ const Index = () => {
               break;
 
             case "rain":
-              // ☢️ LLUVIA RADIACTIVA: Enemigos ganan velocidad en zonas específicas - SOLO 1 CÍRCULO
+              // LLUVIA RADIACTIVA: Enemigos ganan velocidad en zonas específicas - SOLO 1 CÍRCULO
               // Crear zona radiactiva tipo negative hotspot - MUY GRANDE
               if (radioactiveHotspotCount === 0 && intensity > 0.3) {
                 const x = Math.random() * (gameState.worldWidth - 600) + 300;
@@ -4198,7 +4198,7 @@ const Index = () => {
 
         // Comportamientos especiales de enemigos
 
-        // 💣 BOMBER: Countdown de explosión
+        // BOMBER: Countdown de explosión
         if (e.specialType === "explosive" && e.explosionTimer !== undefined && e.explosionTimer >= 0) {
           e.explosionTimer -= dt;
 
@@ -4360,7 +4360,7 @@ const Index = () => {
 
           const d = Math.sqrt(distanceSq) || 1;
 
-          // ☢️ Bonus de velocidad si está en zona radiactiva (lluvia)
+          // Bonus de velocidad si está en zona radiactiva (lluvia)
           let speedBonus = 1;
           if (gameState.environmentalEvent === "rain") {
             for (const h of gameState.hotspots) {
@@ -5080,7 +5080,7 @@ const Index = () => {
 
           // Daño solo si no está en rage mode y no es un boss (los bosses no hacen daño por contacto)
           if (!e.isBoss && gameState.player.rageTimer <= 0 && gameState.player.ifr <= 0) {
-            // 💣 BOMBER: Activar explosión al contacto
+            // BOMBER: Activar explosión al contacto
             if (e.specialType === "explosive" && e.explosionTimer === -1) {
               e.explosionTimer = e.explosionDelay || 0; // Iniciar countdown
 
@@ -5356,7 +5356,7 @@ const Index = () => {
 
         ctx.save();
         ctx.shadowColor = UI_COLORS.healthHigh;
-        ctx.shadowBlur = 16;
+        ctx.shadowBlur = 0;
         ctx.fillStyle = hpGradient;
         ctx.fillRect(hpBarX + 2, hpBarY + 2, currentHpBarW - 4, hpBarH - 4);
         ctx.restore();
@@ -5367,22 +5367,13 @@ const Index = () => {
       ctx.font = "bold 18px system-ui";
       ctx.textAlign = "center";
       ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-      ctx.shadowBlur = 4;
+      ctx.shadowBlur = 0;
       ctx.fillText(
         `HP ${Math.floor(gameState.player.hp)} / ${gameState.player.maxhp}`,
         hpBarX + hpBarW / 2,
         hpBarY + hpBarH / 2 + 6,
       );
       ctx.shadowBlur = 0;
-
-      ctx.save();
-      ctx.shadowColor = UI_COLORS.healthHigh;
-      ctx.shadowBlur = 18;
-      ctx.fillStyle = UI_COLORS.healthHigh;
-      ctx.textAlign = "left";
-      ctx.font = "bold 20px system-ui";
-      ctx.fillText("❤", hpBarX - 24, hpBarY + hpBarH / 2 + 7);
-      ctx.restore();
 
       if (hpPercent < 0.3) {
         const flicker = (Math.sin(gameState.time * 14) + 1) / 2;
@@ -5391,7 +5382,7 @@ const Index = () => {
         ctx.strokeStyle = UI_COLORS.healthHigh;
         ctx.lineWidth = 4;
         ctx.shadowColor = UI_COLORS.healthHigh;
-        ctx.shadowBlur = 18;
+        ctx.shadowBlur = 0;
         ctx.strokeRect(hpBarX - 3, hpBarY - 3, hpBarW + 6, hpBarH + 6);
         ctx.restore();
       }
@@ -5417,7 +5408,7 @@ const Index = () => {
           ctx.arc(shieldX, hpBarY + hpBarH / 2, 12, 0, Math.PI * 2);
           ctx.save();
           ctx.shadowColor = `${UI_COLORS.shield}aa`;
-          ctx.shadowBlur = 12;
+          ctx.shadowBlur = 0;
           ctx.fill();
           ctx.restore();
           ctx.strokeStyle = "rgba(222, 239, 255, 0.6)";
@@ -5461,7 +5452,7 @@ const Index = () => {
       ctx.fillStyle = textSecondary;
       ctx.font = "bold 12px system-ui";
       ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-      ctx.shadowBlur = 4;
+      ctx.shadowBlur = 0;
       ctx.fillText(
         `STAMINA ${Math.floor(gameState.player.stamina)}`,
         staminaBarX + staminaBarW / 2,
@@ -5483,7 +5474,7 @@ const Index = () => {
       ctx.fillStyle = "#fff";
       ctx.font = "bold 18px system-ui";
       ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-      ctx.shadowBlur = 4;
+      ctx.shadowBlur = 0;
       ctx.fillText(`${t.level.toUpperCase()} ${gameState.level}`, 20, staminaBarY + staminaBarH + 22);
       ctx.shadowBlur = 0;
 
@@ -5492,7 +5483,7 @@ const Index = () => {
       ctx.fillStyle = "#8e44ad";
       ctx.font = "bold 16px system-ui";
       ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-      ctx.shadowBlur = 4;
+      ctx.shadowBlur = 0;
       ctx.fillText(`WAVE ${gameState.wave}`, 20, waveY);
       ctx.shadowBlur = 0;
 
@@ -5531,7 +5522,7 @@ const Index = () => {
       ctx.font = "bold 12px system-ui";
       ctx.textAlign = "center";
       ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-      ctx.shadowBlur = 4;
+      ctx.shadowBlur = 0;
       ctx.fillText(
         `${gameState.waveKills} / ${gameState.waveEnemiesTotal}`,
         progressBarX + progressBarW / 2,
@@ -5544,7 +5535,7 @@ const Index = () => {
       ctx.fillStyle = "#ffc300";
       ctx.font = "bold 24px system-ui";
       ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-      ctx.shadowBlur = 4;
+      ctx.shadowBlur = 0;
       ctx.fillText(`${gameState.score}`, W - 20, 40);
       ctx.shadowBlur = 0;
 
@@ -5565,7 +5556,7 @@ const Index = () => {
       ctx.strokeStyle = accentColor;
       ctx.lineWidth = 2;
       ctx.shadowColor = accentGlow;
-      ctx.shadowBlur = 12;
+      ctx.shadowBlur = 0;
       ctx.stroke();
       ctx.shadowBlur = 0;
 
@@ -5614,7 +5605,7 @@ const Index = () => {
           // Glow effect pulsante
           const pulse = Math.sin(gameState.time * 5) * 0.3 + 0.7;
           ctx.shadowColor = "rgba(255, 255, 255, 0.8)";
-          ctx.shadowBlur = 20 * pulse;
+          ctx.shadowBlur = 0;
         } else {
           // Gradiente normal (neón cyan-purple)
           const gradient = ctx.createLinearGradient(xpBarX, xpBarY, xpBarX + currentXpBarW, xpBarY);
@@ -5624,7 +5615,7 @@ const Index = () => {
 
           // Glow sutil
           ctx.shadowColor = `${UI_COLORS.xp}cc`;
-          ctx.shadowBlur = 18;
+          ctx.shadowBlur = 0;
         }
 
         ctx.fillRect(xpBarX + 4, xpBarY + 4, currentXpBarW, xpBarH - 8);
@@ -5637,7 +5628,7 @@ const Index = () => {
       ctx.font = "bold 20px system-ui";
       ctx.textAlign = "center";
       ctx.shadowColor = "rgba(0, 0, 0, 0.9)";
-      ctx.shadowBlur = 6;
+      ctx.shadowBlur = 0;
       ctx.fillText(
         `XP: ${Math.floor(gameState.xpDisplay)} / ${Math.max(1, Math.floor(gameState.nextXpDisplay))}`,
         xpBarX + xpBarW / 2,
@@ -5650,7 +5641,7 @@ const Index = () => {
       ctx.font = "bold 14px system-ui";
       ctx.save();
       ctx.shadowColor = `${UI_COLORS.ammo}aa`;
-      ctx.shadowBlur = 18;
+      ctx.shadowBlur = 0;
       ctx.fillStyle = UI_COLORS.ammo;
       ctx.fillText(t.weapons, W - 220, 70);
       ctx.restore();
@@ -5661,7 +5652,7 @@ const Index = () => {
         ctx.fillStyle = w.color;
         ctx.save();
         ctx.shadowColor = `${w.color}aa`;
-        ctx.shadowBlur = 10;
+        ctx.shadowBlur = 0;
         ctx.fillRect(W - 220, 80 + i * 25, 18, 18);
         ctx.restore();
         ctx.fillStyle = textSecondary;
@@ -5681,7 +5672,7 @@ const Index = () => {
         ctx.fillStyle = tome.color;
         ctx.save();
         ctx.shadowColor = `${tome.color}aa`;
-        ctx.shadowBlur = 10;
+        ctx.shadowBlur = 0;
         ctx.fillRect(W - 220, tomeY + 10 + i * 25, 18, 18);
         ctx.restore();
         ctx.fillStyle = textSecondary;
@@ -5705,7 +5696,7 @@ const Index = () => {
           ctx.fillStyle = item.color;
           ctx.save();
           ctx.shadowColor = `${item.color}aa`;
-          ctx.shadowBlur = 8;
+          ctx.shadowBlur = 0;
           ctx.fillRect(W - 220, itemY + 10 + i * 20, 12, 12);
           ctx.restore();
           ctx.fillStyle = textSecondary;
@@ -5731,7 +5722,7 @@ const Index = () => {
         ctx.textAlign = "right";
         ctx.font = "bold 16px system-ui";
         ctx.shadowColor = accentGlow;
-        ctx.shadowBlur = 14;
+        ctx.shadowBlur = 0;
         ctx.fillStyle = accentColor;
         ctx.fillText("NIGHT VISION", W - 40, 40);
         ctx.restore();
@@ -5763,19 +5754,10 @@ const Index = () => {
         ctx.fillStyle = UI_COLORS.overlay;
         ctx.fillRect(0, H / 2 - 80, W, 160);
 
-        // Icono de wave
-        const pulse = Math.sin(gameState.time * 8) * 0.2 + 0.8;
-        ctx.fillStyle = accentColor;
-        ctx.shadowColor = accentColor;
-        ctx.shadowBlur = 30 * pulse;
-        ctx.font = "bold 72px system-ui";
-        ctx.textAlign = "center";
-        ctx.fillText("⚡", W / 2, H / 2 - 10);
-
         // Texto principal con glow - Wave que viene
         ctx.fillStyle = UI_COLORS.ammo;
         ctx.shadowColor = UI_COLORS.ammo;
-        ctx.shadowBlur = 30 * pulse;
+        ctx.shadowBlur = 0;
         ctx.font = "bold 56px system-ui";
         ctx.fillText(`WAVE ${gameState.wave}`, W / 2, H / 2 + 50);
 
@@ -5783,7 +5765,7 @@ const Index = () => {
         ctx.shadowBlur = 0;
       }
 
-      // ⚠️ BARRA DE NOTIFICACIÓN AMBIENTAL - Estilo Noticiero (visible durante todo el evento)
+      // Barra de notificación ambiental - Estilo noticiero (visible durante todo el evento)
       if (gameState.eventPhase !== "none") {
         // Calcular opacidad según la fase del evento
         let notifAlpha = 1;
@@ -5800,18 +5782,19 @@ const Index = () => {
         ctx.fillStyle = UI_COLORS.healthHigh;
         ctx.fillRect(0, 58, W, 2);
 
-        // Icono de alerta
-        ctx.fillStyle = UI_COLORS.ammo;
-        ctx.font = "bold 32px system-ui";
-        ctx.textAlign = "left";
-        ctx.fillText("⚠️", 20, 40);
-
         // Texto de noticia con descripción de efectos
-        const eventTexts = {
-          storm: "⚡ ALERTA: Tormenta eléctrica aproximándose...",
-          fog: "🌫️ ALERTA: Niebla tóxica detectada en el área...",
-          rain: "☢️ ALERTA: Lluvia radiactiva inminente...",
-        };
+        const eventTexts =
+          currentLanguage === "es"
+            ? {
+                storm: "ALERTA: Tormenta eléctrica aproximándose...",
+                fog: "ALERTA: Niebla tóxica detectada en el área...",
+                rain: "ALERTA: Lluvia radiactiva inminente...",
+              }
+            : {
+                storm: "ALERT: Electrical storm approaching...",
+                fog: "ALERT: Toxic fog detected in the area...",
+                rain: "ALERT: Radioactive rain incoming...",
+              };
 
         // Mostrar texto del evento actual
         const eventText = gameState.environmentalEvent ? eventTexts[gameState.environmentalEvent] : "";
@@ -5820,8 +5803,8 @@ const Index = () => {
         ctx.font = "bold 20px system-ui";
         ctx.textAlign = "left";
         ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-        ctx.shadowBlur = 4;
-        ctx.fillText(eventText, 70, 40);
+        ctx.shadowBlur = 0;
+        ctx.fillText(eventText, 20, 40);
         ctx.shadowBlur = 0;
 
         ctx.globalAlpha = 1;
@@ -5834,7 +5817,7 @@ const Index = () => {
 
         const notifY = 120;
         const notifPadding = 20;
-        const notifText = `♫ ${gameState.musicNotification}`;
+        const notifText = gameState.musicNotification;
 
         ctx.font = "bold 24px system-ui";
         ctx.textAlign = "center";
@@ -5867,7 +5850,7 @@ const Index = () => {
 
         const notifY = 170;
         const notifPadding = 20;
-        const notifText = `🎁 ${gameState.itemNotification}`;
+        const notifText = gameState.itemNotification;
 
         ctx.font = "bold 22px system-ui";
         ctx.textAlign = "center";
@@ -5887,7 +5870,7 @@ const Index = () => {
 
         ctx.fillStyle = textPrimary;
         ctx.shadowColor = accentGlow;
-        ctx.shadowBlur = 10;
+        ctx.shadowBlur = 0;
         ctx.fillText(notifText, W / 2, notifY + 6);
 
         ctx.globalAlpha = 1;
@@ -6075,14 +6058,14 @@ const Index = () => {
 
       // Glow effect en el título
       ctx.shadowColor = "#ffc300";
-      ctx.shadowBlur = 40 * pulse * animProgress;
+      ctx.shadowBlur = 0;
       ctx.fillStyle = "#ffc300";
       ctx.font = "bold 56px system-ui";
       ctx.textAlign = "center";
       ctx.fillText(t.levelUp, 0, 0);
 
       // Segundo glow para más intensidad
-      ctx.shadowBlur = 60 * pulse * animProgress;
+      ctx.shadowBlur = 0;
       ctx.fillText(t.levelUp, 0, 0);
       ctx.shadowBlur = 0;
 
@@ -6122,7 +6105,7 @@ const Index = () => {
 
         // Card shadow
         ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
-        ctx.shadowBlur = 30;
+        ctx.shadowBlur = 0;
         ctx.shadowOffsetY = 10;
 
         // Card background con gradiente
@@ -6140,7 +6123,7 @@ const Index = () => {
         ctx.strokeStyle = rarityColor;
         ctx.lineWidth = 4;
         ctx.shadowColor = rarityColor;
-        ctx.shadowBlur = 25 * pulse;
+        ctx.shadowBlur = 0;
         ctx.strokeRect(x, yOffset, cardW, cardH);
 
         // Inner border
@@ -6163,7 +6146,7 @@ const Index = () => {
         ctx.font = "bold 14px system-ui";
         ctx.textAlign = "center";
         const typeLabel = option.type === "weapon" ? t.weapon : option.type === "tome" ? t.tome : t.item;
-        const typeText = `${option.type === "weapon" ? "⚔️" : option.type === "tome" ? "📖" : "✨"} ${typeLabel}`;
+        const typeText = typeLabel;
 
         // Badge background
         const badgeW = 100;
@@ -6183,16 +6166,16 @@ const Index = () => {
         ctx.fillStyle = "#fff";
         ctx.font = "bold 22px system-ui";
         ctx.shadowColor = "#000";
-        ctx.shadowBlur = 4;
+        ctx.shadowBlur = 0;
         let nameText = "";
         if (option.type === "weapon") {
           const weaponData = data as Weapon;
           const weaponName = getWeaponName(weaponData.id, currentLanguage);
-          nameText = option.isLevelUp ? `${weaponName} ★${weaponData.level + 1}` : weaponName;
+          nameText = option.isLevelUp ? `${weaponName} LV${weaponData.level + 1}` : weaponName;
         } else if (option.type === "tome") {
           const tomeData = data as Tome;
           const tomeName = getTomeName(tomeData.id, currentLanguage);
-          nameText = option.isLevelUp ? `${tomeName} ★${tomeData.level + 1}` : tomeName;
+          nameText = option.isLevelUp ? `${tomeName} LV${tomeData.level + 1}` : tomeName;
         } else {
           const itemData = data as Item;
           nameText = getItemText(itemData, currentLanguage).name;
@@ -6217,9 +6200,9 @@ const Index = () => {
           } else {
             ctx.textAlign = "left";
             const statsX = x + 20;
-            ctx.fillText(`💥 ${t.damage}: ${w.damage.toFixed(1)}`, statsX, yOffset + 110);
-            ctx.fillText(`⚡ ${t.fireRate}: ${w.fireRate.toFixed(1)}/s`, statsX, yOffset + 135);
-            ctx.fillText(`🎯 ${t.range}: ${w.range}`, statsX, yOffset + 160);
+            ctx.fillText(`${t.damage}: ${w.damage.toFixed(1)}`, statsX, yOffset + 110);
+            ctx.fillText(`${t.fireRate}: ${w.fireRate.toFixed(1)}/s`, statsX, yOffset + 135);
+            ctx.fillText(`${t.range}: ${w.range}`, statsX, yOffset + 160);
             ctx.textAlign = "center";
           }
         } else if (option.type === "tome") {
@@ -6247,7 +6230,7 @@ const Index = () => {
         ctx.fillRect(rarityBadgeX, rarityBadgeY - 16, rarityBadgeW, rarityBadgeH);
 
         ctx.fillStyle = rarityColor;
-        ctx.fillText(`★ ${option.rarity.toUpperCase()} ★`, x + cardW / 2, rarityBadgeY);
+        ctx.fillText(option.rarity.toUpperCase(), x + cardW / 2, rarityBadgeY);
 
         ctx.restore();
       }
@@ -6398,6 +6381,7 @@ const Index = () => {
 
       // Renderizar WARNING zones de niebla (antes de aparecer)
       if (gameState.environmentalEvent === "fog" && gameState.fogWarningZones.length > 0) {
+        const fogWarningText = currentLanguage === "es" ? "ALERTA: NIEBLA ENTRANTE" : "ALERT: FOG INCOMING";
         for (const warning of gameState.fogWarningZones) {
           const warningPulse = Math.sin(gameState.time * 5) * 0.3 + 0.7;
 
@@ -6409,7 +6393,7 @@ const Index = () => {
           ctx.strokeStyle = `rgba(239, 68, 68, ${warningPulse})`;
           ctx.lineWidth = 4;
           ctx.shadowColor = "#ef4444";
-          ctx.shadowBlur = 20 * warningPulse;
+          ctx.shadowBlur = 0;
           ctx.setLineDash([15, 15]);
           ctx.strokeRect(warning.x, warning.y, warning.width, warning.height);
           ctx.setLineDash([]);
@@ -6420,8 +6404,8 @@ const Index = () => {
           ctx.font = "bold 32px system-ui";
           ctx.textAlign = "center";
           ctx.shadowColor = "#ef4444";
-          ctx.shadowBlur = 15;
-          ctx.fillText("⚠️ NIEBLA ENTRANTE", warning.x + warning.width / 2, warning.y + warning.height / 2);
+          ctx.shadowBlur = 0;
+          ctx.fillText(fogWarningText, warning.x + warning.width / 2, warning.y + warning.height / 2);
           ctx.shadowBlur = 0;
         }
       }
@@ -6434,6 +6418,7 @@ const Index = () => {
       ) {
         const intensity = gameState.eventIntensity;
 
+        const fogLabel = currentLanguage === "es" ? "NIEBLA" : "FOG";
         for (const zone of gameState.fogZones) {
           const pulse = Math.sin(gameState.time * 3) * 0.15 + 0.85;
 
@@ -6445,7 +6430,7 @@ const Index = () => {
           ctx.strokeStyle = `rgba(132, 204, 22, ${pulse * intensity})`;
           ctx.lineWidth = 3;
           ctx.shadowColor = "#5dbb63";
-          ctx.shadowBlur = 15 * pulse * intensity;
+          ctx.shadowBlur = 0;
           ctx.setLineDash([10, 10]);
           ctx.strokeRect(zone.x, zone.y, zone.width, zone.height);
           ctx.setLineDash([]);
@@ -6457,8 +6442,8 @@ const Index = () => {
           ctx.font = "bold 48px system-ui";
           ctx.textAlign = "center";
           ctx.shadowColor = "#5dbb63";
-          ctx.shadowBlur = 20;
-          ctx.fillText("🌫️", zone.x + zone.width / 2, zone.y + zone.height / 2 + 16);
+          ctx.shadowBlur = 0;
+          ctx.fillText(fogLabel, zone.x + zone.width / 2, zone.y + zone.height / 2 + 16);
           ctx.shadowBlur = 0;
           ctx.globalAlpha = 1;
         }
@@ -6488,7 +6473,7 @@ const Index = () => {
         ctx.strokeStyle = `rgba(96, 165, 250, ${pulse * intensity})`;
         ctx.lineWidth = 4;
         ctx.shadowColor = "#2e86c1";
-        ctx.shadowBlur = 20 * pulse * intensity;
+        ctx.shadowBlur = 0;
         ctx.setLineDash([8, 8]);
         ctx.beginPath();
         ctx.arc(storm.x, storm.y, storm.radius, 0, Math.PI * 2);
@@ -6496,14 +6481,15 @@ const Index = () => {
         ctx.setLineDash([]);
         ctx.shadowBlur = 0;
 
-        // Icono de tormenta
+        // Indicador de tormenta
+        const stormLabel = currentLanguage === "es" ? "TORMENTA" : "STORM";
         ctx.globalAlpha = intensity;
         ctx.fillStyle = `rgba(96, 165, 250, ${pulse})`;
-        ctx.font = "bold 56px system-ui";
+        ctx.font = "bold 24px system-ui";
         ctx.textAlign = "center";
         ctx.shadowColor = "#2e86c1";
-        ctx.shadowBlur = 25;
-        ctx.fillText("⚡", storm.x, storm.y + 20);
+        ctx.shadowBlur = 0;
+        ctx.fillText(stormLabel, storm.x, storm.y + 8);
         ctx.shadowBlur = 0;
         ctx.globalAlpha = 1;
       }
@@ -6511,7 +6497,7 @@ const Index = () => {
       if (gameState.environmentalEvent) {
         switch (gameState.environmentalEvent) {
           case "rain":
-            // ☢️ LLUVIA RADIACTIVA: No hay overlay global, solo partículas
+            // LLUVIA RADIACTIVA: No hay overlay global, solo partículas
             break;
         }
       }
@@ -6538,7 +6524,7 @@ const Index = () => {
           ctx.strokeStyle = h.active ? `rgba(239, 68, 68, ${dangerPulse})` : "rgba(220, 38, 38, 0.6)";
           ctx.lineWidth = 4;
           ctx.shadowColor = "#ef4444";
-          ctx.shadowBlur = 15 * dangerPulse;
+          ctx.shadowBlur = 0;
           ctx.setLineDash([8, 8]);
           ctx.beginPath();
           ctx.arc(h.x, h.y, h.rad, 0, Math.PI * 2);
@@ -6546,19 +6532,21 @@ const Index = () => {
           ctx.setLineDash([]);
           ctx.shadowBlur = 0;
 
-          // Icono de peligro
+          // Indicador de peligro
           ctx.fillStyle = "#ef4444";
-          ctx.font = "bold 32px system-ui";
+          ctx.font = "bold 18px system-ui";
           ctx.textAlign = "center";
           ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-          ctx.shadowBlur = 8;
-          ctx.fillText("⚠️", h.x, h.y - 10);
+          ctx.shadowBlur = 0;
+          const dangerLabel = currentLanguage === "es" ? "PELIGRO" : "DANGER";
+          const dangerZoneText = currentLanguage === "es" ? "ZONA PELIGROSA" : "DANGER ZONE";
+          ctx.fillText(dangerLabel, h.x, h.y - 6);
           ctx.shadowBlur = 0;
 
           // Texto de advertencia
           ctx.fillStyle = "#fff";
           ctx.font = "bold 14px system-ui";
-          ctx.fillText("DANGER ZONE", h.x, h.y + 25);
+          ctx.fillText(dangerZoneText, h.x, h.y + 25);
 
           // Timer de expiración
           if (!h.active) {
@@ -6568,7 +6556,7 @@ const Index = () => {
             ctx.fillText(`${Math.ceil(remaining)}s`, h.x, h.y + 45);
           }
         } else if (h.isRadioactive) {
-          // ☢️ ZONA RADIACTIVA (Lluvia Radiactiva)
+          // ZONA RADIACTIVA (Lluvia Radiactiva)
           const radioPulse = Math.sin(gameState.time * 4) * 0.2 + 0.8;
 
           // Gradiente púrpura radiactivo
@@ -6585,7 +6573,7 @@ const Index = () => {
           ctx.strokeStyle = `rgba(168, 85, 247, ${radioPulse})`;
           ctx.lineWidth = 3;
           ctx.shadowColor = "#8e44ad";
-          ctx.shadowBlur = 20 * radioPulse;
+          ctx.shadowBlur = 0;
           ctx.setLineDash([6, 6]);
           ctx.beginPath();
           ctx.arc(h.x, h.y, h.rad, gameState.time * 2, gameState.time * 2 + Math.PI * 2);
@@ -6593,13 +6581,14 @@ const Index = () => {
           ctx.setLineDash([]);
           ctx.shadowBlur = 0;
 
-          // Icono radiactivo
+          // Indicador radiactivo
           ctx.fillStyle = "#8e44ad";
-          ctx.font = "bold 28px system-ui";
+          ctx.font = "bold 18px system-ui";
           ctx.textAlign = "center";
           ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-          ctx.shadowBlur = 8;
-          ctx.fillText("☢️", h.x, h.y + 8);
+          ctx.shadowBlur = 0;
+          const radioactiveLabel = currentLanguage === "es" ? "RAD" : "RAD";
+          ctx.fillText(radioactiveLabel, h.x, h.y + 6);
           ctx.shadowBlur = 0;
         } else {
           // HOTSPOT POSITIVO (recompensa)
@@ -6670,7 +6659,7 @@ const Index = () => {
           const lidHeight = chestHeight * 0.45;
 
           ctx.shadowColor = d.color;
-          ctx.shadowBlur = 20;
+          ctx.shadowBlur = 0;
 
           ctx.fillStyle = "#7c2d12";
           ctx.fillRect(-chestWidth / 2, -chestHeight / 2 + lidHeight, chestWidth, chestHeight - lidHeight);
@@ -6708,14 +6697,14 @@ const Index = () => {
 
         if (d.type === "powerup") {
           const pulse = Math.sin(gameState.time * 5) * 10 + 20;
-          ctx.shadowBlur = pulse;
+          ctx.shadowBlur = 0;
           ctx.strokeStyle = d.color;
           ctx.lineWidth = 3;
           ctx.beginPath();
           ctx.arc(0, 0, d.rad + 5, 0, Math.PI * 2);
           ctx.stroke();
         } else {
-          ctx.shadowBlur = 10;
+          ctx.shadowBlur = 0;
         }
 
         ctx.fill(getDiamondPath(d.rad));
@@ -6793,7 +6782,7 @@ const Index = () => {
               : `rgba(239, 68, 68, ${pulse * intensity})`;
           ctx.lineWidth = e.explosionTimer < 0.5 ? 4 : 3;
           ctx.shadowColor = e.explosionTimer < 0.5 ? "#ffc300" : "#ef4444";
-          ctx.shadowBlur = 20 * pulse;
+          ctx.shadowBlur = 0;
           ctx.beginPath();
           ctx.arc(e.x, e.y, warningRadius, 0, Math.PI * 2);
           ctx.stroke();
@@ -6863,7 +6852,7 @@ const Index = () => {
         } else if (b.chain) {
           // Efecto eléctrico
           glowSize = 15;
-          ctx.shadowBlur = 20;
+          ctx.shadowBlur = 0;
           ctx.shadowColor = "#2e86c1";
         } else if (b.fire) {
           // Efecto de fuego
@@ -6889,9 +6878,9 @@ const Index = () => {
         // Crítico: partículas adicionales y glow
         if (b.isCrit) {
           glowSize *= 1.5;
-          ctx.shadowBlur = glowSize * 2;
+          ctx.shadowBlur = 0;
         } else {
-          ctx.shadowBlur = glowSize;
+          ctx.shadowBlur = 0;
         }
 
         ctx.beginPath();
@@ -6922,7 +6911,7 @@ const Index = () => {
 
       if (isRage) {
         ctx.shadowColor = playerAccent;
-        ctx.shadowBlur = 40;
+        ctx.shadowBlur = 0;
         ctx.strokeStyle = playerAccent;
         ctx.lineWidth = 3;
         ctx.beginPath();
@@ -6932,7 +6921,7 @@ const Index = () => {
 
       ctx.fillStyle = playerAccent;
       ctx.shadowColor = playerGlow;
-      ctx.shadowBlur = isRage ? 32 : 20;
+      ctx.shadowBlur = 0;
       ctx.beginPath();
       ctx.arc(gameState.player.x, gameState.player.y, gameState.player.rad, 0, Math.PI * 2);
       ctx.fill();
@@ -6941,17 +6930,19 @@ const Index = () => {
 
       // Powerup indicators
       let indicatorY = gameState.player.y - gameState.player.rad - 30;
-        if (gameState.player.tempMagnetTimer > 0) {
-          ctx.fillStyle = "#5dbb63";
+      if (gameState.player.tempMagnetTimer > 0) {
+        ctx.fillStyle = "#5dbb63";
         ctx.font = "bold 12px system-ui";
         ctx.textAlign = "center";
-        ctx.fillText(`🧲 ${Math.ceil(gameState.player.tempMagnetTimer)}s`, gameState.player.x, indicatorY);
+        const magnetLabel = currentLanguage === "es" ? "IMÁN" : "MAGNET";
+        ctx.fillText(`${magnetLabel} ${Math.ceil(gameState.player.tempMagnetTimer)}s`, gameState.player.x, indicatorY);
         indicatorY -= 15;
       }
       if (gameState.player.rageTimer > 0) {
         ctx.fillStyle = playerAccent;
         ctx.font = "bold 12px system-ui";
-        ctx.fillText(`⚡ ${Math.ceil(gameState.player.rageTimer)}s`, gameState.player.x, indicatorY);
+        const rageLabel = currentLanguage === "es" ? "FURIA" : "RAGE";
+        ctx.fillText(`${rageLabel} ${Math.ceil(gameState.player.rageTimer)}s`, gameState.player.x, indicatorY);
       }
 
       if (overlaySupportedRef.current && overlayWorkerRef.current) {
@@ -7043,7 +7034,7 @@ const Index = () => {
         ctx.strokeStyle = UI_COLORS.healthHigh;
         ctx.lineWidth = 8;
         ctx.shadowColor = UI_COLORS.healthHigh;
-        ctx.shadowBlur = 20;
+        ctx.shadowBlur = 0;
         ctx.beginPath();
         ctx.arc(centerX, centerY, radius, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress);
         ctx.stroke();
@@ -7117,7 +7108,7 @@ const Index = () => {
           ctx.font = "bold 48px system-ui";
           ctx.textAlign = "center";
           ctx.shadowColor = UI_COLORS.healthHigh;
-          ctx.shadowBlur = 30 * pulse;
+          ctx.shadowBlur = 0;
           ctx.fillText("Has caído en la horda...", W / 2, H / 2 - 80);
           ctx.shadowBlur = 0;
 
@@ -7131,7 +7122,7 @@ const Index = () => {
             ctx.fillStyle = UI_COLORS.ammo;
             ctx.font = "bold 56px system-ui";
             ctx.shadowColor = UI_COLORS.ammo;
-            ctx.shadowBlur = 20 * pulse;
+            ctx.shadowBlur = 0;
             ctx.fillText(`Tiempo sobrevivido: ${mm}:${ss}`, W / 2, H / 2 + 20);
             ctx.shadowBlur = 0;
           }
@@ -7162,7 +7153,7 @@ const Index = () => {
         ctx.strokeStyle = UI_COLORS.healthHigh;
         ctx.lineWidth = 4;
         ctx.shadowColor = UI_COLORS.healthHigh;
-        ctx.shadowBlur = 30;
+        ctx.shadowBlur = 0;
         ctx.strokeRect(menuX, menuY, menuW, menuH);
         ctx.shadowBlur = 0;
 
@@ -7171,7 +7162,7 @@ const Index = () => {
         ctx.font = "bold 64px system-ui";
         ctx.textAlign = "center";
         ctx.shadowColor = UI_COLORS.healthHigh;
-        ctx.shadowBlur = 20;
+        ctx.shadowBlur = 0;
         ctx.fillText(t.gameOver, W / 2, menuY + 90);
         ctx.shadowBlur = 0;
 
@@ -7194,7 +7185,7 @@ const Index = () => {
         ctx.font = "bold 28px system-ui";
         ctx.fillStyle = UI_COLORS.accent;
         ctx.textAlign = "left";
-        ctx.fillText("📊 " + t.stats, leftCol, contentY);
+        ctx.fillText(t.stats, leftCol, contentY);
         contentY += 60;
 
         ctx.font = "24px system-ui";
@@ -7253,14 +7244,14 @@ const Index = () => {
         ctx.strokeStyle = textPrimary;
         ctx.lineWidth = 3;
         ctx.shadowColor = UI_COLORS.healthHigh;
-        ctx.shadowBlur = 20;
+        ctx.shadowBlur = 0;
         ctx.stroke();
         ctx.shadowBlur = 0;
 
         ctx.fillStyle = textPrimary;
         ctx.font = "bold 32px system-ui";
         ctx.textAlign = "center";
-        ctx.fillText("🔄 " + t.playAgain, btnX + btnW / 2, btnY + btnH / 2 + 12);
+        ctx.fillText(t.playAgain, btnX + btnW / 2, btnY + btnH / 2 + 12);
 
         // Hint de teclas
         ctx.fillStyle = textSecondary;
@@ -7301,7 +7292,7 @@ const Index = () => {
         bgGradient.addColorStop(1, "rgba(24, 24, 24, 0.92)");
         ctx.fillStyle = bgGradient;
         ctx.shadowColor = pauseGlow;
-        ctx.shadowBlur = scaleValue(36);
+        ctx.shadowBlur = 0;
         ctx.fill();
         ctx.shadowBlur = 0;
         ctx.strokeStyle = pauseAccent;
@@ -7315,8 +7306,8 @@ const Index = () => {
         ctx.font = getScaledFont(32, "800");
         ctx.textAlign = "center";
         ctx.shadowColor = pauseGlow;
-        ctx.shadowBlur = scaleValue(15);
-        ctx.fillText("⏸  " + t.paused.toUpperCase(), W / 2, headerY);
+        ctx.shadowBlur = 0;
+        ctx.fillText(t.paused.toUpperCase(), W / 2, headerY);
         ctx.shadowBlur = 0;
 
         // Quick stats grid
@@ -7326,10 +7317,11 @@ const Index = () => {
           const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
           const seconds = String(totalSeconds % 60).padStart(2, "0");
 
+          const timeLabel = currentLanguage === "es" ? "TIEMPO" : "TIME";
           const stats = [
             { label: t.wave, value: `${gameState.wave}`, color: UI_COLORS.shield },
             { label: t.level, value: `${gameState.level}`, color: UI_COLORS.ammo },
-            { label: "⏱️", value: `${minutes}:${seconds}`, color: UI_COLORS.xp },
+            { label: timeLabel, value: `${minutes}:${seconds}`, color: UI_COLORS.xp },
           ];
 
           const statBoxW = (menuW - padding * 2 - 20 * scale) / 3;
@@ -7393,7 +7385,7 @@ const Index = () => {
           ctx.strokeStyle = `${UI_COLORS.shield}aa`;
           ctx.lineWidth = Math.max(1.5, 2 * scale);
           ctx.shadowColor = `${UI_COLORS.shield}55`;
-          ctx.shadowBlur = scaleValue(16);
+          ctx.shadowBlur = 0;
           ctx.stroke();
           ctx.shadowBlur = 0;
           ctx.restore();
@@ -7476,7 +7468,7 @@ const Index = () => {
             ctx.fillStyle = gradient;
             ctx.fill();
             ctx.lineWidth = Math.max(1.5, 1.8 * scale);
-            ctx.shadowBlur = scaleValue(active ? 18 : 10);
+            ctx.shadowBlur = 0;
             ctx.stroke();
             ctx.shadowBlur = 0;
             ctx.restore();
@@ -7516,7 +7508,7 @@ const Index = () => {
         ctx.strokeStyle = `${pauseAccent}aa`;
         ctx.lineWidth = Math.max(2, 2 * scale);
         ctx.shadowColor = pauseGlow;
-        ctx.shadowBlur = scaleValue(15);
+        ctx.shadowBlur = 0;
         ctx.stroke();
         ctx.shadowBlur = 0;
         ctx.restore();
@@ -7539,18 +7531,14 @@ const Index = () => {
         ctx.strokeStyle = gameState.pauseMenuAudioOpen ? `${UI_COLORS.shield}cc` : `${UI_COLORS.shield}88`;
         ctx.lineWidth = Math.max(1.5, 1.8 * scale);
         ctx.shadowColor = `${UI_COLORS.shield}55`;
-        ctx.shadowBlur = scaleValue(gameState.pauseMenuAudioOpen ? 18 : 12);
+        ctx.shadowBlur = 0;
         ctx.stroke();
         ctx.shadowBlur = 0;
         ctx.restore();
 
         ctx.fillStyle = textPrimary;
         ctx.font = getScaledFont(18, "600");
-        ctx.fillText(
-          `${gameState.pauseMenuAudioOpen ? "🎚️" : "🎧"}  ${t.pauseMenu.audio}`,
-          W / 2,
-          audioY + buttonH / 2 + scaleValue(6),
-        );
+        ctx.fillText(t.pauseMenu.audio, W / 2, audioY + buttonH / 2 + scaleValue(6));
 
         // Language button
         const languageY = languageBtn.y;
@@ -7565,7 +7553,7 @@ const Index = () => {
         ctx.strokeStyle = `${UI_COLORS.minimap}aa`;
         ctx.lineWidth = Math.max(1.5, 1.8 * scale);
         ctx.shadowColor = `${UI_COLORS.minimap}55`;
-        ctx.shadowBlur = scaleValue(12);
+        ctx.shadowBlur = 0;
         ctx.stroke();
         ctx.shadowBlur = 0;
         ctx.restore();
@@ -7596,7 +7584,7 @@ const Index = () => {
 
         ctx.fillStyle = textPrimary;
         ctx.font = getScaledFont(18, "600");
-        ctx.fillText("🔄  " + t.restart, W / 2, restartY + buttonH / 2 + scaleValue(6));
+        ctx.fillText(t.restart, W / 2, restartY + buttonH / 2 + scaleValue(6));
 
         ctx.textAlign = "left";
         ctx.restore();
@@ -7616,7 +7604,7 @@ const Index = () => {
         ctx.font = `bold ${120 * (1 + scale * 0.3)}px system-ui`;
         ctx.textAlign = "center";
         ctx.shadowColor = UI_COLORS.ammo;
-        ctx.shadowBlur = 40;
+        ctx.shadowBlur = 0;
         ctx.fillText(countdownNumber.toString(), W / 2, H / 2 + 20);
         ctx.shadowBlur = 0;
 
