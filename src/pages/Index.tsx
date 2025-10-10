@@ -311,7 +311,7 @@ const Index = () => {
         weapons: [WEAPONS[0]],
         tomes: [] as Tome[],
         items: [] as Item[],
-        itemFlags: {} as Record<string, boolean>,
+        itemStacks: {} as Record<string, number>,
         stats: {
           damageMultiplier: 1,
           speedMultiplier: 1,
@@ -330,7 +330,7 @@ const Index = () => {
           damageReduction: 0,
           powerupDuration: 1,
           xpBonus: 0,
-          firstHitImmuneUsed: false,
+          firstHitImmuneChargesUsed: 0,
           chaosDamage: false,
           solarGauntletKills: 0,
           bloodstoneKills: 0,
@@ -493,6 +493,8 @@ const Index = () => {
       },
       language,
     };
+
+    const getItemStacks = (id: string) => gameState.player.itemStacks[id] ?? 0;
 
     gameStateRef.current = gameState;
 
@@ -782,7 +784,7 @@ const Index = () => {
       gameState.player.weapons = [{ ...WEAPONS[0] }];
       gameState.player.tomes = [];
       gameState.player.items = [];
-      gameState.player.itemFlags = {};
+      gameState.player.itemStacks = {};
       gameState.player.stats = {
         damageMultiplier: 1,
         speedMultiplier: 1,
@@ -801,7 +803,7 @@ const Index = () => {
         damageReduction: 0,
         powerupDuration: 1,
         xpBonus: 0,
-        firstHitImmuneUsed: false,
+        firstHitImmuneChargesUsed: 0,
         chaosDamage: false,
         solarGauntletKills: 0,
         bloodstoneKills: 0,
@@ -951,7 +953,8 @@ const Index = () => {
       }
 
       // Horde Totem: +1 enemigo adicional spawn
-      const spawnCount = gameState.player.itemFlags.hordetotem ? 2 : 1;
+      const hordeStacks = gameState.player.itemStacks.hordetotem ?? 0;
+      const spawnCount = 1 + hordeStacks;
 
       for (let spawnIdx = 0; spawnIdx < spawnCount; spawnIdx++) {
         const roll = Math.random();
@@ -1412,7 +1415,8 @@ const Index = () => {
 
       // Amuleto del Caos: daño aleatorio +10% a +50%
       if (gameState.player.stats.chaosDamage) {
-        const chaosBonus = 1 + (Math.random() * 0.4 + 0.1); // 1.1x a 1.5x
+        const chaosStacks = Math.max(1, getItemStacks("chaosamuleto"));
+        const chaosBonus = 1 + (Math.random() * 0.4 + 0.1) * chaosStacks; // 1.1x a 1.5x por stack
         baseDamage *= chaosBonus;
       }
 
@@ -1593,7 +1597,13 @@ const Index = () => {
     }
 
     function chooseChestItem(): Item | null {
-      const availableItems = ITEMS.filter((item) => !gameState.player.itemFlags[item.id]);
+      const availableItems = ITEMS.filter((item) => {
+        const currentStacks = gameState.player.itemStacks[item.id] ?? 0;
+        if (item.maxStacks !== undefined) {
+          return currentStacks < item.maxStacks;
+        }
+        return true;
+      });
 
       if (availableItems.length === 0) {
         return null;
@@ -1923,25 +1933,27 @@ const Index = () => {
 
       // Items siempre disponibles (pero filtrar los que ya tiene)
       for (const item of ITEMS) {
-        // No agregar si ya lo tiene
-        if (!gameState.player.items.find((it: Item) => it.id === item.id)) {
-          // Control de legendarios: máximo uno cada 3 waves
-          if (item.rarity === "legendary") {
-            // Solo permitir legendarios en waves múltiplos de 3
-            if (gameState.wave % 3 === 0) {
-              availableUpgrades.push({
-                type: "item",
-                data: item,
-                rarity: item.rarity,
-              });
-            }
-          } else {
+        const currentStacks = gameState.player.itemStacks[item.id] ?? 0;
+        if (item.maxStacks !== undefined && currentStacks >= item.maxStacks) {
+          continue;
+        }
+
+        // Control de legendarios: máximo uno cada 3 waves
+        if (item.rarity === "legendary") {
+          // Solo permitir legendarios en waves múltiplos de 3
+          if (gameState.wave % 3 === 0) {
             availableUpgrades.push({
               type: "item",
               data: item,
               rarity: item.rarity,
             });
           }
+        } else {
+          availableUpgrades.push({
+            type: "item",
+            data: item,
+            rarity: item.rarity,
+          });
         }
       }
 
@@ -2063,12 +2075,13 @@ const Index = () => {
     }
 
     function grantItemToPlayer(item: Item, options: { notify?: boolean; playSound?: boolean } = {}) {
-      if (gameState.player.itemFlags[item.id]) {
+      const currentStacks = gameState.player.itemStacks[item.id] ?? 0;
+      if (item.maxStacks !== undefined && currentStacks >= item.maxStacks) {
         return false;
       }
 
-      gameState.player.items.push(item);
-      gameState.player.itemFlags[item.id] = true;
+      gameState.player.items.push({ ...item });
+      gameState.player.itemStacks[item.id] = currentStacks + 1;
 
       applyItemEffect(item);
 
@@ -2080,7 +2093,8 @@ const Index = () => {
         const currentLanguage = (gameState.language ?? language) as Language;
         const itemText = getItemText(item, currentLanguage);
         const prefix = currentLanguage === "es" ? "Nuevo ítem" : "New item";
-        gameState.itemNotification = `${prefix}: ${itemText.name}`;
+        const stackLabel = currentStacks > 0 ? ` x${currentStacks + 1}` : "";
+        gameState.itemNotification = `${prefix}: ${itemText.name}${stackLabel}`;
         gameState.itemNotificationTimer = 3;
       }
 
@@ -2655,8 +2669,8 @@ const Index = () => {
         gameState.waveKills = 0;
         gameState.waveEnemiesSpawned = 0;
 
-        // Reset first hit immune para la nueva wave
-        gameState.player.stats.firstHitImmuneUsed = false;
+          // Reset first hit immune para la nueva wave
+          gameState.player.stats.firstHitImmuneChargesUsed = 0;
 
         // Sistema de oleadas estilo COD Zombies - Escalado exponencial
         // POST-WAVE 13: Cantidad de enemigos FIJA, solo aumenta poder
@@ -3170,7 +3184,13 @@ const Index = () => {
 
             if (h.progress >= h.required) {
               // ¡Recompensa!
-              const availableItems = ITEMS.filter((item) => !gameState.player.itemFlags[item.id]);
+              const availableItems = ITEMS.filter((item) => {
+                const currentStacks = gameState.player.itemStacks[item.id] ?? 0;
+                if (item.maxStacks !== undefined) {
+                  return currentStacks < item.maxStacks;
+                }
+                return true;
+              });
               if (availableItems.length > 0) {
                 const rewardItem = availableItems[Math.floor(Math.random() * availableItems.length)];
                 grantItemToPlayer(rewardItem, { notify: true, playSound: true });
@@ -4043,9 +4063,14 @@ const Index = () => {
                 points = 500;
                 xpBundles = 10;
                 // Drop garantizado: item legendario
-                const legendaryItems = ITEMS.filter(
-                  (it) => it.rarity === "legendary" && !gameState.player.items.find((pi: Item) => pi.id === it.id),
-                );
+                const legendaryItems = ITEMS.filter((it) => {
+                  if (it.rarity !== "legendary") return false;
+                  const currentStacks = gameState.player.itemStacks[it.id] ?? 0;
+                  if (it.maxStacks !== undefined && currentStacks >= it.maxStacks) {
+                    return false;
+                  }
+                  return true;
+                });
                 if (legendaryItems.length > 0) {
                   const randomLegendary = legendaryItems[Math.floor(Math.random() * legendaryItems.length)];
                   grantItemToPlayer(randomLegendary, { notify: true, playSound: true });
@@ -4090,8 +4115,9 @@ const Index = () => {
                 let xpValue = e.isMiniBoss ? 30 : e.enemyType === "strong" ? 5 : e.enemyType === "medium" ? 3 : 2;
 
                 // Horde Totem: +2 XP por kill
-                if (gameState.player.itemFlags.hordetotem) {
-                  xpValue += 2;
+                const hordeStacksForXp = getItemStacks("hordetotem");
+                if (hordeStacksForXp > 0) {
+                  xpValue += 2 * hordeStacksForXp;
                 }
 
                 dropXP(e.x + offsetX, e.y + offsetY, xpValue);
@@ -4099,7 +4125,8 @@ const Index = () => {
 
               // Drop de curación (5% de probabilidad - más raro)
               const healRoll = Math.random();
-              const luckMultiplier = gameState.player.itemFlags.luck ? 1.5 : 1;
+              const luckStacks = getItemStacks("luck");
+              const luckMultiplier = luckStacks > 0 ? 1 + 0.5 * luckStacks : 1;
 
               if (healRoll < 0.05 * luckMultiplier) {
                 dropHeal(e.x, e.y);
@@ -4123,9 +4150,11 @@ const Index = () => {
               }
 
               // Solar Gauntlet: cada 10 kills dispara proyectil masivo
-              if (gameState.player.itemFlags.solargauntlet) {
+              const solarStacks = getItemStacks("solargauntlet");
+              if (solarStacks > 0) {
                 gameState.player.stats.solarGauntletKills++;
-                if (gameState.player.stats.solarGauntletKills >= 10) {
+                const requiredKills = Math.max(2, 10 - (solarStacks - 1) * 2);
+                if (gameState.player.stats.solarGauntletKills >= requiredKills) {
                   gameState.player.stats.solarGauntletKills = 0;
                   // Disparar proyectil masivo en todas direcciones
                   for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
@@ -4135,7 +4164,7 @@ const Index = () => {
                       dir: angle,
                       spd: 15,
                       life: 3,
-                      damage: gameState.player.stats.damageMultiplier * 50,
+                      damage: gameState.player.stats.damageMultiplier * 50 * solarStacks,
                       color: "#fbbf24",
                       bounces: 0,
                       bounceOnEnemies: false,
@@ -4163,11 +4192,14 @@ const Index = () => {
               }
 
               // Bloodstone: cada 30 kills recupera 5 HP
-              if (gameState.player.itemFlags.bloodstone) {
+              const bloodstoneStacks = getItemStacks("bloodstone");
+              if (bloodstoneStacks > 0) {
                 gameState.player.stats.bloodstoneKills++;
-                if (gameState.player.stats.bloodstoneKills >= 30) {
+                const killsRequired = Math.max(10, 30 - (bloodstoneStacks - 1) * 5);
+                if (gameState.player.stats.bloodstoneKills >= killsRequired) {
                   gameState.player.stats.bloodstoneKills = 0;
-                  gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + 5);
+                  const healAmount = 5 * bloodstoneStacks;
+                  gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + healAmount);
                   // Efecto visual de curación con límite
                   if (gameState.particles.length < gameState.maxParticles - 12) {
                     for (let j = 0; j < 12; j++) {
@@ -4332,10 +4364,10 @@ const Index = () => {
             }
 
             // First Hit Immune: revisar si es el primer golpe de la wave
-            const hasFirstHitImmune = gameState.player.itemFlags.ballistichelmet;
-            if (hasFirstHitImmune && !gameState.player.stats.firstHitImmuneUsed) {
+            const helmetStacks = getItemStacks("ballistichelmet");
+            if (helmetStacks > gameState.player.stats.firstHitImmuneChargesUsed) {
               // Inmunidad al primer golpe
-              gameState.player.stats.firstHitImmuneUsed = true;
+              gameState.player.stats.firstHitImmuneChargesUsed++;
               gameState.player.ifr = gameState.player.ifrDuration;
               // Efecto visual de inmunidad con límite
               if (gameState.particles.length < gameState.maxParticles - 15) {
@@ -4386,14 +4418,17 @@ const Index = () => {
 
               // Escudo Reactivo: empuja enemigos
               if (gameState.player.stats.reactiveShieldActive) {
+                const reactiveStacks = Math.max(1, getItemStacks("reactiveshield"));
+                const reactiveRadius = 150 * (1 + 0.1 * (reactiveStacks - 1));
+                const reactivePush = 50 * reactiveStacks;
                 for (const enemy of gameState.enemies) {
                   const dist = Math.hypot(enemy.x - gameState.player.x, enemy.y - gameState.player.y);
-                  if (dist < 150) {
+                  if (dist < reactiveRadius) {
                     const pushDir = Math.atan2(enemy.y - gameState.player.y, enemy.x - gameState.player.x);
-                    enemy.x += Math.cos(pushDir) * 50;
-                    enemy.y += Math.sin(pushDir) * 50;
+                    enemy.x += Math.cos(pushDir) * reactivePush;
+                    enemy.y += Math.sin(pushDir) * reactivePush;
                     // Daño a enemigos empujados
-                    enemy.hp -= gameState.player.stats.damageMultiplier * 5;
+                    enemy.hp -= gameState.player.stats.damageMultiplier * 5 * reactiveStacks;
                   }
                 }
                 // Efecto visual de onda con límite
