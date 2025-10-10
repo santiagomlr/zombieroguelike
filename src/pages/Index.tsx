@@ -1084,10 +1084,7 @@ const Index = () => {
       const categoryImpact = pickImpactSoundForCategories(enemyCategories);
       if (categoryImpact) {
         audioManager.playSfx(categoryImpact);
-        return;
       }
-
-      playHitSound();
     };
 
     const trackEnemyCategoryHit = (
@@ -5547,8 +5544,8 @@ const Index = () => {
               continue; // No hacer daño de contacto normal, solo explosión
             }
 
-            const impactCategories: EnemyCategory[] = [];
-            trackEnemyCategoryHit(e as EnemyWithCategory, impactCategories);
+            const reactiveImpactCategories: EnemyCategory[] = [];
+            let playerWasHit = false;
 
             // First Hit Immune: revisar si es el primer golpe de la wave
             const helmetStacks = getItemStacks("ballistichelmet");
@@ -5574,6 +5571,7 @@ const Index = () => {
             } else if (gameState.player.shield > 0) {
               gameState.player.shield--;
               gameState.player.ifr = gameState.player.ifrDuration;
+              playerWasHit = true;
               // Shield break particles con límite
               if (gameState.particles.length < gameState.maxParticles - 12) {
                 for (let j = 0; j < 12; j++) {
@@ -5602,6 +5600,7 @@ const Index = () => {
               const nextHp = Math.max(0, Math.min(Number(gameState.player.maxhp) || 0, safeCurrentHp - dmg));
               gameState.player.hp = nextHp;
               const playerDied = nextHp <= 0;
+              playerWasHit = true;
               gameState.player.ifr = gameState.player.ifrDuration;
 
               // Escudo Reactivo: empuja enemigos
@@ -5617,7 +5616,7 @@ const Index = () => {
                     enemy.y += Math.sin(pushDir) * reactivePush;
                     // Daño a enemigos empujados
                     enemy.hp -= gameState.player.stats.damageMultiplier * 5 * reactiveStacks;
-                    trackEnemyCategoryHit(enemy as EnemyWithCategory, impactCategories);
+                    trackEnemyCategoryHit(enemy as EnemyWithCategory, reactiveImpactCategories);
                   }
                 }
                 // Efecto visual de onda con límite
@@ -5654,11 +5653,17 @@ const Index = () => {
               }
             }
 
+            if (playerWasHit) {
+              playHitSound();
+            }
+
             if (gameState.player.hp <= 0) {
               endGame();
             }
 
-            playImpactSoundForWeapon(undefined, impactCategories);
+            if (reactiveImpactCategories.length > 0) {
+              playImpactSoundForWeapon(undefined, reactiveImpactCategories);
+            }
           }
         }
       }
@@ -5670,12 +5675,19 @@ const Index = () => {
           const d = Math.hypot(b.x - gameState.player.x, b.y - gameState.player.y);
           if (d < gameState.player.rad + 4) {
             if (gameState.player.ifr <= 0) {
+              let playerWasHit = false;
               if (gameState.player.shield > 0) {
                 gameState.player.shield--;
+                playerWasHit = true;
               } else {
                 gameState.player.hp -= b.damage;
+                playerWasHit = true;
               }
               gameState.player.ifr = gameState.player.ifrDuration;
+
+              if (playerWasHit) {
+                playHitSound();
+              }
 
               if (gameState.player.hp <= 0) {
                 endGame();
