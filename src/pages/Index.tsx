@@ -1232,25 +1232,54 @@ const Index = () => {
     window.addEventListener("resize", handleResize);
 
     // Funciones del juego
-    function spawnEnemy() {
+    const DEFAULT_SPAWN_DISTANCE_MIN = 450;
+    const DEFAULT_SPAWN_DISTANCE_MAX = 650;
+    const RESPAWN_DISTANCE_MIN = 320;
+    const RESPAWN_DISTANCE_MAX = 480;
+    const MAX_DISTANCE_FROM_PLAYER = 1200;
+    const MAX_DISTANCE_FROM_PLAYER_SQ = MAX_DISTANCE_FROM_PLAYER * MAX_DISTANCE_FROM_PLAYER;
+
+    function getSpawnPositionAroundPlayer(
+      enemyRadius: number,
+      options: { minDistance?: number; maxDistance?: number } = {},
+    ) {
       const worldW = gameState.worldWidth;
       const worldH = gameState.worldHeight;
-      const side = Math.floor(Math.random() * 4);
-      let x, y;
-      if (side === 0) {
-        x = Math.random() * worldW;
-        y = -30;
-      } else if (side === 1) {
-        x = worldW + 30;
-        y = Math.random() * worldH;
-      } else if (side === 2) {
-        x = Math.random() * worldW;
-        y = worldH + 30;
-      } else {
-        x = -30;
-        y = Math.random() * worldH;
+      const player = gameState.player;
+      const margin = enemyRadius + 10;
+      const minDistance = options.minDistance ?? DEFAULT_SPAWN_DISTANCE_MIN;
+      const maxDistance = Math.max(minDistance, options.maxDistance ?? DEFAULT_SPAWN_DISTANCE_MAX);
+
+      if (!player) {
+        return {
+          x: clamp(worldW / 2, margin, worldW - margin),
+          y: clamp(worldH / 2, margin, worldH - margin),
+        };
       }
 
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const angle = Math.random() * Math.PI * 2;
+        const distance = minDistance + Math.random() * (maxDistance - minDistance);
+        const x = player.x + Math.cos(angle) * distance;
+        const y = player.y + Math.sin(angle) * distance;
+
+        if (x >= margin && x <= worldW - margin && y >= margin && y <= worldH - margin) {
+          return { x, y };
+        }
+      }
+
+      const fallbackAngle = Math.random() * Math.PI * 2;
+      const fallbackDistance = minDistance;
+      let fallbackX = player ? player.x + Math.cos(fallbackAngle) * fallbackDistance : worldW / 2;
+      let fallbackY = player ? player.y + Math.sin(fallbackAngle) * fallbackDistance : worldH / 2;
+
+      fallbackX = clamp(fallbackX, margin, worldW - margin);
+      fallbackY = clamp(fallbackY, margin, worldH - margin);
+
+      return { x: fallbackX, y: fallbackY };
+    }
+
+    function spawnEnemy() {
       // Horde Totem: +1 enemigo adicional spawn
       const hordeStacks = gameState.player.itemStacks.hordetotem ?? 0;
       const spawnCount = 1 + hordeStacks;
@@ -1548,9 +1577,11 @@ const Index = () => {
         const scaledHp = Math.floor(baseHp * hpMultiplier);
         rad = scaleEnemyRadius(rad);
 
+        const spawnPos = getSpawnPositionAroundPlayer(rad);
+
         const enemy = {
-          x,
-          y,
+          x: spawnPos.x + (Math.random() - 0.5) * 20,
+          y: spawnPos.y + (Math.random() - 0.5) * 20,
           rad,
           hp: scaledHp,
           maxhp: scaledHp,
@@ -1579,8 +1610,11 @@ const Index = () => {
     }
 
     function spawnBoss() {
-      const x = gameState.worldWidth / 2;
-      const y = -100;
+      const bossRad = scaleEnemyRadius(40);
+      const { x, y } = getSpawnPositionAroundPlayer(bossRad, {
+        minDistance: DEFAULT_SPAWN_DISTANCE_MAX,
+        maxDistance: DEFAULT_SPAWN_DISTANCE_MAX + 200,
+      });
 
       // Boss HP escalado agresivo estilo COD Zombies
       const baseHp = 150;
@@ -1590,7 +1624,7 @@ const Index = () => {
       gameState.enemies.push({
         x,
         y,
-        rad: scaleEnemyRadius(40),
+        rad: bossRad,
         hp: scaledHp,
         maxhp: scaledHp,
         spd: applyEnemySpeedModifier(0.8),
@@ -1612,23 +1646,11 @@ const Index = () => {
     }
 
     function spawnMiniBoss() {
-      const worldW = gameState.worldWidth;
-      const worldH = gameState.worldHeight;
-      const side = Math.floor(Math.random() * 4);
-      let x, y;
-      if (side === 0) {
-        x = Math.random() * worldW;
-        y = -40;
-      } else if (side === 1) {
-        x = worldW + 40;
-        y = Math.random() * worldH;
-      } else if (side === 2) {
-        x = Math.random() * worldW;
-        y = worldH + 40;
-      } else {
-        x = -40;
-        y = Math.random() * worldH;
-      }
+      const miniBossRad = scaleEnemyRadius(28);
+      const { x, y } = getSpawnPositionAroundPlayer(miniBossRad, {
+        minDistance: DEFAULT_SPAWN_DISTANCE_MAX - 50,
+        maxDistance: DEFAULT_SPAWN_DISTANCE_MAX + 120,
+      });
 
       // Mini-boss HP escalado estilo COD Zombies
       const baseHp = 25;
@@ -1638,7 +1660,7 @@ const Index = () => {
       gameState.enemies.push({
         x,
         y,
-        rad: scaleEnemyRadius(28),
+        rad: miniBossRad,
         hp: scaledHp,
         maxhp: scaledHp,
         spd: applyEnemySpeedModifier(1.0),
@@ -4234,7 +4256,19 @@ const Index = () => {
         if (!e.isBoss) {
           const dx = gameState.player.x - e.x;
           const dy = gameState.player.y - e.y;
-          const d = Math.hypot(dx, dy) || 1;
+          const distanceSq = dx * dx + dy * dy;
+
+          if (distanceSq > MAX_DISTANCE_FROM_PLAYER_SQ) {
+            const { x: respawnX, y: respawnY } = getSpawnPositionAroundPlayer(e.rad ?? scaleEnemyRadius(12), {
+              minDistance: RESPAWN_DISTANCE_MIN,
+              maxDistance: RESPAWN_DISTANCE_MAX,
+            });
+            e.x = respawnX;
+            e.y = respawnY;
+            continue;
+          }
+
+          const d = Math.sqrt(distanceSq) || 1;
 
           // ☢️ Bonus de velocidad si está en zona radiactiva (lluvia)
           let speedBonus = 1;
