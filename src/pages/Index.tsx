@@ -25,15 +25,17 @@ type PauseMenuTab = "home" | "settings" | "stats";
 
 const PAUSE_MENU_TABS: PauseMenuTab[] = ["home", "settings", "stats"];
 
+const CHEST_DROP_RATE = 0.07;
+
 const getPauseMenuLayout = (W: number, H: number) => {
   const scale = Math.min(1, Math.max(0.7, Math.min(W / 1280, H / 720)));
-  
+
   const menuW = Math.min(600, Math.max(400, W * 0.75)) * scale;
   const menuH = Math.min(620, Math.max(480, H * 0.8)) * scale;
   const menuX = W / 2 - menuW / 2;
   const menuY = H / 2 - menuH / 2;
   const padding = 32 * scale;
-  
+
   return {
     menuX,
     menuY,
@@ -44,9 +46,7 @@ const getPauseMenuLayout = (W: number, H: number) => {
   };
 };
 
-const getPauseMenuContentMetrics = (
-  layout: ReturnType<typeof getPauseMenuLayout>
-) => {
+const getPauseMenuContentMetrics = (layout: ReturnType<typeof getPauseMenuLayout>) => {
   return {
     scale: layout.scale,
   };
@@ -71,8 +71,8 @@ const Index = () => {
   const [tutorialCompleted, setTutorialCompleted] = useState(false);
   const gameStateRef = useRef<any>(null);
   const resetGameRef = useRef<(() => void) | null>(null);
-  const prerenderedLogosRef = useRef<{[key: string]: HTMLCanvasElement}>({});
-  
+  const prerenderedLogosRef = useRef<{ [key: string]: HTMLCanvasElement }>({});
+
   const t = translations[language];
 
   useEffect(() => {
@@ -88,7 +88,7 @@ const Index = () => {
     canvas.height = H;
 
     const gameState = {
-      state: 'running' as 'running' | 'paused' | 'gameover',
+      state: "running" as "running" | "paused" | "gameover",
       player: {
         x: W / 2,
         y: H / 2,
@@ -313,31 +313,22 @@ const Index = () => {
 
     // Load enemy logo
     const enemyLogoImg = new Image();
-    enemyLogoImg.src = '/images/enemy-logo.png';
+    enemyLogoImg.src = "/images/enemy-logo.png";
     enemyLogoImg.onload = () => {
       gameState.enemyLogo = enemyLogoImg;
-      console.log('Enemy logo loaded successfully');
-      
+      console.log("Enemy logo loaded successfully");
+
       // Pre-render colored enemy logos for performance
-      const spawnEnemyColors = [
-        "#22c55e",
-        "#a855f7",
-        "#fbbf24",
-        "#16a34a",
-        "#9333ea",
-        "#f59e0b",
-        "#ef4444",
-        "#78716c",
-      ];
+      const spawnEnemyColors = ["#22c55e", "#a855f7", "#fbbf24", "#16a34a", "#9333ea", "#f59e0b", "#ef4444", "#78716c"];
 
       spawnEnemyColors.forEach((color) => {
         ensureTintedLogo(color);
       });
     };
     enemyLogoImg.onerror = () => {
-      console.error('Failed to load enemy logo');
+      console.error("Failed to load enemy logo");
     };
-    
+
     // Initialize Web Audio API
     try {
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -345,63 +336,63 @@ const Index = () => {
     } catch (e) {
       console.warn("Web Audio API not supported");
     }
-    
+
     // Initialize music system
     function initMusic() {
       if (!gameState.music) {
         const audio = new Audio();
         audio.volume = gameState.musicVolume;
         audio.loop = false;
-        
-        audio.addEventListener('ended', () => {
+
+        audio.addEventListener("ended", () => {
           // Pasar a la siguiente canción
           gameState.currentMusicIndex = (gameState.currentMusicIndex + 1) % gameState.musicTracks.length;
           playNextTrack();
         });
-        
+
         gameState.music = audio;
         // No auto-play, esperar a que el usuario haga click
       }
     }
-    
+
     function playNextTrack() {
       if (!gameState.music || !gameState.musicStarted) return;
-      
+
       const track = gameState.musicTracks[gameState.currentMusicIndex];
       gameState.music.src = track.path;
       gameState.music.volume = gameState.musicMuted ? 0 : gameState.musicVolume;
-      
+
       if (!gameState.musicMuted) {
-        gameState.music.play().catch(e => console.warn("Audio play failed:", e));
+        gameState.music.play().catch((e) => console.warn("Audio play failed:", e));
       }
-      
+
       // Mostrar notificación
       gameState.musicNotification = track.name;
       gameState.musicNotificationTimer = 3; // 3 segundos
     }
-    
+
     // Inicializar música pero sin auto-play
     initMusic();
-    
+
     // Sound effect functions
     const playSound = (frequency: number, duration: number, type: OscillatorType = "sine", volume: number = 0.3) => {
       if (!gameState.audioContext || gameState.sfxMuted) return;
       const oscillator = gameState.audioContext.createOscillator();
       const gainNode = gameState.audioContext.createGain();
-      
+
       oscillator.type = type;
       oscillator.frequency.setValueAtTime(frequency, gameState.audioContext.currentTime);
-      
+
       gainNode.gain.setValueAtTime(volume, gameState.audioContext.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(0.01, gameState.audioContext.currentTime + duration);
-      
+
       oscillator.connect(gainNode);
       gainNode.connect(gameState.audioContext.destination);
-      
+
       oscillator.start();
       oscillator.stop(gameState.audioContext.currentTime + duration);
     };
-    
+
     const playShootSound = () => playSound(200, 0.1, "square", 0.2);
     const playHitSound = () => playSound(100, 0.15, "sawtooth", 0.2);
     const playLevelUpSound = () => {
@@ -418,34 +409,34 @@ const Index = () => {
       setTimeout(() => playSound(500, 0.1, "sine", 0.25), 50);
       setTimeout(() => playSound(600, 0.15, "sine", 0.25), 100);
     };
-    
+
     // Game state management
     function endGame() {
-      if (gameState.state === 'gameover') return; // Ya está en game over
-      
-      gameState.state = 'gameover';
+      if (gameState.state === "gameover") return; // Ya está en game over
+
+      gameState.state = "gameover";
       gameState.player.hp = 0;
       gameState.gameOverTimer = 0; // No auto-restart, mostrar pantalla de game over
-      
+
       playDeathSound();
-      
+
       // Detener música normal y reproducir música de game over
       if (gameState.music) {
         gameState.music.pause();
       }
-      
+
       if (!gameState.gameOverMusic) {
         gameState.gameOverMusic = new Audio("/audio/Summer_Saxophone.mp3");
         gameState.gameOverMusic.loop = true;
       }
-      
+
       gameState.gameOverMusic.volume = gameState.musicMuted ? 0 : gameState.musicVolume;
       gameState.gameOverMusic.currentTime = 0;
       gameState.gameOverMusic.play().catch(() => {});
-      
-      console.log('Game Over');
+
+      console.log("Game Over");
     }
-    
+
     function resetGame() {
       // Limpiar arrays
       gameState.bullets.length = 0;
@@ -454,7 +445,7 @@ const Index = () => {
       gameState.drops.length = 0;
       gameState.particles.length = 0;
       gameState.hotspots.length = 0;
-      
+
       // Resetear jugador
       gameState.player.x = W / 2;
       gameState.player.y = H / 2;
@@ -498,7 +489,7 @@ const Index = () => {
         bloodstoneKills: 0,
         reactiveShieldActive: false,
       };
-      
+
       // Resetear juego
       gameState.score = 0;
       gameState.level = 1;
@@ -545,32 +536,32 @@ const Index = () => {
       gameState.fogZones = [];
       gameState.fogWarningZones = [];
       gameState.stormZone = null;
-      
+
       // Reset tutorial
       gameState.tutorialActive = true;
       gameState.tutorialStartTime = performance.now();
       setTutorialStep(0);
       setTutorialCompleted(false);
-      
+
       // Actualizar React state
       setScore(0);
       setLevel(1);
-      
+
       // Reset timers/flags
       gameState.gameOverTimer = 0;
-      
+
       // Cambiar a running
-      gameState.state = 'running';
+      gameState.state = "running";
     }
-    
+
     // Exponer resetGame al ref para usarlo desde el JSX
     resetGameRef.current = resetGame;
-    
+
     const handleKeyDown = (e: KeyboardEvent) => {
       gameState.keys[e.key.toLowerCase()] = true;
-      
+
       // Game Over: Enter para reiniciar inmediatamente
-      if (gameState.state === 'gameover' && (e.key === 'Enter' || e.key === 'r' || e.key === 'R')) {
+      if (gameState.state === "gameover" && (e.key === "Enter" || e.key === "r" || e.key === "R")) {
         if (gameState.gameOverMusic) {
           gameState.gameOverMusic.pause();
           gameState.gameOverMusic.currentTime = 0;
@@ -578,31 +569,31 @@ const Index = () => {
         resetGame();
         return;
       }
-      
+
       // Running: Sostener R para reiniciar (modo hold)
-      if (gameState.state === 'running' && e.key.toLowerCase() === 'r') {
+      if (gameState.state === "running" && e.key.toLowerCase() === "r") {
         // R key ya está siendo presionada, no hacer nada aquí
       }
-      
+
       // Escape para pausar/reanudar (solo en running o paused)
-      if (e.key === "Escape" && gameState.state !== 'gameover') {
-        if (gameState.state === 'running') {
-          gameState.state = 'paused';
-          gameState.pauseMenuTab = 'home';
+      if (e.key === "Escape" && gameState.state !== "gameover") {
+        if (gameState.state === "running") {
+          gameState.state = "paused";
+          gameState.pauseMenuTab = "home";
           gameState.pauseMenuAudioOpen = false;
           PAUSE_MENU_TABS.forEach((tab) => {
             gameState.pauseMenuScroll[tab] = 0;
           });
-        } else if (gameState.state === 'paused' && gameState.countdownTimer > 0) {
+        } else if (gameState.state === "paused" && gameState.countdownTimer > 0) {
           gameState.countdownTimer = 0;
-        } else if (gameState.state === 'paused' && !gameState.showUpgradeUI) {
+        } else if (gameState.state === "paused" && !gameState.showUpgradeUI) {
           // Iniciar countdown de 3 segundos
           gameState.countdownTimer = 3;
           gameState.pauseMenuAudioOpen = false;
         }
       }
     };
-    
+
     const handleKeyUp = (e: KeyboardEvent) => {
       gameState.keys[e.key.toLowerCase()] = false;
     };
@@ -626,347 +617,356 @@ const Index = () => {
     function spawnEnemy() {
       const side = Math.floor(Math.random() * 4);
       let x, y;
-      if (side === 0) { x = Math.random() * W; y = -30; }
-      else if (side === 1) { x = W + 30; y = Math.random() * H; }
-      else if (side === 2) { x = Math.random() * W; y = H + 30; }
-      else { x = -30; y = Math.random() * H; }
-      
+      if (side === 0) {
+        x = Math.random() * W;
+        y = -30;
+      } else if (side === 1) {
+        x = W + 30;
+        y = Math.random() * H;
+      } else if (side === 2) {
+        x = Math.random() * W;
+        y = H + 30;
+      } else {
+        x = -30;
+        y = Math.random() * H;
+      }
+
       // Horde Totem: +1 enemigo adicional spawn
       const spawnCount = gameState.player.itemFlags.hordetotem ? 2 : 1;
-      
-      for (let spawnIdx = 0; spawnIdx < spawnCount; spawnIdx++) {
-      const roll = Math.random();
-      const typeRoll = Math.random();
-      let enemyType: "strong" | "medium" | "weak" | "explosive" | "fast" | "tank" | "summoner";
-      let color: string;
-      let damage: number;
-      let baseHp: number;
-      let rad: number;
-      let spd: number;
-      let isElite = false;
-      let specialType: "explosive" | "fast" | "tank" | "summoner" | null = null;
-      
-      // Tipos especiales de enemigos (escalado estilo COD Zombies)
-      let specialChance = 0;
-      if (gameState.wave <= 3) {
-        specialChance = 0.05;
-      } else if (gameState.wave <= 7) {
-        specialChance = 0.15;
-      } else if (gameState.wave <= 12) {
-        specialChance = 0.25;
-      } else if (gameState.wave <= 18) {
-        specialChance = 0.35;
-      } else {
-        specialChance = 0.45;
-      }
-      
-      if (typeRoll < specialChance) {
-        const specialRoll = Math.random();
-        if (specialRoll < 0.25) {
-          specialType = "explosive";
-          enemyType = "explosive";
-          color = "#ef4444";
-          // NUEVO: Zombie Bomber - daño base MUY alto
-          let bomberBaseDamage = 30;
-          // Escalado agresivo del bomber por wave
-          if (gameState.wave <= 5) {
-            bomberBaseDamage = 20 + gameState.wave * 3; // 23-35
-          } else if (gameState.wave <= 10) {
-            bomberBaseDamage = 35 + (gameState.wave - 5) * 5; // 40-65
-          } else if (gameState.wave <= 15) {
-            bomberBaseDamage = 65 + (gameState.wave - 10) * 7; // 72-100
-          } else if (gameState.wave <= 20) {
-            bomberBaseDamage = 100 + (gameState.wave - 15) * 16; // 116-180
-          } else {
-            bomberBaseDamage = 180 + (gameState.wave - 20) * 20; // 200+
-          }
-          damage = bomberBaseDamage;
-          baseHp = 2;
-          rad = 12;
-          spd = 1.8; // Más rápido para ser más peligroso
-        } else if (specialRoll < 0.5) {
-          specialType = "fast";
-          enemyType = "fast";
-          color = "#fbbf24";
-          damage = 3;
-          baseHp = 1;
-          rad = 10;
-          spd = 2.5;
-        } else if (specialRoll < 0.75) {
-          specialType = "tank";
-          enemyType = "tank";
-          color = "#78716c";
-          damage = 20;
-          baseHp = 15;
-          rad = 20;
-          spd = 0.6;
-        } else {
-          specialType = "summoner";
-          enemyType = "summoner";
-          color = "#a855f7";
-          damage = 5;
-          baseHp = 8;
-          rad = 14;
-          spd = 0.9;
-        }
-      } else {
-        // Enemigos normales
-        specialType = null;
-      
-      // Progresión detallada por wave
-      if (gameState.wave === 1) {
-        // Wave 1: Solo verdes 🟢
-        enemyType = "weak";
-        color = "#22c55e";
-        damage = 5;
-        baseHp = 3;
-        rad = 12;
-        spd = 1.3;
-      } else if (gameState.wave === 2) {
-        // Wave 2: Mayoría verdes, algunos morados (≤10%)
-        if (roll < 0.9) {
-          enemyType = "weak";
-          color = "#22c55e";
-          damage = 5;
-          baseHp = 3;
-          rad = 12;
-          spd = 1.3;
-        } else {
-          enemyType = "medium";
-          color = "#a855f7";
-          damage = 10;
-          baseHp = 5;
-          rad = 15;
-          spd = 1.1;
-        }
-      } else if (gameState.wave === 3) {
-        // Wave 3: Mezcla verde/morado (20-30% morado)
-        if (roll < 0.75) {
-          enemyType = "weak";
-          color = "#22c55e";
-          damage = 5;
-          baseHp = 3;
-          rad = 12;
-          spd = 1.3;
-        } else {
-          enemyType = "medium";
-          color = "#a855f7";
-          damage = 10;
-          baseHp = 5;
-          rad = 15;
-          spd = 1.1;
-        }
-      } else if (gameState.wave === 4) {
-        // Wave 4: Más morado (30-40%)
-        if (roll < 0.65) {
-          enemyType = "weak";
-          color = "#22c55e";
-          damage = 5;
-          baseHp = 3;
-          rad = 12;
-          spd = 1.3;
-        } else {
-          enemyType = "medium";
-          color = "#a855f7";
-          damage = 10;
-          baseHp = 5;
-          rad = 15;
-          spd = 1.1;
-        }
-      } else if (gameState.wave === 5) {
-        // Wave 5: Introducir amarillo (3-5%)
-        if (roll < 0.04) {
-          enemyType = "strong";
-          color = "#fbbf24";
-          damage = 20;
-          baseHp = 8;
-          rad = 18;
-          spd = 0.9;
-        } else if (roll < 0.6) {
-          enemyType = "medium";
-          color = "#a855f7";
-          damage = 10;
-          baseHp = 5;
-          rad = 15;
-          spd = 1.1;
-        } else {
-          enemyType = "weak";
-          color = "#22c55e";
-          damage = 5;
-          baseHp = 3;
-          rad = 12;
-          spd = 1.3;
-        }
-      } else if (gameState.wave === 6) {
-        // Wave 6: Mezcla estable 50/40/10%
-        if (roll < 0.1) {
-          enemyType = "strong";
-          color = "#fbbf24";
-          damage = 20;
-          baseHp = 8;
-          rad = 18;
-          spd = 0.9;
-        } else if (roll < 0.5) {
-          enemyType = "medium";
-          color = "#a855f7";
-          damage = 10;
-          baseHp = 5;
-          rad = 15;
-          spd = 1.1;
-        } else {
-          enemyType = "weak";
-          color = "#22c55e";
-          damage = 5;
-          baseHp = 3;
-          rad = 12;
-          spd = 1.3;
-        }
-      } else if (gameState.wave === 7) {
-        // Wave 7: Amarillos hasta 12-15%
-        if (roll < 0.13) {
-          enemyType = "strong";
-          color = "#fbbf24";
-          damage = 20;
-          baseHp = 8;
-          rad = 18;
-          spd = 0.9;
-        } else if (roll < 0.6) {
-          enemyType = "medium";
-          color = "#a855f7";
-          damage = 10;
-          baseHp = 5;
-          rad = 15;
-          spd = 1.1;
-        } else {
-          enemyType = "weak";
-          color = "#22c55e";
-          damage = 5;
-          baseHp = 3;
-          rad = 12;
-          spd = 1.3;
-        }
-      } else {
-        // Wave 8+: Escalado progresivo (amarillos hasta 25-30%)
-        const yellowChance = Math.min(0.30, 0.15 + (gameState.wave - 8) * 0.02);
-        
-        if (roll < yellowChance) {
-          enemyType = "strong";
-          color = "#fbbf24";
-          damage = 20;
-          baseHp = 8;
-          rad = 18;
-          spd = 0.9;
-        } else if (roll < yellowChance + 0.45) {
-          enemyType = "medium";
-          color = "#a855f7";
-          damage = 10;
-          baseHp = 5;
-          rad = 15;
-          spd = 1.1;
-        } else {
-          enemyType = "weak";
-          color = "#22c55e";
-          damage = 5;
-          baseHp = 3;
-          rad = 12;
-          spd = 1.3;
-        }
-        
-        // Posibilidad de enemigos élite (5% chance en wave 8+)
-        if (Math.random() < 0.05) {
-          isElite = true;
-          baseHp *= 1.5;
-          rad += 3;
-          color = enemyType === "strong" ? "#f59e0b" : enemyType === "medium" ? "#9333ea" : "#16a34a";
-        }
-      }
-      
-      // Escalado de dificultad estilo COD Zombies - Velocidad
-      let speedScale = 1;
-      if (gameState.wave <= 10) {
-        speedScale = 1 + (gameState.wave - 1) * 0.03;
-      } else if (gameState.wave <= 20) {
-        speedScale = 1 + (gameState.wave - 1) * 0.05;
-      } else {
-        speedScale = Math.min(3, 1 + (gameState.wave - 1) * 0.07); // Cap en +200%
-      }
-      
-      // Escalado de daño - NUEVO SISTEMA POST-WAVE 13
-      let damageScale = 1;
-      if (gameState.wave <= 5) {
-        damageScale = 1.0; // Base
-      } else if (gameState.wave <= 10) {
-        damageScale = 1.3; // +30%
-      } else if (gameState.wave <= 13) {
-        damageScale = 1.6; // +60%
-      } else if (gameState.wave <= 17) {
-        damageScale = 2.0; // +100% (doble)
-      } else if (gameState.wave <= 21) {
-        damageScale = 2.5; // +150%
-      } else {
-        damageScale = 3.0; // +200% (triple)
-      }
-      
-      spd *= speedScale;
-      // IMPORTANTE: NO escalar daño de bombers otra vez (ya escalaron arriba)
-      if (specialType !== "explosive") {
-        damage = Math.floor(damage * damageScale);
-      }
-      
-      }
-      
-      // HP scaling estilo COD Zombies - Escalado exponencial
-      let hpMultiplier = 1;
-      if (gameState.wave <= 5) {
-        hpMultiplier = 1 + (gameState.wave - 1) * 0.2;
-      } else if (gameState.wave <= 15) {
-        hpMultiplier = 1 + (gameState.wave - 1) * 0.35;
-      } else {
-        hpMultiplier = 1 + (gameState.wave - 1) * 0.5;
-      }
-      const scaledHp = Math.floor(baseHp * hpMultiplier);
-      
-      const enemy = {
-        x,
-        y,
-        rad,
-        hp: scaledHp,
-        maxhp: scaledHp,
-        spd,
-        enemyType,
-        damage,
-        isElite,
-        isMiniBoss: false,
-        isBoss: false,
-        color,
-        specialType,
-        frozenTimer: 0,
-        burnTimer: 0,
-        poisonTimer: 0,
-        summonCooldown: 0,
-        // Bomber-specific properties
-        explosionTimer: specialType === "explosive" ? -1 : undefined, // -1 = no activado, >= 0 = contando
-        explosionDelay: specialType === "explosive" ? (Math.random() < 0.5 ? 0 : 1) : undefined, // 50% instant, 50% 1s delay
-      };
 
-      gameState.enemies.push(enemy);
-      if (!enemy.isBoss && !enemy.isMiniBoss) {
-        gameState.normalEnemyCount++;
-      }
+      for (let spawnIdx = 0; spawnIdx < spawnCount; spawnIdx++) {
+        const roll = Math.random();
+        const typeRoll = Math.random();
+        let enemyType: "strong" | "medium" | "weak" | "explosive" | "fast" | "tank" | "summoner";
+        let color: string;
+        let damage: number;
+        let baseHp: number;
+        let rad: number;
+        let spd: number;
+        let isElite = false;
+        let specialType: "explosive" | "fast" | "tank" | "summoner" | null = null;
+
+        // Tipos especiales de enemigos (escalado estilo COD Zombies)
+        let specialChance = 0;
+        if (gameState.wave <= 3) {
+          specialChance = 0.05;
+        } else if (gameState.wave <= 7) {
+          specialChance = 0.15;
+        } else if (gameState.wave <= 12) {
+          specialChance = 0.25;
+        } else if (gameState.wave <= 18) {
+          specialChance = 0.35;
+        } else {
+          specialChance = 0.45;
+        }
+
+        if (typeRoll < specialChance) {
+          const specialRoll = Math.random();
+          if (specialRoll < 0.25) {
+            specialType = "explosive";
+            enemyType = "explosive";
+            color = "#ef4444";
+            // NUEVO: Zombie Bomber - daño base MUY alto
+            let bomberBaseDamage = 30;
+            // Escalado agresivo del bomber por wave
+            if (gameState.wave <= 5) {
+              bomberBaseDamage = 20 + gameState.wave * 3; // 23-35
+            } else if (gameState.wave <= 10) {
+              bomberBaseDamage = 35 + (gameState.wave - 5) * 5; // 40-65
+            } else if (gameState.wave <= 15) {
+              bomberBaseDamage = 65 + (gameState.wave - 10) * 7; // 72-100
+            } else if (gameState.wave <= 20) {
+              bomberBaseDamage = 100 + (gameState.wave - 15) * 16; // 116-180
+            } else {
+              bomberBaseDamage = 180 + (gameState.wave - 20) * 20; // 200+
+            }
+            damage = bomberBaseDamage;
+            baseHp = 2;
+            rad = 12;
+            spd = 1.8; // Más rápido para ser más peligroso
+          } else if (specialRoll < 0.5) {
+            specialType = "fast";
+            enemyType = "fast";
+            color = "#fbbf24";
+            damage = 3;
+            baseHp = 1;
+            rad = 10;
+            spd = 2.5;
+          } else if (specialRoll < 0.75) {
+            specialType = "tank";
+            enemyType = "tank";
+            color = "#78716c";
+            damage = 20;
+            baseHp = 15;
+            rad = 20;
+            spd = 0.6;
+          } else {
+            specialType = "summoner";
+            enemyType = "summoner";
+            color = "#a855f7";
+            damage = 5;
+            baseHp = 8;
+            rad = 14;
+            spd = 0.9;
+          }
+        } else {
+          // Enemigos normales
+          specialType = null;
+
+          // Progresión detallada por wave
+          if (gameState.wave === 1) {
+            // Wave 1: Solo verdes 🟢
+            enemyType = "weak";
+            color = "#22c55e";
+            damage = 5;
+            baseHp = 3;
+            rad = 12;
+            spd = 1.3;
+          } else if (gameState.wave === 2) {
+            // Wave 2: Mayoría verdes, algunos morados (≤10%)
+            if (roll < 0.9) {
+              enemyType = "weak";
+              color = "#22c55e";
+              damage = 5;
+              baseHp = 3;
+              rad = 12;
+              spd = 1.3;
+            } else {
+              enemyType = "medium";
+              color = "#a855f7";
+              damage = 10;
+              baseHp = 5;
+              rad = 15;
+              spd = 1.1;
+            }
+          } else if (gameState.wave === 3) {
+            // Wave 3: Mezcla verde/morado (20-30% morado)
+            if (roll < 0.75) {
+              enemyType = "weak";
+              color = "#22c55e";
+              damage = 5;
+              baseHp = 3;
+              rad = 12;
+              spd = 1.3;
+            } else {
+              enemyType = "medium";
+              color = "#a855f7";
+              damage = 10;
+              baseHp = 5;
+              rad = 15;
+              spd = 1.1;
+            }
+          } else if (gameState.wave === 4) {
+            // Wave 4: Más morado (30-40%)
+            if (roll < 0.65) {
+              enemyType = "weak";
+              color = "#22c55e";
+              damage = 5;
+              baseHp = 3;
+              rad = 12;
+              spd = 1.3;
+            } else {
+              enemyType = "medium";
+              color = "#a855f7";
+              damage = 10;
+              baseHp = 5;
+              rad = 15;
+              spd = 1.1;
+            }
+          } else if (gameState.wave === 5) {
+            // Wave 5: Introducir amarillo (3-5%)
+            if (roll < 0.04) {
+              enemyType = "strong";
+              color = "#fbbf24";
+              damage = 20;
+              baseHp = 8;
+              rad = 18;
+              spd = 0.9;
+            } else if (roll < 0.6) {
+              enemyType = "medium";
+              color = "#a855f7";
+              damage = 10;
+              baseHp = 5;
+              rad = 15;
+              spd = 1.1;
+            } else {
+              enemyType = "weak";
+              color = "#22c55e";
+              damage = 5;
+              baseHp = 3;
+              rad = 12;
+              spd = 1.3;
+            }
+          } else if (gameState.wave === 6) {
+            // Wave 6: Mezcla estable 50/40/10%
+            if (roll < 0.1) {
+              enemyType = "strong";
+              color = "#fbbf24";
+              damage = 20;
+              baseHp = 8;
+              rad = 18;
+              spd = 0.9;
+            } else if (roll < 0.5) {
+              enemyType = "medium";
+              color = "#a855f7";
+              damage = 10;
+              baseHp = 5;
+              rad = 15;
+              spd = 1.1;
+            } else {
+              enemyType = "weak";
+              color = "#22c55e";
+              damage = 5;
+              baseHp = 3;
+              rad = 12;
+              spd = 1.3;
+            }
+          } else if (gameState.wave === 7) {
+            // Wave 7: Amarillos hasta 12-15%
+            if (roll < 0.13) {
+              enemyType = "strong";
+              color = "#fbbf24";
+              damage = 20;
+              baseHp = 8;
+              rad = 18;
+              spd = 0.9;
+            } else if (roll < 0.6) {
+              enemyType = "medium";
+              color = "#a855f7";
+              damage = 10;
+              baseHp = 5;
+              rad = 15;
+              spd = 1.1;
+            } else {
+              enemyType = "weak";
+              color = "#22c55e";
+              damage = 5;
+              baseHp = 3;
+              rad = 12;
+              spd = 1.3;
+            }
+          } else {
+            // Wave 8+: Escalado progresivo (amarillos hasta 25-30%)
+            const yellowChance = Math.min(0.3, 0.15 + (gameState.wave - 8) * 0.02);
+
+            if (roll < yellowChance) {
+              enemyType = "strong";
+              color = "#fbbf24";
+              damage = 20;
+              baseHp = 8;
+              rad = 18;
+              spd = 0.9;
+            } else if (roll < yellowChance + 0.45) {
+              enemyType = "medium";
+              color = "#a855f7";
+              damage = 10;
+              baseHp = 5;
+              rad = 15;
+              spd = 1.1;
+            } else {
+              enemyType = "weak";
+              color = "#22c55e";
+              damage = 5;
+              baseHp = 3;
+              rad = 12;
+              spd = 1.3;
+            }
+
+            // Posibilidad de enemigos élite (5% chance en wave 8+)
+            if (Math.random() < 0.05) {
+              isElite = true;
+              baseHp *= 1.5;
+              rad += 3;
+              color = enemyType === "strong" ? "#f59e0b" : enemyType === "medium" ? "#9333ea" : "#16a34a";
+            }
+          }
+
+          // Escalado de dificultad estilo COD Zombies - Velocidad
+          let speedScale = 1;
+          if (gameState.wave <= 10) {
+            speedScale = 1 + (gameState.wave - 1) * 0.03;
+          } else if (gameState.wave <= 20) {
+            speedScale = 1 + (gameState.wave - 1) * 0.05;
+          } else {
+            speedScale = Math.min(3, 1 + (gameState.wave - 1) * 0.07); // Cap en +200%
+          }
+
+          // Escalado de daño - NUEVO SISTEMA POST-WAVE 13
+          let damageScale = 1;
+          if (gameState.wave <= 5) {
+            damageScale = 1.0; // Base
+          } else if (gameState.wave <= 10) {
+            damageScale = 1.3; // +30%
+          } else if (gameState.wave <= 13) {
+            damageScale = 1.6; // +60%
+          } else if (gameState.wave <= 17) {
+            damageScale = 2.0; // +100% (doble)
+          } else if (gameState.wave <= 21) {
+            damageScale = 2.5; // +150%
+          } else {
+            damageScale = 3.0; // +200% (triple)
+          }
+
+          spd *= speedScale;
+          // IMPORTANTE: NO escalar daño de bombers otra vez (ya escalaron arriba)
+          if (specialType !== "explosive") {
+            damage = Math.floor(damage * damageScale);
+          }
+        }
+
+        // HP scaling estilo COD Zombies - Escalado exponencial
+        let hpMultiplier = 1;
+        if (gameState.wave <= 5) {
+          hpMultiplier = 1 + (gameState.wave - 1) * 0.2;
+        } else if (gameState.wave <= 15) {
+          hpMultiplier = 1 + (gameState.wave - 1) * 0.35;
+        } else {
+          hpMultiplier = 1 + (gameState.wave - 1) * 0.5;
+        }
+        const scaledHp = Math.floor(baseHp * hpMultiplier);
+
+        const enemy = {
+          x,
+          y,
+          rad,
+          hp: scaledHp,
+          maxhp: scaledHp,
+          spd,
+          enemyType,
+          damage,
+          isElite,
+          isMiniBoss: false,
+          isBoss: false,
+          color,
+          specialType,
+          frozenTimer: 0,
+          burnTimer: 0,
+          poisonTimer: 0,
+          summonCooldown: 0,
+          // Bomber-specific properties
+          explosionTimer: specialType === "explosive" ? -1 : undefined, // -1 = no activado, >= 0 = contando
+          explosionDelay: specialType === "explosive" ? (Math.random() < 0.5 ? 0 : 1) : undefined, // 50% instant, 50% 1s delay
+        };
+
+        gameState.enemies.push(enemy);
+        if (!enemy.isBoss && !enemy.isMiniBoss) {
+          gameState.normalEnemyCount++;
+        }
       }
     }
-    
+
     function spawnBoss() {
       const x = W / 2;
       const y = -100;
-      
+
       // Boss HP escalado agresivo estilo COD Zombies
       const baseHp = 150;
       const bossHpMultiplier = 1 + (gameState.wave - 1) * 3; // Mucho más tanque
       const scaledHp = Math.floor(baseHp * bossHpMultiplier);
-      
+
       gameState.enemies.push({
-        x, y,
+        x,
+        y,
         rad: 40,
         hp: scaledHp,
         maxhp: scaledHp,
@@ -987,22 +987,32 @@ const Index = () => {
         projectileCooldown: 0,
       });
     }
-    
+
     function spawnMiniBoss() {
       const side = Math.floor(Math.random() * 4);
       let x, y;
-      if (side === 0) { x = Math.random() * W; y = -40; }
-      else if (side === 1) { x = W + 40; y = Math.random() * H; }
-      else if (side === 2) { x = Math.random() * W; y = H + 40; }
-      else { x = -40; y = Math.random() * H; }
-      
+      if (side === 0) {
+        x = Math.random() * W;
+        y = -40;
+      } else if (side === 1) {
+        x = W + 40;
+        y = Math.random() * H;
+      } else if (side === 2) {
+        x = Math.random() * W;
+        y = H + 40;
+      } else {
+        x = -40;
+        y = Math.random() * H;
+      }
+
       // Mini-boss HP escalado estilo COD Zombies
       const baseHp = 25;
       const miniBossHpMultiplier = 1 + (gameState.wave - 1) * 2; // Más tanque que antes
       const scaledHp = Math.floor(baseHp * miniBossHpMultiplier);
-      
+
       gameState.enemies.push({
-        x, y,
+        x,
+        y,
         rad: 28,
         hp: scaledHp,
         maxhp: scaledHp,
@@ -1015,8 +1025,8 @@ const Index = () => {
     }
 
     function nearestEnemy() {
-      const onScreenEnemies = gameState.enemies.filter((e: any) =>
-        e.x >= -50 && e.x <= W + 50 && e.y >= -50 && e.y <= H + 50
+      const onScreenEnemies = gameState.enemies.filter(
+        (e: any) => e.x >= -50 && e.x <= W + 50 && e.y >= -50 && e.y <= H + 50,
       );
 
       if (onScreenEnemies.length === 0) return null;
@@ -1077,24 +1087,24 @@ const Index = () => {
     function shootWeapon(weapon: Weapon, target: any) {
       // Incrementar contador de disparos para el tutorial
       gameState.player.shotsFired = (gameState.player.shotsFired || 0) + 1;
-      
+
       const range = weapon.range * gameState.player.stats.rangeMultiplier;
       let baseDamage = weapon.damage * gameState.player.stats.damageMultiplier;
-      
+
       // Amuleto del Caos: daño aleatorio +10% a +50%
       if (gameState.player.stats.chaosDamage) {
         const chaosBonus = 1 + (Math.random() * 0.4 + 0.1); // 1.1x a 1.5x
         baseDamage *= chaosBonus;
       }
-      
+
       // Chance de crítico (10% base)
       const critChance = 0.1;
       const isCrit = Math.random() < critChance;
       if (isCrit) baseDamage *= 2;
-      
+
       const damage = baseDamage;
       const dir = Math.atan2(target.y - gameState.player.y, target.x - gameState.player.x);
-      
+
       const isPierce = weapon.special === "pierce";
       const isAoe = weapon.special === "aoe";
       const isSpread = weapon.special === "spread";
@@ -1102,7 +1112,7 @@ const Index = () => {
       const isFire = weapon.special === "fire";
       const isFreeze = weapon.special === "freeze";
       const isHoming = weapon.special === "homing";
-      
+
       // Aplicar dispersión reducida por precisión
       const baseSpread = 0.15;
       const spreadReduction = gameState.player.stats.precision > 0 ? (1 - gameState.player.stats.precision / 100) : 1;
@@ -1113,7 +1123,7 @@ const Index = () => {
       for (let i = 0; i < shots; i++) {
         const spreadAngle = (i - (shots - 1) / 2) * actualSpread;
         const finalDir = dir + spreadAngle;
-        
+
         if (isSpread) {
           const spreadVariance = 0.3 * spreadReduction * multishotTightening;
           for (let j = -1; j <= 1; j++) {
@@ -1154,7 +1164,7 @@ const Index = () => {
           });
         }
       }
-      
+
       // Partículas de disparo con límite
       if (gameState.particles.length < gameState.maxParticles) {
         const particlesToAdd = Math.min(3, gameState.maxParticles - gameState.particles.length);
@@ -1170,7 +1180,7 @@ const Index = () => {
           });
         }
       }
-      
+
       playShootSound();
     }
 
@@ -1186,10 +1196,10 @@ const Index = () => {
 
         const cooldownKey = weapon.id;
         if (!gameState.weaponCooldowns[cooldownKey]) gameState.weaponCooldowns[cooldownKey] = 0;
-        
+
         gameState.weaponCooldowns[cooldownKey] += dt;
         const interval = 1 / (weapon.fireRate * gameState.player.stats.fireRateMultiplier);
-        
+
         if (gameState.weaponCooldowns[cooldownKey] >= interval) {
           gameState.weaponCooldowns[cooldownKey] = 0;
           shootWeapon(weapon, target);
@@ -1200,18 +1210,19 @@ const Index = () => {
     function dropXP(x: number, y: number, val: number) {
       gameState.drops.push({ x, y, rad: 8, type: "xp", val, color: "#06b6d4", lifetime: 10 });
     }
-    
+
     function dropHeal(x: number, y: number) {
       const healAmount = Math.random() < 0.5 ? 15 : 25; // Curación pequeña o mediana
-      gameState.drops.push({ 
-        x, y, 
-        rad: 10, 
-        type: "heal", 
-        val: healAmount, 
-        color: "#ef4444" 
+      gameState.drops.push({
+        x,
+        y,
+        rad: 10,
+        type: "heal",
+        val: healAmount,
+        color: "#ef4444",
       });
     }
-    
+
     function dropPowerup(x: number, y: number, type: "magnet" | "shield" | "rage" | "speed") {
       const powerupData = {
         magnet: { color: "#10b981", rarity: "uncommon" as Rarity, duration: 10 },
@@ -1219,16 +1230,131 @@ const Index = () => {
         rage: { color: "#ef4444", rarity: "epic" as Rarity, duration: 8 },
         speed: { color: "#fbbf24", rarity: "common" as Rarity, duration: 0 }, // duration 0 porque es permanente
       };
-      
+
       const data = powerupData[type];
       gameState.drops.push({
-        x, y, rad: 12,
+        x,
+        y,
+        rad: 12,
         type: "powerup",
         powerupType: type,
         duration: data.duration,
         color: data.color,
         rarity: data.rarity,
       });
+    }
+
+    function dropChest(x: number, y: number) {
+      gameState.drops.push({
+        x,
+        y,
+        rad: 14,
+        type: "chest",
+        color: "#f97316",
+        spawnTime: gameState.time,
+      });
+    }
+
+    function spawnChestParticles(x: number, y: number, color: string) {
+      if (gameState.particles.length < gameState.maxParticles - 25) {
+        for (let i = 0; i < 25; i++) {
+          const angle = (Math.PI * 2 * i) / 25;
+          const speed = 4 + Math.random() * 3;
+          gameState.particles.push({
+            x,
+            y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            life: 0.8,
+            color,
+            size: 4,
+          });
+        }
+      }
+    }
+
+    function chooseChestItem(): Item | null {
+      const availableItems = ITEMS.filter((item) => !gameState.player.itemFlags[item.id]);
+
+      if (availableItems.length === 0) {
+        return null;
+      }
+
+      const rarityBuckets: Record<Rarity, Item[]> = {
+        common: [],
+        uncommon: [],
+        rare: [],
+        epic: [],
+        legendary: [],
+      };
+
+      for (const item of availableItems) {
+        rarityBuckets[item.rarity].push(item);
+      }
+
+      const rarityWeights: Record<Rarity, number> = {
+        common: 0.5,
+        uncommon: 0.15,
+        rare: 0.2,
+        epic: 0.1,
+        legendary: 0.05,
+      };
+
+      const availableRarities = (Object.keys(rarityBuckets) as Rarity[]).filter(
+        (rarity) => rarityBuckets[rarity].length > 0,
+      );
+
+      if (availableRarities.length === 0) {
+        return null;
+      }
+
+      const totalWeight = availableRarities.reduce((sum, rarity) => {
+        return sum + (rarityWeights[rarity] ?? 0);
+      }, 0);
+
+      if (totalWeight <= 0) {
+        const fallbackRarity = availableRarities[Math.floor(Math.random() * availableRarities.length)];
+        const pool = rarityBuckets[fallbackRarity];
+        return pool[Math.floor(Math.random() * pool.length)];
+      }
+
+      let roll = Math.random() * totalWeight;
+      for (const rarity of availableRarities) {
+        const weight = rarityWeights[rarity] ?? 0;
+        if (weight <= 0) {
+          continue;
+        }
+        if (roll < weight) {
+          const pool = rarityBuckets[rarity];
+          return pool[Math.floor(Math.random() * pool.length)];
+        }
+        roll -= weight;
+      }
+
+      const lastRarity = availableRarities[availableRarities.length - 1];
+      const pool = rarityBuckets[lastRarity];
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+
+    function openChest(chest: any) {
+      const item = chooseChestItem();
+
+      if (!item) {
+        collectXP(25);
+        playPowerupSound();
+        spawnChestParticles(chest.x, chest.y, "#22c55e");
+        return;
+      }
+
+      const granted = grantItemToPlayer(item, { notify: true, playSound: true });
+
+      if (granted) {
+        spawnChestParticles(chest.x, chest.y, rarityColors[item.rarity]);
+      } else {
+        collectXP(25);
+        playPowerupSound();
+        spawnChestParticles(chest.x, chest.y, "#22c55e");
+      }
     }
 
     function collectXP(v: number) {
@@ -1239,7 +1365,7 @@ const Index = () => {
         gameState.xp -= gameState.nextXP;
         gameState.level++;
         setLevel(gameState.level);
-        
+
         // Progresión de XP más suave al inicio
         // Niveles 1-5: crecimiento lento (1.15x + 10)
         // Niveles 6-10: crecimiento medio (1.2x + 15)
@@ -1251,25 +1377,25 @@ const Index = () => {
         } else {
           gameState.nextXP = Math.floor(gameState.nextXP * 1.3 + 25);
         }
-        
+
         gameState.levelUpAnimation = 1;
         gameState.xpBarRainbow = true; // Activar animación rainbow
         playLevelUpSound();
         showUpgradeScreen();
       }
     }
-    
+
     function collectPowerup(drop: any) {
       const type = drop.powerupType;
       let duration = drop.duration;
-      
+
       // Aplicar bonus de duración de powerups (solo para powerups temporales)
       if (duration > 0) {
         duration *= gameState.player.stats.powerupDuration;
       }
-      
+
       playPowerupSound();
-      
+
       if (type === "magnet") {
         gameState.player.tempMagnetTimer = duration;
       } else if (type === "shield") {
@@ -1281,7 +1407,7 @@ const Index = () => {
         // Incrementar velocidad permanentemente en 1%, máximo 200% (2.0x)
         gameState.player.stats.speedMultiplier = Math.min(2.0, gameState.player.stats.speedMultiplier + 0.01);
       }
-      
+
       // Partículas de powerup con límite
       if (gameState.particles.length < gameState.maxParticles - 20) {
         for (let i = 0; i < 20; i++) {
@@ -1316,21 +1442,21 @@ const Index = () => {
     }
 
     function showUpgradeScreen() {
-      gameState.state = 'paused';
+      gameState.state = "paused";
       gameState.showUpgradeUI = true;
       gameState.upgradeUIAnimation = 0; // Start animation from 0
-      
+
       const options: Upgrade[] = [];
       const usedKeys: Set<string> = new Set(); // Para evitar duplicados
-      
+
       // Verificar si tiene pistola (reemplazable) o si slots están realmente llenos
       const hasPistol = gameState.player.weapons.some((w: Weapon) => w.id === "pistol");
       const weaponsFull = gameState.player.weapons.length >= 3 && !hasPistol;
       const tomesFull = gameState.player.tomes.length >= 3;
-      
+
       // Generar pool de posibles upgrades
       const availableUpgrades: Upgrade[] = [];
-      
+
       // Weapon upgrades
       if (weaponsFull) {
         // Ofrecer mejoras variadas para armas existentes
@@ -1357,7 +1483,7 @@ const Index = () => {
               rarity: "uncommon",
             },
           ];
-          
+
           // Agregar variante especial según el tipo de arma
           if (w.special === "spread") {
             upgradeVariants.push({
@@ -1393,18 +1519,16 @@ const Index = () => {
         }
       } else {
         // Armas nuevas disponibles
-        const available = WEAPONS.filter(w => 
-          !gameState.player.weapons.find((pw: Weapon) => pw.id === w.id)
-        );
+        const available = WEAPONS.filter((w) => !gameState.player.weapons.find((pw: Weapon) => pw.id === w.id));
         for (const weapon of available) {
-          availableUpgrades.push({ 
-            type: "weapon", 
-            data: { ...weapon }, 
-            rarity: weapon.rarity 
+          availableUpgrades.push({
+            type: "weapon",
+            data: { ...weapon },
+            rarity: weapon.rarity,
           });
         }
       }
-      
+
       // Tome upgrades
       if (tomesFull) {
         // Ofrecer mejoras variadas para tomos existentes
@@ -1420,37 +1544,37 @@ const Index = () => {
           if (t.effect === "damage") {
             upgradeVariants.push(
               { upgradeType: "effect", descriptionKey: "tome.damage.effect", rarity: "rare" },
-              { upgradeType: "special", descriptionKey: "tome.damage.special", rarity: "epic" }
+              { upgradeType: "special", descriptionKey: "tome.damage.special", rarity: "epic" },
             );
           } else if (t.effect === "speed") {
             upgradeVariants.push(
               { upgradeType: "effect", descriptionKey: "tome.speed.effect", rarity: "uncommon" },
-              { upgradeType: "special", descriptionKey: "tome.speed.special", rarity: "rare" }
+              { upgradeType: "special", descriptionKey: "tome.speed.special", rarity: "rare" },
             );
           } else if (t.effect === "range") {
             upgradeVariants.push(
               { upgradeType: "effect", descriptionKey: "tome.range.effect", rarity: "uncommon" },
-              { upgradeType: "special", descriptionKey: "tome.range.special", rarity: "rare" }
+              { upgradeType: "special", descriptionKey: "tome.range.special", rarity: "rare" },
             );
           } else if (t.effect === "fireRate") {
             upgradeVariants.push(
               { upgradeType: "effect", descriptionKey: "tome.fireRate.effect", rarity: "rare" },
-              { upgradeType: "special", descriptionKey: "tome.fireRate.special", rarity: "epic" }
+              { upgradeType: "special", descriptionKey: "tome.fireRate.special", rarity: "epic" },
             );
           } else if (t.effect === "bounce") {
             upgradeVariants.push(
               { upgradeType: "effect", descriptionKey: "tome.bounce.effect", rarity: "epic" },
-              { upgradeType: "special", descriptionKey: "tome.bounce.special", rarity: "legendary" }
+              { upgradeType: "special", descriptionKey: "tome.bounce.special", rarity: "legendary" },
             );
           } else if (t.effect === "multishot") {
             upgradeVariants.push(
               { upgradeType: "effect", descriptionKey: "tome.multishot.effect", rarity: "legendary" },
-              { upgradeType: "special", descriptionKey: "tome.multishot.special", rarity: "epic" }
+              { upgradeType: "special", descriptionKey: "tome.multishot.special", rarity: "epic" },
             );
           } else if (t.effect === "xp") {
             upgradeVariants.push(
               { upgradeType: "effect", descriptionKey: "tome.xp.effect", rarity: "rare" },
-              { upgradeType: "special", descriptionKey: "tome.xp.special", rarity: "epic" }
+              { upgradeType: "special", descriptionKey: "tome.xp.special", rarity: "epic" },
             );
           }
 
@@ -1468,18 +1592,16 @@ const Index = () => {
         }
       } else {
         // Tomos nuevos disponibles
-        const available = TOMES.filter(t => 
-          !gameState.player.tomes.find((pt: Tome) => pt.id === t.id)
-        );
+        const available = TOMES.filter((t) => !gameState.player.tomes.find((pt: Tome) => pt.id === t.id));
         for (const tome of available) {
-          availableUpgrades.push({ 
-            type: "tome", 
-            data: { ...tome }, 
-            rarity: tome.rarity 
+          availableUpgrades.push({
+            type: "tome",
+            data: { ...tome },
+            rarity: tome.rarity,
           });
         }
       }
-      
+
       // Items siempre disponibles (pero filtrar los que ya tiene)
       for (const item of ITEMS) {
         // No agregar si ya lo tiene
@@ -1488,27 +1610,27 @@ const Index = () => {
           if (item.rarity === "legendary") {
             // Solo permitir legendarios en waves múltiplos de 3
             if (gameState.wave % 3 === 0) {
-              availableUpgrades.push({ 
-                type: "item", 
-                data: item, 
-                rarity: item.rarity 
+              availableUpgrades.push({
+                type: "item",
+                data: item,
+                rarity: item.rarity,
               });
             }
           } else {
-            availableUpgrades.push({ 
-              type: "item", 
-              data: item, 
-              rarity: item.rarity 
+            availableUpgrades.push({
+              type: "item",
+              data: item,
+              rarity: item.rarity,
             });
           }
         }
       }
-      
+
       // Seleccionar 3 upgrades únicos
       while (options.length < 3 && availableUpgrades.length > 0) {
         const index = Math.floor(Math.random() * availableUpgrades.length);
         const upgrade = availableUpgrades[index];
-        
+
         // Crear clave única para evitar duplicados
         let key = "";
         if (upgrade.isLevelUp) {
@@ -1516,16 +1638,16 @@ const Index = () => {
         } else {
           key = `${upgrade.type}-${(upgrade.data as any).id}`;
         }
-        
+
         if (!usedKeys.has(key)) {
           usedKeys.add(key);
           options.push(upgrade);
         }
-        
+
         // Remover de disponibles para evitar repetir
         availableUpgrades.splice(index, 1);
       }
-      
+
       gameState.upgradeOptions = options;
     }
 
@@ -1621,10 +1743,7 @@ const Index = () => {
       }
     }
 
-    function grantItemToPlayer(
-      item: Item,
-      options: { notify?: boolean; playSound?: boolean } = {}
-    ) {
+    function grantItemToPlayer(item: Item, options: { notify?: boolean; playSound?: boolean } = {}) {
       if (gameState.player.itemFlags[item.id]) {
         return false;
       }
@@ -1654,31 +1773,31 @@ const Index = () => {
       if (!option) return;
 
       gameState.upgradeAnimation = 1.5;
-      gameState.state = 'running';
+      gameState.state = "running";
 
       if (option.type === "weapon") {
         const weapon = option.data as Weapon;
-        
+
         if (option.isLevelUp && option.targetIndex !== undefined) {
           // Mejora de nivel de arma existente
           const existingWeapon = gameState.player.weapons[option.targetIndex];
           existingWeapon.level++;
-          
+
           // Aplicar mejora según el tipo
           if (option.upgradeType === "damage") {
-            existingWeapon.damage *= 1.30;
+            existingWeapon.damage *= 1.3;
           } else if (option.upgradeType === "fireRate") {
             existingWeapon.fireRate *= 1.25;
           } else if (option.upgradeType === "range") {
-            existingWeapon.range *= 1.20;
+            existingWeapon.range *= 1.2;
           } else if (option.upgradeType === "special") {
             // Mejoras especiales según tipo de arma
             if (existingWeapon.special === "spread") {
               existingWeapon.damage *= 1.15; // Más pellets = más daño total
             } else if (existingWeapon.special === "aoe") {
-              existingWeapon.damage *= 1.50; // Mayor radio
+              existingWeapon.damage *= 1.5; // Mayor radio
             } else if (existingWeapon.special === "pierce") {
-              existingWeapon.damage *= 1.20; // Más perforaciones
+              existingWeapon.damage *= 1.2; // Más perforaciones
             }
           }
         } else {
@@ -1696,13 +1815,13 @@ const Index = () => {
         }
       } else if (option.type === "tome") {
         const tome = option.data as Tome;
-        
+
         if (option.isLevelUp && option.targetIndex !== undefined) {
           // Mejora de nivel de tomo existente
           const existingTome = gameState.player.tomes[option.targetIndex];
           const currentLevel = existingTome.level;
           existingTome.level++;
-          
+
           // Aplicar bonificación según el efecto del tomo y su nivel específico
           if (existingTome.effect === "damage") {
             // +10% daño por nivel (sin límite)
@@ -1737,11 +1856,11 @@ const Index = () => {
           } else if (existingTome.effect === "regen") {
             // Niveles específicos de regeneración
             const regenLevels = [
-              { rate: 1, interval: 5 },   // LVL 1: 1 HP cada 5s
-              { rate: 1, interval: 4 },   // LVL 2: 1 HP cada 4s
-              { rate: 2, interval: 5 },   // LVL 3: 2 HP cada 5s
-              { rate: 2, interval: 4 },   // LVL 4: 2 HP cada 4s
-              { rate: 3, interval: 4 },   // LVL 5: 3 HP cada 4s
+              { rate: 1, interval: 5 }, // LVL 1: 1 HP cada 5s
+              { rate: 1, interval: 4 }, // LVL 2: 1 HP cada 4s
+              { rate: 2, interval: 5 }, // LVL 3: 2 HP cada 5s
+              { rate: 2, interval: 4 }, // LVL 4: 2 HP cada 4s
+              { rate: 3, interval: 4 }, // LVL 5: 3 HP cada 4s
             ];
             if (currentLevel < regenLevels.length) {
               const config = regenLevels[currentLevel];
@@ -1767,7 +1886,7 @@ const Index = () => {
           // Nuevo tomo
           if (gameState.player.tomes.length < 3) {
             gameState.player.tomes.push(tome);
-            
+
             // Aplicar efecto inicial
             if (tome.effect === "damage") {
               gameState.player.stats.damageMultiplier *= tome.value;
@@ -1807,17 +1926,15 @@ const Index = () => {
       const rect = canvas.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
-      
+
       // Botón de cambiar canción (solo cuando el juego está corriendo)
-      if (gameState.state === 'running') {
+      if (gameState.state === "running") {
         const musicBtnW = 160;
         const musicBtnH = 45;
         const musicBtnX = W - musicBtnW - 20;
         const musicBtnY = H - musicBtnH - 70;
-        
-        if (mx >= musicBtnX && mx <= musicBtnX + musicBtnW && 
-            my >= musicBtnY && my <= musicBtnY + musicBtnH) {
-          
+
+        if (mx >= musicBtnX && mx <= musicBtnX + musicBtnW && my >= musicBtnY && my <= musicBtnY + musicBtnH) {
           // Si la música no ha iniciado, iniciarla
           if (!gameState.musicStarted) {
             gameState.musicStarted = true;
@@ -1830,14 +1947,14 @@ const Index = () => {
           return;
         }
       }
-      
+
       if (gameState.showUpgradeUI) {
         const cardW = 280;
         const cardH = 220;
         const gap = 40;
         const startX = W / 2 - (cardW * 1.5 + gap);
         const startY = H / 2 - cardH / 2 + 20;
-        
+
         for (let i = 0; i < 3; i++) {
           const cx = startX + i * (cardW + gap);
           if (mx >= cx && mx <= cx + cardW && my >= startY && my <= startY + cardH) {
@@ -1845,22 +1962,17 @@ const Index = () => {
             break;
           }
         }
-      } else if (gameState.state === 'paused' && !gameState.showUpgradeUI && gameState.countdownTimer <= 0) {
+      } else if (gameState.state === "paused" && !gameState.showUpgradeUI && gameState.countdownTimer <= 0) {
         const layout = getPauseMenuLayout(W, H);
         const { menuX, menuY, menuW, menuH, padding, scale } = layout;
-        
+
         const buttonH = 56 * scale;
         const buttonGap = 14 * scale;
         const buttonCount = 4;
         const audioPanelHeight = 200 * scale;
         const audioPanelMargin = 24 * scale;
         const baseButtonsY =
-          menuY +
-          menuH -
-          padding -
-          buttonH * buttonCount -
-          buttonGap * (buttonCount - 1) -
-          16 * scale;
+          menuY + menuH - padding - buttonH * buttonCount - buttonGap * (buttonCount - 1) - 16 * scale;
         const buttonsY = baseButtonsY - (gameState.pauseMenuAudioOpen ? audioPanelHeight + audioPanelMargin : 0);
 
         const continueBtn = { x: menuX + padding, y: buttonsY, w: menuW - padding * 2, h: buttonH };
@@ -1883,7 +1995,12 @@ const Index = () => {
           h: buttonH,
         };
 
-        if (mx >= continueBtn.x && mx <= continueBtn.x + continueBtn.w && my >= continueBtn.y && my <= continueBtn.y + continueBtn.h) {
+        if (
+          mx >= continueBtn.x &&
+          mx <= continueBtn.x + continueBtn.w &&
+          my >= continueBtn.y &&
+          my <= continueBtn.y + continueBtn.h
+        ) {
           gameState.countdownTimer = 3;
           gameState.pauseMenuAudioOpen = false;
           return;
@@ -1909,7 +2026,12 @@ const Index = () => {
           return;
         }
 
-        if (mx >= restartBtn.x && mx <= restartBtn.x + restartBtn.w && my >= restartBtn.y && my <= restartBtn.y + restartBtn.h) {
+        if (
+          mx >= restartBtn.x &&
+          mx <= restartBtn.x + restartBtn.w &&
+          my >= restartBtn.y &&
+          my <= restartBtn.y + restartBtn.h
+        ) {
           resetGame();
           return;
         }
@@ -1954,7 +2076,12 @@ const Index = () => {
             h: toggleHeight,
           };
 
-          if (mx >= musicToggle.x && mx <= musicToggle.x + musicToggle.w && my >= musicToggle.y && my <= musicToggle.y + musicToggle.h) {
+          if (
+            mx >= musicToggle.x &&
+            mx <= musicToggle.x + musicToggle.w &&
+            my >= musicToggle.y &&
+            my <= musicToggle.y + musicToggle.h
+          ) {
             gameState.musicMuted = !gameState.musicMuted;
             if (gameState.music) {
               if (gameState.musicMuted) {
@@ -1967,23 +2094,28 @@ const Index = () => {
             return;
           }
 
-          if (mx >= sfxToggle.x && mx <= sfxToggle.x + sfxToggle.w && my >= sfxToggle.y && my <= sfxToggle.y + sfxToggle.h) {
+          if (
+            mx >= sfxToggle.x &&
+            mx <= sfxToggle.x + sfxToggle.w &&
+            my >= sfxToggle.y &&
+            my <= sfxToggle.y + sfxToggle.h
+          ) {
             gameState.sfxMuted = !gameState.sfxMuted;
             return;
           }
         }
-      } else if (gameState.state === 'gameover') {
+      } else if (gameState.state === "gameover") {
         // GAME OVER SCREEN CLICK HANDLER
         const menuW = 700;
         const menuH = 650;
         const menuX = W / 2 - menuW / 2;
         const menuY = H / 2 - menuH / 2;
-        
+
         const btnW = 400;
         const btnH = 70;
         const btnX = W / 2 - btnW / 2;
         const btnY = menuY + menuH - 120;
-        
+
         if (mx >= btnX && mx <= btnX + btnW && my >= btnY && my <= btnY + btnH) {
           if (gameState.gameOverMusic) {
             gameState.gameOverMusic.pause();
@@ -2008,8 +2140,9 @@ const Index = () => {
       // Animations que deben correr siempre
       if (gameState.levelUpAnimation > 0) gameState.levelUpAnimation = Math.max(0, gameState.levelUpAnimation - dt * 2);
       if (gameState.upgradeAnimation > 0) gameState.upgradeAnimation = Math.max(0, gameState.upgradeAnimation - dt);
-      if (gameState.upgradeUIAnimation < 1 && gameState.showUpgradeUI) gameState.upgradeUIAnimation = Math.min(1, gameState.upgradeUIAnimation + dt * 3);
-      
+      if (gameState.upgradeUIAnimation < 1 && gameState.showUpgradeUI)
+        gameState.upgradeUIAnimation = Math.min(1, gameState.upgradeUIAnimation + dt * 3);
+
       // Music notification timer
       if (gameState.musicNotificationTimer > 0) {
         gameState.musicNotificationTimer = Math.max(0, gameState.musicNotificationTimer - dt);
@@ -2021,23 +2154,23 @@ const Index = () => {
           gameState.itemNotification = "";
         }
       }
-      
+
       // Smooth volume transition (animación suave del volumen)
       if (Math.abs(gameState.musicVolume - gameState.targetMusicVolume) > 0.001) {
         const volumeSpeed = 2; // Velocidad de transición (más alto = más rápido)
         gameState.musicVolume += (gameState.targetMusicVolume - gameState.musicVolume) * dt * volumeSpeed;
-        
+
         // Aplicar el volumen al audio
         if (gameState.music) {
           gameState.music.volume = gameState.musicVolume;
         }
-        
+
         // Snap al valor final si está muy cerca
         if (Math.abs(gameState.musicVolume - gameState.targetMusicVolume) < 0.001) {
           gameState.musicVolume = gameState.targetMusicVolume;
         }
       }
-      
+
       // Actualizar explosion marks
       for (let i = gameState.explosionMarks.length - 1; i >= 0; i--) {
         gameState.explosionMarks[i].life -= dt;
@@ -2045,9 +2178,9 @@ const Index = () => {
           gameState.explosionMarks.splice(i, 1);
         }
       }
-      
+
       // Hold R para reiniciar (solo durante running)
-      if (gameState.state === 'running' && gameState.keys['r']) {
+      if (gameState.state === "running" && gameState.keys["r"]) {
         gameState.restartTimer += dt;
         if (gameState.restartTimer >= gameState.restartHoldTime) {
           resetGame();
@@ -2058,24 +2191,24 @@ const Index = () => {
       }
 
       // Game Over - seguir corriendo el tiempo durante la animación
-      if (gameState.state === 'gameover') {
+      if (gameState.state === "gameover") {
         gameState.gameOverAnimationTimer += dt;
         gameState.time += dt; // El tiempo sigue corriendo
         return;
       }
-      
+
       // Countdown timer después de pausa (más rápido: 2x velocidad)
       if (gameState.countdownTimer > 0) {
         gameState.countdownTimer -= dt * 2; // 2x más rápido
         if (gameState.countdownTimer <= 0) {
           gameState.countdownTimer = 0;
-          gameState.state = 'running';
+          gameState.state = "running";
         }
         // NO return aquí - seguir actualizando para que se vea el juego
       }
-      
+
       // Solo actualizar lógica del juego si está corriendo (pero no durante countdown)
-      if (gameState.state !== 'running' || gameState.countdownTimer > 0) return;
+      if (gameState.state !== "running" || gameState.countdownTimer > 0) return;
 
       // ═══════════════════════════════════════════════════════════
       // TUTORIAL - Wave 1 como tutorial obligatorio
@@ -2084,7 +2217,7 @@ const Index = () => {
       if (gameState.tutorialActive && !tutorialCompleted && gameState.wave === 1) {
         const { w, a, s, d } = gameState.keys;
         const timeInTutorial = (performance.now() - gameState.tutorialStartTime) / 1000;
-        
+
         // Completar después de 5 segundos O cuando presione WASD
         if (timeInTutorial > 5 || w || a || s || d) {
           setTutorialCompleted(true);
@@ -2124,22 +2257,22 @@ const Index = () => {
       // • Daño continuo: 8 HP/s
       //
       // ═══════════════════════════════════════════════════════════
-      
+
       // Wave system basado en conteo de enemigos eliminados (no durante tutorial)
       if (!gameState.tutorialActive && gameState.waveKills >= gameState.waveEnemiesTotal) {
         // Wave completada!
         gameState.wave++;
         gameState.waveKills = 0;
         gameState.waveEnemiesSpawned = 0;
-        
+
         // Reset first hit immune para la nueva wave
         gameState.player.stats.firstHitImmuneUsed = false;
-        
+
         // Sistema de oleadas estilo COD Zombies - Escalado exponencial
         // POST-WAVE 13: Cantidad de enemigos FIJA, solo aumenta poder
         let waveTarget: number;
         let maxConcurrent: number;
-        
+
         // Fórmula exponencial para número de enemigos
         if (gameState.wave === 1) {
           waveTarget = 10;
@@ -2180,22 +2313,23 @@ const Index = () => {
           waveTarget = 130; // Cantidad fija de enemigos
           maxConcurrent = 45; // Max concurrente fijo
         }
-        
+
         // Boss waves (cada 5) y Mini-boss waves (3, 7, 12, 17, 22...) incluyen +1 enemigo
         if (gameState.wave % 5 === 0) {
           waveTarget += 1; // +1 por el boss
         }
-        const isMiniBossWave = gameState.wave === 3 || (gameState.wave > 3 && (gameState.wave - 3) % 5 === 0 && gameState.wave % 5 !== 0);
+        const isMiniBossWave =
+          gameState.wave === 3 || (gameState.wave > 3 && (gameState.wave - 3) % 5 === 0 && gameState.wave % 5 !== 0);
         if (isMiniBossWave) {
           waveTarget += 1; // +1 por el mini-boss
         }
-        
+
         gameState.waveEnemiesTotal = waveTarget;
         gameState.maxConcurrentEnemies = maxConcurrent;
-        
+
         // Animación de transición entre waves (3 segundos)
         gameState.waveNotification = 3;
-        
+
         // Partículas de celebración
         for (let i = 0; i < 30; i++) {
           const angle = (Math.PI * 2 * i) / 30;
@@ -2209,10 +2343,10 @@ const Index = () => {
             size: 4,
           });
         }
-        
+
         // Recompensa por completar wave
         collectXP(20 + gameState.wave * 5);
-        
+
         // ═══════════════════════════════════════════════════════════
         // LIMPIAR EVENTOS AL FINALIZAR WAVE
         // ═══════════════════════════════════════════════════════════
@@ -2226,14 +2360,14 @@ const Index = () => {
           gameState.fogZones = [];
           gameState.fogWarningZones = []; // Limpiar warnings también
           gameState.stormZone = null;
-          
+
           // FIX: Limpiar TODOS los hotspots radiactivos (lluvia radiactiva)
-          gameState.hotspots = gameState.hotspots.filter(h => !h.isRadioactive);
+          gameState.hotspots = gameState.hotspots.filter((h) => !h.isRadioactive);
         }
-        
+
         // Reset flag para permitir nuevo evento en la siguiente wave
         gameState.eventActivatedThisWave = false;
-        
+
         // ═══════════════════════════════════════════════════════════
         // ACTIVACIÓN DE EVENTOS AMBIENTALES AL INICIO DE WAVE
         // ═══════════════════════════════════════════════════════════
@@ -2248,14 +2382,14 @@ const Index = () => {
           } else if (gameState.wave >= 11 && gameState.wave <= 15) {
             eventProbability = 0.06; // 6% en waves 11-15
           } else if (gameState.wave >= 16) {
-            eventProbability = 0.10; // 10% en waves 16+
+            eventProbability = 0.1; // 10% en waves 16+
           }
-          
+
           // Intentar activar evento con la probabilidad calculada (UNA VEZ al inicio de la wave)
           if (Math.random() < eventProbability) {
             const events = ["storm", "fog", "rain"] as const;
             const newEvent = events[Math.floor(Math.random() * events.length)];
-            
+
             gameState.environmentalEvent = newEvent;
             gameState.eventPhase = "notification";
             gameState.eventIntensity = 0;
@@ -2269,37 +2403,37 @@ const Index = () => {
           }
         }
       }
-      
+
       // Reducir timer de notificación de wave
       if (gameState.waveNotification > 0) {
         gameState.waveNotification = Math.max(0, gameState.waveNotification - dt);
       }
-      
+
       // ═══════════════════════════════════════════════════════════
       // EVENTOS AMBIENTALES - Lógica y Efectos
       // ═══════════════════════════════════════════════════════════
-      
+
       // Fase de notificación
       if (gameState.eventNotification > 0) {
         gameState.eventNotification = Math.max(0, gameState.eventNotification - dt);
-        
+
         // Cuando termina la notificación, empezar fade in
         if (gameState.eventNotification === 0 && gameState.eventPhase === "notification") {
           gameState.eventPhase = "fadein";
           gameState.eventIntensity = 0;
         }
       }
-      
+
       if (gameState.environmentalEvent && gameState.eventPhase !== "notification") {
         // Fase de Fade In (5 segundos)
         if (gameState.eventPhase === "fadein") {
           gameState.eventIntensity = Math.min(1, gameState.eventIntensity + dt * 0.2); // 5 segundos para llegar a 1
-          
+
           if (gameState.eventIntensity >= 1) {
             gameState.eventPhase = "active";
           }
         }
-        
+
         // Verificar si la wave terminó (evento termina inmediatamente)
         if (gameState.waveKills >= gameState.waveEnemiesTotal) {
           // Limpiar todos los eventos inmediatamente
@@ -2311,11 +2445,15 @@ const Index = () => {
           gameState.eventIntensity = 0;
           gameState.eventNotification = 0;
         }
-        
+
         // Aplicar efectos solo en fase active
-        if (gameState.eventPhase === "active" || gameState.eventPhase === "fadein" || gameState.eventPhase === "fadeout") {
+        if (
+          gameState.eventPhase === "active" ||
+          gameState.eventPhase === "fadein" ||
+          gameState.eventPhase === "fadeout"
+        ) {
           const intensity = gameState.eventIntensity;
-          
+
           switch (gameState.environmentalEvent) {
             case "storm":
               // ⚡ TORMENTA: Sigue al jugador LENTAMENTE pero de forma impredecible
@@ -2329,21 +2467,21 @@ const Index = () => {
                   vy: 0,
                 };
               }
-              
+
               // Calcular dirección hacia el jugador
               const dx = gameState.player.x - gameState.stormZone.x;
               const dy = gameState.player.y - gameState.stormZone.y;
               const distToPlayer = Math.hypot(dx, dy);
-              
+
               // Velocidad base AUMENTADA (sigue al jugador más rápidamente)
               const baseSpeed = 60; // Aumentado de 20 a 60
               const maxSpeed = 120; // Aumentado de 40 a 120
-              
+
               // Componente hacia el jugador (80% del tiempo)
               const followStrength = Math.random() < 0.8 ? 1 : 0;
               const targetVx = (dx / distToPlayer) * baseSpeed * followStrength;
               const targetVy = (dy / distToPlayer) * baseSpeed * followStrength;
-              
+
               // Componente aleatorio impredecible (20% del tiempo o cambio brusco)
               if (Math.random() < 0.02 || followStrength === 0) {
                 // Cambio de dirección impredecible
@@ -2355,15 +2493,15 @@ const Index = () => {
                 gameState.stormZone.vx += (targetVx - gameState.stormZone.vx) * 0.05;
                 gameState.stormZone.vy += (targetVy - gameState.stormZone.vy) * 0.05;
               }
-              
+
               // Añadir ruido aleatorio continuo (hace el movimiento impredecible)
               gameState.stormZone.vx += (Math.random() - 0.5) * 15;
               gameState.stormZone.vy += (Math.random() - 0.5) * 15;
-              
+
               // Mover la tormenta
               gameState.stormZone.x += gameState.stormZone.vx * dt;
               gameState.stormZone.y += gameState.stormZone.vy * dt;
-              
+
               // Mantener dentro del mapa (rebotar suavemente en bordes)
               if (gameState.stormZone.x < gameState.stormZone.radius) {
                 gameState.stormZone.x = gameState.stormZone.radius;
@@ -2381,23 +2519,26 @@ const Index = () => {
                 gameState.stormZone.y = H - gameState.stormZone.radius;
                 gameState.stormZone.vy = -Math.abs(gameState.stormZone.vy);
               }
-              
+
               // Limitar velocidad máxima
               const stormSpeed = Math.hypot(gameState.stormZone.vx, gameState.stormZone.vy);
               if (stormSpeed > maxSpeed) {
                 gameState.stormZone.vx = (gameState.stormZone.vx / stormSpeed) * maxSpeed;
                 gameState.stormZone.vy = (gameState.stormZone.vy / stormSpeed) * maxSpeed;
               }
-              
+
               // Daño continuo si el jugador está dentro (escalado por intensidad)
-              const distToStorm = Math.hypot(gameState.player.x - gameState.stormZone.x, gameState.player.y - gameState.stormZone.y);
+              const distToStorm = Math.hypot(
+                gameState.player.x - gameState.stormZone.x,
+                gameState.player.y - gameState.stormZone.y,
+              );
               if (distToStorm < gameState.stormZone.radius) {
                 gameState.player.hp -= 10 * dt * intensity; // 10 HP/s escalado por intensidad
                 if (gameState.player.hp <= 0) {
-                  gameState.state = 'gameover';
+                  gameState.state = "gameover";
                   gameState.gameOverTimer = 3;
                 }
-                
+
                 // Partículas de daño eléctrico
                 if (Math.random() < 0.3 * intensity && gameState.particles.length < gameState.maxParticles) {
                   gameState.particles.push({
@@ -2411,7 +2552,7 @@ const Index = () => {
                   });
                 }
               }
-              
+
               // Partículas de tormenta
               if (Math.random() < 0.5 * intensity && gameState.particles.length < gameState.maxParticles) {
                 const angle = Math.random() * Math.PI * 2;
@@ -2427,7 +2568,7 @@ const Index = () => {
                 });
               }
               break;
-              
+
             case "fog":
               // 🌫️ NIEBLA TÓXICA: Warning antes de aparecer, luego 1 zona rectangular
               // Fase 1: Warning zones (mostrar dónde aparecerá)
@@ -2442,12 +2583,12 @@ const Index = () => {
                   warningTime: 0,
                 });
               }
-              
+
               // Actualizar warning timer
               if (gameState.fogWarningZones.length > 0) {
                 gameState.fogWarningZones[0].warningTime += dt;
               }
-              
+
               // Fase 2: Crear zona de niebla real después del warning
               if (gameState.fogZones.length === 0 && intensity > 0.3 && gameState.fogWarningZones.length > 0) {
                 const warning = gameState.fogWarningZones[0];
@@ -2459,30 +2600,34 @@ const Index = () => {
                 });
                 gameState.fogWarningZones = []; // Limpiar warnings
               }
-              
+
               // Fade in niebla
               if (gameState.fogOpacity < 0.8 * intensity) {
                 gameState.fogOpacity = Math.min(0.8 * intensity, gameState.fogOpacity + dt * 0.3);
               }
-              
+
               // Verificar si el jugador está en la zona de niebla
               let inFogZone = false;
               for (const zone of gameState.fogZones) {
-                if (gameState.player.x > zone.x && gameState.player.x < zone.x + zone.width &&
-                    gameState.player.y > zone.y && gameState.player.y < zone.y + zone.height) {
+                if (
+                  gameState.player.x > zone.x &&
+                  gameState.player.x < zone.x + zone.width &&
+                  gameState.player.y > zone.y &&
+                  gameState.player.y < zone.y + zone.height
+                ) {
                   inFogZone = true;
                   break;
                 }
               }
-              
+
               // Daño aumentado si está en zona de niebla (escalado por intensidad)
               if (inFogZone) {
                 gameState.player.hp -= 5 * dt * intensity; // 5 HP/s escalado por intensidad
                 if (gameState.player.hp <= 0) {
-                  gameState.state = 'gameover';
+                  gameState.state = "gameover";
                   gameState.gameOverTimer = 3;
                 }
-                
+
                 // Partículas de daño en el jugador
                 if (Math.random() < 0.2 * intensity && gameState.particles.length < gameState.maxParticles) {
                   gameState.particles.push({
@@ -2496,9 +2641,13 @@ const Index = () => {
                   });
                 }
               }
-              
+
               // Partículas de niebla en las zonas
-              if (Math.random() < 0.3 * intensity && gameState.particles.length < gameState.maxParticles && gameState.fogZones.length > 0) {
+              if (
+                Math.random() < 0.3 * intensity &&
+                gameState.particles.length < gameState.maxParticles &&
+                gameState.fogZones.length > 0
+              ) {
                 const zone = gameState.fogZones[0];
                 gameState.particles.push({
                   x: zone.x + Math.random() * zone.width,
@@ -2511,15 +2660,16 @@ const Index = () => {
                 });
               }
               break;
-              
+
             case "rain":
               // ☢️ LLUVIA RADIACTIVA: Enemigos ganan velocidad en zonas específicas - SOLO 1 CÍRCULO
               // Crear zona radiactiva tipo negative hotspot - MUY GRANDE
-              if (gameState.hotspots.filter(h => h.isRadioactive).length === 0 && intensity > 0.3) {
+              if (gameState.hotspots.filter((h) => h.isRadioactive).length === 0 && intensity > 0.3) {
                 const x = Math.random() * (W - 600) + 300;
                 const y = Math.random() * (H - 600) + 300;
                 gameState.hotspots.push({
-                  x, y,
+                  x,
+                  y,
                   rad: 300,
                   progress: 0,
                   required: 0,
@@ -2530,7 +2680,7 @@ const Index = () => {
                   isRadioactive: true, // Marca especial para lluvia radiactiva
                 });
               }
-              
+
               // Partículas de lluvia
               if (Math.random() < 0.3 * intensity && gameState.particles.length < gameState.maxParticles) {
                 gameState.particles.push({
@@ -2550,20 +2700,23 @@ const Index = () => {
 
       // Hotspot spawning (positivos)
       gameState.hotspotTimer += dt;
-      if (gameState.hotspotTimer >= 30 && gameState.hotspots.filter(h => !h.isNegative).length < 2) {
+      if (gameState.hotspotTimer >= 30 && gameState.hotspots.filter((h) => !h.isNegative).length < 2) {
         gameState.hotspotTimer = 0;
         spawnHotspot(false);
       }
-      
+
       // Danger Zone spawning (negativos) - Más frecuentes estilo COD Zombies
-      if (gameState.wave >= 3 && gameState.hotspots.filter(h => h.isNegative).length < (gameState.wave >= 11 ? 2 : 1)) {
+      if (
+        gameState.wave >= 3 &&
+        gameState.hotspots.filter((h) => h.isNegative).length < (gameState.wave >= 11 ? 2 : 1)
+      ) {
         let dangerChance = 0.02;
         if (gameState.wave >= 6 && gameState.wave < 11) {
           dangerChance = 0.025; // Cada ~40s
         } else if (gameState.wave >= 11) {
           dangerChance = 0.033; // Cada ~30s, hasta 2 zonas
         }
-        
+
         if (Math.random() < dangerChance * dt) {
           spawnHotspot(true);
         }
@@ -2576,7 +2729,7 @@ const Index = () => {
       for (let i = gameState.hotspots.length - 1; i >= 0; i--) {
         const h = gameState.hotspots[i];
         const d = Math.hypot(h.x - gameState.player.x, h.y - gameState.player.y);
-        
+
         // Zonas radiactivas solo afectan enemigos, no jugador
         if (h.isRadioactive) {
           h.expirationTimer += dt;
@@ -2585,21 +2738,21 @@ const Index = () => {
           }
           continue; // Skip player interaction
         }
-        
+
         // Danger zones permanentes desde wave 8
         const isDangerZonePermanent = h.isNegative && gameState.wave >= 8;
-        
+
         if (d < h.rad) {
           h.active = true;
-          
+
           if (h.isNegative) {
             // HOTSPOT NEGATIVO (Zona de Peligro)
             gameState.inDangerZone = true;
             gameState.dangerZoneTimer += dt;
-            
+
             // Daño continuo: 8 HP/s (sin activar invulnerabilidad)
             gameState.player.hp -= 8 * dt;
-            
+
             // Partículas de daño
             if (Math.random() < 0.15 && gameState.particles.length < gameState.maxParticles) {
               gameState.particles.push({
@@ -2612,22 +2765,22 @@ const Index = () => {
                 size: 4,
               });
             }
-            
+
             // No incrementa timer de caducación mientras el jugador está dentro
             h.progress += dt;
-            
+
             // Check game over
             if (gameState.player.hp <= 0) {
-              gameState.state = 'gameover';
+              gameState.state = "gameover";
               gameState.gameOverTimer = 3;
             }
           } else {
             // HOTSPOT POSITIVO (recompensa)
             h.progress += dt;
-            
+
             if (h.progress >= h.required) {
               // ¡Recompensa!
-              const availableItems = ITEMS.filter(item => !gameState.player.itemFlags[item.id]);
+              const availableItems = ITEMS.filter((item) => !gameState.player.itemFlags[item.id]);
               if (availableItems.length > 0) {
                 const rewardItem = availableItems[Math.floor(Math.random() * availableItems.length)];
                 grantItemToPlayer(rewardItem, { notify: true, playSound: true });
@@ -2656,11 +2809,11 @@ const Index = () => {
         } else {
           // Jugador FUERA
           h.active = false;
-          
+
           // Solo incrementar timer de expiración si no es permanente
           if (!isDangerZonePermanent) {
             h.expirationTimer += dt;
-            
+
             // Si pasa el tiempo de caducación, eliminar
             if (h.expirationTimer >= h.maxExpiration) {
               gameState.hotspots.splice(i, 1);
@@ -2668,12 +2821,12 @@ const Index = () => {
           }
         }
       }
-      
+
       // Resetear timer si sale de la zona de peligro
       if (!gameState.inDangerZone) {
         gameState.dangerZoneTimer = 0;
       }
-      
+
       // Temporary powerup timers
       if (gameState.player.tempMagnetTimer > 0) {
         gameState.player.tempMagnetTimer = Math.max(0, gameState.player.tempMagnetTimer - dt);
@@ -2687,11 +2840,18 @@ const Index = () => {
       if (gameState.player.rageTimer > 0) {
         gameState.player.rageTimer = Math.max(0, gameState.player.rageTimer - dt);
       }
-      
+
       // Sprint system (Spacebar)
-      const isMoving = gameState.keys["w"] || gameState.keys["a"] || gameState.keys["s"] || gameState.keys["d"] ||
-                       gameState.keys["arrowup"] || gameState.keys["arrowleft"] || gameState.keys["arrowdown"] || gameState.keys["arrowright"];
-      
+      const isMoving =
+        gameState.keys["w"] ||
+        gameState.keys["a"] ||
+        gameState.keys["s"] ||
+        gameState.keys["d"] ||
+        gameState.keys["arrowup"] ||
+        gameState.keys["arrowleft"] ||
+        gameState.keys["arrowdown"] ||
+        gameState.keys["arrowright"];
+
       if (gameState.keys[" "] && isMoving && gameState.player.stamina > 0) {
         // Sprint activado
         gameState.player.isSprinting = true;
@@ -2703,7 +2863,7 @@ const Index = () => {
           gameState.player.stamina = Math.min(gameState.player.maxStamina, gameState.player.stamina + 10 * dt); // Regenera 10 stamina/segundo (llena en 2s)
         }
       }
-      
+
       // Si se acabó la stamina, forzar desactivar sprint
       if (gameState.player.stamina <= 0) {
         gameState.player.isSprinting = false;
@@ -2714,10 +2874,13 @@ const Index = () => {
         gameState.regenTimer += dt;
         if (gameState.regenTimer >= gameState.player.stats.regenInterval) {
           gameState.regenTimer = 0;
-          gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + gameState.player.stats.regenRate);
+          gameState.player.hp = Math.min(
+            gameState.player.maxhp,
+            gameState.player.hp + gameState.player.stats.regenRate,
+          );
         }
       }
-      
+
       // Regeneración del item (si lo tiene)
       if (gameState.player.items.find((it: Item) => it.id === "regen")) {
         // El item de regeneración es adicional al tomo
@@ -2755,27 +2918,34 @@ const Index = () => {
       if (gameState.player.ifr > 0) gameState.player.ifr = Math.max(0, gameState.player.ifr - dt);
 
       // Movimiento (WASD o flechas)
-      let vx = (gameState.keys["d"] || gameState.keys["arrowright"] ? 1 : 0) - (gameState.keys["a"] || gameState.keys["arrowleft"] ? 1 : 0);
-      let vy = (gameState.keys["s"] || gameState.keys["arrowdown"] ? 1 : 0) - (gameState.keys["w"] || gameState.keys["arrowup"] ? 1 : 0);
+      let vx =
+        (gameState.keys["d"] || gameState.keys["arrowright"] ? 1 : 0) -
+        (gameState.keys["a"] || gameState.keys["arrowleft"] ? 1 : 0);
+      let vy =
+        (gameState.keys["s"] || gameState.keys["arrowdown"] ? 1 : 0) -
+        (gameState.keys["w"] || gameState.keys["arrowup"] ? 1 : 0);
       const len = Math.hypot(vx, vy) || 1;
       vx /= len;
       vy /= len;
-      
+
       let spd = gameState.player.spd * gameState.player.stats.speedMultiplier;
       if (gameState.player.rageTimer > 0) spd *= 1.5; // Rage mode: +50% velocidad
       if (gameState.player.isSprinting) spd *= 1.7; // Sprint: +70% velocidad
-      
+
       // Movimiento tentativo
       let newX = gameState.player.x + vx * spd;
       let newY = gameState.player.y + vy * spd;
-      
+
       // Restricción de movimiento en zonas de niebla
       if (gameState.environmentalEvent === "fog" && gameState.fogZones.length > 0) {
         for (const zone of gameState.fogZones) {
           // Verificar si el jugador está en la zona actualmente
-          const isInZone = gameState.player.x >= zone.x && gameState.player.x <= zone.x + zone.width &&
-                          gameState.player.y >= zone.y && gameState.player.y <= zone.y + zone.height;
-          
+          const isInZone =
+            gameState.player.x >= zone.x &&
+            gameState.player.x <= zone.x + zone.width &&
+            gameState.player.y >= zone.y &&
+            gameState.player.y <= zone.y + zone.height;
+
           if (isInZone) {
             // Restringir movimiento para que no pueda salir de la zona
             if (newX < zone.x) newX = zone.x;
@@ -2786,61 +2956,62 @@ const Index = () => {
           }
         }
       }
-      
+
       // Clamp a los límites del mapa
       newX = Math.max(gameState.player.rad, Math.min(W - gameState.player.rad, newX));
       newY = Math.max(gameState.player.rad, Math.min(H - gameState.player.rad, newY));
-      
+
       gameState.player.x = newX;
       gameState.player.y = newY;
 
       // ═══════════════════════════════════════════════════════════
       // SISTEMA DE SPAWN DE ENEMIGOS - Estilo COD Zombies
       // ═══════════════════════════════════════════════════════════
-      // 
+      //
       // Reglas:
       // 1. Solo se spawnean enemigos normales si waveEnemiesSpawned < waveEnemiesTotal
       // 2. Boss y Mini-boss NO cuentan en el límite de maxConcurrentEnemies
       // 3. Los spawns se detienen cuando se alcanza waveEnemiesTotal
       // 4. La wave NO avanza hasta que waveKills >= waveEnemiesTotal
       // 5. En waves 8+, enemigos aparecen en bursts de 3-5 simultáneos
-      // 
+      //
       // ═══════════════════════════════════════════════════════════
-      
+
       gameState.lastSpawn += dt;
-      
+
       // Sistema de cooldown: Reducir el cooldown
       if (gameState.spawnCooldown > 0) {
         gameState.spawnCooldown = Math.max(0, gameState.spawnCooldown - dt);
       }
-      
+
       // Verificar si todos los enemigos fueron eliminados
       if (gameState.enemies.length === 0 && gameState.waveEnemiesSpawned > 0 && gameState.canSpawn) {
         // Activar cooldown de 3 segundos
         gameState.canSpawn = false;
         gameState.spawnCooldown = 3;
       }
-      
+
       // Después del cooldown, permitir spawn de nuevo
       if (!gameState.canSpawn && gameState.spawnCooldown === 0) {
         gameState.canSpawn = true;
       }
-      
+
       // Solo spawnear enemigos normales si:
       // 1. No estamos en tutorial
       // 2. No hemos alcanzado el total de la wave
       // 3. Hay cupo (normalEnemies < maxConcurrentEnemies)
       // 4. El cooldown ha terminado (canSpawn = true)
       let normalEnemyCount = gameState.normalEnemyCount;
-      const canSpawnNow = !gameState.tutorialActive &&
-                          gameState.waveEnemiesSpawned < gameState.waveEnemiesTotal &&
-                          normalEnemyCount < gameState.maxConcurrentEnemies &&
-                          gameState.canSpawn;
-      
+      const canSpawnNow =
+        !gameState.tutorialActive &&
+        gameState.waveEnemiesSpawned < gameState.waveEnemiesTotal &&
+        normalEnemyCount < gameState.maxConcurrentEnemies &&
+        gameState.canSpawn;
+
       if (canSpawnNow) {
         // Velocidad de spawn estilo COD Zombies - Spawns en bursts agresivos
         let spawnRate: number;
-        
+
         if (gameState.wave === 1 || gameState.wave === 2) {
           // Wave 1-2: Spawn controlado
           spawnRate = 1.2 + Math.random() * 0.3;
@@ -2857,17 +3028,19 @@ const Index = () => {
           // Wave 16+: Inundación continua
           spawnRate = 0.1 + Math.random() * 0.2;
         }
-        
+
         if (gameState.lastSpawn > spawnRate) {
           // Spawns en hordas (Wave 8+)
           let spawnCount = 1;
           if (gameState.wave >= 8 && Math.random() < 0.3) {
             spawnCount = Math.floor(Math.random() * 3) + 3; // 3-5 enemigos simultáneos
           }
-          
+
           for (let i = 0; i < spawnCount; i++) {
-            if (gameState.waveEnemiesSpawned < gameState.waveEnemiesTotal &&
-                normalEnemyCount < gameState.maxConcurrentEnemies) {
+            if (
+              gameState.waveEnemiesSpawned < gameState.waveEnemiesTotal &&
+              normalEnemyCount < gameState.maxConcurrentEnemies
+            ) {
               spawnEnemy();
               normalEnemyCount = gameState.normalEnemyCount;
               gameState.waveEnemiesSpawned++;
@@ -2876,16 +3049,26 @@ const Index = () => {
           gameState.lastSpawn = 0;
         }
       }
-      
+
       // Boss spawn cada 5 waves (NO durante tutorial, NO cuenta en límite concurrente)
-      if (!gameState.tutorialActive && gameState.wave % 5 === 0 && gameState.waveEnemiesSpawned === gameState.waveEnemiesTotal - 1 && gameState.enemies.length === 0) {
+      if (
+        !gameState.tutorialActive &&
+        gameState.wave % 5 === 0 &&
+        gameState.waveEnemiesSpawned === gameState.waveEnemiesTotal - 1 &&
+        gameState.enemies.length === 0
+      ) {
         spawnBoss();
         gameState.waveEnemiesSpawned++;
       }
-      
+
       // Mini-boss spawn (wave 3, 7, 12, 17, 22...) (NO durante tutorial, NO cuenta en límite concurrente)
       const isMiniBossWave = gameState.wave === 3 || (gameState.wave > 3 && (gameState.wave - 3) % 5 === 0);
-      if (!gameState.tutorialActive && isMiniBossWave && gameState.waveEnemiesSpawned === gameState.waveEnemiesTotal - 1 && gameState.enemies.length === 0) {
+      if (
+        !gameState.tutorialActive &&
+        isMiniBossWave &&
+        gameState.waveEnemiesSpawned === gameState.waveEnemiesTotal - 1 &&
+        gameState.enemies.length === 0
+      ) {
         spawnMiniBoss();
         gameState.waveEnemiesSpawned++;
       }
@@ -2901,7 +3084,7 @@ const Index = () => {
             gameState.particles.push({
               x: e.x + (Math.random() - 0.5) * e.rad,
               y: e.y + (Math.random() - 0.5) * e.rad,
-              vx: (Math.random() - 0.5),
+              vx: Math.random() - 0.5,
               vy: -1,
               life: 0.5,
               color: "#fb923c",
@@ -2909,7 +3092,7 @@ const Index = () => {
             });
           }
         }
-        
+
         if (e.poisonTimer > 0) {
           e.poisonTimer -= dt;
           e.hp -= 0.3 * dt; // 0.3 daño por segundo (ignora defensa)
@@ -2926,20 +3109,20 @@ const Index = () => {
             });
           }
         }
-        
+
         // Movimiento (ralentizado si está congelado)
         let movementSpeed = e.spd;
         if (e.frozenTimer > 0) {
           e.frozenTimer -= dt;
           movementSpeed *= 0.5; // 50% más lento
         }
-        
+
         // Comportamientos especiales de enemigos
-        
+
         // 💣 BOMBER: Countdown de explosión
         if (e.specialType === "explosive" && e.explosionTimer !== undefined && e.explosionTimer >= 0) {
           e.explosionTimer -= dt;
-          
+
           // Partículas de advertencia (más intensas cerca de explotar)
           const warningIntensity = e.explosionTimer < 0.5 ? 0.8 : 0.3;
           if (Math.random() < warningIntensity && gameState.particles.length < gameState.maxParticles) {
@@ -2953,19 +3136,19 @@ const Index = () => {
               size: e.explosionTimer < 0.5 ? 5 : 3,
             });
           }
-          
+
           // BOOM! Explosión
           if (e.explosionTimer <= 0) {
             const explosionRadius = 80; // Radio AOE
             const explosionDamage = e.damage; // Usar el daño escalado del bomber
-            
+
             // Daño al jugador si está en rango
             const distToPlayer = Math.hypot(e.x - gameState.player.x, e.y - gameState.player.y);
             if (distToPlayer < explosionRadius) {
               // Daño proporcional a la distancia
               const damageMultiplier = 1 - (distToPlayer / explosionRadius) * 0.5; // 100% en el centro, 50% en el borde
               const finalDamage = explosionDamage * damageMultiplier;
-              
+
               if (gameState.player.ifr <= 0) {
                 if (gameState.player.shield > 0) {
                   gameState.player.shield--;
@@ -2973,25 +3156,31 @@ const Index = () => {
                   // Aplicar reducción de daño
                   const reducedDamage = finalDamage * (1 - gameState.player.stats.damageReduction);
                   gameState.player.hp = Math.max(0, gameState.player.hp - reducedDamage);
-                  
+
                   // Knockback
                   const knockbackForce = 150;
                   const angle = Math.atan2(gameState.player.y - e.y, gameState.player.x - e.x);
                   gameState.player.x += Math.cos(angle) * knockbackForce * dt * 10;
                   gameState.player.y += Math.sin(angle) * knockbackForce * dt * 10;
-                  
+
                   // Clamp dentro del mapa
-                  gameState.player.x = Math.max(gameState.player.rad, Math.min(W - gameState.player.rad, gameState.player.x));
-                  gameState.player.y = Math.max(gameState.player.rad, Math.min(H - gameState.player.rad, gameState.player.y));
+                  gameState.player.x = Math.max(
+                    gameState.player.rad,
+                    Math.min(W - gameState.player.rad, gameState.player.x),
+                  );
+                  gameState.player.y = Math.max(
+                    gameState.player.rad,
+                    Math.min(H - gameState.player.rad, gameState.player.y),
+                  );
                 }
                 gameState.player.ifr = gameState.player.ifrDuration;
-                
+
                 if (gameState.player.hp <= 0) {
                   endGame();
                 }
               }
             }
-            
+
             // Daño a enemigos cercanos (también reciben daño de explosión)
             for (const otherEnemy of gameState.enemies) {
               if (otherEnemy === e) continue;
@@ -3001,7 +3190,7 @@ const Index = () => {
                 otherEnemy.hp -= explosionDamage * 0.5 * damageMultiplier; // 50% daño a otros enemigos
               }
             }
-            
+
             // Explosión visual GRANDE
             if (gameState.particles.length < gameState.maxParticles - 50) {
               for (let j = 0; j < 50; j++) {
@@ -3018,7 +3207,7 @@ const Index = () => {
                 });
               }
             }
-            
+
             // Marca en el suelo
             gameState.explosionMarks.push({
               x: e.x,
@@ -3026,15 +3215,15 @@ const Index = () => {
               radius: explosionRadius,
               life: 3, // 3 segundos
             });
-            
+
             // Sonido de explosión (más fuerte)
             playSound(80, 0.4, "sawtooth", 0.5);
-            
+
             // Eliminar bomber
             e.hp = 0;
           }
         }
-        
+
         if (e.specialType === "summoner" && e.summonCooldown !== undefined) {
           e.summonCooldown -= dt;
           if (e.summonCooldown <= 0 && normalEnemyCount < gameState.maxConcurrentEnemies) {
@@ -3069,13 +3258,13 @@ const Index = () => {
             e.summonCooldown = 8; // 8 segundos entre invocaciones
           }
         }
-        
+
         // Movimiento hacia el jugador (excepto bosses con comportamiento especial)
         if (!e.isBoss) {
           const dx = gameState.player.x - e.x;
           const dy = gameState.player.y - e.y;
           const d = Math.hypot(dx, dy) || 1;
-          
+
           // ☢️ Bonus de velocidad si está en zona radiactiva (lluvia)
           let speedBonus = 1;
           if (gameState.environmentalEvent === "rain") {
@@ -3089,18 +3278,18 @@ const Index = () => {
               }
             }
           }
-          
+
           e.x += (dx / d) * movementSpeed * speedBonus;
           e.y += (dy / d) * movementSpeed * speedBonus;
         } else {
           // Comportamiento de boss
           if (e.phase === 1 && e.hp < e.maxhp * 0.66) e.phase = 2;
           if (e.phase === 2 && e.hp < e.maxhp * 0.33) e.phase = 3;
-          
+
           e.attackCooldown -= dt;
           e.jumpCooldown -= dt;
           e.projectileCooldown -= dt;
-          
+
           // Fase 1: movimiento normal + proyectiles ocasionales
           if (e.phase === 1) {
             const dx = gameState.player.x - e.x;
@@ -3108,7 +3297,7 @@ const Index = () => {
             const d = Math.hypot(dx, dy) || 1;
             e.x += (dx / d) * movementSpeed;
             e.y += (dy / d) * movementSpeed;
-            
+
             if (e.projectileCooldown <= 0) {
               // Disparar proyectil al jugador
               const dir = Math.atan2(gameState.player.y - e.y, gameState.player.x - e.x);
@@ -3136,7 +3325,7 @@ const Index = () => {
               e.x = Math.random() * (W - 100) + 50;
               e.y = Math.random() * (H - 100) + 50;
               e.jumpCooldown = 4;
-              
+
               // Partículas de salto
               for (let j = 0; j < 20; j++) {
                 const angle = (Math.PI * 2 * j) / 20;
@@ -3151,7 +3340,7 @@ const Index = () => {
                 });
               }
             }
-            
+
             if (e.projectileCooldown <= 0) {
               // Disparar 3 proyectiles en spread
               for (let i = -1; i <= 1; i++) {
@@ -3180,7 +3369,7 @@ const Index = () => {
               e.x = Math.random() * (W - 100) + 50;
               e.y = Math.random() * (H - 100) + 50;
               e.jumpCooldown = 2.5;
-              
+
               // Patrón circular de proyectiles
               for (let j = 0; j < 8; j++) {
                 const angle = (Math.PI * 2 * j) / 8;
@@ -3199,7 +3388,7 @@ const Index = () => {
                   isEnemyBullet: true,
                 });
               }
-              
+
               // Partículas de salto
               for (let j = 0; j < 30; j++) {
                 const angle = (Math.PI * 2 * j) / 30;
@@ -3234,7 +3423,7 @@ const Index = () => {
           while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
           b.dir += angleDiff * turnSpeed;
         }
-        
+
         b.x += Math.cos(b.dir) * b.spd;
         b.y += Math.sin(b.dir) * b.spd;
         b.life -= dt;
@@ -3254,7 +3443,9 @@ const Index = () => {
         }
       }
 
-      gameState.bullets = gameState.bullets.filter((b: any) => b.life > 0 && b.x >= -50 && b.x <= W + 50 && b.y >= -50 && b.y <= H + 50);
+      gameState.bullets = gameState.bullets.filter(
+        (b: any) => b.life > 0 && b.x >= -50 && b.x <= W + 50 && b.y >= -50 && b.y <= H + 50,
+      );
 
       // Colisiones bala-enemigo
       for (let i = gameState.enemies.length - 1; i >= 0; i--) {
@@ -3262,10 +3453,10 @@ const Index = () => {
         for (const b of gameState.bullets) {
           // Skip balas de enemigos
           if (b.isEnemyBullet) continue;
-          
+
           if (Math.hypot(e.x - b.x, e.y - b.y) < e.rad + 4) {
             e.hp -= b.damage;
-            
+
             // Aplicar efectos elementales
             if (b.fire) {
               e.burnTimer = 3; // 3 segundos de fuego
@@ -3273,7 +3464,7 @@ const Index = () => {
             if (b.freeze) {
               e.frozenTimer = 2; // 2 segundos congelado
             }
-            
+
             // Chain lightning
             if (b.chain && b.chainCount > 0) {
               b.chainCount--;
@@ -3289,7 +3480,7 @@ const Index = () => {
                   }
                 }
               }
-              
+
               if (closestEnemy) {
                 closestEnemy.hp -= b.damage * 0.7;
                 closestEnemy.chainedThisShot = true;
@@ -3315,25 +3506,25 @@ const Index = () => {
                 b.life = 0;
               }
             }
-            
+
             // Limpiar flag de chain
             for (const enemy of gameState.enemies) {
               enemy.chainedThisShot = false;
             }
-            
+
             // 💥 EXPLOSIÓN AOE (Lanzacohetes y armas explosivas)
             // Splash damage en área grande
             if (b.aoe) {
               const explosionRadius = 100; // Radio grande de explosión
               const splashDamage = b.damage * 0.75; // 75% del daño a todos en el área
-              
+
               for (const e2 of gameState.enemies) {
                 const distToExplosion = Math.hypot(e2.x - b.x, e2.y - b.y);
                 if (distToExplosion < explosionRadius) {
                   // Daño que disminuye con la distancia
                   const damageMultiplier = 1 - (distToExplosion / explosionRadius) * 0.5;
                   e2.hp -= splashDamage * damageMultiplier;
-                  
+
                   // Partículas de impacto en cada enemigo afectado
                   if (gameState.particles.length < gameState.maxParticles - 3) {
                     for (let k = 0; k < 3; k++) {
@@ -3350,7 +3541,7 @@ const Index = () => {
                   }
                 }
               }
-              
+
               // Partículas de explosión central
               if (gameState.particles.length < gameState.maxParticles - 30) {
                 for (let j = 0; j < 30; j++) {
@@ -3383,7 +3574,7 @@ const Index = () => {
                   }
                 }
               }
-              
+
               // Si hay un enemigo cercano, dirigir la bala hacia él
               if (closestEnemy && closestDist < 200) {
                 b.dir = Math.atan2(closestEnemy.y - b.y, closestEnemy.x - b.x);
@@ -3415,7 +3606,7 @@ const Index = () => {
                 normalEnemyCount = gameState.normalEnemyCount;
               }
               gameState.enemies.splice(i, 1);
-              
+
               // Explosivos: explotan al morir
               if (e.specialType === "explosive") {
                 for (const e2 of gameState.enemies) {
@@ -3446,23 +3637,25 @@ const Index = () => {
                   }
                 }
               }
-              
+
               // Incrementar contador de muertes de la wave (solo si no es invocado)
               if (!e.isSummoned) {
                 gameState.waveKills++;
               }
-              
+
               // Puntos y XP según tipo de enemigo
               let points = 10;
               let xpBundles = 1;
               let dropChance = 0;
-              
+
               if (e.isBoss) {
                 // Boss muerto: recompensas legendarias
                 points = 500;
                 xpBundles = 10;
                 // Drop garantizado: item legendario
-                const legendaryItems = ITEMS.filter(it => it.rarity === "legendary" && !gameState.player.items.find((pi: Item) => pi.id === it.id));
+                const legendaryItems = ITEMS.filter(
+                  (it) => it.rarity === "legendary" && !gameState.player.items.find((pi: Item) => pi.id === it.id),
+                );
                 if (legendaryItems.length > 0) {
                   const randomLegendary = legendaryItems[Math.floor(Math.random() * legendaryItems.length)];
                   grantItemToPlayer(randomLegendary, { notify: true, playSound: true });
@@ -3472,7 +3665,7 @@ const Index = () => {
               } else if (e.isMiniBoss) {
                 points = 100;
                 xpBundles = Math.floor(Math.random() * 3) + 4; // 4-6 bundles
-                dropChance = 0.10; // 10% chance de drop temporal
+                dropChance = 0.1; // 10% chance de drop temporal
               } else if (e.isElite) {
                 // Élites: Mejor loot
                 points = 25;
@@ -3496,32 +3689,32 @@ const Index = () => {
                 xpBundles = 1;
                 dropChance = 0.02;
               }
-              
+
               gameState.score += points;
               setScore(gameState.score);
-              
+
               // Drop multiple XP bundles
               for (let k = 0; k < xpBundles; k++) {
                 const offsetX = (Math.random() - 0.5) * 40;
                 const offsetY = (Math.random() - 0.5) * 40;
-                let xpValue = e.isMiniBoss ? 30 : (e.enemyType === "strong" ? 5 : e.enemyType === "medium" ? 3 : 2);
-                
+                let xpValue = e.isMiniBoss ? 30 : e.enemyType === "strong" ? 5 : e.enemyType === "medium" ? 3 : 2;
+
                 // Horde Totem: +2 XP por kill
                 if (gameState.player.itemFlags.hordetotem) {
                   xpValue += 2;
                 }
-                
+
                 dropXP(e.x + offsetX, e.y + offsetY, xpValue);
               }
-              
+
               // Drop de curación (5% de probabilidad - más raro)
               const healRoll = Math.random();
               const luckMultiplier = gameState.player.itemFlags.luck ? 1.5 : 1;
-              
+
               if (healRoll < 0.05 * luckMultiplier) {
                 dropHeal(e.x, e.y);
               }
-              
+
               // Drop temporal con probabilidad
               if (Math.random() < dropChance) {
                 const roll = Math.random();
@@ -3529,12 +3722,16 @@ const Index = () => {
                 dropPowerup(e.x, e.y, powerupType);
               }
 
+              if (Math.random() < CHEST_DROP_RATE) {
+                dropChest(e.x, e.y);
+              }
+
               // Vampirismo
               if (gameState.player.stats.vampire > 0) {
                 const healAmount = Math.floor(b.damage * gameState.player.stats.vampire * 10);
                 gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + healAmount);
               }
-              
+
               // Solar Gauntlet: cada 10 kills dispara proyectil masivo
               if (gameState.player.itemFlags.solargauntlet) {
                 gameState.player.stats.solarGauntletKills++;
@@ -3574,7 +3771,7 @@ const Index = () => {
                   playPowerupSound();
                 }
               }
-              
+
               // Bloodstone: cada 30 kills recupera 5 HP
               if (gameState.player.itemFlags.bloodstone) {
                 gameState.player.stats.bloodstoneKills++;
@@ -3598,7 +3795,7 @@ const Index = () => {
                   }
                 }
               }
-              
+
               playHitSound();
 
               // Partículas de muerte con límite
@@ -3624,7 +3821,7 @@ const Index = () => {
       // Actualizar lifetime de drops y eliminar expirados
       for (let i = gameState.drops.length - 1; i >= 0; i--) {
         const g = gameState.drops[i];
-        
+
         // Decrementar lifetime solo para XP
         if (g.type === "xp" && g.lifetime !== undefined) {
           g.lifetime -= dt;
@@ -3634,25 +3831,25 @@ const Index = () => {
           }
         }
       }
-      
+
       // Recoger drops
       for (let i = gameState.drops.length - 1; i >= 0; i--) {
         const g = gameState.drops[i];
         const dx = gameState.player.x - g.x;
         const dy = gameState.player.y - g.y;
         const d = Math.hypot(dx, dy) || 1;
-        
+
         // Magnet: aplicar multiplicadores del tomo y del powerup temporal
         let magnetRange = gameState.player.magnet * gameState.player.stats.magnetMultiplier;
         if (gameState.player.tempMagnetTimer > 0) {
           magnetRange *= 2; // Powerup temporal duplica el rango
         }
-        
+
         if (d < magnetRange) {
           g.x += (dx / d) * 5;
           g.y += (dy / d) * 5;
         }
-        
+
         if (d < gameState.player.rad + g.rad) {
           if (g.type === "xp") {
             collectXP(g.val);
@@ -3676,6 +3873,8 @@ const Index = () => {
             }
           } else if (g.type === "powerup") {
             collectPowerup(g);
+          } else if (g.type === "chest") {
+            openChest(g);
           }
           gameState.drops.splice(i, 1);
         }
@@ -3687,31 +3886,31 @@ const Index = () => {
         const dy = e.y - gameState.player.y;
         const d = Math.hypot(dx, dy);
         const minDist = e.rad + gameState.player.rad;
-        
+
         if (d < minDist) {
           // Separación física (push)
           if (d > 0) {
             const overlap = minDist - d;
             const nx = dx / d;
             const ny = dy / d;
-            
+
             // Empujar a ambos pero más al enemigo
             gameState.player.x -= nx * overlap * 0.3;
             gameState.player.y -= ny * overlap * 0.3;
             e.x += nx * overlap * 0.7;
             e.y += ny * overlap * 0.7;
-            
+
             // Clamp player dentro del mapa después del empuje
             gameState.player.x = Math.max(gameState.player.rad, Math.min(W - gameState.player.rad, gameState.player.x));
             gameState.player.y = Math.max(gameState.player.rad, Math.min(H - gameState.player.rad, gameState.player.y));
           }
-          
+
           // Daño solo si no está en rage mode y no es un boss (los bosses no hacen daño por contacto)
           if (!e.isBoss && gameState.player.rageTimer <= 0 && gameState.player.ifr <= 0) {
             // 💣 BOMBER: Activar explosión al contacto
             if (e.specialType === "explosive" && e.explosionTimer === -1) {
               e.explosionTimer = e.explosionDelay || 0; // Iniciar countdown
-              
+
               // Efecto visual de activación
               if (gameState.particles.length < gameState.maxParticles - 15) {
                 for (let j = 0; j < 15; j++) {
@@ -3727,16 +3926,16 @@ const Index = () => {
                   });
                 }
               }
-              
+
               // Si es instantáneo, explotar ahora
               if (e.explosionDelay === 0) {
                 // Marcar para explosión inmediata (se maneja abajo)
                 e.explosionTimer = 0;
               }
-              
+
               continue; // No hacer daño de contacto normal, solo explosión
             }
-            
+
             // First Hit Immune: revisar si es el primer golpe de la wave
             const hasFirstHitImmune = gameState.player.itemFlags.ballistichelmet;
             if (hasFirstHitImmune && !gameState.player.stats.firstHitImmuneUsed) {
@@ -3777,17 +3976,19 @@ const Index = () => {
                 }
               }
             } else {
-              const safeCurrentHp = Number.isFinite(Number(gameState.player.hp)) ? Number(gameState.player.hp) : Number(gameState.player.maxhp) || 0;
+              const safeCurrentHp = Number.isFinite(Number(gameState.player.hp))
+                ? Number(gameState.player.hp)
+                : Number(gameState.player.maxhp) || 0;
               const rawDmg = (e as any).damage;
               let dmg = Number.isFinite(Number(rawDmg)) ? Number(rawDmg) : 10;
-              
+
               // Aplicar reducción de daño
-              dmg *= (1 - gameState.player.stats.damageReduction);
-              
+              dmg *= 1 - gameState.player.stats.damageReduction;
+
               const nextHp = Math.max(0, Math.min(Number(gameState.player.maxhp) || 0, safeCurrentHp - dmg));
               gameState.player.hp = nextHp;
               gameState.player.ifr = gameState.player.ifrDuration;
-              
+
               // Escudo Reactivo: empuja enemigos
               if (gameState.player.stats.reactiveShieldActive) {
                 for (const enemy of gameState.enemies) {
@@ -3816,7 +4017,7 @@ const Index = () => {
                   }
                 }
               }
-              
+
               // Hit particles con límite
               if (gameState.particles.length < gameState.maxParticles - 10) {
                 for (let j = 0; j < 10; j++) {
@@ -3833,16 +4034,16 @@ const Index = () => {
                 }
               }
             }
-            
+
             if (gameState.player.hp <= 0) {
               endGame();
             }
-            
+
             playHitSound();
           }
         }
       }
-      
+
       // Colisión jugador-balas de enemigos
       for (let i = gameState.bullets.length - 1; i >= 0; i--) {
         const b = gameState.bullets[i];
@@ -3856,7 +4057,7 @@ const Index = () => {
                 gameState.player.hp -= b.damage;
               }
               gameState.player.ifr = gameState.player.ifrDuration;
-              
+
               if (gameState.player.hp <= 0) {
                 endGame();
               }
@@ -3865,7 +4066,6 @@ const Index = () => {
           }
         }
       }
-
 
       // Construir grilla espacial para colisiones entre enemigos
       let enemyCellSize = 1;
@@ -3945,26 +4145,26 @@ const Index = () => {
       const currentLanguage = (gameState.language ?? "es") as Language;
       const t = translations[currentLanguage];
       ctx.save();
-      
+
       // HP Bar - Barra horizontal con valor numérico
       const hpBarX = 20;
       const hpBarY = 70; // Movido más abajo para no chocar con el anuncio del evento
       const hpBarW = 300;
       const hpBarH = 32;
-      
+
       // Fondo de la barra de HP
       ctx.fillStyle = "rgba(20, 25, 35, 0.9)";
       ctx.fillRect(hpBarX, hpBarY, hpBarW, hpBarH);
       ctx.strokeStyle = "#334155";
       ctx.lineWidth = 3;
       ctx.strokeRect(hpBarX, hpBarY, hpBarW, hpBarH);
-      
+
       // Barra de HP actual (roja)
       const safeMaxHp = Math.max(1, Number(gameState.player.maxhp) || 1);
       const hpPercentRaw = Number(gameState.player.hp) / safeMaxHp;
       const hpPercent = Math.max(0, Math.min(1, Number.isFinite(hpPercentRaw) ? hpPercentRaw : 0));
       const currentHpBarW = Math.max(0, hpBarW * hpPercent);
-      
+
       // Gradiente para la barra de HP
       if (currentHpBarW > 0) {
         const hpGradient = ctx.createLinearGradient(hpBarX, hpBarY, hpBarX + currentHpBarW, hpBarY);
@@ -3978,20 +4178,24 @@ const Index = () => {
           hpGradient.addColorStop(0, "#dc2626");
           hpGradient.addColorStop(1, "#991b1b");
         }
-        
+
         ctx.fillStyle = hpGradient;
         ctx.fillRect(hpBarX + 2, hpBarY + 2, currentHpBarW - 4, hpBarH - 4);
       }
-      
+
       // Texto de HP en el centro
       ctx.fillStyle = "#fff";
       ctx.font = "bold 18px system-ui";
       ctx.textAlign = "center";
       ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
       ctx.shadowBlur = 4;
-      ctx.fillText(`HP ${Math.floor(gameState.player.hp)} / ${gameState.player.maxhp}`, hpBarX + hpBarW / 2, hpBarY + hpBarH / 2 + 6);
+      ctx.fillText(
+        `HP ${Math.floor(gameState.player.hp)} / ${gameState.player.maxhp}`,
+        hpBarX + hpBarW / 2,
+        hpBarY + hpBarH / 2 + 6,
+      );
       ctx.shadowBlur = 0;
-      
+
       // Efecto de parpadeo durante invulnerabilidad
       if (gameState.player.ifr > 0) {
         const flashAlpha = Math.sin(gameState.time * 20) * 0.3 + 0.3;
@@ -4017,41 +4221,50 @@ const Index = () => {
           ctx.stroke();
         }
       }
-      
+
       // Stamina Bar (debajo de la HP bar)
       const staminaBarX = 20;
       const staminaBarY = hpBarY + hpBarH + 8;
       const staminaBarW = 300;
       const staminaBarH = 20;
-      
+
       // Fondo de la barra de stamina
       ctx.fillStyle = "rgba(20, 25, 35, 0.9)";
       ctx.fillRect(staminaBarX, staminaBarY, staminaBarW, staminaBarH);
       ctx.strokeStyle = "#334155";
       ctx.lineWidth = 2;
       ctx.strokeRect(staminaBarX, staminaBarY, staminaBarW, staminaBarH);
-      
+
       // Barra de stamina actual (amarilla/verde)
       const staminaPercent = Math.max(0, Math.min(1, gameState.player.stamina / gameState.player.maxStamina));
       const currentStaminaBarW = Math.max(0, staminaBarW * staminaPercent);
-      
+
       if (currentStaminaBarW > 0) {
-        const staminaGradient = ctx.createLinearGradient(staminaBarX, staminaBarY, staminaBarX + currentStaminaBarW, staminaBarY);
+        const staminaGradient = ctx.createLinearGradient(
+          staminaBarX,
+          staminaBarY,
+          staminaBarX + currentStaminaBarW,
+          staminaBarY,
+        );
         staminaGradient.addColorStop(0, "#22c55e");
         staminaGradient.addColorStop(1, "#16a34a");
         ctx.fillStyle = staminaGradient;
         ctx.fillRect(staminaBarX + 1, staminaBarY + 1, currentStaminaBarW - 2, staminaBarH - 2);
       }
-      
+
       // Texto de stamina
       ctx.textAlign = "center";
       ctx.fillStyle = "#fff";
       ctx.font = "bold 12px system-ui";
       ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
       ctx.shadowBlur = 4;
-      ctx.fillText(`STAMINA ${Math.floor(gameState.player.stamina)}`, staminaBarX + staminaBarW / 2, staminaBarY + staminaBarH / 2 + 4);
+      ctx.fillText(
+        `STAMINA ${Math.floor(gameState.player.stamina)}`,
+        staminaBarX + staminaBarW / 2,
+        staminaBarY + staminaBarH / 2 + 4,
+      );
       ctx.shadowBlur = 0;
-      
+
       // Indicador de sprint activo
       if (gameState.player.isSprinting) {
         ctx.globalAlpha = 0.6 + Math.sin(gameState.time * 10) * 0.4;
@@ -4060,7 +4273,7 @@ const Index = () => {
         ctx.strokeRect(staminaBarX - 2, staminaBarY - 2, staminaBarW + 4, staminaBarH + 4);
         ctx.globalAlpha = 1;
       }
-      
+
       // Level info (arriba izquierda, debajo de stamina)
       ctx.textAlign = "left";
       ctx.fillStyle = "#fff";
@@ -4069,7 +4282,7 @@ const Index = () => {
       ctx.shadowBlur = 4;
       ctx.fillText(`${t.level.toUpperCase()} ${gameState.level}`, 20, staminaBarY + staminaBarH + 22);
       ctx.shadowBlur = 0;
-      
+
       // Wave counter (debajo del nivel)
       const waveY = staminaBarY + staminaBarH + 47;
       ctx.fillStyle = "#a855f7";
@@ -4078,41 +4291,50 @@ const Index = () => {
       ctx.shadowBlur = 4;
       ctx.fillText(`WAVE ${gameState.wave}`, 20, waveY);
       ctx.shadowBlur = 0;
-      
+
       // Wave progression bar (debajo del wave counter)
       const progressBarX = 20;
       const progressBarY = waveY + 10;
       const progressBarW = 300;
       const progressBarH = 20;
-      
+
       // Fondo de la barra
       ctx.fillStyle = "rgba(20, 25, 35, 0.9)";
       ctx.fillRect(progressBarX, progressBarY, progressBarW, progressBarH);
       ctx.strokeStyle = "#334155";
       ctx.lineWidth = 2;
       ctx.strokeRect(progressBarX, progressBarY, progressBarW, progressBarH);
-      
+
       // Progreso (enemigos eliminados / total de la wave)
       const waveProgress = Math.min(1, gameState.waveKills / Math.max(1, gameState.waveEnemiesTotal));
       const currentProgressW = Math.max(0, progressBarW * waveProgress);
-      
+
       if (currentProgressW > 0) {
-        const progressGradient = ctx.createLinearGradient(progressBarX, progressBarY, progressBarX + currentProgressW, progressBarY);
+        const progressGradient = ctx.createLinearGradient(
+          progressBarX,
+          progressBarY,
+          progressBarX + currentProgressW,
+          progressBarY,
+        );
         progressGradient.addColorStop(0, "#a855f7");
         progressGradient.addColorStop(1, "#7c3aed");
         ctx.fillStyle = progressGradient;
         ctx.fillRect(progressBarX + 1, progressBarY + 1, currentProgressW - 2, progressBarH - 2);
       }
-      
+
       // Texto de progreso
       ctx.fillStyle = "#fff";
       ctx.font = "bold 12px system-ui";
       ctx.textAlign = "center";
       ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
       ctx.shadowBlur = 4;
-      ctx.fillText(`${gameState.waveKills} / ${gameState.waveEnemiesTotal}`, progressBarX + progressBarW / 2, progressBarY + progressBarH / 2 + 4);
+      ctx.fillText(
+        `${gameState.waveKills} / ${gameState.waveEnemiesTotal}`,
+        progressBarX + progressBarW / 2,
+        progressBarY + progressBarH / 2 + 4,
+      );
       ctx.shadowBlur = 0;
-      
+
       // Score
       ctx.textAlign = "right";
       ctx.fillStyle = "#fbbf24";
@@ -4121,20 +4343,20 @@ const Index = () => {
       ctx.shadowBlur = 4;
       ctx.fillText(`${gameState.score}`, W - 20, 40);
       ctx.shadowBlur = 0;
-      
+
       // ========== BARRA DE XP FULL-WIDTH (PARTE INFERIOR) ==========
       const xpBarH = 40;
       const xpBarY = H - xpBarH - 10;
       const xpBarX = 20;
       const xpBarW = W - 40;
       const xpBarRadius = 20;
-      
+
       // Fondo de la barra (redondeada)
       ctx.fillStyle = "rgba(10, 15, 25, 0.85)";
       ctx.beginPath();
       ctx.roundRect(xpBarX, xpBarY, xpBarW, xpBarH, xpBarRadius);
       ctx.fill();
-      
+
       // Borde exterior con glow
       ctx.strokeStyle = "rgba(100, 100, 120, 0.6)";
       ctx.lineWidth = 2;
@@ -4142,41 +4364,41 @@ const Index = () => {
       ctx.shadowBlur = 10;
       ctx.stroke();
       ctx.shadowBlur = 0;
-      
+
       // Progreso de XP
       const xpProgress = Math.min(1, gameState.xp / gameState.nextXP);
       const currentXpBarW = (xpBarW - 8) * xpProgress;
-      
+
       if (currentXpBarW > 0) {
         ctx.save();
-        
+
         // Clip para bordes redondeados
         ctx.beginPath();
         ctx.roundRect(xpBarX + 4, xpBarY + 4, currentXpBarW, xpBarH - 8, xpBarRadius - 4);
         ctx.clip();
-        
+
         // Animación Rainbow cuando sube de nivel
         if (gameState.xpBarRainbow) {
           // Gradiente rainbow animado
           const rainbowOffset = (gameState.time * 2) % 1;
           const gradient = ctx.createLinearGradient(xpBarX, xpBarY, xpBarX + xpBarW, xpBarY);
-          
+
           // Colores rainbow con offset animado
           const colors = [
-            { stop: 0, color: "#ef4444" },    // Red
+            { stop: 0, color: "#ef4444" }, // Red
             { stop: 0.17, color: "#f97316" }, // Orange
             { stop: 0.33, color: "#fbbf24" }, // Yellow
-            { stop: 0.5, color: "#22c55e" },  // Green
+            { stop: 0.5, color: "#22c55e" }, // Green
             { stop: 0.67, color: "#06b6d4" }, // Cyan
             { stop: 0.83, color: "#3b82f6" }, // Blue
-            { stop: 1, color: "#a855f7" },    // Purple
+            { stop: 1, color: "#a855f7" }, // Purple
           ];
-          
+
           colors.forEach(({ stop, color }) => {
             const animatedStop = (stop + rainbowOffset) % 1;
             gradient.addColorStop(animatedStop, color);
           });
-          
+
           // Agregar colores al final para seamless loop
           colors.slice(0, 2).forEach(({ stop, color }) => {
             const animatedStop = (stop + rainbowOffset + 1) % 1;
@@ -4184,9 +4406,9 @@ const Index = () => {
               gradient.addColorStop(animatedStop, color);
             }
           });
-          
+
           ctx.fillStyle = gradient;
-          
+
           // Glow effect pulsante
           const pulse = Math.sin(gameState.time * 5) * 0.3 + 0.7;
           ctx.shadowColor = "rgba(255, 255, 255, 0.8)";
@@ -4198,17 +4420,17 @@ const Index = () => {
           gradient.addColorStop(0.5, "#3b82f6");
           gradient.addColorStop(1, "#a855f7");
           ctx.fillStyle = gradient;
-          
+
           // Glow sutil
           ctx.shadowColor = "#06b6d4";
           ctx.shadowBlur = 15;
         }
-        
+
         ctx.fillRect(xpBarX + 4, xpBarY + 4, currentXpBarW, xpBarH - 8);
         ctx.shadowBlur = 0;
         ctx.restore();
       }
-      
+
       // Texto de XP centrado
       ctx.fillStyle = "#fff";
       ctx.font = "bold 20px system-ui";
@@ -4218,7 +4440,7 @@ const Index = () => {
       ctx.fillText(
         `XP: ${Math.floor(gameState.xp)} / ${gameState.nextXP}`,
         xpBarX + xpBarW / 2,
-        xpBarY + xpBarH / 2 + 7
+        xpBarY + xpBarH / 2 + 7,
       );
       ctx.shadowBlur = 0;
 
@@ -4260,7 +4482,7 @@ const Index = () => {
         ctx.font = "bold 14px system-ui";
         const itemY = tomeY + gameState.player.tomes.length * 25 + 20;
         ctx.fillText(t.items, W - 220, itemY);
-        
+
         // Mostrar solo primeros 10 ítems (si hay más, scroll)
         const maxItemsToShow = Math.min(10, gameState.player.items.length);
         for (let i = 0; i < maxItemsToShow; i++) {
@@ -4286,31 +4508,31 @@ const Index = () => {
       }
 
       // Level up animation
-        if (gameState.levelUpAnimation > 0) {
-          const alpha = gameState.levelUpAnimation;
-          ctx.globalAlpha = alpha;
-          ctx.fillStyle = "#fbbf24";
-          ctx.font = "bold 72px system-ui";
-          ctx.textAlign = "center";
-          const scale = 1 + (1 - alpha) * 0.5;
-          ctx.save();
-          ctx.translate(W / 2, H / 2);
-          ctx.scale(scale, scale);
-          ctx.fillText(t.levelUp, 0, 0);
-          ctx.restore();
-          ctx.globalAlpha = 1;
-        }
-      
+      if (gameState.levelUpAnimation > 0) {
+        const alpha = gameState.levelUpAnimation;
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = "#fbbf24";
+        ctx.font = "bold 72px system-ui";
+        ctx.textAlign = "center";
+        const scale = 1 + (1 - alpha) * 0.5;
+        ctx.save();
+        ctx.translate(W / 2, H / 2);
+        ctx.scale(scale, scale);
+        ctx.fillText(t.levelUp, 0, 0);
+        ctx.restore();
+        ctx.globalAlpha = 1;
+      }
+
       // Wave notification - Anuncio de la wave que viene
       if (gameState.waveNotification > 0) {
         const alpha = Math.min(1, gameState.waveNotification);
         const fadeOut = gameState.waveNotification < 1 ? gameState.waveNotification : 1;
         ctx.globalAlpha = fadeOut;
-        
+
         // Fondo semitransparente
         ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
         ctx.fillRect(0, H / 2 - 80, W, 160);
-        
+
         // Icono de wave
         const pulse = Math.sin(gameState.time * 8) * 0.2 + 0.8;
         ctx.fillStyle = "#a855f7";
@@ -4319,18 +4541,18 @@ const Index = () => {
         ctx.font = "bold 72px system-ui";
         ctx.textAlign = "center";
         ctx.fillText("⚡", W / 2, H / 2 - 10);
-        
+
         // Texto principal con glow - Wave que viene
         ctx.fillStyle = "#fbbf24";
         ctx.shadowColor = "#fbbf24";
         ctx.shadowBlur = 30 * pulse;
         ctx.font = "bold 56px system-ui";
         ctx.fillText(`WAVE ${gameState.wave}`, W / 2, H / 2 + 50);
-        
+
         ctx.globalAlpha = 1;
         ctx.shadowBlur = 0;
       }
-      
+
       // ⚠️ BARRA DE NOTIFICACIÓN AMBIENTAL - Estilo Noticiero (visible durante todo el evento)
       if (gameState.eventPhase !== "none") {
         // Calcular opacidad según la fase del evento
@@ -4339,31 +4561,31 @@ const Index = () => {
           notifAlpha = Math.min(1, gameState.eventNotification / 2);
         }
         ctx.globalAlpha = notifAlpha;
-        
+
         // Barra superior roja de alerta
         ctx.fillStyle = "rgba(220, 38, 38, 0.95)";
         ctx.fillRect(0, 0, W, 60);
-        
+
         // Borde inferior brillante
         ctx.fillStyle = "#ef4444";
         ctx.fillRect(0, 58, W, 2);
-        
+
         // Icono de alerta
         ctx.fillStyle = "#fbbf24";
         ctx.font = "bold 32px system-ui";
         ctx.textAlign = "left";
         ctx.fillText("⚠️", 20, 40);
-        
+
         // Texto de noticia con descripción de efectos
         const eventTexts = {
           storm: "⚡ ALERTA: Tormenta eléctrica aproximándose...",
           fog: "🌫️ ALERTA: Niebla tóxica detectada en el área...",
-          rain: "☢️ ALERTA: Lluvia radiactiva inminente..."
+          rain: "☢️ ALERTA: Lluvia radiactiva inminente...",
         };
-        
+
         // Mostrar texto del evento actual
         const eventText = gameState.environmentalEvent ? eventTexts[gameState.environmentalEvent] : "";
-        
+
         ctx.fillStyle = "#fff";
         ctx.font = "bold 20px system-ui";
         ctx.textAlign = "left";
@@ -4371,11 +4593,10 @@ const Index = () => {
         ctx.shadowBlur = 4;
         ctx.fillText(eventText, 70, 40);
         ctx.shadowBlur = 0;
-        
+
         ctx.globalAlpha = 1;
       }
-      
-      
+
       // Notificación de música
       if (gameState.musicNotificationTimer > 0) {
         const notifAlpha = Math.min(1, gameState.musicNotificationTimer);
@@ -4384,25 +4605,25 @@ const Index = () => {
         const notifY = 120;
         const notifPadding = 20;
         const notifText = `♫ ${gameState.musicNotification}`;
-        
+
         ctx.font = "bold 24px system-ui";
         ctx.textAlign = "center";
         const textMetrics = ctx.measureText(notifText);
         const notifW = textMetrics.width + notifPadding * 2;
         const notifH = 50;
         const notifX = W / 2 - notifW / 2;
-        
+
         // Background
         ctx.fillStyle = "rgba(20, 25, 35, 0.95)";
         ctx.beginPath();
         ctx.roundRect(notifX, notifY, notifW, notifH, 10);
         ctx.fill();
-        
+
         // Border
         ctx.strokeStyle = "#a855f7";
         ctx.lineWidth = 2;
         ctx.stroke();
-        
+
         // Text
         ctx.fillStyle = "#fff";
         ctx.fillText(notifText, W / 2, notifY + notifH / 2 + 8);
@@ -4448,7 +4669,7 @@ const Index = () => {
       const musicBtnH = 45;
       const musicBtnX = W - musicBtnW - 20;
       const musicBtnY = H - musicBtnH - 70;
-      
+
       // Background del botón con animación si no ha iniciado
       const musicBtnGradient = ctx.createLinearGradient(musicBtnX, musicBtnY, musicBtnX, musicBtnY + musicBtnH);
       if (!gameState.musicStarted) {
@@ -4464,7 +4685,7 @@ const Index = () => {
       ctx.beginPath();
       ctx.roundRect(musicBtnX, musicBtnY, musicBtnW, musicBtnH, 8);
       ctx.fill();
-      
+
       // Border con glow si no ha iniciado
       ctx.strokeStyle = "#a855f7";
       ctx.lineWidth = 2;
@@ -4472,7 +4693,7 @@ const Index = () => {
       ctx.shadowBlur = gameState.musicStarted ? 10 : 20;
       ctx.stroke();
       ctx.shadowBlur = 0;
-      
+
       // Texto del botón
       ctx.textAlign = "center";
       if (!gameState.musicStarted) {
@@ -4490,11 +4711,15 @@ const Index = () => {
         ctx.fillStyle = "#fff";
         ctx.font = "bold 16px system-ui";
         const currentTrack = gameState.musicTracks[gameState.currentMusicIndex];
-        ctx.fillText(`♫ ${currentTrack.name.slice(0, 12)}...`, musicBtnX + musicBtnW / 2, musicBtnY + musicBtnH / 2 + 6);
+        ctx.fillText(
+          `♫ ${currentTrack.name.slice(0, 12)}...`,
+          musicBtnX + musicBtnW / 2,
+          musicBtnY + musicBtnH / 2 + 6,
+        );
       }
-      
+
       // Overlay de Game Over con fade
-      if (gameState.state === 'gameover') {
+      if (gameState.state === "gameover") {
         ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
         ctx.fillRect(0, 0, W, H);
       }
@@ -4513,7 +4738,7 @@ const Index = () => {
         }
         ctx.globalAlpha = 1;
       }
-      
+
       ctx.restore();
     }
 
@@ -4523,37 +4748,37 @@ const Index = () => {
       if (!gameState.showUpgradeUI) return;
 
       ctx.save();
-      
+
       // Easing function for smooth animation
       const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
       const animProgress = easeOutCubic(gameState.upgradeUIAnimation);
-      
+
       // Animated overlay with fade-in
       ctx.globalAlpha = animProgress * 0.95;
       ctx.fillStyle = "rgba(0, 0, 0, 0.9)";
       ctx.fillRect(0, 0, W, H);
       ctx.globalAlpha = 1;
-      
+
       // Particles background effect
       for (let i = 0; i < 30; i++) {
-        const px = (W / 2) + Math.sin(gameState.time * 0.5 + i) * (300 + i * 10);
-        const py = (H / 2) + Math.cos(gameState.time * 0.7 + i) * (200 + i * 8);
+        const px = W / 2 + Math.sin(gameState.time * 0.5 + i) * (300 + i * 10);
+        const py = H / 2 + Math.cos(gameState.time * 0.7 + i) * (200 + i * 8);
         const size = 2 + Math.sin(gameState.time * 2 + i) * 1;
         ctx.fillStyle = `rgba(251, 191, 36, ${0.1 * animProgress})`;
         ctx.beginPath();
         ctx.arc(px, py, size, 0, Math.PI * 2);
         ctx.fill();
       }
-      
+
       const pulse = Math.sin(gameState.time * 3) * 0.15 + 0.85;
-      
+
       // Título con animación de escala y fade
       ctx.globalAlpha = animProgress;
-      const titleScale = 0.8 + (animProgress * 0.2);
+      const titleScale = 0.8 + animProgress * 0.2;
       ctx.save();
       ctx.translate(W / 2, H / 2 - 180);
       ctx.scale(titleScale, titleScale);
-      
+
       // Glow effect en el título
       ctx.shadowColor = "#fbbf24";
       ctx.shadowBlur = 40 * pulse * animProgress;
@@ -4561,51 +4786,51 @@ const Index = () => {
       ctx.font = "bold 56px system-ui";
       ctx.textAlign = "center";
       ctx.fillText(t.levelUp, 0, 0);
-      
+
       // Segundo glow para más intensidad
       ctx.shadowBlur = 60 * pulse * animProgress;
       ctx.fillText(t.levelUp, 0, 0);
       ctx.shadowBlur = 0;
-      
+
       ctx.restore();
-      
+
       // Subtítulo con fade
       ctx.font = "28px system-ui";
       ctx.fillStyle = `rgba(156, 163, 175, ${animProgress})`;
       ctx.textAlign = "center";
       ctx.fillText(t.chooseUpgrade, W / 2, H / 2 - 100);
-      
+
       ctx.globalAlpha = 1;
-      
+
       // Cards con animación escalonada
       const cardW = 280;
       const cardH = 220;
       const gap = 40;
       const startX = W / 2 - (cardW * 1.5 + gap);
       const startY = H / 2 - cardH / 2 + 20;
-      
+
       for (let i = 0; i < gameState.upgradeOptions.length; i++) {
         const option = gameState.upgradeOptions[i];
         const x = startX + i * (cardW + gap);
         const y = startY;
-        
+
         // Animación escalonada para cada carta
         const cardDelay = i * 0.15;
         const cardAnimProgress = Math.max(0, Math.min(1, (gameState.upgradeUIAnimation - cardDelay) / 0.5));
         const cardEase = easeOutCubic(cardAnimProgress);
-        
+
         // Hover effect
         const hover = Math.sin(gameState.time * 4 + i * 1.2) * 8;
         const yOffset = y + hover - (1 - cardEase) * 50; // Slide up animation
-        
+
         ctx.save();
         ctx.globalAlpha = cardEase;
-        
+
         // Card shadow
         ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
         ctx.shadowBlur = 30;
         ctx.shadowOffsetY = 10;
-        
+
         // Card background con gradiente
         const rarityColor = rarityColors[option.rarity];
         const bgGradient = ctx.createLinearGradient(x, yOffset, x, yOffset + cardH);
@@ -4613,23 +4838,23 @@ const Index = () => {
         bgGradient.addColorStop(1, "rgba(15, 20, 30, 0.98)");
         ctx.fillStyle = bgGradient;
         ctx.fillRect(x, yOffset, cardW, cardH);
-        
+
         ctx.shadowBlur = 0;
         ctx.shadowOffsetY = 0;
-        
+
         // Borde de rareza con doble línea
         ctx.strokeStyle = rarityColor;
         ctx.lineWidth = 4;
         ctx.shadowColor = rarityColor;
         ctx.shadowBlur = 25 * pulse;
         ctx.strokeRect(x, yOffset, cardW, cardH);
-        
+
         // Inner border
         ctx.lineWidth = 1;
         ctx.strokeStyle = `${rarityColor}80`;
         ctx.strokeRect(x + 5, yOffset + 5, cardW - 10, cardH - 10);
         ctx.shadowBlur = 0;
-        
+
         // Accent bar en la parte superior
         const accentGradient = ctx.createLinearGradient(x, yOffset, x + cardW, yOffset);
         accentGradient.addColorStop(0, "transparent");
@@ -4637,7 +4862,7 @@ const Index = () => {
         accentGradient.addColorStop(1, "transparent");
         ctx.fillStyle = accentGradient;
         ctx.fillRect(x, yOffset, cardW, 4);
-        
+
         // Tipo badge
         const badgeY = yOffset + 25;
         ctx.fillStyle = rarityColor;
@@ -4645,7 +4870,7 @@ const Index = () => {
         ctx.textAlign = "center";
         const typeLabel = option.type === "weapon" ? t.weapon : option.type === "tome" ? t.tome : t.item;
         const typeText = `${option.type === "weapon" ? "⚔️" : option.type === "tome" ? "📖" : "✨"} ${typeLabel}`;
-        
+
         // Badge background
         const badgeW = 100;
         const badgeH = 24;
@@ -4656,9 +4881,9 @@ const Index = () => {
         ctx.strokeStyle = rarityColor;
         ctx.lineWidth = 1;
         ctx.strokeRect(badgeX, badgeY - 18, badgeW, badgeH);
-        
+
         ctx.fillText(typeText, x + cardW / 2, badgeY);
-        
+
         // Nombre con nivel
         const data = option.data as any;
         ctx.fillStyle = "#fff";
@@ -4683,11 +4908,11 @@ const Index = () => {
         const maxWidth = cardW - 30;
         ctx.fillText(nameText, x + cardW / 2, yOffset + 75, maxWidth);
         ctx.shadowBlur = 0;
-        
+
         // Descripción con mejor formato
         ctx.fillStyle = "#cbd5e1";
         ctx.font = "15px system-ui";
-        
+
         const descriptionText = getUpgradeDescriptionText(option.descriptionKey, currentLanguage);
 
         if (option.type === "weapon") {
@@ -4705,73 +4930,79 @@ const Index = () => {
           }
         } else if (option.type === "tome") {
           const tomeData = data as Tome;
-          const desc = option.isLevelUp && descriptionText
-            ? descriptionText
-            : getTomeDescription(tomeData, currentLanguage);
+          const desc =
+            option.isLevelUp && descriptionText ? descriptionText : getTomeDescription(tomeData, currentLanguage);
           wrapText(ctx, desc, x + cardW / 2, yOffset + 110, maxWidth, 20);
         } else {
           const itemData = data as Item;
           const itemText = getItemText(itemData, currentLanguage);
           wrapText(ctx, itemText.description, x + cardW / 2, yOffset + 110, maxWidth, 20);
         }
-        
+
         // Rareza badge en la parte inferior
         const rarityBadgeY = yOffset + cardH - 25;
         ctx.fillStyle = rarityColor;
         ctx.font = "bold 13px system-ui";
         ctx.textAlign = "center";
-        
+
         const rarityBadgeW = 120;
         const rarityBadgeH = 22;
         const rarityBadgeX = x + cardW / 2 - rarityBadgeW / 2;
-        
+
         ctx.fillStyle = `${rarityColor}40`;
         ctx.fillRect(rarityBadgeX, rarityBadgeY - 16, rarityBadgeW, rarityBadgeH);
-        
+
         ctx.fillStyle = rarityColor;
         ctx.fillText(`★ ${option.rarity.toUpperCase()} ★`, x + cardW / 2, rarityBadgeY);
-        
+
         // Partículas flotantes alrededor de la carta
         for (let j = 0; j < 5; j++) {
-          const angle = (gameState.time * 2 + j * Math.PI * 2 / 5) % (Math.PI * 2);
+          const angle = (gameState.time * 2 + (j * Math.PI * 2) / 5) % (Math.PI * 2);
           const radius = 30 + Math.sin(gameState.time * 3 + j) * 10;
           const px = x + cardW / 2 + Math.cos(angle) * radius;
           const py = yOffset + cardH / 2 + Math.sin(angle) * radius;
           const size = 2 + Math.sin(gameState.time * 4 + j) * 1;
-          
+
           ctx.fillStyle = rarityColor;
           ctx.globalAlpha = (0.3 + Math.sin(gameState.time * 5 + j) * 0.2) * cardEase;
           ctx.beginPath();
           ctx.arc(px, py, size, 0, Math.PI * 2);
           ctx.fill();
         }
-        
+
         ctx.restore();
       }
-      
+
       // Hint text
       ctx.globalAlpha = animProgress;
       ctx.fillStyle = "rgba(156, 163, 175, 0.6)";
       ctx.font = "16px system-ui";
       ctx.textAlign = "center";
       ctx.fillText(t.clickToSelect, W / 2, H - 60);
-      
+
       ctx.restore();
     }
-    
+
     // Helper function para wrap text
-    function wrapText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number) {
-      const words = text.split(' ');
-      let line = '';
+    function wrapText(
+      ctx: CanvasRenderingContext2D,
+      text: string,
+      x: number,
+      y: number,
+      maxWidth: number,
+      lineHeight: number,
+    ) {
+      const words = text.split(" ");
+      let line = "";
       let currentY = y;
-      
+
       for (let n = 0; n < words.length; n++) {
-        const testLine = line + words[n] + ' ';
+        const testLine = line + words[n] + " ";
         const metrics = ctx.measureText(testLine);
-        
+
         if (metrics.width > maxWidth && n > 0) {
           ctx.fillText(line, x, currentY);
-          line = words[n] + ' ';
+          line = words[n] + " ";
           currentY += lineHeight;
         } else {
           line = testLine;
@@ -4784,7 +5015,7 @@ const Index = () => {
       const currentLanguage = (gameState.language ?? "es") as Language;
       const t = translations[currentLanguage];
       ctx.clearRect(0, 0, W, H);
-      
+
       // Fondo
       const gradient = ctx.createRadialGradient(W / 2, H / 3, 0, W / 2, H / 3, Math.max(W, H));
       gradient.addColorStop(0, "#0f1729");
@@ -4792,13 +5023,13 @@ const Index = () => {
       gradient.addColorStop(1, "#060a10");
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, W, H);
-      
+
       // Marcas de explosión en el suelo (quemadura)
       for (const mark of gameState.explosionMarks) {
         const alpha = mark.life / 3; // Fade out gradual
         ctx.save();
         ctx.globalAlpha = alpha * 0.4;
-        
+
         // Círculo quemado oscuro
         const markGradient = ctx.createRadialGradient(mark.x, mark.y, 0, mark.x, mark.y, mark.radius);
         markGradient.addColorStop(0, "rgba(80, 30, 10, 0.8)");
@@ -4808,7 +5039,7 @@ const Index = () => {
         ctx.beginPath();
         ctx.arc(mark.x, mark.y, mark.radius, 0, Math.PI * 2);
         ctx.fill();
-        
+
         // Borde quemado
         ctx.globalAlpha = alpha * 0.6;
         ctx.strokeStyle = "rgba(139, 69, 19, 0.8)";
@@ -4816,23 +5047,23 @@ const Index = () => {
         ctx.setLineDash([5, 5]);
         ctx.stroke();
         ctx.setLineDash([]);
-        
+
         ctx.restore();
       }
-      
+
       // ═══════════════════════════════════════════════════════════
       // EFECTOS AMBIENTALES - Renderizado
       // ═══════════════════════════════════════════════════════════
-      
+
       // Renderizar WARNING zones de niebla (antes de aparecer)
       if (gameState.environmentalEvent === "fog" && gameState.fogWarningZones.length > 0) {
         for (const warning of gameState.fogWarningZones) {
           const warningPulse = Math.sin(gameState.time * 5) * 0.3 + 0.7;
-          
+
           // Fondo rojo semitransparente
           ctx.fillStyle = `rgba(239, 68, 68, ${0.2 * warningPulse})`;
           ctx.fillRect(warning.x, warning.y, warning.width, warning.height);
-          
+
           // Borde rojo pulsante
           ctx.strokeStyle = `rgba(239, 68, 68, ${warningPulse})`;
           ctx.lineWidth = 4;
@@ -4842,7 +5073,7 @@ const Index = () => {
           ctx.strokeRect(warning.x, warning.y, warning.width, warning.height);
           ctx.setLineDash([]);
           ctx.shadowBlur = 0;
-          
+
           // Texto de warning
           ctx.fillStyle = `rgba(239, 68, 68, ${warningPulse})`;
           ctx.font = "bold 32px system-ui";
@@ -4853,19 +5084,22 @@ const Index = () => {
           ctx.shadowBlur = 0;
         }
       }
-      
+
       // Renderizar zonas de niebla (solo si el evento está activo y con intensidad)
-      if (gameState.environmentalEvent === "fog" && gameState.fogZones.length > 0 && 
-          (gameState.eventPhase === "fadein" || gameState.eventPhase === "active" || gameState.eventPhase === "fadeout")) {
+      if (
+        gameState.environmentalEvent === "fog" &&
+        gameState.fogZones.length > 0 &&
+        (gameState.eventPhase === "fadein" || gameState.eventPhase === "active" || gameState.eventPhase === "fadeout")
+      ) {
         const intensity = gameState.eventIntensity;
-        
+
         for (const zone of gameState.fogZones) {
           const pulse = Math.sin(gameState.time * 3) * 0.15 + 0.85;
-          
+
           // Zona de niebla tóxica con intensidad
           ctx.fillStyle = `rgba(132, 204, 22, ${gameState.fogOpacity * 0.4 * intensity})`;
           ctx.fillRect(zone.x, zone.y, zone.width, zone.height);
-          
+
           // Borde de la zona
           ctx.strokeStyle = `rgba(132, 204, 22, ${pulse * intensity})`;
           ctx.lineWidth = 3;
@@ -4875,7 +5109,7 @@ const Index = () => {
           ctx.strokeRect(zone.x, zone.y, zone.width, zone.height);
           ctx.setLineDash([]);
           ctx.shadowBlur = 0;
-          
+
           // Icono de niebla en el centro
           ctx.globalAlpha = intensity;
           ctx.fillStyle = `rgba(132, 204, 22, ${pulse})`;
@@ -4888,14 +5122,17 @@ const Index = () => {
           ctx.globalAlpha = 1;
         }
       }
-      
+
       // Renderizar zona de tormenta (solo si el evento está activo y con intensidad)
-      if (gameState.environmentalEvent === "storm" && gameState.stormZone && 
-          (gameState.eventPhase === "fadein" || gameState.eventPhase === "active" || gameState.eventPhase === "fadeout")) {
+      if (
+        gameState.environmentalEvent === "storm" &&
+        gameState.stormZone &&
+        (gameState.eventPhase === "fadein" || gameState.eventPhase === "active" || gameState.eventPhase === "fadeout")
+      ) {
         const intensity = gameState.eventIntensity;
         const pulse = Math.sin(gameState.time * 4) * 0.2 + 0.8;
         const storm = gameState.stormZone;
-        
+
         // Círculo de tormenta con intensidad
         const gradient = ctx.createRadialGradient(storm.x, storm.y, 0, storm.x, storm.y, storm.radius);
         gradient.addColorStop(0, `rgba(96, 165, 250, ${0.4 * intensity})`);
@@ -4905,7 +5142,7 @@ const Index = () => {
         ctx.beginPath();
         ctx.arc(storm.x, storm.y, storm.radius, 0, Math.PI * 2);
         ctx.fill();
-        
+
         // Borde pulsante
         ctx.strokeStyle = `rgba(96, 165, 250, ${pulse * intensity})`;
         ctx.lineWidth = 4;
@@ -4917,7 +5154,7 @@ const Index = () => {
         ctx.stroke();
         ctx.setLineDash([]);
         ctx.shadowBlur = 0;
-        
+
         // Icono de tormenta
         ctx.globalAlpha = intensity;
         ctx.fillStyle = `rgba(96, 165, 250, ${pulse})`;
@@ -4929,7 +5166,7 @@ const Index = () => {
         ctx.shadowBlur = 0;
         ctx.globalAlpha = 1;
       }
-      
+
       if (gameState.environmentalEvent) {
         switch (gameState.environmentalEvent) {
           case "rain":
@@ -4937,15 +5174,15 @@ const Index = () => {
             break;
         }
       }
-      
+
       // Hotspots
       for (const h of gameState.hotspots) {
         const pulse = Math.sin(gameState.time * 3) * 0.1 + 0.9;
-        
+
         if (h.isNegative) {
           // HOTSPOT NEGATIVO (Zona de Peligro)
           const dangerPulse = Math.sin(gameState.time * 5) * 0.3 + 0.7;
-          
+
           // Outer circle pulsante (rojo intenso)
           const gradient = ctx.createRadialGradient(h.x, h.y, 0, h.x, h.y, h.rad);
           gradient.addColorStop(0, "rgba(220, 38, 38, 0.3)");
@@ -4955,7 +5192,7 @@ const Index = () => {
           ctx.beginPath();
           ctx.arc(h.x, h.y, h.rad, 0, Math.PI * 2);
           ctx.fill();
-          
+
           // Borde pulsante
           ctx.strokeStyle = h.active ? `rgba(239, 68, 68, ${dangerPulse})` : "rgba(220, 38, 38, 0.6)";
           ctx.lineWidth = 4;
@@ -4967,7 +5204,7 @@ const Index = () => {
           ctx.stroke();
           ctx.setLineDash([]);
           ctx.shadowBlur = 0;
-          
+
           // Icono de peligro
           ctx.fillStyle = "#ef4444";
           ctx.font = "bold 32px system-ui";
@@ -4976,12 +5213,12 @@ const Index = () => {
           ctx.shadowBlur = 8;
           ctx.fillText("⚠️", h.x, h.y - 10);
           ctx.shadowBlur = 0;
-          
+
           // Texto de advertencia
           ctx.fillStyle = "#fff";
           ctx.font = "bold 14px system-ui";
           ctx.fillText("DANGER ZONE", h.x, h.y + 25);
-          
+
           // Timer de expiración
           if (!h.active) {
             const remaining = h.maxExpiration - h.expirationTimer;
@@ -4992,7 +5229,7 @@ const Index = () => {
         } else if (h.isRadioactive) {
           // ☢️ ZONA RADIACTIVA (Lluvia Radiactiva)
           const radioPulse = Math.sin(gameState.time * 4) * 0.2 + 0.8;
-          
+
           // Gradiente púrpura radiactivo
           const radioGradient = ctx.createRadialGradient(h.x, h.y, 0, h.x, h.y, h.rad);
           radioGradient.addColorStop(0, "rgba(168, 85, 247, 0.4)");
@@ -5002,7 +5239,7 @@ const Index = () => {
           ctx.beginPath();
           ctx.arc(h.x, h.y, h.rad, 0, Math.PI * 2);
           ctx.fill();
-          
+
           // Borde radiactivo animado
           ctx.strokeStyle = `rgba(168, 85, 247, ${radioPulse})`;
           ctx.lineWidth = 3;
@@ -5014,7 +5251,7 @@ const Index = () => {
           ctx.stroke();
           ctx.setLineDash([]);
           ctx.shadowBlur = 0;
-          
+
           // Icono radiactivo
           ctx.fillStyle = "#a855f7";
           ctx.font = "bold 28px system-ui";
@@ -5033,7 +5270,7 @@ const Index = () => {
           ctx.arc(h.x, h.y, h.rad, 0, Math.PI * 2);
           ctx.stroke();
           ctx.setLineDash([]);
-          
+
           // Progress circle (cuando está activo - progreso de recompensa)
           if (h.active) {
             ctx.strokeStyle = "#22c55e";
@@ -5050,13 +5287,13 @@ const Index = () => {
             ctx.arc(h.x, h.y, h.rad - 10, 0, Math.PI * 2 * expirationProgress);
             ctx.stroke();
           }
-          
+
           // Center glow
           ctx.fillStyle = `rgba(251, 191, 36, ${0.1 * pulse})`;
           ctx.beginPath();
           ctx.arc(h.x, h.y, h.rad * 0.6, 0, Math.PI * 2);
           ctx.fill();
-          
+
           // Time remaining text
           if (h.active) {
             // Mostrar tiempo para completar
@@ -5075,8 +5312,47 @@ const Index = () => {
         }
       }
 
-      // Drops con glow de rareza para powerups
+      // Drops con glow de rareza para powerups y cofres
       for (const d of gameState.drops) {
+        if (d.type === "chest") {
+          ctx.save();
+          const spawnTime = d.spawnTime ?? gameState.time;
+          const bounce = Math.sin((gameState.time - spawnTime) * 5) * 4;
+          ctx.translate(d.x, d.y + bounce);
+
+          const chestWidth = d.rad * 2.4;
+          const chestHeight = d.rad * 1.6;
+          const lidHeight = chestHeight * 0.45;
+
+          ctx.shadowColor = d.color;
+          ctx.shadowBlur = 20;
+
+          // Base del cofre
+          ctx.fillStyle = "#7c2d12";
+          ctx.fillRect(-chestWidth / 2, -chestHeight / 2 + lidHeight, chestWidth, chestHeight - lidHeight);
+
+          // Tapa del cofre
+          ctx.fillStyle = d.color;
+          ctx.fillRect(-chestWidth / 2, -chestHeight / 2, chestWidth, lidHeight);
+
+          // Detalles dorados
+          ctx.fillStyle = "#fcd34d";
+          ctx.fillRect(-3, -chestHeight / 2, 6, chestHeight);
+          ctx.strokeStyle = "#fcd34d";
+          ctx.lineWidth = 2;
+          ctx.strokeRect(-chestWidth / 2, -chestHeight / 2, chestWidth, chestHeight);
+
+          ctx.strokeStyle = "rgba(252, 211, 77, 0.6)";
+          ctx.beginPath();
+          ctx.moveTo(-chestWidth / 2, -chestHeight / 2 + lidHeight);
+          ctx.lineTo(chestWidth / 2, -chestHeight / 2 + lidHeight);
+          ctx.stroke();
+
+          ctx.shadowBlur = 0;
+          ctx.restore();
+          continue;
+        }
+
         // Parpadeo para XP que está por expirar
         let alpha = 1;
         if (d.type === "xp" && d.lifetime !== undefined && d.lifetime < 3) {
@@ -5084,17 +5360,17 @@ const Index = () => {
           const blinkSpeed = d.lifetime < 1 ? 10 : 6;
           alpha = Math.abs(Math.sin(gameState.time * blinkSpeed)) * 0.7 + 0.3;
         }
-        
+
         ctx.save();
         ctx.globalAlpha = alpha;
         ctx.fillStyle = d.color;
         ctx.shadowColor = d.color;
-        
+
         // Powerups tienen glow animado según rareza
         if (d.type === "powerup") {
           const pulse = Math.sin(gameState.time * 5) * 10 + 20;
           ctx.shadowBlur = pulse;
-          
+
           // Anillo exterior de rareza
           ctx.strokeStyle = d.color;
           ctx.lineWidth = 3;
@@ -5104,7 +5380,7 @@ const Index = () => {
         } else {
           ctx.shadowBlur = 10;
         }
-        
+
         ctx.beginPath();
         ctx.moveTo(d.x, d.y - d.rad);
         ctx.lineTo(d.x + d.rad, d.y);
@@ -5115,7 +5391,7 @@ const Index = () => {
         ctx.shadowBlur = 0;
         ctx.restore();
       }
-      
+
       // Partículas
       for (const p of gameState.particles) {
         ctx.fillStyle = p.color;
@@ -5125,11 +5401,11 @@ const Index = () => {
         ctx.fill();
         ctx.globalAlpha = 1;
       }
-      
+
       // Enemigos
       for (const e of gameState.enemies) {
         ctx.save();
-        
+
         // Efectos elementales visuales
         if (e.frozenTimer > 0) {
           // Efecto de congelamiento
@@ -5144,20 +5420,20 @@ const Index = () => {
           ctx.shadowColor = "#84cc16";
           ctx.shadowBlur = 15;
         }
-        
+
         // Si tenemos el logo cargado, dibujarlo con el color del enemigo
         if (gameState.enemyLogo && gameState.enemyLogo.complete) {
           ctx.translate(e.x, e.y);
-          
+
           // Aplicar sombra con el color del enemigo (o efecto elemental)
           if (!e.frozenTimer && !e.burnTimer && !e.poisonTimer) {
             ctx.shadowColor = e.color;
             ctx.shadowBlur = e.isBoss ? 40 : e.isMiniBoss ? 25 : 15;
           }
-          
+
           // Dibujar el logo escalado al tamaño del enemigo
           const logoSize = e.rad * 2;
-          
+
           // Usar logo pre-renderizado si está disponible; en caso contrario, generarlo y guardarlo
           let prerenderedLogo = prerenderedLogosRef.current[e.color];
           if (!prerenderedLogo) {
@@ -5170,7 +5446,7 @@ const Index = () => {
           if (prerenderedLogo) {
             ctx.drawImage(prerenderedLogo, -logoSize / 2, -logoSize / 2, logoSize, logoSize);
           }
-          
+
           ctx.shadowBlur = 0;
           ctx.restore();
         } else {
@@ -5186,23 +5462,26 @@ const Index = () => {
           ctx.shadowBlur = 0;
           ctx.restore();
         }
-        
+
         // 💣 Anillo de advertencia para bombers a punto de explotar
         if (e.specialType === "explosive" && e.explosionTimer !== undefined && e.explosionTimer >= 0) {
           ctx.save();
           const pulse = Math.sin(gameState.time * 12) * 0.4 + 0.6;
           const warningRadius = e.rad + 8 + pulse * 5;
-          
+
           // Anillo pulsante (más intenso cuando está cerca)
           const intensity = e.explosionTimer < 0.5 ? 1 : 0.6;
-          ctx.strokeStyle = e.explosionTimer < 0.5 ? `rgba(251, 191, 36, ${pulse * intensity})` : `rgba(239, 68, 68, ${pulse * intensity})`;
+          ctx.strokeStyle =
+            e.explosionTimer < 0.5
+              ? `rgba(251, 191, 36, ${pulse * intensity})`
+              : `rgba(239, 68, 68, ${pulse * intensity})`;
           ctx.lineWidth = e.explosionTimer < 0.5 ? 4 : 3;
           ctx.shadowColor = e.explosionTimer < 0.5 ? "#fbbf24" : "#ef4444";
           ctx.shadowBlur = 20 * pulse;
           ctx.beginPath();
           ctx.arc(e.x, e.y, warningRadius, 0, Math.PI * 2);
           ctx.stroke();
-          
+
           // Radio de explosión (círculo más grande y tenue)
           ctx.globalAlpha = 0.15 * pulse;
           ctx.strokeStyle = "#ef4444";
@@ -5212,18 +5491,18 @@ const Index = () => {
           ctx.arc(e.x, e.y, 80, 0, Math.PI * 2); // Radio AOE de explosión
           ctx.stroke();
           ctx.setLineDash([]);
-          
+
           ctx.shadowBlur = 0;
           ctx.restore();
         }
-        
+
         // Indicador de tipo especial
         if (e.specialType) {
           ctx.save();
           ctx.textAlign = "center";
           ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
           ctx.shadowBlur = 4;
-          
+
           // Bomber con countdown visual
           if (e.specialType === "explosive" && e.explosionTimer !== undefined && e.explosionTimer >= 0) {
             // Countdown timer
@@ -5234,7 +5513,7 @@ const Index = () => {
             ctx.shadowColor = timeLeft < 0.5 ? "#fbbf24" : "#ef4444";
             ctx.shadowBlur = 20 * pulse;
             ctx.fillText(timeLeft.toFixed(1) + "s", e.x, e.y - e.rad - 35);
-            
+
             // Emoji pulsante
             ctx.font = "bold 24px system-ui";
             ctx.fillText("💣", e.x, e.y - e.rad - 10);
@@ -5250,10 +5529,10 @@ const Index = () => {
             ctx.fillText(emoji, e.x, e.y - e.rad - 20);
             ctx.shadowBlur = 0;
           }
-          
+
           ctx.restore();
         }
-        
+
         // Indicador de boss
         if (e.isBoss) {
           ctx.save();
@@ -5266,22 +5545,22 @@ const Index = () => {
           ctx.shadowBlur = 0;
           ctx.restore();
         }
-        
+
         // HP bar para todos los enemigos (FIX: tamaño consistente)
         const barW = e.rad * 2; // Ancho fijo basado en radio
         const barH = e.isBoss ? 8 : e.isMiniBoss ? 6 : e.isElite ? 5 : 3;
         const barX = e.x - barW / 2;
         const barY = e.y - e.rad - (e.isBoss ? 35 : 10);
-        
+
         ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
         ctx.fillRect(barX, barY, barW, barH);
-        
+
         // Ancho de la barra de HP actual (proporcional al HP)
         const hpBarWidth = barW * Math.max(0, Math.min(1, e.hp / e.maxhp));
-        
+
         ctx.fillStyle = e.isBoss ? "#dc2626" : e.isMiniBoss ? "#fbbf24" : e.isElite ? "#f87171" : "#34d399";
         ctx.fillRect(barX, barY, hpBarWidth, barH);
-        
+
         // Fase del boss
         if (e.isBoss) {
           ctx.save();
@@ -5292,15 +5571,15 @@ const Index = () => {
           ctx.restore();
         }
       }
-      
+
       // Balas
       for (const b of gameState.bullets) {
         ctx.save();
-        
+
         // Efectos visuales especiales
         let bulletSize = 3;
         let glowSize = 10;
-        
+
         if (b.aoe) {
           bulletSize = 5;
           glowSize = 20;
@@ -5332,7 +5611,7 @@ const Index = () => {
           glowSize = 12;
           ctx.shadowColor = "#38bdf8";
         }
-        
+
         // Balas de enemigos (rojo)
         if (b.isEnemyBullet) {
           ctx.fillStyle = "#ef4444";
@@ -5343,7 +5622,7 @@ const Index = () => {
           ctx.fillStyle = b.color;
           ctx.shadowColor = b.color;
         }
-        
+
         // Crítico: partículas adicionales y glow
         if (b.isCrit) {
           glowSize *= 1.5;
@@ -5351,14 +5630,14 @@ const Index = () => {
         } else {
           ctx.shadowBlur = glowSize;
         }
-        
+
         ctx.beginPath();
         ctx.arc(b.x, b.y, bulletSize, 0, Math.PI * 2);
         ctx.fill();
         ctx.shadowBlur = 0;
         ctx.restore();
       }
-      
+
       // Aura de fuego
       if (gameState.player.stats.auraRadius > 0) {
         ctx.strokeStyle = "rgba(248, 113, 113, 0.3)";
@@ -5367,13 +5646,13 @@ const Index = () => {
         ctx.arc(gameState.player.x, gameState.player.y, gameState.player.stats.auraRadius, 0, Math.PI * 2);
         ctx.stroke();
       }
-      
+
       // Jugador con rage mode visual
       const blink = gameState.player.ifr > 0 && Math.floor(gameState.time * 12) % 2 === 0;
       const isRage = gameState.player.rageTimer > 0;
       ctx.save();
       if (blink) ctx.globalAlpha = 0.4;
-      
+
       // Rage mode glow
       if (isRage) {
         ctx.shadowColor = "#ef4444";
@@ -5384,7 +5663,7 @@ const Index = () => {
         ctx.arc(gameState.player.x, gameState.player.y, gameState.player.rad + 10, 0, Math.PI * 2);
         ctx.stroke();
       }
-      
+
       ctx.fillStyle = isRage ? "#ef4444" : "#60a5fa";
       ctx.shadowColor = isRage ? "#ef4444" : "#60a5fa";
       ctx.shadowBlur = isRage ? 30 : 20;
@@ -5393,21 +5672,21 @@ const Index = () => {
       ctx.fill();
       ctx.shadowBlur = 0;
       ctx.restore();
-      
+
       // Restart hold indicator
       if (gameState.restartTimer > 0) {
         const progress = Math.min(1, gameState.restartTimer / gameState.restartHoldTime);
         const centerX = W / 2;
         const centerY = H / 2;
         const radius = 60;
-        
+
         // Background circle
         ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
         ctx.lineWidth = 8;
         ctx.beginPath();
         ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
         ctx.stroke();
-        
+
         // Progress arc
         ctx.strokeStyle = "#ef4444";
         ctx.lineWidth = 8;
@@ -5417,13 +5696,13 @@ const Index = () => {
         ctx.arc(centerX, centerY, radius, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress);
         ctx.stroke();
         ctx.shadowBlur = 0;
-        
+
         // Text
         ctx.fillStyle = "#fff";
         ctx.font = "bold 24px system-ui";
         ctx.textAlign = "center";
         ctx.fillText("R", centerX, centerY + 8);
-        
+
         // Timer text - prevent negative numbers
         const remaining = Math.max(0, Math.ceil(gameState.restartHoldTime - gameState.restartTimer));
         ctx.font = "bold 18px system-ui";
@@ -5445,42 +5724,42 @@ const Index = () => {
         ctx.font = "bold 12px system-ui";
         ctx.fillText(`⚡ ${Math.ceil(gameState.player.rageTimer)}s`, gameState.player.x, indicatorY);
       }
-      
+
       drawHUD();
       drawUpgradeUI();
-      
+
       // Danger Zone visual effect (pantalla parpadeante roja si está >0.5s en zona de peligro)
       if (gameState.inDangerZone && gameState.dangerZoneTimer > 0.5) {
         const flashIntensity = Math.sin(gameState.time * 8) * 0.2 + 0.3; // Parpadeo rápido
         ctx.save();
-        
+
         // Borde rojo alrededor de toda la pantalla
         ctx.strokeStyle = `rgba(239, 68, 68, ${flashIntensity})`;
         ctx.lineWidth = 15;
         ctx.strokeRect(7.5, 7.5, W - 15, H - 15);
-        
+
         // Overlay rojo sutil en toda la pantalla
         ctx.fillStyle = `rgba(220, 38, 38, ${flashIntensity * 0.15})`;
         ctx.fillRect(0, 0, W, H);
-        
+
         ctx.restore();
       }
-      
+
       // Game Over overlay fade
       // GAME OVER SCREEN
-      if (gameState.state === 'gameover') {
+      if (gameState.state === "gameover") {
         ctx.save();
-        
+
         // Fade in del overlay (primeros 2 segundos)
         const fadeAlpha = Math.min(0.9, gameState.gameOverAnimationTimer / 2);
         ctx.fillStyle = `rgba(0, 0, 0, ${fadeAlpha})`;
         ctx.fillRect(0, 0, W, H);
-        
+
         // Mostrar mensaje dramático los primeros 3 segundos
         if (gameState.gameOverAnimationTimer < 3) {
           const messageAlpha = Math.min(1, gameState.gameOverAnimationTimer / 1);
           const pulse = Math.sin(gameState.time * 3) * 0.2 + 0.8;
-          
+
           ctx.globalAlpha = messageAlpha;
           ctx.fillStyle = "#ef4444";
           ctx.font = "bold 48px system-ui";
@@ -5489,14 +5768,14 @@ const Index = () => {
           ctx.shadowBlur = 30 * pulse;
           ctx.fillText("Has caído en la horda...", W / 2, H / 2 - 80);
           ctx.shadowBlur = 0;
-          
+
           // Mostrar tiempo sobrevivido después de 1.5s
           if (gameState.gameOverAnimationTimer > 1.5) {
             const timeAlpha = Math.min(1, (gameState.gameOverAnimationTimer - 1.5) / 1);
             ctx.globalAlpha = timeAlpha;
             const time = Math.floor(gameState.time);
-            const mm = String(Math.floor(time / 60)).padStart(2, '0');
-            const ss = String(time % 60).padStart(2, '0');
+            const mm = String(Math.floor(time / 60)).padStart(2, "0");
+            const ss = String(time % 60).padStart(2, "0");
             ctx.fillStyle = "#fbbf24";
             ctx.font = "bold 56px system-ui";
             ctx.shadowColor = "#fbbf24";
@@ -5504,28 +5783,28 @@ const Index = () => {
             ctx.fillText(`Tiempo sobrevivido: ${mm}:${ss}`, W / 2, H / 2 + 20);
             ctx.shadowBlur = 0;
           }
-          
+
           ctx.globalAlpha = 1;
           ctx.restore();
           return; // No mostrar el panel hasta después de 3 segundos
         }
-        
+
         // Panel de resultados (aparece después de 3 segundos)
         const panelAlpha = Math.min(1, (gameState.gameOverAnimationTimer - 3) / 1);
         ctx.globalAlpha = panelAlpha;
-        
+
         const menuW = 700;
         const menuH = 700;
         const menuX = W / 2 - menuW / 2;
         const menuY = H / 2 - menuH / 2;
-        
+
         // Background con gradiente
         const bgGradient = ctx.createLinearGradient(menuX, menuY, menuX, menuY + menuH);
         bgGradient.addColorStop(0, "rgba(20, 10, 10, 0.98)");
         bgGradient.addColorStop(1, "rgba(40, 20, 20, 0.98)");
         ctx.fillStyle = bgGradient;
         ctx.fillRect(menuX, menuY, menuW, menuH);
-        
+
         // Border con glow rojo
         ctx.strokeStyle = "#ef4444";
         ctx.lineWidth = 4;
@@ -5533,7 +5812,7 @@ const Index = () => {
         ctx.shadowBlur = 30;
         ctx.strokeRect(menuX, menuY, menuW, menuH);
         ctx.shadowBlur = 0;
-        
+
         // Título GAME OVER
         ctx.fillStyle = "#ef4444";
         ctx.font = "bold 64px system-ui";
@@ -5542,9 +5821,9 @@ const Index = () => {
         ctx.shadowBlur = 20;
         ctx.fillText(t.gameOver, W / 2, menuY + 90);
         ctx.shadowBlur = 0;
-        
+
         let contentY = menuY + 160;
-        
+
         // Separador
         ctx.strokeStyle = "rgba(239, 68, 68, 0.3)";
         ctx.lineWidth = 2;
@@ -5552,29 +5831,29 @@ const Index = () => {
         ctx.moveTo(menuX + 60, contentY);
         ctx.lineTo(menuX + menuW - 60, contentY);
         ctx.stroke();
-        
+
         contentY += 50;
-        
+
         // Estadísticas finales
         const leftCol = menuX + 120;
         const rightCol = menuX + menuW / 2 + 80;
-        
+
         ctx.font = "bold 28px system-ui";
         ctx.fillStyle = "#fbbf24";
         ctx.textAlign = "left";
         ctx.fillText("📊 " + t.stats, leftCol, contentY);
         contentY += 60;
-        
+
         ctx.font = "24px system-ui";
         ctx.fillStyle = "#d1d5db";
-        
+
         // Score
         ctx.fillText(t.finalScore + ":", leftCol, contentY);
         ctx.fillStyle = "#a855f7";
         ctx.textAlign = "right";
         ctx.fillText(gameState.score.toString(), rightCol + 180, contentY);
         contentY += 50;
-        
+
         // Level
         ctx.fillStyle = "#d1d5db";
         ctx.textAlign = "left";
@@ -5583,7 +5862,7 @@ const Index = () => {
         ctx.textAlign = "right";
         ctx.fillText(gameState.level.toString(), rightCol + 180, contentY);
         contentY += 50;
-        
+
         // Wave
         ctx.fillStyle = "#d1d5db";
         ctx.textAlign = "left";
@@ -5592,24 +5871,24 @@ const Index = () => {
         ctx.textAlign = "right";
         ctx.fillText(gameState.wave.toString(), rightCol + 180, contentY);
         contentY += 50;
-        
+
         // Tiempo
         const time = Math.floor(gameState.time);
-        const mm = String(Math.floor(time / 60)).padStart(2, '0');
-        const ss = String(time % 60).padStart(2, '0');
+        const mm = String(Math.floor(time / 60)).padStart(2, "0");
+        const ss = String(time % 60).padStart(2, "0");
         ctx.fillStyle = "#d1d5db";
         ctx.textAlign = "left";
         ctx.fillText("Tiempo:", leftCol, contentY);
         ctx.fillStyle = "#fbbf24";
         ctx.textAlign = "right";
         ctx.fillText(`${mm}:${ss}`, rightCol + 180, contentY);
-        
+
         // Botón de reinicio
         const btnW = 400;
         const btnH = 70;
         const btnX = W / 2 - btnW / 2;
         const btnY = menuY + menuH - 120;
-        
+
         const btnGradient = ctx.createLinearGradient(btnX, btnY, btnX, btnY + btnH);
         btnGradient.addColorStop(0, "#ef4444");
         btnGradient.addColorStop(1, "#dc2626");
@@ -5617,29 +5896,29 @@ const Index = () => {
         ctx.beginPath();
         ctx.roundRect(btnX, btnY, btnW, btnH, 15);
         ctx.fill();
-        
+
         ctx.strokeStyle = "#fff";
         ctx.lineWidth = 3;
         ctx.shadowColor = "#ef4444";
         ctx.shadowBlur = 20;
         ctx.stroke();
         ctx.shadowBlur = 0;
-        
+
         ctx.fillStyle = "#fff";
         ctx.font = "bold 32px system-ui";
         ctx.textAlign = "center";
         ctx.fillText("🔄 " + t.playAgain, btnX + btnW / 2, btnY + btnH / 2 + 12);
-        
+
         // Hint de teclas
         ctx.fillStyle = "rgba(156, 163, 175, 0.8)";
         ctx.font = "18px system-ui";
         ctx.fillText("Presiona R o Enter para reiniciar", W / 2, menuY + menuH - 25);
-        
+
         ctx.restore();
       }
-      
-      // Pause menu - Simplified unified design  
-      if (gameState.state === 'paused' && !gameState.showUpgradeUI && gameState.countdownTimer <= 0) {
+
+      // Pause menu - Simplified unified design
+      if (gameState.state === "paused" && !gameState.showUpgradeUI && gameState.countdownTimer <= 0) {
         ctx.save();
         ctx.fillStyle = "rgba(5, 10, 20, 0.85)";
         ctx.fillRect(0, 0, W, H);
@@ -5649,7 +5928,7 @@ const Index = () => {
         const t = locale;
         const layout = getPauseMenuLayout(W, H);
         const { menuX, menuY, menuW, menuH, padding, scale } = layout;
-        
+
         const scaleValue = (value: number) => value * scale;
         const scaledRadius = (value: number) => Math.max(6, value * scale);
         const getScaledFont = (size: number, weight?: string) => {
@@ -5689,7 +5968,7 @@ const Index = () => {
         const totalSeconds = Math.floor(gameState.time);
         const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
         const seconds = String(totalSeconds % 60).padStart(2, "0");
-        
+
         const stats = [
           { label: t.wave, value: `${gameState.wave}`, color: "#3b82f6" },
           { label: t.level, value: `${gameState.level}`, color: "#fbbf24" },
@@ -5701,7 +5980,7 @@ const Index = () => {
 
         stats.forEach((stat, i) => {
           const statX = menuX + padding + i * (statBoxW + 10 * scale);
-          
+
           ctx.save();
           ctx.beginPath();
           ctx.roundRect(statX, statsY, statBoxW, statBoxH, scaledRadius(12));
@@ -5719,7 +5998,7 @@ const Index = () => {
           ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
           ctx.font = getScaledFont(13, "500");
           ctx.fillText(stat.label, statX + statBoxW / 2, statsY + 22 * scale);
-          
+
           ctx.fillStyle = "#ffffff";
           ctx.font = getScaledFont(24, "700");
           ctx.fillText(stat.value, statX + statBoxW / 2, statsY + statBoxH - 18 * scale);
@@ -5732,12 +6011,7 @@ const Index = () => {
         const audioPanelHeight = 200 * scale;
         const audioPanelMargin = 24 * scale;
         const baseButtonsY =
-          menuY +
-          menuH -
-          padding -
-          buttonH * buttonCount -
-          buttonGap * (buttonCount - 1) -
-          16 * scale;
+          menuY + menuH - padding - buttonH * buttonCount - buttonGap * (buttonCount - 1) - 16 * scale;
         const buttonsY = baseButtonsY - (gameState.pauseMenuAudioOpen ? audioPanelHeight + audioPanelMargin : 0);
 
         const continueBtn = { x: menuX + padding, y: buttonsY, w: menuW - padding * 2, h: buttonH };
@@ -5798,7 +6072,11 @@ const Index = () => {
           ctx.fillText(t.pauseMenu.musicVolume, panelX + 20 * scale, panelY + 56 * scale);
 
           ctx.textAlign = "right";
-          ctx.fillText(`${Math.round(gameState.targetMusicVolume * 100)}%`, panelX + panelW - 20 * scale, panelY + 56 * scale);
+          ctx.fillText(
+            `${Math.round(gameState.targetMusicVolume * 100)}%`,
+            panelX + panelW - 20 * scale,
+            panelY + 56 * scale,
+          );
 
           const sliderX = panelX + 28 * scale;
           const sliderW = panelW - 56 * scale;
@@ -5846,13 +6124,7 @@ const Index = () => {
           const musicToggleX = panelX + 20 * scale;
           const sfxToggleX = musicToggleX + toggleWidth + toggleGap;
 
-          const drawToggle = (
-            x: number,
-            label: string,
-            active: boolean,
-            onText: string,
-            offText: string,
-          ) => {
+          const drawToggle = (x: number, label: string, active: boolean, onText: string, offText: string) => {
             ctx.save();
             ctx.beginPath();
             ctx.roundRect(x, toggleY, toggleWidth, toggleHeight, scaledRadius(14));
@@ -5894,13 +6166,7 @@ const Index = () => {
             t.pauseMenu.music.on,
             t.pauseMenu.music.off,
           );
-          drawToggle(
-            sfxToggleX,
-            t.pauseMenu.sfx.label,
-            !gameState.sfxMuted,
-            t.pauseMenu.sfx.on,
-            t.pauseMenu.sfx.off,
-          );
+          drawToggle(sfxToggleX, t.pauseMenu.sfx.label, !gameState.sfxMuted, t.pauseMenu.sfx.on, t.pauseMenu.sfx.off);
 
           gameState.pauseMenuAudioHitAreas.musicToggle = {
             x: musicToggleX,
@@ -6020,10 +6286,10 @@ const Index = () => {
         ctx.save();
         ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
         ctx.fillRect(0, 0, W, H);
-        
+
         const countdownNumber = Math.ceil(gameState.countdownTimer);
         const scale = 1 - (gameState.countdownTimer - Math.floor(gameState.countdownTimer)); // Efecto de escala
-        
+
         // Número del countdown con glow
         ctx.fillStyle = "#fbbf24";
         ctx.font = `bold ${120 * (1 + scale * 0.3)}px system-ui`;
@@ -6032,7 +6298,7 @@ const Index = () => {
         ctx.shadowBlur = 40;
         ctx.fillText(countdownNumber.toString(), W / 2, H / 2 + 20);
         ctx.shadowBlur = 0;
-        
+
         ctx.restore();
       }
     } // Cierre de función draw()
@@ -6042,10 +6308,10 @@ const Index = () => {
     function gameLoop(timestamp: number) {
       const dt = Math.min(0.033, (timestamp - lastTime) / 1000 || 0);
       lastTime = timestamp;
-      
+
       update(dt);
       draw();
-      
+
       requestAnimationFrame(gameLoop);
     }
 
@@ -6060,20 +6326,20 @@ const Index = () => {
       e.preventDefault();
     };
 
-    document.addEventListener('touchmove', preventScroll, { passive: false });
-    document.addEventListener('gesturestart', preventGesture, { passive: false });
-    document.addEventListener('gesturechange', preventGesture, { passive: false });
-    document.addEventListener('gestureend', preventGesture, { passive: false });
+    document.addEventListener("touchmove", preventScroll, { passive: false });
+    document.addEventListener("gesturestart", preventGesture, { passive: false });
+    document.addEventListener("gesturechange", preventGesture, { passive: false });
+    document.addEventListener("gestureend", preventGesture, { passive: false });
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("resize", handleResize);
       canvas.removeEventListener("wheel", handlePauseMenuScroll);
-      document.removeEventListener('touchmove', preventScroll);
-      document.removeEventListener('gesturestart', preventGesture);
-      document.removeEventListener('gesturechange', preventGesture);
-      document.removeEventListener('gestureend', preventGesture);
+      document.removeEventListener("touchmove", preventScroll);
+      document.removeEventListener("gesturestart", preventGesture);
+      document.removeEventListener("gesturechange", preventGesture);
+      document.removeEventListener("gestureend", preventGesture);
     };
   }, []);
 
@@ -6085,24 +6351,18 @@ const Index = () => {
 
   return (
     <div className="relative w-full h-screen overflow-hidden bg-background">
-      <canvas
-        ref={canvasRef}
-        className="absolute inset-0 w-full h-full"
-        style={{ cursor: "crosshair" }}
-      />
-      
+      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" style={{ cursor: "crosshair" }} />
+
       {/* TUTORIAL SIMPLIFICADO */}
       {gameStateRef.current?.tutorialActive && !tutorialCompleted && gameStateRef.current?.wave === 1 && (
         <div className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center">
           {/* Overlay oscuro sutil */}
           <div className="absolute inset-0 bg-black/30 pointer-events-none" />
-          
+
           {/* Tutorial card */}
           <div className="relative bg-card/95 backdrop-blur-sm border-2 border-primary/50 rounded-lg p-8 max-w-md mx-4 shadow-2xl animate-scale-in">
             <div className="space-y-6 animate-fade-in">
-              <h3 className="text-2xl font-bold text-primary text-center">
-                {t.tutorial.move}
-              </h3>
+              <h3 className="text-2xl font-bold text-primary text-center">{t.tutorial.move}</h3>
               <div className="flex justify-center gap-2">
                 <KeyButton keyLabel="W" isActive={gameStateRef.current?.keys.w || false} />
               </div>
@@ -6120,13 +6380,22 @@ const Index = () => {
 };
 
 // Componente de tecla animada para el tutorial
-const KeyButton = ({ keyLabel, isActive, className = "" }: { keyLabel: string; isActive: boolean; className?: string }) => (
-  <div 
+const KeyButton = ({
+  keyLabel,
+  isActive,
+  className = "",
+}: {
+  keyLabel: string;
+  isActive: boolean;
+  className?: string;
+}) => (
+  <div
     className={`
       px-4 py-3 border-2 rounded-md font-bold text-sm transition-all duration-150
-      ${isActive 
-        ? 'bg-primary text-primary-foreground border-primary scale-95 shadow-lg shadow-primary/50' 
-        : 'bg-muted/50 text-foreground border-border scale-100'
+      ${
+        isActive
+          ? "bg-primary text-primary-foreground border-primary scale-95 shadow-lg shadow-primary/50"
+          : "bg-muted/50 text-foreground border-border scale-100"
       }
       ${className}
     `}
