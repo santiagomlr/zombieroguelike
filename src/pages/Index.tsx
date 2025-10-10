@@ -362,7 +362,11 @@ const Index = () => {
       score: 0,
       level: 1,
       xp: 0,
+      xpDisplay: 0,
+      xpDisplayTarget: 0,
       nextXP: 25,
+      nextXpDisplay: 25,
+      nextXpDisplayTarget: 25,
       time: 0,
       elapsedTime: 0,
       wave: 1,
@@ -835,7 +839,11 @@ const Index = () => {
       gameState.score = 0;
       gameState.level = 1;
       gameState.xp = 0;
+      gameState.xpDisplay = 0;
+      gameState.xpDisplayTarget = 0;
       gameState.nextXP = 25;
+      gameState.nextXpDisplay = 25;
+      gameState.nextXpDisplayTarget = 25;
       gameState.time = 0;
       gameState.elapsedTime = 0;
       gameState.wave = 1;
@@ -1836,6 +1844,7 @@ const Index = () => {
       // Aplicar multiplicador y bonus de XP
       const xpGained = (v + gameState.player.stats.xpBonus) * gameState.player.stats.xpMultiplier;
       gameState.xp += xpGained;
+      let leveledUp = false;
       while (gameState.xp >= gameState.nextXP) {
         gameState.xp -= gameState.nextXP;
         gameState.level++;
@@ -1857,6 +1866,15 @@ const Index = () => {
         gameState.xpBarRainbow = true; // Activar animación rainbow
         playLevelUpSound();
         showUpgradeScreen();
+        leveledUp = true;
+      }
+
+      gameState.xpDisplayTarget = gameState.xp;
+      gameState.nextXpDisplayTarget = gameState.nextXP;
+
+      if (leveledUp) {
+        gameState.nextXpDisplay = gameState.nextXpDisplayTarget;
+        gameState.xpDisplay = gameState.nextXpDisplayTarget;
       }
     }
 
@@ -2704,6 +2722,24 @@ const Index = () => {
         if (gameState.itemNotificationTimer === 0) {
           gameState.itemNotification = "";
         }
+      }
+
+      const xpApproachSpeed = 12;
+      const xpDiff = gameState.xpDisplayTarget - gameState.xpDisplay;
+      if (Math.abs(xpDiff) > 0.01) {
+        const lerpFactor = Math.min(1, dt * xpApproachSpeed);
+        gameState.xpDisplay += xpDiff * lerpFactor;
+      } else {
+        gameState.xpDisplay = gameState.xpDisplayTarget;
+      }
+
+      const nextXpApproachSpeed = 8;
+      const nextXpDiff = gameState.nextXpDisplayTarget - gameState.nextXpDisplay;
+      if (Math.abs(nextXpDiff) > 0.01) {
+        const lerpFactor = Math.min(1, dt * nextXpApproachSpeed);
+        gameState.nextXpDisplay += nextXpDiff * lerpFactor;
+      } else {
+        gameState.nextXpDisplay = gameState.nextXpDisplayTarget;
       }
 
       // Smooth volume transition (animación suave del volumen)
@@ -4978,7 +5014,7 @@ const Index = () => {
       ctx.shadowBlur = 0;
 
       // Progreso de XP
-      const xpProgress = Math.min(1, gameState.xp / gameState.nextXP);
+      const xpProgress = Math.min(1, gameState.xpDisplay / Math.max(1, gameState.nextXpDisplay));
       const currentXpBarW = (xpBarW - 8) * xpProgress;
 
       if (currentXpBarW > 0) {
@@ -5050,7 +5086,7 @@ const Index = () => {
       ctx.shadowColor = "rgba(0, 0, 0, 0.9)";
       ctx.shadowBlur = 6;
       ctx.fillText(
-        `XP: ${Math.floor(gameState.xp)} / ${gameState.nextXP}`,
+        `XP: ${Math.floor(gameState.xpDisplay)} / ${Math.max(1, Math.floor(gameState.nextXpDisplay))}`,
         xpBarX + xpBarW / 2,
         xpBarY + xpBarH / 2 + 7,
       );
