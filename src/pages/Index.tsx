@@ -67,6 +67,9 @@ const CRT_SETTINGS = {
   chromaShift: 1.5,
 };
 
+const MUSIC_CONTROL_KEYS = ["start", "previous", "pause", "next"] as const;
+type MusicControlKey = (typeof MUSIC_CONTROL_KEYS)[number];
+
 const getPauseMenuLayout = (W: number, H: number) => {
   const scale = Math.min(1, Math.max(0.7, Math.min(W / 1280, H / 720)));
 
@@ -483,7 +486,7 @@ const Index = () => {
         previous: 0,
         pause: 0,
         next: 0,
-      } as Record<"start" | "previous" | "pause" | "next", number>,
+      } as Record<MusicControlKey, number>,
       musicControlsVisible: false,
       musicLastPointerTime: 0,
       sfxMuted: false,
@@ -1449,31 +1452,89 @@ const Index = () => {
         zoom: CAMERA_ZOOM,
       };
       const { minX, maxX, minY, maxY } = getCameraBounds(camera, W, H, 50);
-      const onScreenEnemies = gameState.enemies.filter(
-        (e: any) => e.x >= minX && e.x <= maxX && e.y >= minY && e.y <= maxY,
-      );
 
-      if (onScreenEnemies.length === 0) return null;
+      let closest: any | null = null;
+      let closestDistSq = Infinity;
 
-      const healthRatio = enemy.maxhp ? enemy.hp / enemy.maxhp : 1;
-      const finishingScore = (1 - healthRatio) * 0.35;
+      for (const enemy of gameState.enemies) {
+        if (!enemy || enemy.hp <= 0) continue;
+        if (enemy.x < minX || enemy.x > maxX || enemy.y < minY || enemy.y > maxY) continue;
+
+        const dx = enemy.x - gameState.player.x;
+        const dy = enemy.y - gameState.player.y;
+        const distSq = dx * dx + dy * dy;
+
+        if (distSq < closestDistSq) {
+          closestDistSq = distSq;
+          closest = enemy;
+        }
+      }
+
+      return closest;
+    }
+
+    function scoreEnemyForAutoAim(enemy: any, range: number, preferredTarget: any | null) {
+      const dx = enemy.x - gameState.player.x;
+      const dy = enemy.y - gameState.player.y;
+      const dist = Math.hypot(dx, dy);
+
+      if (!Number.isFinite(dist)) {
+        return { score: -Infinity, dist: 0 };
+      }
+
+      if (dist > range * 1.25) {
+        return { score: -Infinity, dist };
+      }
+
+      const camera = gameState.camera ?? {
+        x: gameState.player.x,
+        y: gameState.player.y,
+        zoom: CAMERA_ZOOM,
+      };
+      const { minX, maxX, minY, maxY } = getCameraBounds(camera, W, H, 50);
+      const onScreen = enemy.x >= minX && enemy.x <= maxX && enemy.y >= minY && enemy.y <= maxY;
+
+      const normalizedDistance = 1 - clamp(dist / Math.max(range, 1), 0, 1);
+
+      let typePriority = 0.4;
+      if (enemy.isBoss) typePriority = 1;
+      else if (enemy.isMiniBoss) typePriority = 0.9;
+      else if (enemy.isElite) typePriority = 0.7;
+      else if (enemy.specialType === "explosive") typePriority = 0.6;
+
+      const damageValue = Number.isFinite(enemy.damage) ? enemy.damage : 0;
+      const damageScore = clamp(damageValue / 30, 0, 1);
+
+      const approachScore = clamp((range - dist) / Math.max(range, 1), 0, 1);
+
+      let imminentImpactScore = 0;
+      if (dist < (enemy.rad || 0) + gameState.player.rad + 40) {
+        imminentImpactScore = 1;
+      }
+
+      let explosiveUrgency = 0;
+      if (enemy.specialType === "explosive" && typeof enemy.explosionTimer === "number" && enemy.explosionTimer >= 0) {
+        explosiveUrgency = 1 - clamp(enemy.explosionTimer / 3, 0, 1);
+      }
+
+      const healthRatio = enemy.maxhp ? clamp(enemy.hp / enemy.maxhp, 0, 1) : 1;
+      const finishingScore = (1 - healthRatio) * 0.3;
 
       let clusterScore = 0;
       if (gameState.enemies.length > 1) {
         let closeCount = 0;
         for (const other of gameState.enemies) {
           if (other === enemy || other.hp <= 0) continue;
-          const dx = other.x - enemy.x;
-          if (Math.abs(dx) > 160) continue;
-          const dy = other.y - enemy.y;
-          if (Math.abs(dy) > 160) continue;
-          const neighborDist = Math.hypot(dx, dy);
-          if (neighborDist <= 180) {
+          const ndx = other.x - enemy.x;
+          if (Math.abs(ndx) > 160) continue;
+          const ndy = other.y - enemy.y;
+          if (Math.abs(ndy) > 160) continue;
+          if (Math.hypot(ndx, ndy) <= 180) {
             closeCount++;
             if (closeCount >= 6) break;
           }
         }
-        clusterScore = Math.min(1, closeCount / 4);
+        clusterScore = clamp(closeCount / 4, 0, 1);
       }
 
       const baseScore =
@@ -1485,7 +1546,7 @@ const Index = () => {
         finishingScore * 0.08 +
         clusterScore * 0.06;
 
-      const sameTargetBonus = preferredTarget && enemy === preferredTarget ? 0.25 : 0;
+      const sameTargetBonus = preferredTarget && enemy === preferredTarget ? 0.2 : 0;
       const visibilityBonus = onScreen ? 0.05 : 0;
 
       return { score: baseScore + sameTargetBonus + visibilityBonus, dist };
@@ -2666,9 +2727,7 @@ const Index = () => {
         gameState.elapsedTime += dt;
       }
 
-      for (const key of Object.keys(gameState.musicButtonClickAnim) as Array<
-        keyof typeof gameState.musicButtonClickAnim
-      >) {
+      for (const key of MUSIC_CONTROL_KEYS) {
         const value = gameState.musicButtonClickAnim[key];
         if (value > 0) {
           gameState.musicButtonClickAnim[key] = Math.max(0, value - dt * 3);
@@ -2697,6 +2756,21 @@ const Index = () => {
         gameState.itemNotificationTimer = Math.max(0, gameState.itemNotificationTimer - dt);
         if (gameState.itemNotificationTimer === 0) {
           gameState.itemNotification = "";
+        }
+      }
+
+      let positiveHotspotCount = 0;
+      let negativeHotspotCount = 0;
+      let radioactiveHotspotCount = 0;
+      for (const hotspot of gameState.hotspots) {
+        if (hotspot.isRadioactive) {
+          radioactiveHotspotCount++;
+          continue;
+        }
+        if (hotspot.isNegative) {
+          negativeHotspotCount++;
+        } else {
+          positiveHotspotCount++;
         }
       }
 
@@ -3226,7 +3300,7 @@ const Index = () => {
             case "rain":
               // ☢️ LLUVIA RADIACTIVA: Enemigos ganan velocidad en zonas específicas - SOLO 1 CÍRCULO
               // Crear zona radiactiva tipo negative hotspot - MUY GRANDE
-              if (gameState.hotspots.filter((h) => h.isRadioactive).length === 0 && intensity > 0.3) {
+              if (radioactiveHotspotCount === 0 && intensity > 0.3) {
                 const x = Math.random() * (gameState.worldWidth - 600) + 300;
                 const y = Math.random() * (gameState.worldHeight - 600) + 300;
                 gameState.hotspots.push({
@@ -3241,6 +3315,7 @@ const Index = () => {
                   isNegative: false,
                   isRadioactive: true, // Marca especial para lluvia radiactiva
                 });
+                radioactiveHotspotCount++;
               }
 
               // Partículas de lluvia
@@ -3262,15 +3337,16 @@ const Index = () => {
 
       // Hotspot spawning (positivos)
       gameState.hotspotTimer += dt;
-      if (gameState.hotspotTimer >= 30 && gameState.hotspots.filter((h) => !h.isNegative).length < 2) {
+      if (gameState.hotspotTimer >= 30 && positiveHotspotCount < 2) {
         gameState.hotspotTimer = 0;
         spawnHotspot(false);
+        positiveHotspotCount++;
       }
 
       // Danger Zone spawning (negativos) - Más frecuentes estilo COD Zombies
       if (
         gameState.wave >= 3 &&
-        gameState.hotspots.filter((h) => h.isNegative).length < (gameState.wave >= 11 ? 2 : 1)
+        negativeHotspotCount < (gameState.wave >= 11 ? 2 : 1)
       ) {
         let dangerChance = 0.02;
         if (gameState.wave >= 6 && gameState.wave < 11) {
@@ -3281,6 +3357,7 @@ const Index = () => {
 
         if (Math.random() < dangerChance * dt) {
           spawnHotspot(true);
+          negativeHotspotCount++;
         }
       }
 
