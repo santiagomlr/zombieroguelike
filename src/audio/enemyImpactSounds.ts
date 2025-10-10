@@ -28,6 +28,8 @@ export type EnemyWithCategory<T extends object = Record<string, any>> = T & {
   category: EnemyCategory;
 };
 
+const ZOMBIE_IMPACT_PLAY_CHANCE = 0.3;
+
 export function pickImpactSoundForCategories(
   categories: readonly EnemyCategory[],
   rng: () => number = Math.random,
@@ -37,6 +39,11 @@ export function pickImpactSoundForCategories(
     if (!sounds?.length) {
       continue;
     }
+
+    if (category === "zombie" && rng() > ZOMBIE_IMPACT_PLAY_CHANCE) {
+      continue;
+    }
+
     if (sounds.length === 1) {
       return sounds[0];
     }
