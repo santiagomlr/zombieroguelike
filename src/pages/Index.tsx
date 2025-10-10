@@ -684,12 +684,13 @@ const Index = () => {
       musicControlsVisible: false,
       musicLastPointerTime: 0,
       sfxMuted: false,
-      enemyLogo: null as HTMLImageElement | null,
+      mediumZombieImg: null as HTMLImageElement | null,
       greenZombieImg: null as HTMLImageElement | null,
       bomberImg: null as HTMLImageElement | null,
       ghoulImg: null as HTMLImageElement | null,
+      hellDogImg: null as HTMLImageElement | null,
       purpleZombieImg: null as HTMLImageElement | null,
-      runnerImg: null as HTMLImageElement | null,
+      larvaImg: null as HTMLImageElement | null,
       shieldImg: null as HTMLImageElement | null,
       mapBackground: null as HTMLImageElement | null,
       tutorialActive: localStorage.getItem("gameHasTutorial") !== "completed",
@@ -762,7 +763,7 @@ const Index = () => {
         return existing;
       }
 
-      if (!gameState.enemyLogo || !gameState.enemyLogo.complete) {
+      if (!gameState.mediumZombieImg || !gameState.mediumZombieImg.complete) {
         return null;
       }
 
@@ -775,7 +776,7 @@ const Index = () => {
       }
 
       tempCtx.clearRect(0, 0, ENEMY_LOGO_BASE_SIZE, ENEMY_LOGO_BASE_SIZE);
-      tempCtx.drawImage(gameState.enemyLogo, 0, 0, ENEMY_LOGO_BASE_SIZE, ENEMY_LOGO_BASE_SIZE);
+      tempCtx.drawImage(gameState.mediumZombieImg, 0, 0, ENEMY_LOGO_BASE_SIZE, ENEMY_LOGO_BASE_SIZE);
       tempCtx.globalCompositeOperation = "source-in";
       tempCtx.fillStyle = color;
       tempCtx.fillRect(0, 0, ENEMY_LOGO_BASE_SIZE, ENEMY_LOGO_BASE_SIZE);
@@ -785,27 +786,38 @@ const Index = () => {
       return tempCanvas;
     };
 
-    // Load enemy logo
-    const enemyLogoImg = new Image();
-    enemyLogoImg.src = "/images/enemy-logo.png";
-    enemyLogoImg.onload = () => {
-      gameState.enemyLogo = enemyLogoImg;
-      console.log("Enemy logo loaded successfully");
+    // Load base medium zombie image (used for tinting fallbacks)
+    const mediumZombieImg = new Image();
+    mediumZombieImg.src = "/images/medium_zombie.png";
+    mediumZombieImg.onload = () => {
+      gameState.mediumZombieImg = mediumZombieImg;
+      console.log("Medium zombie loaded successfully");
 
-      // Pre-render colored enemy logos for performance (excluding green since we have a custom image)
-      const spawnEnemyColors = ["#8e44ad", "#ffc300", "#5dbb63", "#6e6e6e", "#ff7a2a", "#ff3b3b", "#4a4a4a"];
+      // Pre-render colored enemy logos for performance (covers fallback colors)
+      const spawnEnemyColors = [
+        "#8e44ad",
+        "#9333ea",
+        "#ffc300",
+        "#f59e0b",
+        "#5dbb63",
+        "#16a34a",
+        "#6e6e6e",
+        "#ff7a2a",
+        "#ff3b3b",
+        "#4a4a4a",
+      ];
 
       spawnEnemyColors.forEach((color) => {
         ensureTintedLogo(color);
       });
     };
-    enemyLogoImg.onerror = () => {
-      console.error("Failed to load enemy logo");
+    mediumZombieImg.onerror = () => {
+      console.error("Failed to load medium zombie image");
     };
 
     // Load all enemy images
     const greenZombieImg = new Image();
-    greenZombieImg.src = "/images/green-zombie.png";
+    greenZombieImg.src = "/images/green_zombie.png";
     greenZombieImg.onload = () => {
       gameState.greenZombieImg = greenZombieImg;
       console.log("Green zombie loaded successfully");
@@ -834,6 +846,16 @@ const Index = () => {
       console.error("Failed to load ghoul image");
     };
 
+    const hellDogImg = new Image();
+    hellDogImg.src = "/images/hell_dog.png";
+    hellDogImg.onload = () => {
+      gameState.hellDogImg = hellDogImg;
+      console.log("Hell dog loaded successfully");
+    };
+    hellDogImg.onerror = () => {
+      console.error("Failed to load hell dog image");
+    };
+
     const purpleZombieImg = new Image();
     purpleZombieImg.src = "/images/purple_zombie.png";
     purpleZombieImg.onload = () => {
@@ -844,14 +866,14 @@ const Index = () => {
       console.error("Failed to load purple zombie image");
     };
 
-    const runnerImg = new Image();
-    runnerImg.src = "/images/runner.png";
-    runnerImg.onload = () => {
-      gameState.runnerImg = runnerImg;
-      console.log("Runner loaded successfully");
+    const larvaImg = new Image();
+    larvaImg.src = "/images/larva.png";
+    larvaImg.onload = () => {
+      gameState.larvaImg = larvaImg;
+      console.log("Larva loaded successfully");
     };
-    runnerImg.onerror = () => {
-      console.error("Failed to load runner image");
+    larvaImg.onerror = () => {
+      console.error("Failed to load larva image");
     };
 
     const shieldImg = new Image();
@@ -6760,17 +6782,19 @@ const Index = () => {
 
         if (e.specialType === "explosive" && gameState.bomberImg?.complete) {
           enemyImage = gameState.bomberImg;
-        } else if (e.specialType === "fast" && gameState.runnerImg?.complete) {
-          enemyImage = gameState.runnerImg;
+        } else if (e.specialType === "fast" && gameState.larvaImg?.complete) {
+          enemyImage = gameState.larvaImg;
         } else if (e.specialType === "tank" && gameState.shieldImg?.complete) {
           enemyImage = gameState.shieldImg;
         } else if (e.specialType === "summoner" && gameState.ghoulImg?.complete) {
           enemyImage = gameState.ghoulImg;
-        } else if (e.isSummoned && gameState.ghoulImg?.complete) {
-          enemyImage = gameState.ghoulImg;
-        } else if (e.color === "#5dbb63" && gameState.greenZombieImg?.complete) {
+        } else if (e.isSummoned && gameState.hellDogImg?.complete) {
+          enemyImage = gameState.hellDogImg;
+        } else if ((e.color === "#5dbb63" || e.color === "#16a34a") && gameState.greenZombieImg?.complete) {
           enemyImage = gameState.greenZombieImg;
-        } else if ((e.color === "#9333ea" || e.color === "#8e44ad") && gameState.purpleZombieImg?.complete) {
+        } else if (e.color === "#8e44ad" && gameState.mediumZombieImg?.complete) {
+          enemyImage = gameState.mediumZombieImg;
+        } else if (e.color === "#9333ea" && gameState.purpleZombieImg?.complete) {
           enemyImage = gameState.purpleZombieImg;
         } else if (e.color === "#78716c" && gameState.shieldImg?.complete) {
           enemyImage = gameState.shieldImg;
@@ -6779,7 +6803,7 @@ const Index = () => {
         if (enemyImage) {
           const logoSize = e.rad * 3;
           ctx.drawImage(enemyImage, e.x - logoSize / 2, e.y - logoSize / 2, logoSize, logoSize);
-        } else if (gameState.enemyLogo && gameState.enemyLogo.complete) {
+        } else if (gameState.mediumZombieImg && gameState.mediumZombieImg.complete) {
           const logoSize = e.rad * 3;
           let prerenderedLogo = prerenderedLogosRef.current[e.color];
           if (!prerenderedLogo) {
