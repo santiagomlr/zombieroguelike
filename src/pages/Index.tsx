@@ -703,6 +703,7 @@ const Index = () => {
       musicControlsVisible: false,
       musicLastPointerTime: 0,
       sfxMuted: false,
+      playerImg: null as HTMLImageElement | null,
       mediumZombieImg: null as HTMLImageElement | null,
       greenZombieImg: null as HTMLImageElement | null,
       bomberImg: null as HTMLImageElement | null,
@@ -814,6 +815,17 @@ const Index = () => {
 
       prerenderedLogosRef.current[color] = tempCanvas;
       return tempCanvas;
+    };
+
+    const playerImg = new Image();
+    playerImg.src = "/images/player/main_character.png";
+    playerImg.onload = () => {
+      gameState.playerImg = playerImg;
+      console.log("Player sprite loaded successfully");
+    };
+    playerImg.onerror = (error) => {
+      gameState.playerImg = null;
+      console.error("Failed to load player sprite", error);
     };
 
     // Load base medium zombie image (used for tinting fallbacks)
@@ -7692,12 +7704,45 @@ const Index = () => {
         ctx.stroke();
       }
 
-      ctx.fillStyle = playerAccent;
       ctx.shadowColor = playerGlow;
       ctx.shadowBlur = 0;
-      ctx.beginPath();
-      ctx.arc(gameState.player.x, gameState.player.y, gameState.player.rad, 0, Math.PI * 2);
-      ctx.fill();
+
+      const playerSprite = gameState.playerImg;
+      const hasPlayerSprite = Boolean(
+        playerSprite &&
+          playerSprite.complete &&
+          playerSprite.naturalWidth > 0 &&
+          playerSprite.naturalHeight > 0,
+      );
+      const baseAlpha = ctx.globalAlpha;
+
+      if (hasPlayerSprite) {
+        ctx.fillStyle = playerAccent;
+        ctx.beginPath();
+        ctx.arc(gameState.player.x, gameState.player.y, gameState.player.rad * 1.15, 0, Math.PI * 2);
+        ctx.globalAlpha = baseAlpha * (isRage ? 0.6 : 0.45);
+        ctx.fill();
+        ctx.globalAlpha = baseAlpha;
+
+        const aspectRatio = playerSprite.naturalWidth / playerSprite.naturalHeight || 1;
+        const baseHeight = gameState.player.rad * 2.4;
+        const drawHeight = baseHeight;
+        const drawWidth = baseHeight * aspectRatio;
+
+        ctx.drawImage(
+          playerSprite,
+          gameState.player.x - drawWidth / 2,
+          gameState.player.y - drawHeight / 2,
+          drawWidth,
+          drawHeight,
+        );
+      } else {
+        ctx.fillStyle = playerAccent;
+        ctx.beginPath();
+        ctx.arc(gameState.player.x, gameState.player.y, gameState.player.rad, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
       ctx.shadowBlur = 0;
       ctx.restore();
 
