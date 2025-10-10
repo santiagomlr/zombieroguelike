@@ -90,25 +90,30 @@ const getPauseMenuHomeLayout = (
   const buttonCount = 4;
   const buttonStackHeight = buttonH * buttonCount + buttonGap * (buttonCount - 1);
 
-  const audioPanelHeight = 200 * scale;
-  const audioPanelMargin = 24 * scale;
   const panelX = menuX + padding;
   const panelW = menuW - padding * 2;
 
   const baseButtonsY = menuY + menuH - padding - buttonStackHeight - 16 * scale;
-  const basePanelY = baseButtonsY - audioPanelMargin - audioPanelHeight;
-
   const buttonsY = baseButtonsY;
 
-  const minButtonMargin = 16 * scale;
-  const maxPanelYForMargin = buttonsY - minButtonMargin - audioPanelHeight;
-  const minPanelTop = menuY + padding + 12 * scale;
+  const minButtonMargin = audioPanelOpen ? 8 * scale : 16 * scale;
+  const panelBottomLimit = buttonsY - minButtonMargin;
+  const defaultPanelHeight = 200 * scale;
+  const panelTopLimit = menuY + padding;
+  const desiredPanelTop = panelTopLimit + (audioPanelOpen ? 6 * scale : 12 * scale);
 
-  let panelY = basePanelY;
-
+  const maxPanelHeight = Math.max(panelBottomLimit - panelTopLimit, 0);
+  let panelHeight = defaultPanelHeight;
   if (audioPanelOpen) {
-    panelY = Math.min(panelY, maxPanelYForMargin);
-    panelY = Math.max(panelY, minPanelTop);
+    panelHeight = Math.min(defaultPanelHeight, maxPanelHeight);
+  }
+
+  const maxPanelTop = panelBottomLimit - panelHeight;
+  let panelY = clamp(desiredPanelTop, panelTopLimit, maxPanelTop);
+
+  if (!audioPanelOpen) {
+    panelHeight = defaultPanelHeight;
+    panelY = Math.max(panelY, desiredPanelTop);
   }
 
   const continueBtn: PauseMenuButtonLayout = {
@@ -139,15 +144,44 @@ const getPauseMenuHomeLayout = (
     h: buttonH,
   };
 
+  const panelInnerPadding = Math.max(16 * scale, 20 * scale * Math.min(1, panelHeight / defaultPanelHeight));
   const sliderX = panelX + 28 * scale;
   const sliderW = panelW - 56 * scale;
-  const sliderY = panelY + 70 * scale;
-  const sliderH = 10 * scale;
+  const sliderH = Math.max(8 * scale, 10 * scale);
+  const sliderMinY = panelY + panelInnerPadding + Math.min(32 * scale, panelHeight * 0.25);
 
-  const toggleGap = 18 * scale;
-  const toggleHeight = 56 * scale;
-  const toggleWidth = (panelW - toggleGap - 40 * scale) / 2;
-  const toggleY = sliderY + sliderH + 36 * scale;
+  const baseToggleHeight = 56 * scale;
+  const minToggleHeight = 44 * scale;
+  const toggleGap = Math.max(14 * scale, Math.min(18 * scale, panelW * 0.04));
+  const toggleWidth = Math.max((panelW - toggleGap - panelInnerPadding * 2) / 2, 0);
+
+  let toggleHeight = Math.min(baseToggleHeight, panelHeight - panelInnerPadding * 2 - sliderH - 28 * scale);
+
+  let toggleY = panelY + panelHeight - toggleHeight - panelInnerPadding;
+  let sliderMaxY = toggleY - sliderH - 24 * scale;
+  if (sliderMaxY <= sliderMinY) {
+    const availableForSlider = panelHeight - panelInnerPadding * 2 - toggleHeight - 24 * scale;
+    const adjustedToggleHeight = Math.max(
+      minToggleHeight,
+      Math.min(baseToggleHeight, panelHeight - panelInnerPadding - (sliderMinY + sliderH + 24 * scale)),
+    );
+    toggleHeight = Math.max(minToggleHeight, Math.min(toggleHeight, adjustedToggleHeight));
+    toggleY = panelY + panelHeight - toggleHeight - panelInnerPadding;
+    sliderMaxY = toggleY - sliderH - 20 * scale;
+  }
+
+  const sliderBaseY = sliderMinY + Math.min(18 * scale, Math.max(12 * scale, panelHeight * 0.15));
+  const sliderY = clamp(sliderBaseY, sliderMinY, sliderMaxY);
+  if (toggleY < sliderY + sliderH + 24 * scale) {
+    toggleY = sliderY + sliderH + 24 * scale;
+  }
+
+  const availableToggleHeight = Math.max(panelY + panelHeight - panelInnerPadding - toggleY, 0);
+  if (availableToggleHeight < minToggleHeight) {
+    toggleHeight = availableToggleHeight;
+  } else {
+    toggleHeight = Math.min(baseToggleHeight, availableToggleHeight);
+  }
 
   const musicToggle: PauseMenuButtonLayout = {
     x: panelX + 20 * scale,
@@ -171,7 +205,7 @@ const getPauseMenuHomeLayout = (
       restart: restartBtn,
     },
     audioPanel: {
-      rect: { x: panelX, y: panelY, w: panelW, h: audioPanelHeight },
+      rect: { x: panelX, y: panelY, w: panelW, h: panelHeight },
       slider: {
         rect: { x: sliderX, y: sliderY, w: sliderW, h: sliderH },
         hitArea: {
@@ -6411,15 +6445,15 @@ const Index = () => {
         // Audio settings panel
         if (gameState.pauseMenuAudioOpen) {
           const {
-            rect: { x: panelX, y: panelY, w: panelW, h: audioPanelHeight },
+            rect: { x: panelX, y: panelY, w: panelW, h: panelH },
             slider,
             toggles,
           } = audioPanel;
 
           ctx.save();
           ctx.beginPath();
-          ctx.roundRect(panelX, panelY, panelW, audioPanelHeight, scaledRadius(18));
-          const panelGradient = ctx.createLinearGradient(panelX, panelY, panelX, panelY + audioPanelHeight);
+          ctx.roundRect(panelX, panelY, panelW, panelH, scaledRadius(18));
+          const panelGradient = ctx.createLinearGradient(panelX, panelY, panelX, panelY + panelH);
           panelGradient.addColorStop(0, "rgba(37, 99, 235, 0.45)");
           panelGradient.addColorStop(1, "rgba(15, 23, 42, 0.65)");
           ctx.fillStyle = panelGradient;
@@ -6435,18 +6469,19 @@ const Index = () => {
           ctx.fillStyle = "#e0f2fe";
           ctx.font = getScaledFont(18, "700");
           ctx.textAlign = "center";
-          ctx.fillText(t.pauseMenu.audio.toUpperCase(), panelX + panelW / 2, panelY + 36 * scale);
+          ctx.fillText(t.pauseMenu.audio.toUpperCase(), panelX + panelW / 2, panelY + Math.min(36 * scale, Math.max(24 * scale, panelH * 0.18)));
 
           ctx.textAlign = "left";
           ctx.fillStyle = "rgba(226, 232, 240, 0.85)";
           ctx.font = getScaledFont(14, "600");
-          ctx.fillText(t.pauseMenu.musicVolume, panelX + 20 * scale, panelY + 56 * scale);
+          const volumeLabelY = Math.min(panelY + panelH - 20 * scale, panelY + Math.max(54 * scale, panelH * 0.32));
+          ctx.fillText(t.pauseMenu.musicVolume, panelX + 20 * scale, volumeLabelY);
 
           ctx.textAlign = "right";
           ctx.fillText(
             `${Math.round(gameState.targetMusicVolume * 100)}%`,
             panelX + panelW - 20 * scale,
-            panelY + 56 * scale,
+            volumeLabelY,
           );
 
           const sliderX = slider.rect.x;
