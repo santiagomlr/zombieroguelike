@@ -52,6 +52,143 @@ const getPauseMenuContentMetrics = (layout: ReturnType<typeof getPauseMenuLayout
   };
 };
 
+type PauseMenuButtonLayout = {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+};
+
+type PauseMenuHomeLayout = {
+  buttons: {
+    continue: PauseMenuButtonLayout;
+    audio: PauseMenuButtonLayout;
+    language: PauseMenuButtonLayout;
+    restart: PauseMenuButtonLayout;
+  };
+  audioPanel: {
+    rect: { x: number; y: number; w: number; h: number };
+    slider: {
+      rect: { x: number; y: number; w: number; h: number };
+      hitArea: { x: number; y: number; w: number; h: number };
+    };
+    toggles: {
+      music: PauseMenuButtonLayout;
+      sfx: PauseMenuButtonLayout;
+    };
+  };
+};
+
+const getPauseMenuHomeLayout = (
+  layout: ReturnType<typeof getPauseMenuLayout>,
+  audioPanelOpen: boolean,
+): PauseMenuHomeLayout => {
+  const { menuX, menuY, menuW, menuH, padding, scale } = layout;
+
+  const buttonH = 56 * scale;
+  const buttonGap = 14 * scale;
+  const buttonCount = 4;
+  const buttonStackHeight = buttonH * buttonCount + buttonGap * (buttonCount - 1);
+
+  const audioPanelHeight = 200 * scale;
+  const audioPanelMargin = 24 * scale;
+  const panelX = menuX + padding;
+  const panelW = menuW - padding * 2;
+
+  const baseButtonsY = menuY + menuH - padding - buttonStackHeight - 16 * scale;
+  const basePanelY = baseButtonsY - audioPanelMargin - audioPanelHeight;
+
+  const buttonsY = baseButtonsY;
+
+  const minButtonMargin = 16 * scale;
+  const maxPanelYForMargin = buttonsY - minButtonMargin - audioPanelHeight;
+  const minPanelTop = menuY + padding + 12 * scale;
+
+  let panelY = basePanelY;
+
+  if (audioPanelOpen) {
+    panelY = Math.min(panelY, maxPanelYForMargin);
+    panelY = Math.max(panelY, minPanelTop);
+  }
+
+  const continueBtn: PauseMenuButtonLayout = {
+    x: menuX + padding,
+    y: buttonsY,
+    w: panelW,
+    h: buttonH,
+  };
+
+  const audioBtn: PauseMenuButtonLayout = {
+    x: menuX + padding,
+    y: buttonsY + buttonH + buttonGap,
+    w: panelW,
+    h: buttonH,
+  };
+
+  const languageBtn: PauseMenuButtonLayout = {
+    x: menuX + padding,
+    y: audioBtn.y + buttonH + buttonGap,
+    w: panelW,
+    h: buttonH,
+  };
+
+  const restartBtn: PauseMenuButtonLayout = {
+    x: menuX + padding,
+    y: languageBtn.y + buttonH + buttonGap,
+    w: panelW,
+    h: buttonH,
+  };
+
+  const sliderX = panelX + 28 * scale;
+  const sliderW = panelW - 56 * scale;
+  const sliderY = panelY + 70 * scale;
+  const sliderH = 10 * scale;
+
+  const toggleGap = 18 * scale;
+  const toggleHeight = 56 * scale;
+  const toggleWidth = (panelW - toggleGap - 40 * scale) / 2;
+  const toggleY = sliderY + sliderH + 36 * scale;
+
+  const musicToggle: PauseMenuButtonLayout = {
+    x: panelX + 20 * scale,
+    y: toggleY,
+    w: toggleWidth,
+    h: toggleHeight,
+  };
+
+  const sfxToggle: PauseMenuButtonLayout = {
+    x: musicToggle.x + toggleWidth + toggleGap,
+    y: toggleY,
+    w: toggleWidth,
+    h: toggleHeight,
+  };
+
+  return {
+    buttons: {
+      continue: continueBtn,
+      audio: audioBtn,
+      language: languageBtn,
+      restart: restartBtn,
+    },
+    audioPanel: {
+      rect: { x: panelX, y: panelY, w: panelW, h: audioPanelHeight },
+      slider: {
+        rect: { x: sliderX, y: sliderY, w: sliderW, h: sliderH },
+        hitArea: {
+          x: sliderX,
+          y: sliderY - 14 * scale,
+          w: sliderW,
+          h: sliderH + 28 * scale,
+        },
+      },
+      toggles: {
+        music: musicToggle,
+        sfx: sfxToggle,
+      },
+    },
+  };
+};
+
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
 const getMusicStartButtonRect = (W: number, H: number) => {
@@ -2200,36 +2337,11 @@ const Index = () => {
         }
       } else if (gameState.state === "paused" && !gameState.showUpgradeUI && gameState.countdownTimer <= 0) {
         const layout = getPauseMenuLayout(W, H);
-        const { menuX, menuY, menuW, menuH, padding, scale } = layout;
-
-        const buttonH = 56 * scale;
-        const buttonGap = 14 * scale;
-        const buttonCount = 4;
-        const audioPanelHeight = 200 * scale;
-        const audioPanelMargin = 24 * scale;
-        const baseButtonsY =
-          menuY + menuH - padding - buttonH * buttonCount - buttonGap * (buttonCount - 1) - 16 * scale;
-        const buttonsY = baseButtonsY - (gameState.pauseMenuAudioOpen ? audioPanelHeight + audioPanelMargin : 0);
-
-        const continueBtn = { x: menuX + padding, y: buttonsY, w: menuW - padding * 2, h: buttonH };
-        const audioBtn = {
-          x: menuX + padding,
-          y: buttonsY + buttonH + buttonGap,
-          w: menuW - padding * 2,
-          h: buttonH,
-        };
-        const languageBtn = {
-          x: menuX + padding,
-          y: audioBtn.y + buttonH + buttonGap,
-          w: menuW - padding * 2,
-          h: buttonH,
-        };
-        const restartBtn = {
-          x: menuX + padding,
-          y: languageBtn.y + buttonH + buttonGap,
-          w: menuW - padding * 2,
-          h: buttonH,
-        };
+        const homeLayout = getPauseMenuHomeLayout(layout, gameState.pauseMenuAudioOpen);
+        const {
+          buttons: { continue: continueBtn, audio: audioBtn, language: languageBtn, restart: restartBtn },
+          audioPanel,
+        } = homeLayout;
 
         if (
           mx >= continueBtn.x &&
@@ -2273,18 +2385,15 @@ const Index = () => {
         }
 
         if (gameState.pauseMenuAudioOpen) {
-          const panelX = menuX + padding;
-          const panelW = menuW - padding * 2;
-          const panelY = baseButtonsY - audioPanelMargin - audioPanelHeight;
+          const { slider, toggles } = audioPanel;
 
-          const sliderX = panelX + 28 * scale;
-          const sliderW = panelW - 56 * scale;
-          const sliderY = panelY + 70 * scale;
-          const sliderHitY = sliderY - 14 * scale;
-          const sliderHitH = 10 * scale + 28 * scale;
-
-          if (mx >= sliderX && mx <= sliderX + sliderW && my >= sliderHitY && my <= sliderHitY + sliderHitH) {
-            const relative = clamp((mx - sliderX) / sliderW, 0, 1);
+          if (
+            mx >= slider.hitArea.x &&
+            mx <= slider.hitArea.x + slider.hitArea.w &&
+            my >= slider.hitArea.y &&
+            my <= slider.hitArea.y + slider.hitArea.h
+          ) {
+            const relative = clamp((mx - slider.rect.x) / slider.rect.w, 0, 1);
             gameState.targetMusicVolume = relative;
             if (!gameState.musicMuted) {
               gameState.musicVolume = relative;
@@ -2295,28 +2404,11 @@ const Index = () => {
             return;
           }
 
-          const toggleGap = 18 * scale;
-          const toggleHeight = 56 * scale;
-          const toggleWidth = (panelW - toggleGap - 40 * scale) / 2;
-          const toggleY = sliderY + 10 * scale + 36 * scale;
-          const musicToggle = {
-            x: panelX + 20 * scale,
-            y: toggleY,
-            w: toggleWidth,
-            h: toggleHeight,
-          };
-          const sfxToggle = {
-            x: musicToggle.x + toggleWidth + toggleGap,
-            y: toggleY,
-            w: toggleWidth,
-            h: toggleHeight,
-          };
-
           if (
-            mx >= musicToggle.x &&
-            mx <= musicToggle.x + musicToggle.w &&
-            my >= musicToggle.y &&
-            my <= musicToggle.y + musicToggle.h
+            mx >= toggles.music.x &&
+            mx <= toggles.music.x + toggles.music.w &&
+            my >= toggles.music.y &&
+            my <= toggles.music.y + toggles.music.h
           ) {
             gameState.musicMuted = !gameState.musicMuted;
             if (gameState.music) {
@@ -2331,10 +2423,10 @@ const Index = () => {
           }
 
           if (
-            mx >= sfxToggle.x &&
-            mx <= sfxToggle.x + sfxToggle.w &&
-            my >= sfxToggle.y &&
-            my <= sfxToggle.y + sfxToggle.h
+            mx >= toggles.sfx.x &&
+            mx <= toggles.sfx.x + toggles.sfx.w &&
+            my >= toggles.sfx.y &&
+            my <= toggles.sfx.y + toggles.sfx.h
           ) {
             gameState.sfxMuted = !gameState.sfxMuted;
             return;
@@ -6222,6 +6314,7 @@ const Index = () => {
         const t = locale;
         const layout = getPauseMenuLayout(W, H);
         const { menuX, menuY, menuW, menuH, padding, scale } = layout;
+        const homeLayout = getPauseMenuHomeLayout(layout, gameState.pauseMenuAudioOpen);
 
         const scaleValue = (value: number) => value * scale;
         const scaledRadius = (value: number) => Math.max(6, value * scale);
@@ -6259,74 +6352,53 @@ const Index = () => {
 
         // Quick stats grid
         const statsY = headerY + 60 * scale;
-        const totalSeconds = Math.floor(gameState.elapsedTime);
-        const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
-        const seconds = String(totalSeconds % 60).padStart(2, "0");
+        if (!gameState.pauseMenuAudioOpen) {
+          const totalSeconds = Math.floor(gameState.time);
+          const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
+          const seconds = String(totalSeconds % 60).padStart(2, "0");
 
-        const stats = [
-          { label: t.wave, value: `${gameState.wave}`, color: "#3b82f6" },
-          { label: t.level, value: `${gameState.level}`, color: "#fbbf24" },
-          { label: "⏱️", value: `${minutes}:${seconds}`, color: "#a855f7" },
-        ];
+          const stats = [
+            { label: t.wave, value: `${gameState.wave}`, color: "#3b82f6" },
+            { label: t.level, value: `${gameState.level}`, color: "#fbbf24" },
+            { label: "⏱️", value: `${minutes}:${seconds}`, color: "#a855f7" },
+          ];
 
-        const statBoxW = (menuW - padding * 2 - 20 * scale) / 3;
-        const statBoxH = 70 * scale;
+          const statBoxW = (menuW - padding * 2 - 20 * scale) / 3;
+          const statBoxH = 70 * scale;
 
-        stats.forEach((stat, i) => {
-          const statX = menuX + padding + i * (statBoxW + 10 * scale);
+          stats.forEach((stat, i) => {
+            const statX = menuX + padding + i * (statBoxW + 10 * scale);
 
-          ctx.save();
-          ctx.beginPath();
-          ctx.roundRect(statX, statsY, statBoxW, statBoxH, scaledRadius(12));
-          const statGradient = ctx.createLinearGradient(statX, statsY, statX, statsY + statBoxH);
-          statGradient.addColorStop(0, `${stat.color}40`);
-          statGradient.addColorStop(1, "rgba(15, 20, 35, 0.6)");
-          ctx.fillStyle = statGradient;
-          ctx.fill();
-          ctx.strokeStyle = `${stat.color}80`;
-          ctx.lineWidth = Math.max(1, 1.5 * scale);
-          ctx.stroke();
-          ctx.restore();
+            ctx.save();
+            ctx.beginPath();
+            ctx.roundRect(statX, statsY, statBoxW, statBoxH, scaledRadius(12));
+            const statGradient = ctx.createLinearGradient(statX, statsY, statX, statsY + statBoxH);
+            statGradient.addColorStop(0, `${stat.color}40`);
+            statGradient.addColorStop(1, "rgba(15, 20, 35, 0.6)");
+            ctx.fillStyle = statGradient;
+            ctx.fill();
+            ctx.strokeStyle = `${stat.color}80`;
+            ctx.lineWidth = Math.max(1, 1.5 * scale);
+            ctx.stroke();
+            ctx.restore();
 
-          ctx.textAlign = "center";
-          ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
-          ctx.font = getScaledFont(13, "500");
-          ctx.fillText(stat.label, statX + statBoxW / 2, statsY + 22 * scale);
+            ctx.textAlign = "center";
+            ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+            ctx.font = getScaledFont(13, "500");
+            ctx.fillText(stat.label, statX + statBoxW / 2, statsY + 22 * scale);
 
-          ctx.fillStyle = "#ffffff";
-          ctx.font = getScaledFont(24, "700");
-          ctx.fillText(stat.value, statX + statBoxW / 2, statsY + statBoxH - 18 * scale);
-        });
+            ctx.fillStyle = "#ffffff";
+            ctx.font = getScaledFont(24, "700");
+            ctx.fillText(stat.value, statX + statBoxW / 2, statsY + statBoxH - 18 * scale);
+          });
+        }
 
         // Buttons
         const buttonH = 56 * scale;
-        const buttonGap = 14 * scale;
-        const buttonCount = 4;
-        const audioPanelHeight = 200 * scale;
-        const audioPanelMargin = 24 * scale;
-        const baseButtonsY =
-          menuY + menuH - padding - buttonH * buttonCount - buttonGap * (buttonCount - 1) - 16 * scale;
-        const buttonsY = baseButtonsY - (gameState.pauseMenuAudioOpen ? audioPanelHeight + audioPanelMargin : 0);
-
-        const continueBtn = { x: menuX + padding, y: buttonsY, w: menuW - padding * 2, h: buttonH };
-        const audioBtn = {
-          x: menuX + padding,
-          y: buttonsY + buttonH + buttonGap,
-          w: menuW - padding * 2,
-          h: buttonH,
-        };
-        const languageBtn = {
-          x: menuX + padding,
-          y: audioBtn.y + buttonH + buttonGap,
-          w: menuW - padding * 2,
-          h: buttonH,
-        };
-        const restartBtn = {
-          x: menuX + padding,
-          y: languageBtn.y + buttonH + buttonGap,
-          w: menuW - padding * 2,
-          h: buttonH,
-        };
+        const {
+          buttons: { continue: continueBtn, audio: audioBtn, language: languageBtn, restart: restartBtn },
+          audioPanel,
+        } = homeLayout;
 
         gameState.pauseMenuHitAreas.home.resume = continueBtn;
         gameState.pauseMenuHitAreas.home.language = languageBtn;
@@ -6335,9 +6407,11 @@ const Index = () => {
 
         // Audio settings panel
         if (gameState.pauseMenuAudioOpen) {
-          const panelX = menuX + padding;
-          const panelW = menuW - padding * 2;
-          const panelY = buttonsY - audioPanelMargin - audioPanelHeight;
+          const {
+            rect: { x: panelX, y: panelY, w: panelW, h: audioPanelHeight },
+            slider,
+            toggles,
+          } = audioPanel;
 
           ctx.save();
           ctx.beginPath();
@@ -6372,10 +6446,10 @@ const Index = () => {
             panelY + 56 * scale,
           );
 
-          const sliderX = panelX + 28 * scale;
-          const sliderW = panelW - 56 * scale;
-          const sliderY = panelY + 70 * scale;
-          const sliderH = 10 * scale;
+          const sliderX = slider.rect.x;
+          const sliderW = slider.rect.w;
+          const sliderY = slider.rect.y;
+          const sliderH = slider.rect.h;
 
           ctx.save();
           ctx.beginPath();
@@ -6404,25 +6478,19 @@ const Index = () => {
           ctx.lineWidth = Math.max(1, 1.5 * scale);
           ctx.stroke();
 
-          gameState.pauseMenuAudioHitAreas.slider = {
-            x: sliderX,
-            y: sliderY - 14 * scale,
-            w: sliderW,
-            h: sliderH + 28 * scale,
-          };
+          gameState.pauseMenuAudioHitAreas.slider = slider.hitArea;
 
-          const toggleGap = 18 * scale;
-          const toggleHeight = 56 * scale;
-          const toggleWidth = (panelW - toggleGap - 40 * scale) / 2;
-          const toggleY = sliderY + sliderH + 36 * scale;
-          const musicToggleX = panelX + 20 * scale;
-          const sfxToggleX = musicToggleX + toggleWidth + toggleGap;
-
-          const drawToggle = (x: number, label: string, active: boolean, onText: string, offText: string) => {
+          const drawToggle = (
+            toggle: PauseMenuButtonLayout,
+            label: string,
+            active: boolean,
+            onText: string,
+            offText: string,
+          ) => {
             ctx.save();
             ctx.beginPath();
-            ctx.roundRect(x, toggleY, toggleWidth, toggleHeight, scaledRadius(14));
-            const gradient = ctx.createLinearGradient(x, toggleY, x, toggleY + toggleHeight);
+            ctx.roundRect(toggle.x, toggle.y, toggle.w, toggle.h, scaledRadius(14));
+            const gradient = ctx.createLinearGradient(toggle.x, toggle.y, toggle.x, toggle.y + toggle.h);
             if (active) {
               gradient.addColorStop(0, "rgba(34, 197, 94, 0.4)");
               gradient.addColorStop(1, "rgba(22, 163, 74, 0.35)");
@@ -6445,35 +6513,23 @@ const Index = () => {
             ctx.textAlign = "left";
             ctx.fillStyle = "#f8fafc";
             ctx.font = getScaledFont(15, "600");
-            ctx.fillText(label, x + 18 * scale, toggleY + 24 * scale);
+            ctx.fillText(label, toggle.x + 18 * scale, toggle.y + 24 * scale);
 
             ctx.textAlign = "right";
             ctx.fillStyle = active ? "#bbf7d0" : "#cbd5f5";
             ctx.font = getScaledFont(14, "500");
-            ctx.fillText(active ? onText : offText, x + toggleWidth - 18 * scale, toggleY + toggleHeight - 18 * scale);
+            ctx.fillText(
+              active ? onText : offText,
+              toggle.x + toggle.w - 18 * scale,
+              toggle.y + toggle.h - 18 * scale,
+            );
           };
 
-          drawToggle(
-            musicToggleX,
-            t.pauseMenu.music.label,
-            !gameState.musicMuted,
-            t.pauseMenu.music.on,
-            t.pauseMenu.music.off,
-          );
-          drawToggle(sfxToggleX, t.pauseMenu.sfx.label, !gameState.sfxMuted, t.pauseMenu.sfx.on, t.pauseMenu.sfx.off);
+          drawToggle(toggles.music, t.pauseMenu.music.label, !gameState.musicMuted, t.pauseMenu.music.on, t.pauseMenu.music.off);
+          drawToggle(toggles.sfx, t.pauseMenu.sfx.label, !gameState.sfxMuted, t.pauseMenu.sfx.on, t.pauseMenu.sfx.off);
 
-          gameState.pauseMenuAudioHitAreas.musicToggle = {
-            x: musicToggleX,
-            y: toggleY,
-            w: toggleWidth,
-            h: toggleHeight,
-          };
-          gameState.pauseMenuAudioHitAreas.sfxToggle = {
-            x: sfxToggleX,
-            y: toggleY,
-            w: toggleWidth,
-            h: toggleHeight,
-          };
+          gameState.pauseMenuAudioHitAreas.musicToggle = toggles.music;
+          gameState.pauseMenuAudioHitAreas.sfxToggle = toggles.sfx;
         }
 
         // Continue button
