@@ -1735,24 +1735,6 @@ const Index = () => {
       });
     }
 
-    function spawnChestParticles(x: number, y: number, color: string) {
-      if (gameState.particles.length < gameState.maxParticles - 25) {
-        for (let i = 0; i < 25; i++) {
-          const angle = (Math.PI * 2 * i) / 25;
-          const speed = 4 + Math.random() * 3;
-          gameState.particles.push({
-            x,
-            y,
-            vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed,
-            life: 0.8,
-            color,
-            size: 4,
-          });
-        }
-      }
-    }
-
     function chooseChestItem(): Item | null {
       const availableItems = ITEMS.filter((item) => {
         const currentStacks = gameState.player.itemStacks[item.id] ?? 0;
@@ -1828,18 +1810,14 @@ const Index = () => {
       if (!item) {
         collectXP(25);
         playPowerupSound();
-        spawnChestParticles(chest.x, chest.y, "#22c55e");
         return;
       }
 
       const granted = grantItemToPlayer(item, { notify: true, playSound: true });
 
-      if (granted) {
-        spawnChestParticles(chest.x, chest.y, rarityColors[item.rarity]);
-      } else {
+      if (!granted) {
         collectXP(25);
         playPowerupSound();
-        spawnChestParticles(chest.x, chest.y, "#22c55e");
       }
     }
 
@@ -1902,22 +1880,6 @@ const Index = () => {
       } else if (type === "speed") {
         // Incrementar velocidad permanentemente en 1%, máximo 200% (2.0x)
         gameState.player.stats.speedMultiplier = Math.min(2.0, gameState.player.stats.speedMultiplier + 0.01);
-      }
-
-      // Partículas de powerup con límite
-      if (gameState.particles.length < gameState.maxParticles - 20) {
-        for (let i = 0; i < 20; i++) {
-          const angle = (Math.PI * 2 * i) / 20;
-          gameState.particles.push({
-            x: drop.x,
-            y: drop.y,
-            vx: Math.cos(angle) * 6,
-            vy: Math.sin(angle) * 6,
-            life: 0.8,
-            color: drop.color,
-            size: 4,
-          });
-        }
       }
     }
 
@@ -4434,21 +4396,6 @@ const Index = () => {
               }
 
               playHitSound();
-
-              // Partículas de muerte con límite
-              if (gameState.particles.length < gameState.maxParticles - 8) {
-                for (let j = 0; j < 8; j++) {
-                  gameState.particles.push({
-                    x: e.x,
-                    y: e.y,
-                    vx: (Math.random() - 0.5) * 4,
-                    vy: (Math.random() - 0.5) * 4,
-                    life: 0.8,
-                    color: e.color,
-                    size: e.rad / 3,
-                  });
-                }
-              }
               break;
             }
           }
@@ -4498,21 +4445,6 @@ const Index = () => {
           } else if (g.type === "heal") {
             gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + g.val);
             playPowerupSound();
-            // Partículas de curación con límite
-            if (gameState.particles.length < gameState.maxParticles - 15) {
-              for (let j = 0; j < 15; j++) {
-                const angle = (Math.PI * 2 * j) / 15;
-                gameState.particles.push({
-                  x: gameState.player.x,
-                  y: gameState.player.y,
-                  vx: Math.cos(angle) * 3,
-                  vy: Math.sin(angle) * 3,
-                  life: 0.6,
-                  color: "#22c55e",
-                  size: 4,
-                });
-              }
-            }
           } else if (g.type === "powerup") {
             collectPowerup(g);
           } else if (g.type === "chest") {
@@ -5455,17 +5387,6 @@ const Index = () => {
       ctx.fillStyle = "rgba(0, 0, 0, 0.9)";
       ctx.fillRect(0, 0, W, H);
       ctx.globalAlpha = 1;
-
-      // Particles background effect
-      for (let i = 0; i < 30; i++) {
-        const px = W / 2 + Math.sin(gameState.time * 0.5 + i) * (300 + i * 10);
-        const py = H / 2 + Math.cos(gameState.time * 0.7 + i) * (200 + i * 8);
-        const size = 2 + Math.sin(gameState.time * 2 + i) * 1;
-        ctx.fillStyle = `rgba(251, 191, 36, ${0.1 * animProgress})`;
-        ctx.beginPath();
-        ctx.arc(px, py, size, 0, Math.PI * 2);
-        ctx.fill();
-      }
 
       const pulse = Math.sin(gameState.time * 3) * 0.15 + 0.85;
 
