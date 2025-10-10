@@ -3943,7 +3943,7 @@ const Index = () => {
       }
 
       // Mover enemigos y aplicar efectos elementales
-      for (const e of visibleEnemies) {
+      for (const e of gameState.enemies) {
         // Efectos elementales (DoT)
         if (e.burnTimer > 0) {
           e.burnTimer -= dt;
