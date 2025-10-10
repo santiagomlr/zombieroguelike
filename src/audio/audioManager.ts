@@ -1,4 +1,8 @@
 const DEFAULT_SFX_COOLDOWN_MS = 120;
+const BASE_SFX_ATTENUATION = 0.2;
+const SFX_FADE_IN_SECONDS = 0.02;
+const SFX_FADE_OUT_SECONDS = 0.08;
+const SFX_STOP_PADDING_SECONDS = 0.02;
 
 export type SfxKey =
   | "hit"
@@ -315,6 +319,7 @@ class AudioManager {
       masterGain.connect(ctx.destination);
 
       const sfxGain = ctx.createGain();
+      sfxGain.gain.value = this.sfxMuted ? 0 : this.sfxVolume;
       sfxGain.connect(masterGain);
 
       this.audioContext = ctx;
@@ -382,7 +387,13 @@ class AudioManager {
     if (definition.loop) {
       const existing = this.activeLoopingSources.get(key);
       if (existing) {
-        existing.gain.gain.value = effectiveVolume * this.sfxVolume;
+        const targetVolume = effectiveVolume * BASE_SFX_ATTENUATION;
+        if (targetVolume <= 0) {
+          this.stopWrapper(existing);
+          this.sfxLastPlay.set(key, now);
+          return;
+        }
+        this.rampGain(existing.gain, targetVolume, SFX_FADE_IN_SECONDS);
         if (options.playbackRate !== undefined) {
           existing.source.playbackRate.value = options.playbackRate;
         }
@@ -404,6 +415,8 @@ class AudioManager {
         }
       }
     }
+
+    effectiveVolume = Math.max(0, Math.min(1, effectiveVolume));
 
     const buffer = (await this.loadSfxBuffer(key)) ?? this.sfxBuffers.get(key);
     if (!buffer) return;
@@ -428,7 +441,13 @@ class AudioManager {
     wrapper.source.buffer = buffer;
     wrapper.source.playbackRate.value = options.playbackRate ?? 1;
     wrapper.source.loop = !!definition.loop;
-    wrapper.gain.gain.value = effectiveVolume * this.sfxVolume;
+    const targetVolume = effectiveVolume * BASE_SFX_ATTENUATION;
+    if (targetVolume <= 0) {
+      this.unregisterActiveSource(wrapper);
+      this.releaseSource(wrapper);
+      return;
+    }
+    this.rampGain(wrapper.gain, targetVolume, SFX_FADE_IN_SECONDS, true);
 
     wrapper.source.onended = () => {
       this.handleSourceEnded(wrapper);
@@ -484,9 +503,12 @@ class AudioManager {
     if (pooled) {
       try {
         pooled.source.disconnect();
-      } catch {}
+      } catch {
+        /* noop */
+      }
       pooled.source = ctx.createBufferSource();
       pooled.source.connect(pooled.gain);
+      pooled.gain.gain.value = 0;
       pooled.key = undefined;
       pooled.loop = false;
       return pooled;
@@ -494,6 +516,7 @@ class AudioManager {
 
     const gain = ctx.createGain();
     gain.connect(this.sfxGain);
+    gain.gain.value = 0;
     const source = ctx.createBufferSource();
     source.connect(gain);
     return { source, gain };
@@ -504,7 +527,10 @@ class AudioManager {
     try {
       wrapper.source.onended = null;
       wrapper.source.disconnect();
-    } catch {}
+    } catch {
+      /* noop */
+    }
+    wrapper.gain.gain.value = 0;
     wrapper.source = this.audioContext.createBufferSource();
     wrapper.source.connect(wrapper.gain);
     wrapper.key = undefined;
@@ -544,17 +570,38 @@ class AudioManager {
   }
 
   private stopWrapper(wrapper: PooledSource) {
-    if (wrapper.key && wrapper.loop) {
-      this.activeLoopingSources.delete(wrapper.key);
+    const key = wrapper.key;
+    const wasLooping = wrapper.loop;
+    if (key && wasLooping) {
+      this.activeLoopingSources.delete(key);
     }
     this.unregisterActiveSource(wrapper);
-    try {
-      wrapper.source.onended = null;
-      wrapper.source.stop();
-    } catch {
-      // Ignore errors thrown when stopping an already-finished source
+
+    if (!this.audioContext) {
+      try {
+        wrapper.source.stop();
+      } catch {
+        // Ignore errors thrown when stopping an already-finished source
+      }
+      this.releaseSource(wrapper);
+      return;
     }
-    this.releaseSource(wrapper);
+
+    this.rampGain(wrapper.gain, 0, SFX_FADE_OUT_SECONDS);
+    const stopTime =
+      this.audioContext.currentTime + SFX_FADE_OUT_SECONDS + SFX_STOP_PADDING_SECONDS;
+
+    try {
+      wrapper.source.stop(stopTime);
+    } catch {
+      try {
+        wrapper.source.onended = null;
+        wrapper.source.stop();
+      } catch {
+        // Ignore errors thrown when stopping an already-finished source
+      }
+      this.releaseSource(wrapper);
+    }
   }
 
   setSfxMuted(muted: boolean) {
@@ -566,9 +613,33 @@ class AudioManager {
 
   setSfxVolume(volume: number) {
     this.sfxVolume = Math.max(0, Math.min(1, volume));
-    if (this.sfxGain && !this.sfxMuted) {
-      this.sfxGain.gain.value = this.sfxVolume;
+    if (this.sfxGain) {
+      this.sfxGain.gain.value = this.sfxMuted ? 0 : this.sfxVolume;
     }
+  }
+
+  private rampGain(
+    gainNode: GainNode,
+    targetVolume: number,
+    rampSeconds: number,
+    fromZero = false,
+  ) {
+    const ctx = this.audioContext;
+    const clampedTarget = Math.max(0, Math.min(1, targetVolume));
+    if (!ctx || rampSeconds <= 0) {
+      gainNode.gain.value = clampedTarget;
+      return;
+    }
+
+    const now = ctx.currentTime;
+    const param = gainNode.gain;
+    param.cancelScheduledValues(now);
+    if (fromZero) {
+      param.setValueAtTime(0, now);
+    } else {
+      param.setValueAtTime(param.value, now);
+    }
+    param.linearRampToValueAtTime(clampedTarget, now + rampSeconds);
   }
 
   private getMusicChannel(channel: MusicChannel) {
