@@ -5591,6 +5591,7 @@ const Index = () => {
 
               const nextHp = Math.max(0, Math.min(Number(gameState.player.maxhp) || 0, safeCurrentHp - dmg));
               gameState.player.hp = nextHp;
+              const playerDied = nextHp <= 0;
               gameState.player.ifr = gameState.player.ifrDuration;
 
               // Escudo Reactivo: empuja enemigos
@@ -5627,7 +5628,7 @@ const Index = () => {
               }
 
               // Hit particles con límite
-              if (gameState.particles.length < gameState.maxParticles - 10) {
+              if (!playerDied && gameState.particles.length < gameState.maxParticles - 10) {
                 for (let j = 0; j < 10; j++) {
                   const angle = (Math.PI * 2 * j) / 10;
                   gameState.particles.push({
