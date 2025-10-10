@@ -5856,6 +5856,9 @@ const Index = () => {
           enemyImage = gameState.shieldImg;
         } else if (e.specialType === "summoner" && gameState.ghoulImg?.complete) {
           enemyImage = gameState.ghoulImg;
+        } else if (e.isSummoned && gameState.ghoulImg?.complete) {
+          // Ghoul summons should use the same sprite as their summoner
+          enemyImage = gameState.ghoulImg;
         } else if (e.color === "#22c55e" && gameState.greenZombieImg?.complete) {
           enemyImage = gameState.greenZombieImg;
         } else if ((e.color === "#9333ea" || e.color === "#a855f7") && gameState.purpleZombieImg?.complete) {
