@@ -99,6 +99,7 @@ export interface Translations {
     keep: string;
     banish: string;
     skip: string;
+    interactHint: string;
   };
 }
 
@@ -282,6 +283,7 @@ const translationsES: Translations = {
     keep: "Conservar",
     banish: "Desterrar",
     skip: "Omitir",
+    interactHint: "Pulsa {key} para abrir el cofre",
   },
 };
 
@@ -387,6 +389,7 @@ const translationsEN: Translations = {
     keep: "Keep",
     banish: "Banish",
     skip: "Skip",
+    interactHint: "Press {key} to open the chest",
   },
 };
 
