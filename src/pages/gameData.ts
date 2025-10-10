@@ -675,12 +675,12 @@ export const WEAPONS: Weapon[] = [
   { id: "shotgun", damage: 3, fireRate: 0.8, range: 180, projectileSpeed: 6, rarity: "uncommon", color: "#5dbb63", special: "spread", level: 1 },
   { id: "smg", damage: 0.7, fireRate: 6, range: 200, projectileSpeed: 10, rarity: "rare", color: "#2e86c1", level: 1 },
   { id: "rocket", damage: 8, fireRate: 0.5, range: 350, projectileSpeed: 5, rarity: "epic", color: "#8e44ad", special: "aoe", level: 1 },
-  { id: "laser", damage: 2, fireRate: 4, range: 400, projectileSpeed: 15, rarity: "epic", color: "#2e86c1", special: "pierce", level: 1 },
+  { id: "laser", damage: 2, fireRate: 4, range: 400, projectileSpeed: 15, rarity: "uncommon", color: "#2e86c1", special: "pierce", level: 1 },
   { id: "railgun", damage: 12, fireRate: 0.3, range: 500, projectileSpeed: 20, rarity: "legendary", color: "#ffc300", special: "pierce", level: 1 },
   { id: "minigun", damage: 0.5, fireRate: 10, range: 220, projectileSpeed: 12, rarity: "legendary", color: "#ff3b3b", special: "rapid", level: 1 },
   { id: "flamethrower", damage: 0.8, fireRate: 8, range: 150, projectileSpeed: 6, rarity: "rare", color: "#ff7a2a", special: "fire", level: 1 },
   { id: "frostbow", damage: 1.2, fireRate: 2, range: 350, projectileSpeed: 9, rarity: "epic", color: "#2e86c1", special: "freeze", level: 1 },
-  { id: "homing", damage: 4, fireRate: 1, range: 400, projectileSpeed: 7, rarity: "legendary", color: "#8e44ad", special: "homing", level: 1 },
+  { id: "homing", damage: 4, fireRate: 0.4, range: 400, projectileSpeed: 7, rarity: "rare", color: "#8e44ad", special: "homing", level: 1 },
 ];
 
 export const TOMES: Tome[] = [
