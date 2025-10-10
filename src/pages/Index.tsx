@@ -6176,21 +6176,6 @@ const Index = () => {
         ctx.fillStyle = rarityColor;
         ctx.fillText(`★ ${option.rarity.toUpperCase()} ★`, x + cardW / 2, rarityBadgeY);
 
-        // Partículas flotantes alrededor de la carta
-        for (let j = 0; j < 5; j++) {
-          const angle = (gameState.time * 2 + (j * Math.PI * 2) / 5) % (Math.PI * 2);
-          const radius = 30 + Math.sin(gameState.time * 3 + j) * 10;
-          const px = x + cardW / 2 + Math.cos(angle) * radius;
-          const py = yOffset + cardH / 2 + Math.sin(angle) * radius;
-          const size = 2 + Math.sin(gameState.time * 4 + j) * 1;
-
-          ctx.fillStyle = rarityColor;
-          ctx.globalAlpha = (0.3 + Math.sin(gameState.time * 5 + j) * 0.2) * cardEase;
-          ctx.beginPath();
-          ctx.arc(px, py, size, 0, Math.PI * 2);
-          ctx.fill();
-        }
-
         ctx.restore();
       }
 
@@ -6897,16 +6882,18 @@ const Index = () => {
       }
 
       if (overlaySupportedRef.current && overlayWorkerRef.current) {
-        const particlePayload: OverlayParticle[] = visibleParticles.map((particle) => {
-          const screen = worldToScreen(particle.x, particle.y);
-          return {
-            x: screen.x,
-            y: screen.y,
-            size: Math.max(1, particle.size * zoom),
-            life: particle.life,
-            color: particle.color,
-          };
-        });
+        const overlayParticles: OverlayParticle[] = gameState.showUpgradeUI
+          ? []
+          : visibleParticles.map((particle) => {
+              const screen = worldToScreen(particle.x, particle.y);
+              return {
+                x: screen.x,
+                y: screen.y,
+                size: Math.max(1, particle.size * zoom),
+                life: particle.life,
+                color: particle.color,
+              };
+            });
 
         const minimapPlayer: MinimapEntity | null = gameState.player
           ? {
@@ -6945,14 +6932,16 @@ const Index = () => {
           enemies: minimapEnemies,
           drops: minimapDrops,
           hotspots: minimapHotspots,
-          opacity: Math.max(0, Math.min(1, gameState.minimapOpacity ?? 0)),
+          opacity: gameState.showUpgradeUI
+            ? 0
+            : Math.max(0, Math.min(1, gameState.minimapOpacity ?? 0)),
         };
 
         overlayWorkerRef.current.postMessage({
           type: "frame",
           width: W,
           height: H,
-          particles: particlePayload,
+          particles: overlayParticles,
           minimap: minimapFrame,
         });
       }
