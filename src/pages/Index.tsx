@@ -54,6 +54,27 @@ const getPauseMenuContentMetrics = (
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
+interface Chest {
+  x: number;
+  y: number;
+  rad: number;
+  opened: boolean;
+  timer: number;
+  openingTimer: number;
+  lifetime: number;
+}
+
+const chestRarityWeights: Record<Rarity, number> = {
+  common: 5,
+  uncommon: 4,
+  rare: 3,
+  epic: 2,
+  legendary: 1,
+};
+
+const CHEST_SPAWN_CHANCE = 0.03;
+const MAX_ACTIVE_CHESTS = 3;
+
 const Index = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [score, setScore] = useState(0);
@@ -142,6 +163,7 @@ const Index = () => {
       enemies: [] as any[],
       normalEnemyCount: 0,
       drops: [] as any[],
+      chests: [] as Chest[],
       particles: [] as any[],
       hotspots: [] as any[],
       maxParticles: 200,
@@ -279,7 +301,7 @@ const Index = () => {
     };
 
     gameStateRef.current = gameState;
-    
+
     // Load enemy logo
     const enemyLogoImg = new Image();
     enemyLogoImg.src = '/images/enemy-logo.png';
@@ -421,6 +443,7 @@ const Index = () => {
       gameState.drops.length = 0;
       gameState.particles.length = 0;
       gameState.hotspots.length = 0;
+      gameState.chests.length = 0;
       
       // Resetear jugador
       gameState.player.x = W / 2;
@@ -518,7 +541,7 @@ const Index = () => {
       gameState.tutorialStartTime = performance.now();
       setTutorialStep(0);
       setTutorialCompleted(false);
-      
+
       // Actualizar React state
       setScore(0);
       setLevel(1);
@@ -1281,6 +1304,81 @@ const Index = () => {
       });
     }
 
+    function getChestSpawnPosition(existing: Chest[], preferred?: { x: number; y: number }) {
+      const margin = 80;
+
+      if (preferred) {
+        const candidate = {
+          x: clamp(preferred.x, margin, W - margin),
+          y: clamp(preferred.y, margin, H - margin),
+        };
+
+        const overlapsExisting = existing.some(
+          chest => Math.hypot(candidate.x - chest.x, candidate.y - chest.y) < chest.rad * 3,
+        );
+        const tooCloseToPlayer =
+          Math.hypot(candidate.x - gameState.player.x, candidate.y - gameState.player.y) < margin * 0.75;
+
+        if (!overlapsExisting && !tooCloseToPlayer) {
+          return candidate;
+        }
+      }
+
+      for (let attempt = 0; attempt < 30; attempt++) {
+        const x = margin + Math.random() * Math.max(20, W - margin * 2);
+        const y = margin + Math.random() * Math.max(20, H - margin * 2);
+
+        if (Math.hypot(x - gameState.player.x, y - gameState.player.y) < margin) {
+          continue;
+        }
+
+        let overlaps = false;
+        for (const chest of existing) {
+          if (Math.hypot(x - chest.x, y - chest.y) < chest.rad * 3) {
+            overlaps = true;
+            break;
+          }
+        }
+
+        if (!overlaps) {
+          return { x, y };
+        }
+      }
+
+      return {
+        x: clamp(gameState.player.x + 150, 60, W - 60),
+        y: clamp(gameState.player.y, 60, H - 60),
+      };
+    }
+
+    function spawnChestAt(x: number, y: number) {
+      if (gameState.chests.length >= MAX_ACTIVE_CHESTS) {
+        return;
+      }
+
+      const pos = getChestSpawnPosition(gameState.chests, { x, y });
+
+      gameState.chests.push({
+        x: pos.x,
+        y: pos.y,
+        rad: 22,
+        opened: false,
+        timer: 0,
+        openingTimer: 0,
+        lifetime: 45,
+      });
+    }
+
+    function trySpawnChestFromKill(x: number, y: number) {
+      if (gameState.chests.length >= MAX_ACTIVE_CHESTS) {
+        return;
+      }
+
+      if (Math.random() < CHEST_SPAWN_CHANCE) {
+        spawnChestAt(x, y);
+      }
+    }
+
     function showUpgradeScreen() {
       gameState.state = 'paused';
       gameState.showUpgradeUI = true;
@@ -1613,6 +1711,73 @@ const Index = () => {
       }
 
       return true;
+    }
+
+    function openChest(chest: Chest) {
+      if (chest.opened) return;
+
+      chest.opened = true;
+      chest.timer = 0;
+      chest.openingTimer = 0;
+      chest.lifetime = 2.5;
+
+      const availableItems = ITEMS.filter(it => !gameState.player.itemFlags[it.id]);
+      let rewardGranted = false;
+
+      if (availableItems.length > 0) {
+        const totalWeight = availableItems.reduce((sum, item) => sum + chestRarityWeights[item.rarity], 0);
+        let roll = Math.random() * totalWeight;
+        let selected: Item | null = null;
+
+        for (const item of availableItems) {
+          roll -= chestRarityWeights[item.rarity];
+          if (roll <= 0) {
+            selected = item;
+            break;
+          }
+        }
+
+        if (!selected) {
+          selected = availableItems[availableItems.length - 1];
+        }
+
+        if (selected) {
+          rewardGranted = grantItemToPlayer(selected, { notify: true, playSound: true });
+
+          if (!rewardGranted) {
+            for (const item of availableItems) {
+              if (item.id === selected.id) continue;
+              if (grantItemToPlayer(item, { notify: true, playSound: true })) {
+                rewardGranted = true;
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      if (!rewardGranted) {
+        const currentLanguage = (gameState.language ?? language) as Language;
+        const message = currentLanguage === "es" ? "Todos los ítems obtenidos" : "All items unlocked";
+        gameState.itemNotification = message;
+        gameState.itemNotificationTimer = 3;
+      }
+
+      if (gameState.particles.length < gameState.maxParticles - 25) {
+        for (let i = 0; i < 25; i++) {
+          const angle = (Math.PI * 2 * i) / 25;
+          const speed = 4 + Math.random() * 2;
+          gameState.particles.push({
+            x: chest.x,
+            y: chest.y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            life: 0.8,
+            color: rewardGranted ? "#facc15" : "#f97316",
+            size: 4,
+          });
+        }
+      }
     }
 
     function selectUpgrade(index: number) {
@@ -2094,6 +2259,7 @@ const Index = () => {
       // Wave system basado en conteo de enemigos eliminados (no durante tutorial)
       if (!gameState.tutorialActive && gameState.waveKills >= gameState.waveEnemiesTotal) {
         // Wave completada!
+        gameState.chests.length = 0;
         gameState.wave++;
         gameState.waveKills = 0;
         gameState.waveEnemiesSpawned = 0;
@@ -2158,7 +2324,7 @@ const Index = () => {
         
         gameState.waveEnemiesTotal = waveTarget;
         gameState.maxConcurrentEnemies = maxConcurrent;
-        
+
         // Animación de transición entre waves (3 segundos)
         gameState.waveNotification = 3;
         
@@ -2260,7 +2426,7 @@ const Index = () => {
         // Fase de Fade In (5 segundos)
         if (gameState.eventPhase === "fadein") {
           gameState.eventIntensity = Math.min(1, gameState.eventIntensity + dt * 0.2); // 5 segundos para llegar a 1
-          
+
           if (gameState.eventIntensity >= 1) {
             gameState.eventPhase = "active";
           }
@@ -2510,6 +2676,32 @@ const Index = () => {
                 });
               }
               break;
+          }
+        }
+      }
+
+      for (let i = gameState.chests.length - 1; i >= 0; i--) {
+        const chest = gameState.chests[i];
+        chest.timer += dt;
+
+        if (!chest.opened) {
+          if (chest.lifetime > 0) {
+            chest.lifetime = Math.max(0, chest.lifetime - dt);
+            if (chest.lifetime === 0) {
+              gameState.chests.splice(i, 1);
+              continue;
+            }
+          }
+
+          const dist = Math.hypot(chest.x - gameState.player.x, chest.y - gameState.player.y);
+          if (dist < chest.rad + gameState.player.rad + 6) {
+            openChest(chest);
+          }
+        } else {
+          chest.openingTimer += dt;
+          if (chest.openingTimer >= chest.lifetime) {
+            gameState.chests.splice(i, 1);
+            continue;
           }
         }
       }
@@ -3494,6 +3686,8 @@ const Index = () => {
                 const powerupType = roll < 0.3 ? "magnet" : roll < 0.5 ? "shield" : roll < 0.65 ? "rage" : "speed";
                 dropPowerup(e.x, e.y, powerupType);
               }
+
+              trySpawnChestFromKill(e.x, e.y);
 
               // Vampirismo
               if (gameState.player.stats.vampire > 0) {
@@ -4903,11 +5097,73 @@ const Index = () => {
             break;
         }
       }
-      
+
+      // Treasure chests
+      for (const chest of gameState.chests) {
+        const pulse = Math.sin((gameState.time + chest.timer) * 5) * 0.2 + 0.8;
+        const baseColor = chest.opened ? "#facc15" : "#fb923c";
+        const ringColor = chest.opened ? "rgba(250, 204, 21, 0.8)" : "rgba(249, 115, 22, 0.8)";
+
+        ctx.save();
+        ctx.translate(chest.x, chest.y);
+
+        // Outer pulsating ring
+        ctx.shadowColor = baseColor;
+        ctx.shadowBlur = (chest.opened ? 30 : 18) * pulse;
+        ctx.strokeStyle = ringColor;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(0, 0, chest.rad + 10 + Math.sin((gameState.time + chest.timer) * 3) * 2, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        const width = chest.rad * 1.8;
+        const height = chest.rad * 1.2;
+
+        // Chest base
+        ctx.fillStyle = "rgba(31, 27, 22, 0.95)";
+        ctx.beginPath();
+        ctx.roundRect(-width / 2, -height / 2, width, height, 6);
+        ctx.fill();
+
+        // Chest lid
+        ctx.fillStyle = baseColor;
+        ctx.beginPath();
+        ctx.roundRect(-width / 2, -height / 2, width, height * 0.55, 6);
+        ctx.fill();
+
+        // Chest band
+        ctx.fillStyle = chest.opened ? "#fde047" : "#fbbf24";
+        ctx.fillRect(-width / 2, -height * 0.45, width, height * 0.12);
+
+        // Lock
+        ctx.fillStyle = chest.opened ? "#facc15" : "#f97316";
+        ctx.fillRect(-10, -height / 2, 20, height);
+        ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+        ctx.fillRect(-8, -2, 16, 4);
+
+        ctx.strokeStyle = "rgba(0, 0, 0, 0.6)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(-width / 2, -height / 2, width, height, 6);
+        ctx.stroke();
+
+        // Icon indicator
+        ctx.shadowColor = baseColor;
+        ctx.shadowBlur = 12 * pulse;
+        ctx.fillStyle = "#fff8dc";
+        ctx.font = "bold 18px system-ui";
+        ctx.textAlign = "center";
+        ctx.fillText(chest.opened ? "✨" : "🎁", 0, -height);
+        ctx.shadowBlur = 0;
+
+        ctx.restore();
+      }
+
       // Hotspots
       for (const h of gameState.hotspots) {
         const pulse = Math.sin(gameState.time * 3) * 0.1 + 0.9;
-        
+
         if (h.isNegative) {
           // HOTSPOT NEGATIVO (Zona de Peligro)
           const dangerPulse = Math.sin(gameState.time * 5) * 0.3 + 0.7;
