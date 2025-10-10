@@ -5,6 +5,12 @@ import type {
   OverlayParticle,
 } from "../workers/overlayRenderer";
 import { audioManager, type SfxKey } from "../audio/audioManager";
+import {
+  type EnemyCategory,
+  type EnemyWithCategory,
+  inferEnemyCategory,
+  pickImpactSoundForCategories,
+} from "../audio/enemyImpactSounds";
 
 import {
   ITEMS,
@@ -481,10 +487,10 @@ const Index = () => {
   const gameStateRef = useRef<any>(null);
   const resetGameRef = useRef<(() => void) | null>(null);
   const prerenderedLogosRef = useRef<{ [key: string]: HTMLCanvasElement }>({});
-  const spatialHashRef = useRef(new SpatialHash<any, any>(SPATIAL_HASH_CELL_SIZE));
-  const bulletNeighborBufferRef = useRef<any[]>([]);
-  const fallbackEnemyListRef = useRef<any[]>([]);
-  const chainedEnemiesRef = useRef<any[]>([]);
+  const spatialHashRef = useRef(new SpatialHash<EnemyWithCategory, any>(SPATIAL_HASH_CELL_SIZE));
+  const bulletNeighborBufferRef = useRef<EnemyWithCategory[]>([]);
+  const fallbackEnemyListRef = useRef<EnemyWithCategory[]>([]);
+  const chainedEnemiesRef = useRef<EnemyWithCategory[]>([]);
 
   const t = translations[language];
 
@@ -586,7 +592,7 @@ const Index = () => {
         },
       },
       bullets: [] as any[],
-      enemies: [] as any[],
+      enemies: [] as EnemyWithCategory[],
       normalEnemyCount: 0,
       drops: [] as any[],
       particles: [] as any[],
@@ -1007,24 +1013,21 @@ const Index = () => {
       homing: { fireSounds: ["weapon_homing_missile"] },
     };
 
-    const playImpactSoundForWeapon = (weaponId?: string) => {
-      if (!weaponId) {
-        playHitSound();
+    const playImpactSoundForWeapon = (weaponId?: string, enemyCategories: EnemyCategory[] = []) => {
+      const config = weaponId ? weaponSoundConfigs[weaponId] : undefined;
+
+      if (config?.impactSound === null) {
         return;
       }
 
-      const config = weaponSoundConfigs[weaponId];
-      if (!config) {
-        playHitSound();
-        return;
-      }
-
-      if (config.impactSound === null) {
-        return;
-      }
-
-      if (config.impactSound) {
+      if (config?.impactSound) {
         audioManager.playSfx(config.impactSound);
+        return;
+      }
+
+      const categoryImpact = pickImpactSoundForCategories(enemyCategories);
+      if (categoryImpact) {
+        audioManager.playSfx(categoryImpact);
         return;
       }
 
@@ -1707,13 +1710,14 @@ const Index = () => {
 
         const spawnPos = getSpawnPositionAroundPlayer(rad);
 
-        const enemy = {
+        const enemy: EnemyWithCategory = {
           x: spawnPos.x + (Math.random() - 0.5) * 20,
           y: spawnPos.y + (Math.random() - 0.5) * 20,
           rad,
           hp: scaledHp,
           maxhp: scaledHp,
           spd,
+          category: inferEnemyCategory({ specialType }),
           enemyType,
           damage,
           isElite,
@@ -1749,13 +1753,14 @@ const Index = () => {
       const bossHpMultiplier = 1 + (gameState.wave - 1) * 3; // Mucho más tanque
       const scaledHp = Math.floor(baseHp * bossHpMultiplier);
 
-      gameState.enemies.push({
+      const boss: EnemyWithCategory = {
         x,
         y,
         rad: bossRad,
         hp: scaledHp,
         maxhp: scaledHp,
         spd: applyEnemySpeedModifier(0.8),
+        category: inferEnemyCategory({}),
         enemyType: "strong",
         damage: 30,
         isElite: false,
@@ -1770,7 +1775,9 @@ const Index = () => {
         attackCooldown: 0,
         jumpCooldown: 0,
         projectileCooldown: 0,
-      });
+      };
+
+      gameState.enemies.push(boss);
     }
 
     function spawnMiniBoss() {
@@ -1785,18 +1792,21 @@ const Index = () => {
       const miniBossHpMultiplier = 1 + (gameState.wave - 1) * 2; // Más tanque que antes
       const scaledHp = Math.floor(baseHp * miniBossHpMultiplier);
 
-      gameState.enemies.push({
+      const miniBoss: EnemyWithCategory = {
         x,
         y,
         rad: miniBossRad,
         hp: scaledHp,
         maxhp: scaledHp,
         spd: applyEnemySpeedModifier(1.0),
+        category: inferEnemyCategory({}),
         isElite: false,
         isMiniBoss: true,
         color: "#ffc300",
         damage: Math.floor(25 * (1 + (gameState.wave - 1) * 0.05)),
-      });
+      };
+
+      gameState.enemies.push(miniBoss);
     }
 
     function nearestEnemy() {
@@ -4363,13 +4373,14 @@ const Index = () => {
             for (let i = 0; i < 2 && normalEnemyCount < gameState.maxConcurrentEnemies; i++) {
               const angle = Math.random() * Math.PI * 2;
               const dist = 30;
-              const summonedEnemy = {
+              const summonedEnemy: EnemyWithCategory = {
                 x: e.x + Math.cos(angle) * dist,
                 y: e.y + Math.sin(angle) * dist,
                 rad: scaleEnemyRadius(8),
                 hp: 1,
                 maxhp: 1,
                 spd: applyEnemySpeedModifier(1.2),
+                category: inferEnemyCategory({ isSummoned: true }),
                 enemyType: "weak",
                 damage: 3,
                 isElite: false,
@@ -4851,6 +4862,14 @@ const Index = () => {
         if (neighbors.length === 0) continue;
 
         let hitSomething = false;
+        const hitCategories: EnemyCategory[] = [];
+
+        const registerHitCategory = (entity: EnemyWithCategory) => {
+          const category = (entity?.category as EnemyCategory | undefined) ?? "zombie";
+          if (!hitCategories.includes(category)) {
+            hitCategories.push(category);
+          }
+        };
 
         for (const enemy of neighbors) {
           if (!enemy || enemy.hp <= 0 || (enemy as any).__removed) continue;
@@ -4866,6 +4885,7 @@ const Index = () => {
 
           hitSomething = true;
           enemy.hp -= bullet.damage;
+          registerHitCategory(enemy);
 
           if (bullet.fire) {
             enemy.burnTimer = 3;
@@ -4892,6 +4912,7 @@ const Index = () => {
 
             if (closestEnemy) {
               closestEnemy.hp -= bullet.damage * 0.7;
+              registerHitCategory(closestEnemy as EnemyWithCategory);
               closestEnemy.chainedThisShot = true;
               if (!chainedEnemies.includes(closestEnemy)) {
                 chainedEnemies.push(closestEnemy);
@@ -4934,6 +4955,7 @@ const Index = () => {
                 const distance = Math.sqrt(candidateDistSq);
                 const damageMultiplier = 1 - (distance / explosionRadius) * 0.5;
                 candidate.hp -= splashDamage * damageMultiplier;
+                registerHitCategory(candidate as EnemyWithCategory);
 
                 if (gameState.particles.length < gameState.maxParticles - 3) {
                   for (let k = 0; k < 3; k++) {
@@ -5019,7 +5041,7 @@ const Index = () => {
         }
 
         if (hitSomething) {
-          playImpactSoundForWeapon(bullet.weaponId);
+          playImpactSoundForWeapon(bullet.weaponId, hitCategories);
         }
 
         for (let i = chainedEnemies.length - 1; i >= 0; i--) {
