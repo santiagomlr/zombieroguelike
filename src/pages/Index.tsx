@@ -6189,23 +6189,136 @@ const Index = () => {
 
       // Wave notification - Anuncio de la wave que viene
       if (gameState.waveNotification > 0) {
-        const alpha = Math.min(1, gameState.waveNotification);
-        const fadeOut = gameState.waveNotification < 1 ? gameState.waveNotification : 1;
-        ctx.globalAlpha = fadeOut;
+        const totalDuration = 3;
+        const timeRemaining = gameState.waveNotification;
+        const timeElapsed = Math.max(0, totalDuration - timeRemaining);
+        const introProgress = Math.min(1, timeElapsed / 0.45);
+        const outroProgress = timeRemaining < 0.7 ? Math.max(0, timeRemaining / 0.7) : 1;
+        const overlayAlpha = introProgress * outroProgress;
+        const pulse = 1 + Math.sin(timeElapsed * 6) * 0.04 * outroProgress;
+        const focusTightness = 1 + (1 - introProgress) * 0.2;
+        const glitchOffset = Math.sin(timeElapsed * 10) * 8 * outroProgress;
+        const waveTitle = `WAVE ${gameState.wave}`;
 
-        // Fondo semitransparente
-        ctx.fillStyle = UI_COLORS.overlay;
-        ctx.fillRect(0, H / 2 - 80, W, 160);
+        let waveTagline = "";
+        let taglineColor = UI_COLORS.accent;
+        let panelCoreColor = "rgba(16, 40, 30, 0.88)";
 
-        // Texto principal con glow - Wave que viene
+        if (gameState.wave === 2) {
+          waveTagline = "THE DEAD DON'T STAY DOWN";
+          taglineColor = UI_COLORS.rageAccent;
+          panelCoreColor = "rgba(36, 20, 10, 0.88)";
+        } else if (gameState.wave > 2) {
+          waveTagline = `ENEMIES: ${gameState.waveEnemiesTotal}`;
+        }
+
+        ctx.save();
+        ctx.globalAlpha = overlayAlpha;
+
+        const centerX = W / 2;
+        const centerY = H / 2;
+        const panelWidth = Math.min(660, W * 0.75);
+        const panelHeight = Math.min(230, H * 0.45);
+
+        const ambientGradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, panelWidth);
+        ambientGradient.addColorStop(0, "rgba(0, 0, 0, 0.4)");
+        ambientGradient.addColorStop(0.5, "rgba(0, 0, 0, 0.6)");
+        ambientGradient.addColorStop(1, "rgba(0, 0, 0, 0.85)");
+        ctx.fillStyle = ambientGradient;
+        ctx.fillRect(0, 0, W, H);
+
+        ctx.translate(centerX + glitchOffset, centerY);
+        ctx.scale(pulse * focusTightness, pulse * focusTightness);
+
+        const left = -panelWidth / 2;
+        const right = panelWidth / 2;
+        const top = -panelHeight / 2;
+        const bottom = panelHeight / 2;
+        const bevel = Math.max(24, panelWidth * 0.08);
+
+        const frameGradient = ctx.createLinearGradient(left, 0, right, 0);
+        frameGradient.addColorStop(0, `${taglineColor}33`);
+        frameGradient.addColorStop(0.5, `${taglineColor}aa`);
+        frameGradient.addColorStop(1, `${UI_COLORS.ammo}66`);
+
+        ctx.beginPath();
+        ctx.moveTo(left + bevel, top);
+        ctx.lineTo(right - bevel, top);
+        ctx.lineTo(right, 0);
+        ctx.lineTo(right - bevel, bottom);
+        ctx.lineTo(left + bevel, bottom);
+        ctx.lineTo(left, 0);
+        ctx.closePath();
+        ctx.fillStyle = panelCoreColor;
+        ctx.fill();
+
+        ctx.strokeStyle = frameGradient;
+        ctx.lineWidth = 6;
+        ctx.shadowColor = `${taglineColor}55`;
+        ctx.shadowBlur = 24;
+        ctx.stroke();
+
+        ctx.shadowBlur = 0;
+
+        ctx.save();
+        ctx.clip();
+        ctx.fillStyle = `${UI_COLORS.textSecondary}11`;
+        const scanSpacing = 12;
+        for (let y = top; y < bottom; y += scanSpacing) {
+          ctx.fillRect(left, y, panelWidth, 2);
+        }
+        ctx.restore();
+
+        ctx.strokeStyle = `${UI_COLORS.ammo}55`;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(left + 40, top + 28);
+        ctx.lineTo(right - 40, top + 28);
+        ctx.moveTo(left + 40, bottom - 28);
+        ctx.lineTo(right - 40, bottom - 28);
+        ctx.stroke();
+
+        ctx.fillStyle = `${taglineColor}55`;
+        ctx.beginPath();
+        ctx.moveTo(left - 30, -10);
+        ctx.lineTo(left - 60, -30);
+        ctx.lineTo(left - 40, 0);
+        ctx.lineTo(left - 60, 30);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(right + 30, -10);
+        ctx.lineTo(right + 60, -30);
+        ctx.lineTo(right + 40, 0);
+        ctx.lineTo(right + 60, 30);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.textAlign = "center";
+        ctx.fillStyle = UI_COLORS.textSecondary;
+        ctx.font = "600 20px 'Orbitron', system-ui";
+        ctx.fillText("INCOMING WAVE", 0, top + 54);
+
         ctx.fillStyle = UI_COLORS.ammo;
-        ctx.shadowColor = UI_COLORS.ammo;
-        ctx.shadowBlur = 0;
-        ctx.font = "bold 56px system-ui";
-        ctx.fillText(`WAVE ${gameState.wave}`, W / 2, H / 2 + 50);
+        ctx.shadowColor = `${UI_COLORS.ammo}aa`;
+        ctx.shadowBlur = 28;
+        ctx.font = "900 68px 'Orbitron', system-ui";
+        ctx.fillText(waveTitle, 0, 18);
 
-        ctx.globalAlpha = 1;
+        if (waveTagline) {
+          ctx.shadowColor = `${taglineColor}aa`;
+          ctx.shadowBlur = 18;
+          ctx.fillStyle = taglineColor;
+          ctx.font = "700 28px 'Orbitron', system-ui";
+          ctx.fillText(waveTagline, 0, 70);
+        }
+
         ctx.shadowBlur = 0;
+        ctx.fillStyle = `${taglineColor}44`;
+        ctx.fillRect(left + 40, bottom - 18, panelWidth - 80, 2);
+
+        ctx.restore();
+        ctx.globalAlpha = 1;
       }
 
       // Barra de notificación ambiental - Estilo noticiero (visible durante todo el evento)
