@@ -42,6 +42,7 @@ type SfxDefinition = {
   duplicateStrategy?: DuplicateStrategy;
   attenuation?: number;
   loop?: boolean;
+  maxConcurrent?: number;
 };
 
 type PlaySfxOptions = {
@@ -58,6 +59,8 @@ type MusicListener = () => void;
 type PooledSource = {
   source: AudioBufferSourceNode;
   gain: GainNode;
+  key?: SfxKey;
+  loop?: boolean;
 };
 
 const SFX_DATA: Partial<Record<SfxKey, string>> = {
@@ -107,17 +110,19 @@ const SFX_DEFINITIONS: Record<SfxKey, SfxDefinition> = {
     url: "/audio/weapons/pistol.wav",
     cooldownMs: 60,
     duplicateStrategy: "drop",
+    maxConcurrent: 5,
   },
   weapon_shotgun: {
     url: "/audio/weapons/shotgun.wav",
     cooldownMs: 160,
     duplicateStrategy: "drop",
+    maxConcurrent: 5,
   },
   weapon_smg: {
     url: "/audio/weapons/smg.wav",
     cooldownMs: 0,
     duplicateStrategy: "drop",
-    loop: true,
+    maxConcurrent: 5,
   },
   weapon_minigun: {
     url: "/audio/weapons/mini.mp3",
@@ -129,35 +134,41 @@ const SFX_DEFINITIONS: Record<SfxKey, SfxDefinition> = {
     url: "/audio/weapons/rpg.wav",
     cooldownMs: 200,
     duplicateStrategy: "drop",
+    maxConcurrent: 5,
   },
   weapon_laser_1: {
     url: "/audio/weapons/laser%20gun%201.wav",
     cooldownMs: 45,
     duplicateStrategy: "attenuate",
     attenuation: 0.4,
+    maxConcurrent: 5,
   },
   weapon_laser_2: {
     url: "/audio/weapons/laser%20gun%202.wav",
     cooldownMs: 45,
     duplicateStrategy: "attenuate",
     attenuation: 0.4,
+    maxConcurrent: 5,
   },
   weapon_laser_3: {
     url: "/audio/weapons/laser%20gun%203.wav",
     cooldownMs: 45,
     duplicateStrategy: "attenuate",
     attenuation: 0.4,
+    maxConcurrent: 5,
   },
   weapon_laser_4: {
     url: "/audio/weapons/laser%20gun%204.wav",
     cooldownMs: 45,
     duplicateStrategy: "attenuate",
     attenuation: 0.4,
+    maxConcurrent: 5,
   },
   weapon_railgun: {
     url: "/audio/weapons/railgun.wav",
     cooldownMs: 250,
     duplicateStrategy: "drop",
+    maxConcurrent: 5,
   },
   weapon_flamethrower: {
     url: "/audio/weapons/flamethrower.wav",
@@ -169,95 +180,111 @@ const SFX_DEFINITIONS: Record<SfxKey, SfxDefinition> = {
     url: "/audio/weapons/bow.wav",
     cooldownMs: 120,
     duplicateStrategy: "drop",
+    maxConcurrent: 5,
   },
   weapon_homing_missile: {
     url: "/audio/weapons/homingmissle.wav",
     cooldownMs: 180,
     duplicateStrategy: "drop",
+    maxConcurrent: 5,
   },
   impact_zombie_hit_1: {
     url: "/audio/impacts/zombie/zombie_hit_1.wav",
     cooldownMs: 90,
     duplicateStrategy: "attenuate",
     attenuation: 0.5,
+    maxConcurrent: 5,
   },
   impact_zombie_hit_2: {
     url: "/audio/impacts/zombie/zombie_hit_2.wav",
     cooldownMs: 90,
     duplicateStrategy: "attenuate",
     attenuation: 0.5,
+    maxConcurrent: 5,
   },
   impact_zombie_hit_3: {
     url: "/audio/impacts/zombie/zombie_hit_3.wav",
     cooldownMs: 90,
     duplicateStrategy: "attenuate",
     attenuation: 0.5,
+    maxConcurrent: 5,
   },
   impact_zombie_growl_1: {
     url: "/audio/impacts/zombie/zombie_growl_1.mp3",
     cooldownMs: 120,
     duplicateStrategy: "attenuate",
     attenuation: 0.6,
+    maxConcurrent: 5,
   },
   impact_zombie_growl_2: {
     url: "/audio/impacts/zombie/zombie_growl_2.wav",
     cooldownMs: 120,
     duplicateStrategy: "attenuate",
     attenuation: 0.6,
+    maxConcurrent: 5,
   },
   impact_zombie_short_grunt: {
     url: "/audio/impacts/zombie/zombie_short_grunt.wav",
     cooldownMs: 90,
     duplicateStrategy: "attenuate",
     attenuation: 0.5,
+    maxConcurrent: 5,
   },
   impact_zombie_snarl: {
     url: "/audio/impacts/zombie/snarling_zombie.wav",
     cooldownMs: 120,
     duplicateStrategy: "attenuate",
     attenuation: 0.6,
+    maxConcurrent: 5,
   },
   impact_zombie_dog_hit: {
     url: "/audio/impacts/zombie-animal/zombie_dog_hit.wav",
     cooldownMs: 90,
     duplicateStrategy: "attenuate",
     attenuation: 0.5,
+    maxConcurrent: 5,
   },
   impact_zombie_dog_growl_1: {
     url: "/audio/impacts/zombie-animal/zombie_dog_growl_1.wav",
     cooldownMs: 120,
     duplicateStrategy: "attenuate",
     attenuation: 0.6,
+    maxConcurrent: 5,
   },
   impact_zombie_dog_growl_2: {
     url: "/audio/impacts/zombie-animal/zombie_dog_growl_2.wav",
     cooldownMs: 120,
     duplicateStrategy: "attenuate",
     attenuation: 0.6,
+    maxConcurrent: 5,
   },
   impact_insect_smash_1: {
     url: "/audio/impacts/insect/insect_smash_01.mp3",
     cooldownMs: 90,
     duplicateStrategy: "attenuate",
     attenuation: 0.5,
+    maxConcurrent: 5,
   },
   impact_insect_smash_2: {
     url: "/audio/impacts/insect/insect_smash_02.mp3",
     cooldownMs: 90,
     duplicateStrategy: "attenuate",
     attenuation: 0.5,
+    maxConcurrent: 5,
   },
   impact_insect_move_1: {
     url: "/audio/impacts/insect/larva_move_1.wav",
     cooldownMs: 120,
     duplicateStrategy: "attenuate",
     attenuation: 0.6,
+    maxConcurrent: 5,
   },
   impact_insect_move_2: {
     url: "/audio/impacts/insect/larva_move_2.wav",
     cooldownMs: 120,
     duplicateStrategy: "attenuate",
     attenuation: 0.6,
+    maxConcurrent: 5,
   },
 };
 
@@ -269,6 +296,7 @@ class AudioManager {
   private sfxLastPlay = new Map<SfxKey, number>();
   private sourcePool: PooledSource[] = [];
   private activeLoopingSources = new Map<SfxKey, PooledSource>();
+  private activeSourcesByKey = new Map<SfxKey, Set<PooledSource>>();
   private sfxMuted = false;
   private sfxVolume = 1;
 
@@ -389,16 +417,27 @@ class AudioManager {
     await this.resumeContext();
 
     const wrapper = this.acquireSource();
+
+    if (!definition.loop) {
+      const activeSet = this.activeSourcesByKey.get(key);
+      const maxConcurrent = definition.maxConcurrent ?? Infinity;
+      const activeCount = activeSet?.size ?? 0;
+      if (activeCount >= maxConcurrent) {
+        this.releaseSource(wrapper);
+        return;
+      }
+    }
+
+    wrapper.loop = !!definition.loop;
+    this.registerActiveSource(key, wrapper);
+
     wrapper.source.buffer = buffer;
     wrapper.source.playbackRate.value = options.playbackRate ?? 1;
     wrapper.source.loop = !!definition.loop;
     wrapper.gain.gain.value = effectiveVolume * this.sfxVolume;
 
     wrapper.source.onended = () => {
-      if (definition.loop) {
-        this.activeLoopingSources.delete(key);
-      }
-      this.releaseSource(wrapper);
+      this.handleSourceEnded(wrapper);
     };
 
     try {
@@ -409,22 +448,36 @@ class AudioManager {
       }
     } catch (error) {
       console.warn("Failed to play SFX", key, error);
+      this.unregisterActiveSource(wrapper);
       this.releaseSource(wrapper);
     }
   }
 
   stopSfx(key: SfxKey) {
-    const active = this.activeLoopingSources.get(key);
-    if (!active) return;
-    this.activeLoopingSources.delete(key);
+    const loopWrapper = this.activeLoopingSources.get(key);
+    if (loopWrapper) {
+      this.stopWrapper(loopWrapper);
+      this.activeLoopingSources.delete(key);
+    }
+
+    const activeSet = this.activeSourcesByKey.get(key);
+    if (activeSet) {
+      const wrappers = Array.from(activeSet);
+      wrappers.forEach((wrapper) => this.stopWrapper(wrapper));
+    }
+
     this.sfxLastPlay.delete(key);
-    try {
-      active.source.stop();
-    } catch {}
   }
 
   isLoopingSfxPlaying(key: SfxKey) {
     return this.activeLoopingSources.has(key);
+  }
+
+  stopAllSfx() {
+    const keys = new Set<
+      SfxKey
+    >([...this.activeLoopingSources.keys(), ...this.activeSourcesByKey.keys()]);
+    keys.forEach((key) => this.stopSfx(key));
   }
 
   private acquireSource(): PooledSource {
@@ -440,6 +493,8 @@ class AudioManager {
       } catch {}
       pooled.source = ctx.createBufferSource();
       pooled.source.connect(pooled.gain);
+      pooled.key = undefined;
+      pooled.loop = false;
       return pooled;
     }
 
@@ -458,7 +513,54 @@ class AudioManager {
     } catch {}
     wrapper.source = this.audioContext.createBufferSource();
     wrapper.source.connect(wrapper.gain);
+    wrapper.key = undefined;
+    wrapper.loop = false;
     this.sourcePool.push(wrapper);
+  }
+
+  private registerActiveSource(key: SfxKey, wrapper: PooledSource) {
+    let set = this.activeSourcesByKey.get(key);
+    if (!set) {
+      set = new Set<PooledSource>();
+      this.activeSourcesByKey.set(key, set);
+    }
+    set.add(wrapper);
+    wrapper.key = key;
+  }
+
+  private unregisterActiveSource(wrapper: PooledSource) {
+    const key = wrapper.key;
+    if (!key) return;
+    const set = this.activeSourcesByKey.get(key);
+    if (set) {
+      set.delete(wrapper);
+      if (set.size === 0) {
+        this.activeSourcesByKey.delete(key);
+      }
+    }
+    wrapper.key = undefined;
+  }
+
+  private handleSourceEnded(wrapper: PooledSource) {
+    if (wrapper.loop && wrapper.key) {
+      this.activeLoopingSources.delete(wrapper.key);
+    }
+    this.unregisterActiveSource(wrapper);
+    this.releaseSource(wrapper);
+  }
+
+  private stopWrapper(wrapper: PooledSource) {
+    if (wrapper.key && wrapper.loop) {
+      this.activeLoopingSources.delete(wrapper.key);
+    }
+    this.unregisterActiveSource(wrapper);
+    try {
+      wrapper.source.onended = null;
+      wrapper.source.stop();
+    } catch {
+      // Ignore errors thrown when stopping an already-finished source
+    }
+    this.releaseSource(wrapper);
   }
 
   setSfxMuted(muted: boolean) {

@@ -1000,7 +1000,7 @@ const Index = () => {
     const weaponSoundConfigs: Record<string, WeaponSoundConfig> = {
       pistol: { fireSounds: ["weapon_pistol"], impactSound: null },
       shotgun: { fireSounds: ["weapon_shotgun"] },
-      smg: { loopSound: "weapon_smg", loopStopDelay: 0.12 },
+      smg: { fireSounds: ["weapon_smg"] },
       rocket: { fireSounds: ["weapon_rpg"] },
       laser: {
         fireSounds: ["weapon_laser_1", "weapon_laser_2", "weapon_laser_3", "weapon_laser_4"],
@@ -1310,6 +1310,9 @@ const Index = () => {
           gameState.state = "paused";
           gameState.pauseMenuTab = "home";
           gameState.pauseMenuAudioOpen = false;
+          audioManager.stopAllSfx();
+          weaponAudioController.stopAllLooping();
+          weaponAudioController.resetTimers();
           PAUSE_MENU_TABS.forEach((tab) => {
             gameState.pauseMenuScroll[tab] = 0;
           });
@@ -2408,6 +2411,9 @@ const Index = () => {
       gameState.state = "paused";
       gameState.showUpgradeUI = true;
       gameState.upgradeUIAnimation = 0; // Start animation from 0
+      audioManager.stopAllSfx();
+      weaponAudioController.stopAllLooping();
+      weaponAudioController.resetTimers();
 
       const options: Upgrade[] = [];
       const usedKeys: Set<string> = new Set(); // Para evitar duplicados
