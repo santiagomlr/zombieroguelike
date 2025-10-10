@@ -26,6 +26,10 @@ type PauseMenuTab = "home" | "settings" | "stats";
 const PAUSE_MENU_TABS: PauseMenuTab[] = ["home", "settings", "stats"];
 
 const CHEST_DROP_RATE = 0.07;
+const ENTITY_SCALE = 0.75;
+const CAMERA_DEADZONE_RADIUS = 140;
+
+const scaleEntitySize = (value: number) => Math.max(1, Math.round(value * ENTITY_SCALE));
 
 const getPauseMenuLayout = (W: number, H: number) => {
   const scale = Math.min(1, Math.max(0.7, Math.min(W / 1280, H / 720)));
@@ -252,15 +256,18 @@ const Index = () => {
     canvas.width = W;
     canvas.height = H;
 
+    const worldW = Math.max(W, 2200);
+    const worldH = Math.max(H, 1600);
+
     const gameState = {
       state: "running" as "running" | "paused" | "gameover",
       player: {
-        x: W / 2,
-        y: H / 2,
+        x: worldW / 2,
+        y: worldH / 2,
         vx: 0,
         vy: 0,
         spd: 3.5,
-        rad: 16,
+        rad: scaleEntitySize(16),
         hp: 100,
         maxhp: 100,
         stamina: 20,
@@ -309,6 +316,13 @@ const Index = () => {
       drops: [] as any[],
       particles: [] as any[],
       hotspots: [] as any[],
+      worldWidth: worldW,
+      worldHeight: worldH,
+      camera: {
+        x: worldW / 2,
+        y: worldH / 2,
+        deadzone: CAMERA_DEADZONE_RADIUS,
+      },
       maxParticles: 200,
       bosses: [] as any[],
       score: 0,
@@ -731,8 +745,14 @@ const Index = () => {
       gameState.hotspots.length = 0;
 
       // Resetear jugador
-      gameState.player.x = W / 2;
-      gameState.player.y = H / 2;
+      gameState.worldWidth = Math.max(gameState.worldWidth, Math.max(W, 2200));
+      gameState.worldHeight = Math.max(gameState.worldHeight, Math.max(H, 1600));
+      gameState.player.x = gameState.worldWidth / 2;
+      gameState.player.y = gameState.worldHeight / 2;
+      if (gameState.camera) {
+        gameState.camera.x = gameState.player.x;
+        gameState.camera.y = gameState.player.y;
+      }
       gameState.player.hp = 100;
       gameState.player.maxhp = 100;
       gameState.player.stamina = 20;
@@ -889,8 +909,26 @@ const Index = () => {
       canvas.width = W;
       canvas.height = H;
       if (gameState.player) {
-        gameState.player.x = Math.min(gameState.player.x, W - 50);
-        gameState.player.y = Math.min(gameState.player.y, H - 50);
+        gameState.worldWidth = Math.max(gameState.worldWidth, Math.max(W, 2200));
+        gameState.worldHeight = Math.max(gameState.worldHeight, Math.max(H, 1600));
+        gameState.player.x = clamp(
+          gameState.player.x,
+          gameState.player.rad,
+          gameState.worldWidth - gameState.player.rad,
+        );
+        gameState.player.y = clamp(
+          gameState.player.y,
+          gameState.player.rad,
+          gameState.worldHeight - gameState.player.rad,
+        );
+      }
+      if (gameState.camera) {
+        const halfViewW = W / 2;
+        const halfViewH = H / 2;
+        const maxX = Math.max(halfViewW, gameState.worldWidth - halfViewW);
+        const maxY = Math.max(halfViewH, gameState.worldHeight - halfViewH);
+        gameState.camera.x = clamp(gameState.camera.x, halfViewW, maxX);
+        gameState.camera.y = clamp(gameState.camera.y, halfViewH, maxY);
       }
     };
 
@@ -900,20 +938,22 @@ const Index = () => {
 
     // Funciones del juego
     function spawnEnemy() {
+      const worldW = gameState.worldWidth;
+      const worldH = gameState.worldHeight;
       const side = Math.floor(Math.random() * 4);
       let x, y;
       if (side === 0) {
-        x = Math.random() * W;
+        x = Math.random() * worldW;
         y = -30;
       } else if (side === 1) {
-        x = W + 30;
-        y = Math.random() * H;
+        x = worldW + 30;
+        y = Math.random() * worldH;
       } else if (side === 2) {
-        x = Math.random() * W;
-        y = H + 30;
+        x = Math.random() * worldW;
+        y = worldH + 30;
       } else {
         x = -30;
-        y = Math.random() * H;
+        y = Math.random() * worldH;
       }
 
       // Horde Totem: +1 enemigo adicional spawn
@@ -1209,6 +1249,7 @@ const Index = () => {
           hpMultiplier = 1 + (gameState.wave - 1) * 0.5;
         }
         const scaledHp = Math.floor(baseHp * hpMultiplier);
+        rad = scaleEntitySize(rad);
 
         const enemy = {
           x,
@@ -1241,7 +1282,7 @@ const Index = () => {
     }
 
     function spawnBoss() {
-      const x = W / 2;
+      const x = gameState.worldWidth / 2;
       const y = -100;
 
       // Boss HP escalado agresivo estilo COD Zombies
@@ -1252,7 +1293,7 @@ const Index = () => {
       gameState.enemies.push({
         x,
         y,
-        rad: 40,
+        rad: scaleEntitySize(40),
         hp: scaledHp,
         maxhp: scaledHp,
         spd: 0.8,
@@ -1274,20 +1315,22 @@ const Index = () => {
     }
 
     function spawnMiniBoss() {
+      const worldW = gameState.worldWidth;
+      const worldH = gameState.worldHeight;
       const side = Math.floor(Math.random() * 4);
       let x, y;
       if (side === 0) {
-        x = Math.random() * W;
+        x = Math.random() * worldW;
         y = -40;
       } else if (side === 1) {
-        x = W + 40;
-        y = Math.random() * H;
+        x = worldW + 40;
+        y = Math.random() * worldH;
       } else if (side === 2) {
-        x = Math.random() * W;
-        y = H + 40;
+        x = Math.random() * worldW;
+        y = worldH + 40;
       } else {
         x = -40;
-        y = Math.random() * H;
+        y = Math.random() * worldH;
       }
 
       // Mini-boss HP escalado estilo COD Zombies
@@ -1298,7 +1341,7 @@ const Index = () => {
       gameState.enemies.push({
         x,
         y,
-        rad: 28,
+        rad: scaleEntitySize(28),
         hp: scaledHp,
         maxhp: scaledHp,
         spd: 1.0,
@@ -1310,8 +1353,15 @@ const Index = () => {
     }
 
     function nearestEnemy() {
+      const camera = gameState.camera ?? { x: gameState.player.x, y: gameState.player.y };
+      const halfViewW = W / 2;
+      const halfViewH = H / 2;
+      const minX = camera.x - halfViewW - 50;
+      const maxX = camera.x + halfViewW + 50;
+      const minY = camera.y - halfViewH - 50;
+      const maxY = camera.y + halfViewH + 50;
       const onScreenEnemies = gameState.enemies.filter(
-        (e: any) => e.x >= -50 && e.x <= W + 50 && e.y >= -50 && e.y <= H + 50,
+        (e: any) => e.x >= minX && e.x <= maxX && e.y >= minY && e.y <= maxY,
       );
 
       if (onScreenEnemies.length === 0) return null;
@@ -1493,7 +1543,15 @@ const Index = () => {
     }
 
     function dropXP(x: number, y: number, val: number) {
-      gameState.drops.push({ x, y, rad: 8, type: "xp", val, color: "#06b6d4", lifetime: 10 });
+      gameState.drops.push({
+        x,
+        y,
+        rad: scaleEntitySize(8),
+        type: "xp",
+        val,
+        color: "#06b6d4",
+        lifetime: 10,
+      });
     }
 
     function dropHeal(x: number, y: number) {
@@ -1501,7 +1559,7 @@ const Index = () => {
       gameState.drops.push({
         x,
         y,
-        rad: 10,
+        rad: scaleEntitySize(10),
         type: "heal",
         val: healAmount,
         color: "#ef4444",
@@ -1520,7 +1578,7 @@ const Index = () => {
       gameState.drops.push({
         x,
         y,
-        rad: 12,
+        rad: scaleEntitySize(12),
         type: "powerup",
         powerupType: type,
         duration: data.duration,
@@ -1533,7 +1591,7 @@ const Index = () => {
       gameState.drops.push({
         x,
         y,
-        rad: 14,
+        rad: scaleEntitySize(14),
         type: "chest",
         color: "#f97316",
         spawnTime: gameState.time,
@@ -1711,12 +1769,12 @@ const Index = () => {
     }
 
     function spawnHotspot(isNegative = false) {
-      const x = Math.random() * (W - 200) + 100;
-      const y = Math.random() * (H - 200) + 100;
+      const x = Math.random() * (gameState.worldWidth - 200) + 100;
+      const y = Math.random() * (gameState.worldHeight - 200) + 100;
       gameState.hotspots.push({
         x,
         y,
-        rad: isNegative ? 80 : 60, // Hotspots negativos son más grandes
+        rad: scaleEntitySize(isNegative ? 80 : 60), // Hotspots negativos son más grandes
         progress: 0,
         required: isNegative ? 10 : 3, // Positivos: 3s para completar, Negativos: no aplica
         expirationTimer: 0,
@@ -2690,8 +2748,8 @@ const Index = () => {
         for (let i = 0; i < 30; i++) {
           const angle = (Math.PI * 2 * i) / 30;
           gameState.particles.push({
-            x: W / 2,
-            y: H / 2,
+            x: gameState.player.x,
+            y: gameState.player.y,
             vx: Math.cos(angle) * 8,
             vy: Math.sin(angle) * 8,
             life: 1.5,
@@ -2816,8 +2874,8 @@ const Index = () => {
               // Crear zona de tormenta si no existe
               if (!gameState.stormZone) {
                 gameState.stormZone = {
-                  x: Math.random() * W,
-                  y: Math.random() * H,
+                  x: Math.random() * gameState.worldWidth,
+                  y: Math.random() * gameState.worldHeight,
                   radius: 150,
                   vx: 0,
                   vy: 0,
@@ -2863,16 +2921,16 @@ const Index = () => {
                 gameState.stormZone.x = gameState.stormZone.radius;
                 gameState.stormZone.vx = Math.abs(gameState.stormZone.vx);
               }
-              if (gameState.stormZone.x > W - gameState.stormZone.radius) {
-                gameState.stormZone.x = W - gameState.stormZone.radius;
+              if (gameState.stormZone.x > gameState.worldWidth - gameState.stormZone.radius) {
+                gameState.stormZone.x = gameState.worldWidth - gameState.stormZone.radius;
                 gameState.stormZone.vx = -Math.abs(gameState.stormZone.vx);
               }
               if (gameState.stormZone.y < gameState.stormZone.radius) {
                 gameState.stormZone.y = gameState.stormZone.radius;
                 gameState.stormZone.vy = Math.abs(gameState.stormZone.vy);
               }
-              if (gameState.stormZone.y > H - gameState.stormZone.radius) {
-                gameState.stormZone.y = H - gameState.stormZone.radius;
+              if (gameState.stormZone.y > gameState.worldHeight - gameState.stormZone.radius) {
+                gameState.stormZone.y = gameState.worldHeight - gameState.stormZone.radius;
                 gameState.stormZone.vy = -Math.abs(gameState.stormZone.vy);
               }
 
@@ -2932,8 +2990,8 @@ const Index = () => {
                 const width = 250 + Math.random() * 150;
                 const height = 200 + Math.random() * 100;
                 gameState.fogWarningZones.push({
-                  x: Math.random() * (W - width),
-                  y: Math.random() * (H - height),
+                  x: Math.random() * (gameState.worldWidth - width),
+                  y: Math.random() * (gameState.worldHeight - height),
                   width,
                   height,
                   warningTime: 0,
@@ -3021,8 +3079,8 @@ const Index = () => {
               // ☢️ LLUVIA RADIACTIVA: Enemigos ganan velocidad en zonas específicas - SOLO 1 CÍRCULO
               // Crear zona radiactiva tipo negative hotspot - MUY GRANDE
               if (gameState.hotspots.filter((h) => h.isRadioactive).length === 0 && intensity > 0.3) {
-                const x = Math.random() * (W - 600) + 300;
-                const y = Math.random() * (H - 600) + 300;
+                const x = Math.random() * (gameState.worldWidth - 600) + 300;
+                const y = Math.random() * (gameState.worldHeight - 600) + 300;
                 gameState.hotspots.push({
                   x,
                   y,
@@ -3040,7 +3098,7 @@ const Index = () => {
               // Partículas de lluvia
               if (Math.random() < 0.3 * intensity && gameState.particles.length < gameState.maxParticles) {
                 gameState.particles.push({
-                  x: Math.random() * W,
+                  x: Math.random() * gameState.worldWidth,
                   y: -10,
                   vx: 0,
                   vy: 15,
@@ -3314,11 +3372,32 @@ const Index = () => {
       }
 
       // Clamp a los límites del mapa
-      newX = Math.max(gameState.player.rad, Math.min(W - gameState.player.rad, newX));
-      newY = Math.max(gameState.player.rad, Math.min(H - gameState.player.rad, newY));
+      newX = Math.max(gameState.player.rad, Math.min(gameState.worldWidth - gameState.player.rad, newX));
+      newY = Math.max(gameState.player.rad, Math.min(gameState.worldHeight - gameState.player.rad, newY));
 
       gameState.player.x = newX;
       gameState.player.y = newY;
+
+      if (gameState.camera) {
+        const camera = gameState.camera;
+        const dx = gameState.player.x - camera.x;
+        const dy = gameState.player.y - camera.y;
+        const distance = Math.hypot(dx, dy);
+        const deadzone = camera.deadzone ?? CAMERA_DEADZONE_RADIUS;
+
+        if (distance > deadzone) {
+          const moveRatio = (distance - deadzone) / distance;
+          camera.x += dx * moveRatio;
+          camera.y += dy * moveRatio;
+        }
+
+        const halfViewW = W / 2;
+        const halfViewH = H / 2;
+        const maxX = Math.max(halfViewW, gameState.worldWidth - halfViewW);
+        const maxY = Math.max(halfViewH, gameState.worldHeight - halfViewH);
+        camera.x = clamp(camera.x, halfViewW, maxX);
+        camera.y = clamp(camera.y, halfViewH, maxY);
+      }
 
       // ═══════════════════════════════════════════════════════════
       // SISTEMA DE SPAWN DE ENEMIGOS - Estilo COD Zombies
@@ -3522,11 +3601,11 @@ const Index = () => {
                   // Clamp dentro del mapa
                   gameState.player.x = Math.max(
                     gameState.player.rad,
-                    Math.min(W - gameState.player.rad, gameState.player.x),
+                    Math.min(gameState.worldWidth - gameState.player.rad, gameState.player.x),
                   );
                   gameState.player.y = Math.max(
                     gameState.player.rad,
-                    Math.min(H - gameState.player.rad, gameState.player.y),
+                    Math.min(gameState.worldHeight - gameState.player.rad, gameState.player.y),
                   );
                 }
                 gameState.player.ifr = gameState.player.ifrDuration;
@@ -3678,8 +3757,8 @@ const Index = () => {
           else if (e.phase === 2) {
             if (e.jumpCooldown <= 0) {
               // Saltar a posición aleatoria
-              e.x = Math.random() * (W - 100) + 50;
-              e.y = Math.random() * (H - 100) + 50;
+              e.x = Math.random() * (gameState.worldWidth - 100) + 50;
+              e.y = Math.random() * (gameState.worldHeight - 100) + 50;
               e.jumpCooldown = 4;
 
               // Partículas de salto
@@ -3722,8 +3801,8 @@ const Index = () => {
           // Fase 3: frenético - saltos rápidos + patrón circular de proyectiles
           else if (e.phase === 3) {
             if (e.jumpCooldown <= 0) {
-              e.x = Math.random() * (W - 100) + 50;
-              e.y = Math.random() * (H - 100) + 50;
+              e.x = Math.random() * (gameState.worldWidth - 100) + 50;
+              e.y = Math.random() * (gameState.worldHeight - 100) + 50;
               e.jumpCooldown = 2.5;
 
               // Patrón circular de proyectiles
@@ -3786,22 +3865,31 @@ const Index = () => {
 
         // Rebote en bordes
         if (b.bounces > 0) {
-          if (b.x < 0 || b.x > W) {
+          if (b.x < 0 || b.x > gameState.worldWidth) {
             b.dir = Math.PI - b.dir;
             b.bounces--;
-            b.x = Math.max(0, Math.min(W, b.x));
+            b.x = Math.max(0, Math.min(gameState.worldWidth, b.x));
           }
-          if (b.y < 0 || b.y > H) {
+          if (b.y < 0 || b.y > gameState.worldHeight) {
             b.dir = -b.dir;
             b.bounces--;
-            b.y = Math.max(0, Math.min(H, b.y));
+            b.y = Math.max(0, Math.min(gameState.worldHeight, b.y));
           }
         }
       }
 
-      gameState.bullets = gameState.bullets.filter(
-        (b: any) => b.life > 0 && b.x >= -50 && b.x <= W + 50 && b.y >= -50 && b.y <= H + 50,
-      );
+      {
+        const camera = gameState.camera ?? { x: gameState.player.x, y: gameState.player.y };
+        const halfViewW = W / 2;
+        const halfViewH = H / 2;
+        const minX = camera.x - halfViewW - 50;
+        const maxX = camera.x + halfViewW + 50;
+        const minY = camera.y - halfViewH - 50;
+        const maxY = camera.y + halfViewH + 50;
+        gameState.bullets = gameState.bullets.filter(
+          (b: any) => b.life > 0 && b.x >= minX && b.x <= maxX && b.y >= minY && b.y <= maxY,
+        );
+      }
 
       // Colisiones bala-enemigo
       for (let i = gameState.enemies.length - 1; i >= 0; i--) {
@@ -4262,8 +4350,14 @@ const Index = () => {
             e.y += ny * overlap * 0.7;
 
             // Clamp player dentro del mapa después del empuje
-            gameState.player.x = Math.max(gameState.player.rad, Math.min(W - gameState.player.rad, gameState.player.x));
-            gameState.player.y = Math.max(gameState.player.rad, Math.min(H - gameState.player.rad, gameState.player.y));
+            gameState.player.x = Math.max(
+              gameState.player.rad,
+              Math.min(gameState.worldWidth - gameState.player.rad, gameState.player.x),
+            );
+            gameState.player.y = Math.max(
+              gameState.player.rad,
+              Math.min(gameState.worldHeight - gameState.player.rad, gameState.player.y),
+            );
           }
 
           // Daño solo si no está en rage mode y no es un boss (los bosses no hacen daño por contacto)
@@ -5436,31 +5530,47 @@ const Index = () => {
     function draw() {
       const currentLanguage = (gameState.language ?? "es") as Language;
       const t = translations[currentLanguage];
+      const camera = gameState.camera ?? { x: gameState.player.x, y: gameState.player.y };
       ctx.clearRect(0, 0, W, H);
+
+      const offsetX = Math.round(W / 2 - camera.x);
+      const offsetY = Math.round(H / 2 - camera.y);
+      const viewLeft = camera.x - W / 2;
+      const viewTop = camera.y - H / 2;
+      const viewRight = camera.x + W / 2;
+      const viewBottom = camera.y + H / 2;
+
+      ctx.save();
+      ctx.translate(offsetX, offsetY);
 
       // Draw tiled background map
       if (gameState.mapBackground && gameState.mapBackground.complete) {
         const imgW = gameState.mapBackground.width;
         const imgH = gameState.mapBackground.height;
-        
-        // Calculate how many tiles we need
-        const tilesX = Math.ceil(W / imgW) + 1;
-        const tilesY = Math.ceil(H / imgH) + 1;
-        
-        // Draw tiles to fill the entire canvas
-        for (let x = 0; x < tilesX; x++) {
-          for (let y = 0; y < tilesY; y++) {
-            ctx.drawImage(gameState.mapBackground, x * imgW, y * imgH, imgW, imgH);
+
+        const startX = Math.floor(viewLeft / imgW) * imgW;
+        const startY = Math.floor(viewTop / imgH) * imgH;
+
+        for (let x = startX; x < viewRight; x += imgW) {
+          for (let y = startY; y < viewBottom; y += imgH) {
+            ctx.drawImage(gameState.mapBackground, x, y, imgW, imgH);
           }
         }
       } else {
         // Fallback gradient background
-        const gradient = ctx.createRadialGradient(W / 2, H / 3, 0, W / 2, H / 3, Math.max(W, H));
+        const gradient = ctx.createRadialGradient(
+          camera.x,
+          camera.y - H / 3,
+          0,
+          camera.x,
+          camera.y - H / 3,
+          Math.max(W, H),
+        );
         gradient.addColorStop(0, "#0f1729");
         gradient.addColorStop(0.5, "#0a0f1a");
         gradient.addColorStop(1, "#060a10");
         ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, W, H);
+        ctx.fillRect(viewLeft, viewTop, W, H);
       }
 
       // Marcas de explosión en el suelo (quemadura)
@@ -6062,6 +6172,23 @@ const Index = () => {
       ctx.shadowBlur = 0;
       ctx.restore();
 
+      // Powerup indicators
+      let indicatorY = gameState.player.y - gameState.player.rad - 30;
+      if (gameState.player.tempMagnetTimer > 0) {
+        ctx.fillStyle = "#10b981";
+        ctx.font = "bold 12px system-ui";
+        ctx.textAlign = "center";
+        ctx.fillText(`🧲 ${Math.ceil(gameState.player.tempMagnetTimer)}s`, gameState.player.x, indicatorY);
+        indicatorY -= 15;
+      }
+      if (gameState.player.rageTimer > 0) {
+        ctx.fillStyle = "#ef4444";
+        ctx.font = "bold 12px system-ui";
+        ctx.fillText(`⚡ ${Math.ceil(gameState.player.rageTimer)}s`, gameState.player.x, indicatorY);
+      }
+
+      ctx.restore();
+
       // Restart hold indicator
       if (gameState.restartTimer > 0) {
         const progress = Math.min(1, gameState.restartTimer / gameState.restartHoldTime);
@@ -6097,21 +6224,6 @@ const Index = () => {
         ctx.font = "bold 18px system-ui";
         ctx.fillStyle = "#ef4444";
         ctx.fillText(remaining === 0 ? "0s" : `${remaining}s`, centerX, centerY + 35);
-      }
-
-      // Powerup indicators
-      let indicatorY = gameState.player.y - gameState.player.rad - 30;
-      if (gameState.player.tempMagnetTimer > 0) {
-        ctx.fillStyle = "#10b981";
-        ctx.font = "bold 12px system-ui";
-        ctx.textAlign = "center";
-        ctx.fillText(`🧲 ${Math.ceil(gameState.player.tempMagnetTimer)}s`, gameState.player.x, indicatorY);
-        indicatorY -= 15;
-      }
-      if (gameState.player.rageTimer > 0) {
-        ctx.fillStyle = "#ef4444";
-        ctx.font = "bold 12px system-ui";
-        ctx.fillText(`⚡ ${Math.ceil(gameState.player.rageTimer)}s`, gameState.player.x, indicatorY);
       }
 
       drawHUD();
