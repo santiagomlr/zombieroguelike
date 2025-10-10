@@ -790,9 +790,18 @@ const Index = () => {
 
       tempCtx.clearRect(0, 0, ENEMY_LOGO_BASE_SIZE, ENEMY_LOGO_BASE_SIZE);
       tempCtx.drawImage(gameState.mediumZombieImg, 0, 0, ENEMY_LOGO_BASE_SIZE, ENEMY_LOGO_BASE_SIZE);
-      tempCtx.globalCompositeOperation = "source-in";
+
+      // Apply a color tint while preserving the underlying shading by overlaying
+      // the desired color with partial alpha. Using source-atop with a reduced
+      // alpha keeps the sprite details visible instead of replacing them with
+      // a flat silhouette of the tint color (which made some enemies appear as
+      // solid yellow blocks).
+      tempCtx.globalCompositeOperation = "source-atop";
+      tempCtx.globalAlpha = 0.85;
       tempCtx.fillStyle = color;
       tempCtx.fillRect(0, 0, ENEMY_LOGO_BASE_SIZE, ENEMY_LOGO_BASE_SIZE);
+
+      tempCtx.globalAlpha = 1;
       tempCtx.globalCompositeOperation = "source-over";
 
       prerenderedLogosRef.current[color] = tempCanvas;
