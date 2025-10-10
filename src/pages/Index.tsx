@@ -72,6 +72,9 @@ const chestRarityWeights: Record<Rarity, number> = {
   legendary: 1,
 };
 
+const CHEST_SPAWN_CHANCE = 0.03;
+const MAX_ACTIVE_CHESTS = 3;
+
 const Index = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [score, setScore] = useState(0);
@@ -298,8 +301,6 @@ const Index = () => {
     };
 
     gameStateRef.current = gameState;
-
-    spawnChestsForWave(gameState.wave);
 
     // Load enemy logo
     const enemyLogoImg = new Image();
@@ -543,8 +544,6 @@ const Index = () => {
       setTutorialStep(0);
       setTutorialCompleted(false);
 
-      spawnChestsForWave(gameState.wave);
-      
       // Actualizar React state
       setScore(0);
       setLevel(1);
@@ -1307,15 +1306,26 @@ const Index = () => {
       });
     }
 
-    function getBaseChestCountForWave(wave: number) {
-      if (wave === 1) return 1;
-      if (wave === 2) return 2;
-      if (wave === 3) return 2;
-      return 3;
-    }
-
-    function getChestSpawnPosition(existing: Chest[]) {
+    function getChestSpawnPosition(existing: Chest[], preferred?: { x: number; y: number }) {
       const margin = 80;
+
+      if (preferred) {
+        const candidate = {
+          x: clamp(preferred.x, margin, W - margin),
+          y: clamp(preferred.y, margin, H - margin),
+        };
+
+        const overlapsExisting = existing.some(
+          chest => Math.hypot(candidate.x - chest.x, candidate.y - chest.y) < chest.rad * 3,
+        );
+        const tooCloseToPlayer =
+          Math.hypot(candidate.x - gameState.player.x, candidate.y - gameState.player.y) < margin * 0.75;
+
+        if (!overlapsExisting && !tooCloseToPlayer) {
+          return candidate;
+        }
+      }
+
       for (let attempt = 0; attempt < 30; attempt++) {
         const x = margin + Math.random() * Math.max(20, W - margin * 2);
         const y = margin + Math.random() * Math.max(20, H - margin * 2);
@@ -1343,37 +1353,31 @@ const Index = () => {
       };
     }
 
-    function spawnChestsForWave(wave: number) {
-      const baseCount = Math.min(3, getBaseChestCountForWave(wave));
-      let chestCount = 0;
-
-      if (wave <= 10) {
-        chestCount = baseCount;
-      } else {
-        chestCount = 1;
-        const additionalSlots = Math.max(0, baseCount - 1);
-        const spawnChance = Math.max(0.3, 0.8 - (wave - 10) * 0.05);
-        for (let i = 0; i < additionalSlots; i++) {
-          if (Math.random() < spawnChance) {
-            chestCount++;
-          }
-        }
+    function spawnChestAt(x: number, y: number) {
+      if (gameState.chests.length >= MAX_ACTIVE_CHESTS) {
+        return;
       }
 
-      chestCount = Math.max(1, Math.min(3, chestCount));
+      const pos = getChestSpawnPosition(gameState.chests, { x, y });
 
-      gameState.chests.length = 0;
-      for (let i = 0; i < chestCount; i++) {
-        const pos = getChestSpawnPosition(gameState.chests);
-        gameState.chests.push({
-          x: pos.x,
-          y: pos.y,
-          rad: 22,
-          opened: false,
-          timer: 0,
-          openingTimer: 0,
-          lifetime: 45,
-        });
+      gameState.chests.push({
+        x: pos.x,
+        y: pos.y,
+        rad: 22,
+        opened: false,
+        timer: 0,
+        openingTimer: 0,
+        lifetime: 45,
+      });
+    }
+
+    function trySpawnChestFromKill(x: number, y: number) {
+      if (gameState.chests.length >= MAX_ACTIVE_CHESTS) {
+        return;
+      }
+
+      if (Math.random() < CHEST_SPAWN_CHANCE) {
+        spawnChestAt(x, y);
       }
     }
 
@@ -2323,8 +2327,6 @@ const Index = () => {
         gameState.waveEnemiesTotal = waveTarget;
         gameState.maxConcurrentEnemies = maxConcurrent;
 
-        spawnChestsForWave(gameState.wave);
-        
         // Animación de transición entre waves (3 segundos)
         gameState.waveNotification = 3;
         
@@ -3686,6 +3688,8 @@ const Index = () => {
                 const powerupType = roll < 0.3 ? "magnet" : roll < 0.5 ? "shield" : roll < 0.65 ? "rage" : "speed";
                 dropPowerup(e.x, e.y, powerupType);
               }
+
+              trySpawnChestFromKill(e.x, e.y);
 
               // Vampirismo
               if (gameState.player.stats.vampire > 0) {
