@@ -269,6 +269,8 @@ const translations: Record<Language, Translations> = {
   },
 };
 
+const LANGUAGE_ORDER: Language[] = ["es", "en"];
+
 type PauseMenuTab = "home" | "settings" | "stats";
 
 const PAUSE_MENU_TABS: PauseMenuTab[] = ["home", "settings", "stats"];
@@ -611,6 +613,7 @@ const Index = () => {
         home: {
           layout: "horizontal" as "horizontal" | "stacked",
           resume: { x: 0, y: 0, w: 0, h: 0 },
+          language: { x: 0, y: 0, w: 0, h: 0 },
           restart: { x: 0, y: 0, w: 0, h: 0 },
         },
         settings: {
@@ -2148,7 +2151,7 @@ const Index = () => {
         
         const buttonH = 56 * scale;
         const buttonGap = 14 * scale;
-        const buttonCount = 3;
+        const buttonCount = 4;
         const audioPanelHeight = 200 * scale;
         const audioPanelMargin = 24 * scale;
         const baseButtonsY =
@@ -2167,9 +2170,15 @@ const Index = () => {
           w: menuW - padding * 2,
           h: buttonH,
         };
-        const restartBtn = {
+        const languageBtn = {
           x: menuX + padding,
           y: audioBtn.y + buttonH + buttonGap,
+          w: menuW - padding * 2,
+          h: buttonH,
+        };
+        const restartBtn = {
+          x: menuX + padding,
+          y: languageBtn.y + buttonH + buttonGap,
           w: menuW - padding * 2,
           h: buttonH,
         };
@@ -2180,13 +2189,28 @@ const Index = () => {
           return;
         }
 
-        if (mx >= restartBtn.x && mx <= restartBtn.x + restartBtn.w && my >= restartBtn.y && my <= restartBtn.y + restartBtn.h) {
-          resetGame();
+        if (mx >= audioBtn.x && mx <= audioBtn.x + audioBtn.w && my >= audioBtn.y && my <= audioBtn.y + audioBtn.h) {
+          gameState.pauseMenuAudioOpen = !gameState.pauseMenuAudioOpen;
           return;
         }
 
-        if (mx >= audioBtn.x && mx <= audioBtn.x + audioBtn.w && my >= audioBtn.y && my <= audioBtn.y + audioBtn.h) {
-          gameState.pauseMenuAudioOpen = !gameState.pauseMenuAudioOpen;
+        if (
+          mx >= languageBtn.x &&
+          mx <= languageBtn.x + languageBtn.w &&
+          my >= languageBtn.y &&
+          my <= languageBtn.y + languageBtn.h
+        ) {
+          const currentLanguage = (gameState.language ?? language) as Language;
+          const currentIndex = LANGUAGE_ORDER.indexOf(currentLanguage);
+          const nextLanguage = LANGUAGE_ORDER[(currentIndex + 1) % LANGUAGE_ORDER.length];
+          setLanguage(nextLanguage);
+          localStorage.setItem("language", nextLanguage);
+          gameState.language = nextLanguage;
+          return;
+        }
+
+        if (mx >= restartBtn.x && mx <= restartBtn.x + restartBtn.w && my >= restartBtn.y && my <= restartBtn.y + restartBtn.h) {
+          resetGame();
           return;
         }
 
@@ -5917,7 +5941,7 @@ const Index = () => {
         // Buttons
         const buttonH = 56 * scale;
         const buttonGap = 14 * scale;
-        const buttonCount = 3;
+        const buttonCount = 4;
         const audioPanelHeight = 200 * scale;
         const audioPanelMargin = 24 * scale;
         const baseButtonsY =
@@ -5936,14 +5960,21 @@ const Index = () => {
           w: menuW - padding * 2,
           h: buttonH,
         };
-        const restartBtn = {
+        const languageBtn = {
           x: menuX + padding,
           y: audioBtn.y + buttonH + buttonGap,
           w: menuW - padding * 2,
           h: buttonH,
         };
+        const restartBtn = {
+          x: menuX + padding,
+          y: languageBtn.y + buttonH + buttonGap,
+          w: menuW - padding * 2,
+          h: buttonH,
+        };
 
         gameState.pauseMenuHitAreas.home.resume = continueBtn;
+        gameState.pauseMenuHitAreas.home.language = languageBtn;
         gameState.pauseMenuHitAreas.home.restart = restartBtn;
         gameState.pauseMenuAudioHitAreas.button = audioBtn;
 
@@ -6145,6 +6176,33 @@ const Index = () => {
           `${gameState.pauseMenuAudioOpen ? "🎚️" : "🎧"}  ${t.pauseMenu.audio}`,
           W / 2,
           audioY + buttonH / 2 + scaleValue(6),
+        );
+
+        // Language button
+        const languageY = languageBtn.y;
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(languageBtn.x, languageBtn.y, languageBtn.w, languageBtn.h, scaledRadius(14));
+        const languageBg = ctx.createLinearGradient(0, languageY, 0, languageY + buttonH);
+        languageBg.addColorStop(0, "rgba(20, 184, 166, 0.35)");
+        languageBg.addColorStop(1, "rgba(45, 212, 191, 0.28)");
+        ctx.fillStyle = languageBg;
+        ctx.fill();
+        ctx.strokeStyle = "rgba(94, 234, 212, 0.7)";
+        ctx.lineWidth = Math.max(1.5, 1.8 * scale);
+        ctx.shadowColor = "rgba(45, 212, 191, 0.4)";
+        ctx.shadowBlur = scaleValue(12);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.restore();
+
+        const languageLabel = t.pauseMenu.languages[currentLanguage];
+        ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+        ctx.font = getScaledFont(18, "600");
+        ctx.fillText(
+          `${t.pauseMenu.language}: ${languageLabel ? languageLabel : currentLanguage.toUpperCase()}`,
+          W / 2,
+          languageY + buttonH / 2 + scaleValue(6),
         );
 
         // Restart button
