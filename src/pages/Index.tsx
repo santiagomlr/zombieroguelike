@@ -3833,6 +3833,11 @@ const Index = () => {
       }
 
       // Recoger drops
+      let playerPickupSpeed = gameState.player.spd * gameState.player.stats.speedMultiplier;
+      if (gameState.player.rageTimer > 0) playerPickupSpeed *= 1.5;
+      if (gameState.player.isSprinting) playerPickupSpeed *= 1.7;
+      const pickupAttractionSpeed = playerPickupSpeed * 1.2;
+
       for (let i = gameState.drops.length - 1; i >= 0; i--) {
         const g = gameState.drops[i];
         const dx = gameState.player.x - g.x;
@@ -3846,8 +3851,8 @@ const Index = () => {
         }
 
         if (d < magnetRange) {
-          g.x += (dx / d) * 5;
-          g.y += (dy / d) * 5;
+          g.x += (dx / d) * pickupAttractionSpeed;
+          g.y += (dy / d) * pickupAttractionSpeed;
         }
 
         if (d < gameState.player.rad + g.rad) {
