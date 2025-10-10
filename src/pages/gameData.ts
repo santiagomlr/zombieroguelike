@@ -201,7 +201,7 @@ const translationsES: Translations = {
   stats: "Estadísticas",
   continue: "Continuar",
   paused: "PAUSA",
-  startMusicButton: "🎵 Iniciar música",
+  startMusicButton: "Iniciar música",
   shufflePlaylistReady: "Reproducción aleatoria lista",
   musicControls: {
     previous: "Canción anterior",
@@ -298,7 +298,7 @@ const translationsEN: Translations = {
   stats: "Stats",
   continue: "Continue",
   paused: "PAUSED",
-  startMusicButton: "🎵 Start Music",
+  startMusicButton: "Start Music",
   shufflePlaylistReady: "Shuffle playlist ready",
   musicControls: {
     previous: "Previous song",
