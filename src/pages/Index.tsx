@@ -260,6 +260,7 @@ const Index = () => {
       musicLastPointerTime: 0,
       sfxMuted: false,
       enemyLogo: null as HTMLImageElement | null,
+      greenZombieImg: null as HTMLImageElement | null,
       tutorialActive: localStorage.getItem("gameHasTutorial") !== "completed",
       tutorialStartTime: performance.now(),
       gameOverAnimationTimer: 0,
@@ -356,8 +357,8 @@ const Index = () => {
       gameState.enemyLogo = enemyLogoImg;
       console.log("Enemy logo loaded successfully");
 
-      // Pre-render colored enemy logos for performance
-      const spawnEnemyColors = ["#22c55e", "#a855f7", "#fbbf24", "#16a34a", "#9333ea", "#f59e0b", "#ef4444", "#78716c"];
+      // Pre-render colored enemy logos for performance (excluding green since we have a custom image)
+      const spawnEnemyColors = ["#a855f7", "#fbbf24", "#16a34a", "#9333ea", "#f59e0b", "#ef4444", "#78716c"];
 
       spawnEnemyColors.forEach((color) => {
         ensureTintedLogo(color);
@@ -365,6 +366,17 @@ const Index = () => {
     };
     enemyLogoImg.onerror = () => {
       console.error("Failed to load enemy logo");
+    };
+
+    // Load green zombie image
+    const greenZombieImg = new Image();
+    greenZombieImg.src = "/images/green-zombie.png";
+    greenZombieImg.onload = () => {
+      gameState.greenZombieImg = greenZombieImg;
+      console.log("Green zombie loaded successfully");
+    };
+    greenZombieImg.onerror = () => {
+      console.error("Failed to load green zombie image");
     };
 
     // Initialize Web Audio API
@@ -5673,7 +5685,9 @@ const Index = () => {
         }
 
         // Si tenemos el logo cargado, dibujarlo con el color del enemigo
-        if (gameState.enemyLogo && gameState.enemyLogo.complete) {
+        const useGreenZombie = e.color === "#22c55e" && gameState.greenZombieImg && gameState.greenZombieImg.complete;
+        
+        if (useGreenZombie || (gameState.enemyLogo && gameState.enemyLogo.complete)) {
           ctx.translate(e.x, e.y);
 
           // Aplicar sombra con el color del enemigo (o efecto elemental)
@@ -5685,17 +5699,22 @@ const Index = () => {
           // Dibujar el logo escalado al tamaño del enemigo
           const logoSize = e.rad * 2;
 
-          // Usar logo pre-renderizado si está disponible; en caso contrario, generarlo y guardarlo
-          let prerenderedLogo = prerenderedLogosRef.current[e.color];
-          if (!prerenderedLogo) {
-            const generatedLogo = ensureTintedLogo(e.color);
-            if (generatedLogo) {
-              prerenderedLogo = generatedLogo;
+          if (useGreenZombie) {
+            // Use the green zombie image directly without tinting
+            ctx.drawImage(gameState.greenZombieImg!, -logoSize / 2, -logoSize / 2, logoSize, logoSize);
+          } else {
+            // Usar logo pre-renderizado si está disponible; en caso contrario, generarlo y guardarlo
+            let prerenderedLogo = prerenderedLogosRef.current[e.color];
+            if (!prerenderedLogo) {
+              const generatedLogo = ensureTintedLogo(e.color);
+              if (generatedLogo) {
+                prerenderedLogo = generatedLogo;
+              }
             }
-          }
 
-          if (prerenderedLogo) {
-            ctx.drawImage(prerenderedLogo, -logoSize / 2, -logoSize / 2, logoSize, logoSize);
+            if (prerenderedLogo) {
+              ctx.drawImage(prerenderedLogo, -logoSize / 2, -logoSize / 2, logoSize, logoSize);
+            }
           }
 
           ctx.shadowBlur = 0;
