@@ -27,7 +27,6 @@ export type SfxKey =
   | "impact_zombie_snarl"
   | "impact_zombie_dog_hit"
   | "impact_zombie_dog_growl_1"
-  | "impact_zombie_dog_growl_2"
   | "impact_insect_smash_1"
   | "impact_insect_smash_2"
   | "impact_insect_move_1"
@@ -83,6 +82,8 @@ const SFX_DATA: Partial<Record<SfxKey, string>> = {
   death:
     "data:audio/wav;base64,UklGRvQHAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YdAHAAB/i5ahq7W9xMrO0dLRz8vGv7euo5mNgnZqX1VLQzs1MS4sLC4yNz5FTlhjbnqGkZynsbrByM3Q0tLQzcjCu7KonpKHe29kWU9GPjgyLy0sLTA1OkJKVF5pdYCMl6Kttr7Fy8/R0tHPy8W+tq2il4yAdWleVEpCOjUwLSwtLzI4PkZPWWRve4eSnqiyu8LIzdDS0tDNyMG6saeckYZ6bmNYTkU+NzIuLCwuMTU7Q0tVX2p2go2Zo663v8bLz9HS0c7KxL21q6GWi39zaF1TSUE6NDAtLC0vMzg/R1BbZXF8iJSfqbO7w8nN0NLS0MzHwLmwppuQhHhtYldNRD02MS4sLC4xNjxDTFZgbHeDj5qlr7jAxszP0dLRzsnEvLSqoJWJfnJnXFFIQDkzLy0sLS8zOUBIUVxncn6JlaCqtLzEyc7R0tHPzMbAuK+lmo+Dd2xgVkxDPDYxLiwsLjE2PURNV2JteISQm6awucDHzNDS0tDNycO7s6mflIh8cWVbUEc/ODMvLSwtMDQ6QUlTXWhzf4uWoau1vcTKztHS0c/Lxr+3rqOZjYJ2al9VS0M7NTEuLCwuMjc+RU5YY256hpGcp7G6wcjN0NLS0M3IwruyqJ6Sh3tvZFlPRj44Mi8tLC0wNTpCSlReaXWAjJeirba+xcvP0dLRz8vFvratopeMgHVpXlRKQjo1MC0sLS8yOD5GT1lkb3uHkp6osrvCyM3Q0tLQzcjBurGnnJGGem5jWE5FPjcyLiwsLjE1O0NLVV9qdoKNmaOut7/Gy8/R0tHOysS9tauhlot/c2hdU0lBOjQwLSwtLzM4P0dQW2VxfIiUn6mzu8PJzdDS0tDMx8C5sKabkIR4bWJXTUQ9NjEuLCwuMTY8Q0xWYGx3g4+apa+4wMbMz9HS0c7JxLy0qqCViX5yZ1xRSEA5My8tLC0vMzlASFFcZ3J+iZWgqrS8xMnO0dLRz8zGwLivpZqPg3dsYFZMQzw2MS4sLC4xNj1ETVdibXiEkJumsLnAx8zQ0tLQzcnDu7Opn5SIfHFlW1BHPzgzLy0sLTA0OkFJU11ocw==",
 };
+
+const encodeAssetPath = (path: string): string => encodeURI(path);
 
 const SFX_DEFINITIONS: Record<SfxKey, SfxDefinition> = {
   hit: {
@@ -189,98 +190,91 @@ const SFX_DEFINITIONS: Record<SfxKey, SfxDefinition> = {
     maxConcurrent: 5,
   },
   impact_zombie_hit_1: {
-    url: "/audio/impacts/zombie/zombie_hit_1.wav",
+    url: encodeAssetPath("/audio/impacts/zombie/Zombie hit.wav"),
     cooldownMs: 90,
     duplicateStrategy: "attenuate",
     attenuation: 0.5,
     maxConcurrent: 5,
   },
   impact_zombie_hit_2: {
-    url: "/audio/impacts/zombie/zombie_hit_2.wav",
+    url: encodeAssetPath("/audio/impacts/zombie/zombie hit 2.wav"),
     cooldownMs: 90,
     duplicateStrategy: "attenuate",
     attenuation: 0.5,
     maxConcurrent: 5,
   },
   impact_zombie_hit_3: {
-    url: "/audio/impacts/zombie/zombie_hit_3.wav",
+    url: encodeAssetPath("/audio/impacts/zombie/zombie hit 3.wav"),
     cooldownMs: 90,
     duplicateStrategy: "attenuate",
     attenuation: 0.5,
     maxConcurrent: 5,
   },
   impact_zombie_growl_1: {
-    url: "/audio/impacts/zombie/zombie_growl_1.mp3",
+    url: encodeAssetPath("/audio/impacts/zombie/zombie growl.mp3"),
     cooldownMs: 120,
     duplicateStrategy: "attenuate",
     attenuation: 0.6,
     maxConcurrent: 5,
   },
   impact_zombie_growl_2: {
-    url: "/audio/impacts/zombie/zombie_growl_2.wav",
+    url: encodeAssetPath("/audio/impacts/zombie/Zombie growl 2.wav"),
     cooldownMs: 120,
     duplicateStrategy: "attenuate",
     attenuation: 0.6,
     maxConcurrent: 5,
   },
   impact_zombie_short_grunt: {
-    url: "/audio/impacts/zombie/zombie_short_grunt.wav",
+    url: encodeAssetPath("/audio/impacts/zombie/Zombie short grunt.wav"),
     cooldownMs: 90,
     duplicateStrategy: "attenuate",
     attenuation: 0.5,
     maxConcurrent: 5,
   },
   impact_zombie_snarl: {
-    url: "/audio/impacts/zombie/snarling_zombie.wav",
+    url: encodeAssetPath("/audio/impacts/zombie/Snarling Zombie.wav"),
     cooldownMs: 120,
     duplicateStrategy: "attenuate",
     attenuation: 0.6,
     maxConcurrent: 5,
   },
   impact_zombie_dog_hit: {
-    url: "/audio/impacts/zombie-animal/zombie_dog_hit.wav",
+    url: encodeAssetPath("/audio/impacts/zombie-animal/Zombie dog hit.wav"),
     cooldownMs: 90,
     duplicateStrategy: "attenuate",
     attenuation: 0.5,
     maxConcurrent: 5,
   },
   impact_zombie_dog_growl_1: {
-    url: "/audio/impacts/zombie-animal/zombie_dog_growl_1.wav",
-    cooldownMs: 120,
-    duplicateStrategy: "attenuate",
-    attenuation: 0.6,
-    maxConcurrent: 5,
-  },
-  impact_zombie_dog_growl_2: {
-    url: "/audio/impacts/zombie-animal/zombie_dog_growl_2.wav",
+    url: encodeAssetPath("/audio/impacts/zombie-animal/Zombie Dog.wav"),
     cooldownMs: 120,
     duplicateStrategy: "attenuate",
     attenuation: 0.6,
     maxConcurrent: 5,
   },
   impact_insect_smash_1: {
-    url: "/audio/impacts/insect/insect_smash_01.mp3",
+    url: encodeAssetPath("/audio/impacts/insect/Insect Smash 01.mp3"),
     cooldownMs: 90,
     duplicateStrategy: "attenuate",
     attenuation: 0.5,
     maxConcurrent: 5,
   },
   impact_insect_smash_2: {
-    url: "/audio/impacts/insect/insect_smash_02.mp3",
+    url: encodeAssetPath("/audio/impacts/insect/Insect Smash 02.mp3"),
     cooldownMs: 90,
     duplicateStrategy: "attenuate",
     attenuation: 0.5,
     maxConcurrent: 5,
   },
   impact_insect_move_1: {
-    url: "/audio/impacts/insect/larva_move_1.wav",
+    url: encodeAssetPath("/audio/impacts/insect/Larva move 1.wav"),
     cooldownMs: 120,
     duplicateStrategy: "attenuate",
     attenuation: 0.6,
     maxConcurrent: 5,
   },
   impact_insect_move_2: {
-    url: "/audio/impacts/insect/larva_move_2.wav",
+    url: encodeAssetPath("/audio/impacts/insect/Larva move 2.wav"),
     cooldownMs: 120,
     duplicateStrategy: "attenuate",
     attenuation: 0.6,

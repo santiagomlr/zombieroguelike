@@ -15,7 +15,6 @@ const CATEGORY_IMPACT_SOUNDS: Record<EnemyCategory, readonly SfxKey[]> = {
   zombie_animal: [
     "impact_zombie_dog_hit",
     "impact_zombie_dog_growl_1",
-    "impact_zombie_dog_growl_2",
   ],
   insect: [
     "impact_insect_smash_1",
