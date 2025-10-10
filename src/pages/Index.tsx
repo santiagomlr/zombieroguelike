@@ -1379,7 +1379,12 @@ const Index = () => {
           });
         } else if (gameState.state === "paused" && gameState.countdownTimer > 0) {
           gameState.countdownTimer = 0;
-        } else if (gameState.state === "paused" && !gameState.showUpgradeUI) {
+        } else if (
+          gameState.state === "paused" &&
+          !gameState.showUpgradeUI &&
+          !gameState.pausedForChest &&
+          !gameState.activeChestChoice
+        ) {
           // Iniciar countdown de 3 segundos
           gameState.countdownTimer = 3;
           gameState.pauseMenuAudioOpen = false;
@@ -3343,7 +3348,12 @@ const Index = () => {
             break;
           }
         }
-      } else if (gameState.state === "paused" && !gameState.showUpgradeUI && gameState.countdownTimer <= 0) {
+      } else if (
+        gameState.state === "paused" &&
+        !gameState.showUpgradeUI &&
+        gameState.countdownTimer <= 0 &&
+        !gameState.pausedForChest
+      ) {
         const layout = getPauseMenuLayout(W, H);
         const homeLayout = getPauseMenuHomeLayout(layout, gameState.pauseMenuAudioOpen);
         const {
@@ -8082,7 +8092,12 @@ const Index = () => {
       }
 
       // Pause menu - Simplified unified design
-      if (gameState.state === "paused" && !gameState.showUpgradeUI && gameState.countdownTimer <= 0) {
+      if (
+        gameState.state === "paused" &&
+        !gameState.showUpgradeUI &&
+        gameState.countdownTimer <= 0 &&
+        !gameState.pausedForChest
+      ) {
         ctx.save();
         ctx.fillStyle = UI_COLORS.overlay;
         ctx.fillRect(0, 0, W, H);
