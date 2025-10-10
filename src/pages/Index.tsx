@@ -31,6 +31,32 @@ const CAMERA_DEADZONE_RADIUS = 140;
 
 const scaleEntitySize = (value: number) => Math.max(1, Math.round(value * ENTITY_SCALE));
 
+const UI_COLORS = {
+  textPrimary: "#d9d9d9",
+  textSecondary: "rgba(217, 217, 217, 0.7)",
+  accent: "#00d140",
+  accentGlow: "rgba(0, 209, 64, 0.45)",
+  rageAccent: "#ff7a2a",
+  rageGlow: "rgba(255, 122, 42, 0.45)",
+  panelBg: "rgba(10, 10, 10, 0.92)",
+  panelBorder: "rgba(217, 217, 217, 0.2)",
+  overlay: "rgba(0, 0, 0, 0.7)",
+  healthLow: "#b00020",
+  healthHigh: "#ff3b3b",
+  shield: "#2e86c1",
+  ammo: "#ffc300",
+  xp: "#8e44ad",
+  minimap: "#5dbb63",
+  backgroundGradient: ["#111", "#0a0a0a", "#050505"],
+};
+
+const CRT_SETTINGS = {
+  scanlineSpacing: 3,
+  scanlineOpacity: 0.08,
+  vignetteOpacity: 0.15,
+  chromaShift: 1.5,
+};
+
 const getPauseMenuLayout = (W: number, H: number) => {
   const scale = Math.min(1, Math.max(0.7, Math.min(W / 1280, H / 720)));
 
@@ -315,6 +341,7 @@ const Index = () => {
         rageTimer: 0,
         tempMagnetTimer: 0,
         tempShieldTimer: 0,
+        nightVisionActive: false,
         weapons: [WEAPONS[0]],
         tomes: [] as Tome[],
         items: [] as Item[],
@@ -556,7 +583,7 @@ const Index = () => {
       console.log("Enemy logo loaded successfully");
 
       // Pre-render colored enemy logos for performance (excluding green since we have a custom image)
-      const spawnEnemyColors = ["#a855f7", "#fbbf24", "#16a34a", "#9333ea", "#f59e0b", "#ef4444", "#78716c"];
+      const spawnEnemyColors = ["#8e44ad", "#ffc300", "#5dbb63", "#6e6e6e", "#ff7a2a", "#ff3b3b", "#4a4a4a"];
 
       spawnEnemyColors.forEach((color) => {
         ensureTintedLogo(color);
@@ -942,6 +969,10 @@ const Index = () => {
           gameState.pauseMenuAudioOpen = false;
         }
       }
+
+      if (e.key.toLowerCase() === "n") {
+        gameState.player.nightVisionActive = !gameState.player.nightVisionActive;
+      }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
@@ -1058,7 +1089,7 @@ const Index = () => {
           } else if (specialRoll < 0.5) {
             specialType = "fast";
             enemyType = "fast";
-            color = "#fbbf24";
+            color = "#ffc300";
             damage = 3;
             baseHp = 1;
             rad = 10;
@@ -1074,7 +1105,7 @@ const Index = () => {
           } else {
             specialType = "summoner";
             enemyType = "summoner";
-            color = "#a855f7";
+            color = "#8e44ad";
             damage = 5;
             baseHp = 8;
             rad = 14;
@@ -1088,7 +1119,7 @@ const Index = () => {
           if (gameState.wave === 1) {
             // Wave 1: Solo verdes 🟢
             enemyType = "weak";
-            color = "#22c55e";
+            color = "#5dbb63";
             damage = 5;
             baseHp = 3;
             rad = 12;
@@ -1097,14 +1128,14 @@ const Index = () => {
             // Wave 2: Mayoría verdes, algunos morados (≤10%)
             if (roll < 0.9) {
               enemyType = "weak";
-              color = "#22c55e";
+              color = "#5dbb63";
               damage = 5;
               baseHp = 3;
               rad = 12;
               spd = 1.3;
             } else {
               enemyType = "medium";
-              color = "#a855f7";
+              color = "#8e44ad";
               damage = 10;
               baseHp = 5;
               rad = 15;
@@ -1114,14 +1145,14 @@ const Index = () => {
             // Wave 3: Mezcla verde/morado (20-30% morado)
             if (roll < 0.75) {
               enemyType = "weak";
-              color = "#22c55e";
+              color = "#5dbb63";
               damage = 5;
               baseHp = 3;
               rad = 12;
               spd = 1.3;
             } else {
               enemyType = "medium";
-              color = "#a855f7";
+              color = "#8e44ad";
               damage = 10;
               baseHp = 5;
               rad = 15;
@@ -1131,14 +1162,14 @@ const Index = () => {
             // Wave 4: Más morado (30-40%)
             if (roll < 0.65) {
               enemyType = "weak";
-              color = "#22c55e";
+              color = "#5dbb63";
               damage = 5;
               baseHp = 3;
               rad = 12;
               spd = 1.3;
             } else {
               enemyType = "medium";
-              color = "#a855f7";
+              color = "#8e44ad";
               damage = 10;
               baseHp = 5;
               rad = 15;
@@ -1148,21 +1179,21 @@ const Index = () => {
             // Wave 5: Introducir amarillo (3-5%)
             if (roll < 0.04) {
               enemyType = "strong";
-              color = "#fbbf24";
+              color = "#ffc300";
               damage = 20;
               baseHp = 8;
               rad = 18;
               spd = 0.9;
             } else if (roll < 0.6) {
               enemyType = "medium";
-              color = "#a855f7";
+              color = "#8e44ad";
               damage = 10;
               baseHp = 5;
               rad = 15;
               spd = 1.1;
             } else {
               enemyType = "weak";
-              color = "#22c55e";
+              color = "#5dbb63";
               damage = 5;
               baseHp = 3;
               rad = 12;
@@ -1172,21 +1203,21 @@ const Index = () => {
             // Wave 6: Mezcla estable 50/40/10%
             if (roll < 0.1) {
               enemyType = "strong";
-              color = "#fbbf24";
+              color = "#ffc300";
               damage = 20;
               baseHp = 8;
               rad = 18;
               spd = 0.9;
             } else if (roll < 0.5) {
               enemyType = "medium";
-              color = "#a855f7";
+              color = "#8e44ad";
               damage = 10;
               baseHp = 5;
               rad = 15;
               spd = 1.1;
             } else {
               enemyType = "weak";
-              color = "#22c55e";
+              color = "#5dbb63";
               damage = 5;
               baseHp = 3;
               rad = 12;
@@ -1196,21 +1227,21 @@ const Index = () => {
             // Wave 7: Amarillos hasta 12-15%
             if (roll < 0.13) {
               enemyType = "strong";
-              color = "#fbbf24";
+              color = "#ffc300";
               damage = 20;
               baseHp = 8;
               rad = 18;
               spd = 0.9;
             } else if (roll < 0.6) {
               enemyType = "medium";
-              color = "#a855f7";
+              color = "#8e44ad";
               damage = 10;
               baseHp = 5;
               rad = 15;
               spd = 1.1;
             } else {
               enemyType = "weak";
-              color = "#22c55e";
+              color = "#5dbb63";
               damage = 5;
               baseHp = 3;
               rad = 12;
@@ -1222,21 +1253,21 @@ const Index = () => {
 
             if (roll < yellowChance) {
               enemyType = "strong";
-              color = "#fbbf24";
+              color = "#ffc300";
               damage = 20;
               baseHp = 8;
               rad = 18;
               spd = 0.9;
             } else if (roll < yellowChance + 0.45) {
               enemyType = "medium";
-              color = "#a855f7";
+              color = "#8e44ad";
               damage = 10;
               baseHp = 5;
               rad = 15;
               spd = 1.1;
             } else {
               enemyType = "weak";
-              color = "#22c55e";
+              color = "#5dbb63";
               damage = 5;
               baseHp = 3;
               rad = 12;
@@ -1393,7 +1424,7 @@ const Index = () => {
         spd: 1.0,
         isElite: false,
         isMiniBoss: true,
-        color: "#fbbf24",
+        color: "#ffc300",
         damage: Math.floor(25 * (1 + (gameState.wave - 1) * 0.05)),
       });
     }
@@ -1683,7 +1714,7 @@ const Index = () => {
         rad: scaleEntitySize(8),
         type: "xp",
         val,
-        color: "#06b6d4",
+        color: "#8e44ad",
         lifetime: 10,
       });
     }
@@ -1696,16 +1727,16 @@ const Index = () => {
         rad: scaleEntitySize(10),
         type: "heal",
         val: healAmount,
-        color: "#ef4444",
+        color: "#ff3b3b",
       });
     }
 
     function dropPowerup(x: number, y: number, type: "magnet" | "shield" | "rage" | "speed") {
       const powerupData = {
-        magnet: { color: "#10b981", rarity: "uncommon" as Rarity, duration: 10 },
-        shield: { color: "#3b82f6", rarity: "rare" as Rarity, duration: 15 },
-        rage: { color: "#ef4444", rarity: "epic" as Rarity, duration: 8 },
-        speed: { color: "#fbbf24", rarity: "common" as Rarity, duration: 0 }, // duration 0 porque es permanente
+        magnet: { color: "#5dbb63", rarity: "uncommon" as Rarity, duration: 10 },
+        shield: { color: "#2e86c1", rarity: "rare" as Rarity, duration: 15 },
+        rage: { color: "#ff7a2a", rarity: "epic" as Rarity, duration: 8 },
+        speed: { color: "#ffc300", rarity: "common" as Rarity, duration: 0 }, // duration 0 porque es permanente
       };
 
       const data = powerupData[type];
@@ -1727,7 +1758,7 @@ const Index = () => {
         y,
         rad: scaleEntitySize(14),
         type: "chest",
-        color: "#f97316",
+        color: "#ff7a2a",
         spawnTime: gameState.time,
       });
     }
@@ -1825,7 +1856,7 @@ const Index = () => {
       if (!item) {
         collectXP(25);
         playPowerupSound();
-        spawnChestParticles(chest.x, chest.y, "#22c55e");
+        spawnChestParticles(chest.x, chest.y, "#5dbb63");
         return;
       }
 
@@ -1836,7 +1867,7 @@ const Index = () => {
       } else {
         collectXP(25);
         playPowerupSound();
-        spawnChestParticles(chest.x, chest.y, "#22c55e");
+        spawnChestParticles(chest.x, chest.y, "#5dbb63");
       }
     }
 
@@ -2925,7 +2956,7 @@ const Index = () => {
             vx: Math.cos(angle) * 8,
             vy: Math.sin(angle) * 8,
             life: 1.5,
-            color: "#a855f7",
+            color: "#8e44ad",
             size: 4,
           });
         }
@@ -3133,7 +3164,7 @@ const Index = () => {
                     vx: (Math.random() - 0.5) * 4,
                     vy: (Math.random() - 0.5) * 4,
                     life: 0.5,
-                    color: "#60a5fa",
+                    color: "#2e86c1",
                     size: 4,
                   });
                 }
@@ -3149,7 +3180,7 @@ const Index = () => {
                   vx: (Math.random() - 0.5) * 2,
                   vy: (Math.random() - 0.5) * 2,
                   life: 0.8,
-                  color: "#60a5fa",
+                  color: "#2e86c1",
                   size: 3,
                 });
               }
@@ -3222,7 +3253,7 @@ const Index = () => {
                     vx: (Math.random() - 0.5) * 2,
                     vy: -Math.random() * 3,
                     life: 0.8,
-                    color: "#84cc16",
+                    color: "#5dbb63",
                     size: 4,
                   });
                 }
@@ -3241,7 +3272,7 @@ const Index = () => {
                   vx: (Math.random() - 0.5) * 0.5,
                   vy: (Math.random() - 0.5) * 0.5,
                   life: 3,
-                  color: "#84cc16",
+                  color: "#5dbb63",
                   size: 20,
                 });
               }
@@ -3275,7 +3306,7 @@ const Index = () => {
                   vx: 0,
                   vy: 15,
                   life: 2,
-                  color: "#a855f7",
+                  color: "#8e44ad",
                   size: 2,
                 });
               }
@@ -3392,7 +3423,7 @@ const Index = () => {
                   vx: Math.cos(angle) * 8,
                   vy: Math.sin(angle) * 8,
                   life: 1,
-                  color: "#fbbf24",
+                  color: "#ffc300",
                   size: 4,
                 });
               }
@@ -3498,7 +3529,7 @@ const Index = () => {
                   vx: (Math.random() - 0.5) * 2,
                   vy: (Math.random() - 0.5) * 2,
                   life: 0.5,
-                  color: "#f87171",
+                  color: "#ff3b3b",
                   size: 3,
                 });
               }
@@ -3700,7 +3731,7 @@ const Index = () => {
               vx: Math.random() - 0.5,
               vy: -1,
               life: 0.5,
-              color: "#fb923c",
+              color: "#ff7a2a",
               size: 3,
             });
           }
@@ -3717,7 +3748,7 @@ const Index = () => {
               vx: (Math.random() - 0.5) * 0.5,
               vy: (Math.random() - 0.5) * 0.5,
               life: 0.8,
-              color: "#84cc16",
+              color: "#5dbb63",
               size: 2,
             });
           }
@@ -3745,7 +3776,7 @@ const Index = () => {
               vx: (Math.random() - 0.5) * 3,
               vy: (Math.random() - 0.5) * 3,
               life: 0.3,
-              color: e.explosionTimer < 0.5 ? "#fbbf24" : "#ef4444",
+              color: e.explosionTimer < 0.5 ? "#ffc300" : "#ef4444",
               size: e.explosionTimer < 0.5 ? 5 : 3,
             });
           }
@@ -3815,7 +3846,7 @@ const Index = () => {
                   vx: Math.cos(angle) * speed,
                   vy: Math.sin(angle) * speed,
                   life: 1 + Math.random() * 0.5,
-                  color: j % 2 === 0 ? "#ef4444" : "#fb923c",
+                  color: j % 2 === 0 ? "#ef4444" : "#ff7a2a",
                   size: 6 + Math.random() * 4,
                 });
               }
@@ -3857,7 +3888,7 @@ const Index = () => {
                 isMiniBoss: false,
                 isBoss: false,
                 isSummoned: true, // Marcado como invocado, no cuenta para la wave
-                color: "#a855f7",
+                color: "#8e44ad",
                 specialType: null,
                 frozenTimer: 0,
                 burnTimer: 0,
@@ -4116,7 +4147,7 @@ const Index = () => {
                       vx: (Math.random() - 0.5) * 2,
                       vy: (Math.random() - 0.5) * 2,
                       life: 0.3,
-                      color: "#60a5fa",
+                      color: "#2e86c1",
                       size: 3,
                     });
                   }
@@ -4175,7 +4206,7 @@ const Index = () => {
                     vx: Math.cos(angle) * speed,
                     vy: Math.sin(angle) * speed,
                     life: 0.8,
-                    color: j % 2 === 0 ? "#a855f7" : "#f97316",
+                    color: j % 2 === 0 ? "#8e44ad" : "#ff7a2a",
                     size: 4,
                   });
                 }
@@ -4377,7 +4408,7 @@ const Index = () => {
                       spd: 15,
                       life: 3,
                       damage: gameState.player.stats.damageMultiplier * 50 * solarStacks,
-                      color: "#fbbf24",
+                      color: "#ffc300",
                       bounces: 0,
                       bounceOnEnemies: false,
                       pierce: true,
@@ -4394,7 +4425,7 @@ const Index = () => {
                         vx: Math.cos(angle) * 10,
                         vy: Math.sin(angle) * 10,
                         life: 1,
-                        color: "#fbbf24",
+                        color: "#ffc300",
                         size: 5,
                       });
                     }
@@ -4505,7 +4536,7 @@ const Index = () => {
                   vx: Math.cos(angle) * 3,
                   vy: Math.sin(angle) * 3,
                   life: 0.6,
-                  color: "#22c55e",
+                  color: "#5dbb63",
                   size: 4,
                 });
               }
@@ -4597,7 +4628,7 @@ const Index = () => {
                     vx: Math.cos(angle) * 8,
                     vy: Math.sin(angle) * 8,
                     life: 1,
-                    color: "#fbbf24",
+                    color: "#ffc300",
                     size: 4,
                   });
                 }
@@ -4615,7 +4646,7 @@ const Index = () => {
                     vx: Math.cos(angle) * 6,
                     vy: Math.sin(angle) * 6,
                     life: 0.8,
-                    color: "#3b82f6",
+                    color: "#2e86c1",
                     size: 3,
                   });
                 }
@@ -4659,7 +4690,7 @@ const Index = () => {
                       vx: Math.cos(angle) * 12,
                       vy: Math.sin(angle) * 12,
                       life: 0.8,
-                      color: "#a855f7",
+                      color: "#8e44ad",
                       size: 4,
                     });
                   }
@@ -4794,6 +4825,13 @@ const Index = () => {
       const t = translations[currentLanguage];
       ctx.save();
 
+      const isRage = gameState.player.rageTimer > 0;
+      const isNightVision = Boolean(gameState.player.nightVisionActive);
+      const accentColor = isNightVision ? UI_COLORS.minimap : isRage ? UI_COLORS.rageAccent : UI_COLORS.accent;
+      const accentGlow = isRage ? UI_COLORS.rageGlow : UI_COLORS.accentGlow;
+      const textPrimary = isNightVision ? "rgba(220, 255, 220, 0.95)" : UI_COLORS.textPrimary;
+      const textSecondary = isNightVision ? "rgba(190, 255, 190, 0.8)" : UI_COLORS.textSecondary;
+
       // HP Bar - Barra horizontal con valor numérico
       const hpBarX = 20;
       const hpBarY = 70; // Movido más abajo para no chocar con el anuncio del evento
@@ -4801,9 +4839,9 @@ const Index = () => {
       const hpBarH = 32;
 
       // Fondo de la barra de HP
-      ctx.fillStyle = "rgba(20, 25, 35, 0.9)";
+      ctx.fillStyle = UI_COLORS.panelBg;
       ctx.fillRect(hpBarX, hpBarY, hpBarW, hpBarH);
-      ctx.strokeStyle = "#334155";
+      ctx.strokeStyle = UI_COLORS.panelBorder;
       ctx.lineWidth = 3;
       ctx.strokeRect(hpBarX, hpBarY, hpBarW, hpBarH);
 
@@ -4816,23 +4854,19 @@ const Index = () => {
       // Gradiente para la barra de HP
       if (currentHpBarW > 0) {
         const hpGradient = ctx.createLinearGradient(hpBarX, hpBarY, hpBarX + currentHpBarW, hpBarY);
-        if (hpPercent > 0.5) {
-          hpGradient.addColorStop(0, "#ef4444");
-          hpGradient.addColorStop(1, "#dc2626");
-        } else if (hpPercent > 0.25) {
-          hpGradient.addColorStop(0, "#f97316");
-          hpGradient.addColorStop(1, "#ea580c");
-        } else {
-          hpGradient.addColorStop(0, "#dc2626");
-          hpGradient.addColorStop(1, "#991b1b");
-        }
+        hpGradient.addColorStop(0, UI_COLORS.healthLow);
+        hpGradient.addColorStop(1, UI_COLORS.healthHigh);
 
+        ctx.save();
+        ctx.shadowColor = UI_COLORS.healthHigh;
+        ctx.shadowBlur = 16;
         ctx.fillStyle = hpGradient;
         ctx.fillRect(hpBarX + 2, hpBarY + 2, currentHpBarW - 4, hpBarH - 4);
+        ctx.restore();
       }
 
       // Texto de HP en el centro
-      ctx.fillStyle = "#fff";
+      ctx.fillStyle = textPrimary;
       ctx.font = "bold 18px system-ui";
       ctx.textAlign = "center";
       ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
@@ -4844,11 +4878,32 @@ const Index = () => {
       );
       ctx.shadowBlur = 0;
 
+      ctx.save();
+      ctx.shadowColor = UI_COLORS.healthHigh;
+      ctx.shadowBlur = 18;
+      ctx.fillStyle = UI_COLORS.healthHigh;
+      ctx.textAlign = "left";
+      ctx.font = "bold 20px system-ui";
+      ctx.fillText("❤", hpBarX - 24, hpBarY + hpBarH / 2 + 7);
+      ctx.restore();
+
+      if (hpPercent < 0.3) {
+        const flicker = (Math.sin(gameState.time * 14) + 1) / 2;
+        ctx.save();
+        ctx.globalAlpha = 0.4 + flicker * 0.35;
+        ctx.strokeStyle = UI_COLORS.healthHigh;
+        ctx.lineWidth = 4;
+        ctx.shadowColor = UI_COLORS.healthHigh;
+        ctx.shadowBlur = 18;
+        ctx.strokeRect(hpBarX - 3, hpBarY - 3, hpBarW + 6, hpBarH + 6);
+        ctx.restore();
+      }
+
       // Efecto de parpadeo durante invulnerabilidad
       if (gameState.player.ifr > 0) {
         const flashAlpha = Math.sin(gameState.time * 20) * 0.3 + 0.3;
         ctx.globalAlpha = flashAlpha;
-        ctx.strokeStyle = "#fbbf24";
+        ctx.strokeStyle = accentColor;
         ctx.lineWidth = 4;
         ctx.strokeRect(hpBarX - 2, hpBarY - 2, hpBarW + 4, hpBarH + 4);
         ctx.globalAlpha = 1;
@@ -4857,14 +4912,18 @@ const Index = () => {
       // Shield icons
       if (gameState.player.shield > 0) {
         ctx.textAlign = "left";
-        ctx.fillStyle = "#3b82f6";
+        ctx.fillStyle = UI_COLORS.shield;
         ctx.font = "bold 16px system-ui";
         for (let i = 0; i < gameState.player.shield; i++) {
           const shieldX = hpBarX + hpBarW + 15 + i * 30;
           ctx.beginPath();
           ctx.arc(shieldX, hpBarY + hpBarH / 2, 12, 0, Math.PI * 2);
+          ctx.save();
+          ctx.shadowColor = `${UI_COLORS.shield}aa`;
+          ctx.shadowBlur = 12;
           ctx.fill();
-          ctx.strokeStyle = "#2563eb";
+          ctx.restore();
+          ctx.strokeStyle = "rgba(222, 239, 255, 0.6)";
           ctx.lineWidth = 2;
           ctx.stroke();
         }
@@ -4877,9 +4936,9 @@ const Index = () => {
       const staminaBarH = 20;
 
       // Fondo de la barra de stamina
-      ctx.fillStyle = "rgba(20, 25, 35, 0.9)";
+      ctx.fillStyle = UI_COLORS.panelBg;
       ctx.fillRect(staminaBarX, staminaBarY, staminaBarW, staminaBarH);
-      ctx.strokeStyle = "#334155";
+      ctx.strokeStyle = UI_COLORS.panelBorder;
       ctx.lineWidth = 2;
       ctx.strokeRect(staminaBarX, staminaBarY, staminaBarW, staminaBarH);
 
@@ -4894,15 +4953,15 @@ const Index = () => {
           staminaBarX + currentStaminaBarW,
           staminaBarY,
         );
-        staminaGradient.addColorStop(0, "#22c55e");
-        staminaGradient.addColorStop(1, "#16a34a");
+        staminaGradient.addColorStop(0, accentColor);
+        staminaGradient.addColorStop(1, `${accentColor}cc`);
         ctx.fillStyle = staminaGradient;
         ctx.fillRect(staminaBarX + 1, staminaBarY + 1, currentStaminaBarW - 2, staminaBarH - 2);
       }
 
       // Texto de stamina
       ctx.textAlign = "center";
-      ctx.fillStyle = "#fff";
+      ctx.fillStyle = textSecondary;
       ctx.font = "bold 12px system-ui";
       ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
       ctx.shadowBlur = 4;
@@ -4916,7 +4975,7 @@ const Index = () => {
       // Indicador de sprint activo
       if (gameState.player.isSprinting) {
         ctx.globalAlpha = 0.6 + Math.sin(gameState.time * 10) * 0.4;
-        ctx.strokeStyle = "#22c55e";
+        ctx.strokeStyle = "#5dbb63";
         ctx.lineWidth = 3;
         ctx.strokeRect(staminaBarX - 2, staminaBarY - 2, staminaBarW + 4, staminaBarH + 4);
         ctx.globalAlpha = 1;
@@ -4933,7 +4992,7 @@ const Index = () => {
 
       // Wave counter (debajo del nivel)
       const waveY = staminaBarY + staminaBarH + 47;
-      ctx.fillStyle = "#a855f7";
+      ctx.fillStyle = "#8e44ad";
       ctx.font = "bold 16px system-ui";
       ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
       ctx.shadowBlur = 4;
@@ -4964,7 +5023,7 @@ const Index = () => {
           progressBarX + currentProgressW,
           progressBarY,
         );
-        progressGradient.addColorStop(0, "#a855f7");
+        progressGradient.addColorStop(0, "#8e44ad");
         progressGradient.addColorStop(1, "#7c3aed");
         ctx.fillStyle = progressGradient;
         ctx.fillRect(progressBarX + 1, progressBarY + 1, currentProgressW - 2, progressBarH - 2);
@@ -4985,7 +5044,7 @@ const Index = () => {
 
       // Score
       ctx.textAlign = "right";
-      ctx.fillStyle = "#fbbf24";
+      ctx.fillStyle = "#ffc300";
       ctx.font = "bold 24px system-ui";
       ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
       ctx.shadowBlur = 4;
@@ -5000,16 +5059,16 @@ const Index = () => {
       const xpBarRadius = 20;
 
       // Fondo de la barra (redondeada)
-      ctx.fillStyle = "rgba(10, 15, 25, 0.85)";
+      ctx.fillStyle = UI_COLORS.panelBg;
       ctx.beginPath();
       ctx.roundRect(xpBarX, xpBarY, xpBarW, xpBarH, xpBarRadius);
       ctx.fill();
 
       // Borde exterior con glow
-      ctx.strokeStyle = "rgba(100, 100, 120, 0.6)";
+      ctx.strokeStyle = accentColor;
       ctx.lineWidth = 2;
-      ctx.shadowColor = "rgba(100, 100, 255, 0.4)";
-      ctx.shadowBlur = 10;
+      ctx.shadowColor = accentGlow;
+      ctx.shadowBlur = 12;
       ctx.stroke();
       ctx.shadowBlur = 0;
 
@@ -5033,13 +5092,11 @@ const Index = () => {
 
           // Colores rainbow con offset animado
           const colors = [
-            { stop: 0, color: "#ef4444" }, // Red
-            { stop: 0.17, color: "#f97316" }, // Orange
-            { stop: 0.33, color: "#fbbf24" }, // Yellow
-            { stop: 0.5, color: "#22c55e" }, // Green
-            { stop: 0.67, color: "#06b6d4" }, // Cyan
-            { stop: 0.83, color: "#3b82f6" }, // Blue
-            { stop: 1, color: "#a855f7" }, // Purple
+            { stop: 0, color: UI_COLORS.healthLow },
+            { stop: 0.2, color: UI_COLORS.ammo },
+            { stop: 0.45, color: UI_COLORS.accent },
+            { stop: 0.7, color: UI_COLORS.shield },
+            { stop: 1, color: UI_COLORS.xp },
           ];
 
           colors.forEach(({ stop, color }) => {
@@ -5064,14 +5121,13 @@ const Index = () => {
         } else {
           // Gradiente normal (neón cyan-purple)
           const gradient = ctx.createLinearGradient(xpBarX, xpBarY, xpBarX + currentXpBarW, xpBarY);
-          gradient.addColorStop(0, "#06b6d4");
-          gradient.addColorStop(0.5, "#3b82f6");
-          gradient.addColorStop(1, "#a855f7");
+          gradient.addColorStop(0, "#301a3e");
+          gradient.addColorStop(1, UI_COLORS.xp);
           ctx.fillStyle = gradient;
 
           // Glow sutil
-          ctx.shadowColor = "#06b6d4";
-          ctx.shadowBlur = 15;
+          ctx.shadowColor = `${UI_COLORS.xp}cc`;
+          ctx.shadowBlur = 18;
         }
 
         ctx.fillRect(xpBarX + 4, xpBarY + 4, currentXpBarW, xpBarH - 8);
@@ -5080,7 +5136,7 @@ const Index = () => {
       }
 
       // Texto de XP centrado
-      ctx.fillStyle = "#fff";
+      ctx.fillStyle = textPrimary;
       ctx.font = "bold 20px system-ui";
       ctx.textAlign = "center";
       ctx.shadowColor = "rgba(0, 0, 0, 0.9)";
@@ -5094,14 +5150,24 @@ const Index = () => {
 
       // Weapons display
       ctx.textAlign = "left";
-      ctx.fillStyle = "#fff";
       ctx.font = "bold 14px system-ui";
+      ctx.save();
+      ctx.shadowColor = `${UI_COLORS.ammo}aa`;
+      ctx.shadowBlur = 18;
+      ctx.fillStyle = UI_COLORS.ammo;
+      ctx.fillText(t.weapons, W - 220, 70);
+      ctx.restore();
+      ctx.fillStyle = textPrimary;
       ctx.fillText(t.weapons, W - 220, 70);
       for (let i = 0; i < gameState.player.weapons.length; i++) {
         const w = gameState.player.weapons[i];
         ctx.fillStyle = w.color;
+        ctx.save();
+        ctx.shadowColor = `${w.color}aa`;
+        ctx.shadowBlur = 10;
         ctx.fillRect(W - 220, 80 + i * 25, 18, 18);
-        ctx.fillStyle = "#fff";
+        ctx.restore();
+        ctx.fillStyle = textSecondary;
         ctx.font = "12px system-ui";
         const weaponName = getWeaponName(w.id, currentLanguage);
         const weaponText = w.level > 1 ? `${weaponName} LVL ${w.level}` : weaponName;
@@ -5109,15 +5175,19 @@ const Index = () => {
       }
 
       // Books display
-      ctx.fillStyle = "#fff";
+      ctx.fillStyle = textPrimary;
       ctx.font = "bold 14px system-ui";
       const tomeY = 80 + gameState.player.weapons.length * 25 + 10;
       ctx.fillText(t.tomes, W - 220, tomeY);
       for (let i = 0; i < gameState.player.tomes.length; i++) {
         const tome = gameState.player.tomes[i];
         ctx.fillStyle = tome.color;
+        ctx.save();
+        ctx.shadowColor = `${tome.color}aa`;
+        ctx.shadowBlur = 10;
         ctx.fillRect(W - 220, tomeY + 10 + i * 25, 18, 18);
-        ctx.fillStyle = "#fff";
+        ctx.restore();
+        ctx.fillStyle = textSecondary;
         ctx.font = "12px system-ui";
         const tomeName = getTomeName(tome.id, currentLanguage);
         const tomeText = tome.level > 1 ? `${tomeName} LVL ${tome.level}` : tomeName;
@@ -5126,7 +5196,7 @@ const Index = () => {
 
       // Items display
       if (gameState.player.items.length > 0) {
-        ctx.fillStyle = "#fff";
+        ctx.fillStyle = textPrimary;
         ctx.font = "bold 14px system-ui";
         const itemY = tomeY + gameState.player.tomes.length * 25 + 20;
         ctx.fillText(t.items, W - 220, itemY);
@@ -5136,8 +5206,12 @@ const Index = () => {
         for (let i = 0; i < maxItemsToShow; i++) {
           const item = gameState.player.items[i];
           ctx.fillStyle = item.color;
+          ctx.save();
+          ctx.shadowColor = `${item.color}aa`;
+          ctx.shadowBlur = 8;
           ctx.fillRect(W - 220, itemY + 10 + i * 20, 12, 12);
-          ctx.fillStyle = "#fff";
+          ctx.restore();
+          ctx.fillStyle = textSecondary;
           ctx.font = "10px system-ui";
           // Truncar nombre si es muy largo
           const itemNameFull = getItemText(item, currentLanguage).name;
@@ -5147,7 +5221,7 @@ const Index = () => {
 
         // Indicador de más ítems
         if (gameState.player.items.length > 10) {
-          ctx.fillStyle = "#9ca3af";
+          ctx.fillStyle = textSecondary;
           ctx.font = "10px system-ui";
           const remaining = gameState.player.items.length - 10;
           const moreItemsText = currentLanguage === "es" ? `+${remaining} más` : `+${remaining} more`;
@@ -5155,11 +5229,22 @@ const Index = () => {
         }
       }
 
+      if (isNightVision) {
+        ctx.save();
+        ctx.textAlign = "right";
+        ctx.font = "bold 16px system-ui";
+        ctx.shadowColor = accentGlow;
+        ctx.shadowBlur = 14;
+        ctx.fillStyle = accentColor;
+        ctx.fillText("NIGHT VISION", W - 40, 40);
+        ctx.restore();
+      }
+
       // Level up animation
       if (gameState.levelUpAnimation > 0) {
         const alpha = gameState.levelUpAnimation;
         ctx.globalAlpha = alpha;
-        ctx.fillStyle = "#fbbf24";
+        ctx.fillStyle = accentColor;
         ctx.font = "bold 72px system-ui";
         ctx.textAlign = "center";
         const scale = 1 + (1 - alpha) * 0.5;
@@ -5178,21 +5263,21 @@ const Index = () => {
         ctx.globalAlpha = fadeOut;
 
         // Fondo semitransparente
-        ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+        ctx.fillStyle = UI_COLORS.overlay;
         ctx.fillRect(0, H / 2 - 80, W, 160);
 
         // Icono de wave
         const pulse = Math.sin(gameState.time * 8) * 0.2 + 0.8;
-        ctx.fillStyle = "#a855f7";
-        ctx.shadowColor = "#a855f7";
+        ctx.fillStyle = accentColor;
+        ctx.shadowColor = accentColor;
         ctx.shadowBlur = 30 * pulse;
         ctx.font = "bold 72px system-ui";
         ctx.textAlign = "center";
         ctx.fillText("⚡", W / 2, H / 2 - 10);
 
         // Texto principal con glow - Wave que viene
-        ctx.fillStyle = "#fbbf24";
-        ctx.shadowColor = "#fbbf24";
+        ctx.fillStyle = UI_COLORS.ammo;
+        ctx.shadowColor = UI_COLORS.ammo;
         ctx.shadowBlur = 30 * pulse;
         ctx.font = "bold 56px system-ui";
         ctx.fillText(`WAVE ${gameState.wave}`, W / 2, H / 2 + 50);
@@ -5211,15 +5296,15 @@ const Index = () => {
         ctx.globalAlpha = notifAlpha;
 
         // Barra superior roja de alerta
-        ctx.fillStyle = "rgba(220, 38, 38, 0.95)";
+        ctx.fillStyle = "rgba(176, 0, 32, 0.92)";
         ctx.fillRect(0, 0, W, 60);
 
         // Borde inferior brillante
-        ctx.fillStyle = "#ef4444";
+        ctx.fillStyle = UI_COLORS.healthHigh;
         ctx.fillRect(0, 58, W, 2);
 
         // Icono de alerta
-        ctx.fillStyle = "#fbbf24";
+        ctx.fillStyle = UI_COLORS.ammo;
         ctx.font = "bold 32px system-ui";
         ctx.textAlign = "left";
         ctx.fillText("⚠️", 20, 40);
@@ -5234,7 +5319,7 @@ const Index = () => {
         // Mostrar texto del evento actual
         const eventText = gameState.environmentalEvent ? eventTexts[gameState.environmentalEvent] : "";
 
-        ctx.fillStyle = "#fff";
+        ctx.fillStyle = textPrimary;
         ctx.font = "bold 20px system-ui";
         ctx.textAlign = "left";
         ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
@@ -5262,18 +5347,18 @@ const Index = () => {
         const notifX = W / 2 - notifW / 2;
 
         // Background
-        ctx.fillStyle = "rgba(20, 25, 35, 0.95)";
+        ctx.fillStyle = UI_COLORS.panelBg;
         ctx.beginPath();
         ctx.roundRect(notifX, notifY, notifW, notifH, 10);
         ctx.fill();
 
         // Border
-        ctx.strokeStyle = "#a855f7";
+        ctx.strokeStyle = accentColor;
         ctx.lineWidth = 2;
         ctx.stroke();
 
         // Text
-        ctx.fillStyle = "#fff";
+        ctx.fillStyle = textPrimary;
         ctx.fillText(notifText, W / 2, notifY + notifH / 2 + 8);
 
         ctx.globalAlpha = 1;
@@ -5294,17 +5379,17 @@ const Index = () => {
         const notifH = 44;
         const notifX = W / 2 - notifW / 2;
 
-        ctx.fillStyle = "rgba(15, 23, 42, 0.9)";
+        ctx.fillStyle = UI_COLORS.panelBg;
         ctx.beginPath();
         ctx.roundRect(notifX, notifY - notifH / 2, notifW, notifH, 12);
         ctx.fill();
 
-        ctx.strokeStyle = "rgba(14, 165, 233, 0.8)";
+        ctx.strokeStyle = accentColor;
         ctx.lineWidth = 2;
         ctx.stroke();
 
-        ctx.fillStyle = "#f8fafc";
-        ctx.shadowColor = "rgba(14, 165, 233, 0.6)";
+        ctx.fillStyle = textPrimary;
+        ctx.shadowColor = accentGlow;
         ctx.shadowBlur = 10;
         ctx.fillText(notifText, W / 2, notifY + 6);
 
@@ -5326,39 +5411,39 @@ const Index = () => {
         ctx.scale(scaleFactor, scaleFactor);
         ctx.translate(-centerX, -centerY);
 
-        ctx.beginPath();
-        ctx.roundRect(startRect.x, startRect.y, startRect.w, startRect.h, 14);
-        ctx.fillStyle = "rgba(71, 85, 105, 0.98)";
-        ctx.fill();
+          ctx.beginPath();
+          ctx.roundRect(startRect.x, startRect.y, startRect.w, startRect.h, 14);
+          ctx.fillStyle = UI_COLORS.panelBg;
+          ctx.fill();
 
-        ctx.strokeStyle = "rgba(226, 232, 240, 0.25)";
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        ctx.restore();
+          ctx.strokeStyle = UI_COLORS.panelBorder;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.restore();
 
-        ctx.save();
-        ctx.textAlign = "center";
-        ctx.fillStyle = "#e2e8f0";
-        ctx.font = "600 16px system-ui";
-        ctx.fillText(t.startMusicButton, centerX, startRect.y + startRect.h / 2 + 2);
+          ctx.save();
+          ctx.textAlign = "center";
+          ctx.fillStyle = textPrimary;
+          ctx.font = "600 16px system-ui";
+          ctx.fillText(t.startMusicButton, centerX, startRect.y + startRect.h / 2 + 2);
 
-        ctx.font = "12px system-ui";
-        ctx.fillStyle = "rgba(226, 232, 240, 0.75)";
-        ctx.fillText(t.shufflePlaylistReady, centerX, startRect.y + startRect.h - 10);
-        ctx.restore();
+          ctx.font = "12px system-ui";
+          ctx.fillStyle = textSecondary;
+          ctx.fillText(t.shufflePlaylistReady, centerX, startRect.y + startRect.h - 10);
+          ctx.restore();
       } else if (gameState.musicControlsVisible) {
         const panelRect = getMusicControlPanelRect(W, H);
         const panelRadius = 16;
 
         ctx.save();
-        ctx.beginPath();
-        ctx.roundRect(panelRect.x, panelRect.y, panelRect.w, panelRect.h, panelRadius);
-        ctx.fillStyle = "rgba(15, 23, 42, 0.88)";
-        ctx.fill();
+          ctx.beginPath();
+          ctx.roundRect(panelRect.x, panelRect.y, panelRect.w, panelRect.h, panelRadius);
+          ctx.fillStyle = UI_COLORS.panelBg;
+          ctx.fill();
 
-        ctx.strokeStyle = "rgba(148, 163, 184, 0.3)";
-        ctx.lineWidth = 2;
-        ctx.stroke();
+          ctx.strokeStyle = UI_COLORS.panelBorder;
+          ctx.lineWidth = 2;
+          ctx.stroke();
         ctx.restore();
 
         const controlSize = 44;
@@ -5367,7 +5452,7 @@ const Index = () => {
         const controlStartX = panelRect.x + (panelRect.w - totalControlsWidth) / 2;
         const controlY = panelRect.y + 16;
 
-        const rainbowColors = ["#38bdf8", "#34d399", "#facc15", "#f97316", "#a855f7"];
+        const rainbowColors = ["#2e86c1", "#5dbb63", "#ffc300", "#ff7a2a", "#8e44ad"];
 
         const controls: Array<{ key: "previous" | "pause" | "next"; icon: string; index: number }> = [
           { key: "previous", icon: "⏮", index: 0 },
@@ -5429,10 +5514,39 @@ const Index = () => {
 
       // Overlay de Game Over con fade
       if (gameState.state === "gameover") {
-        ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+        ctx.fillStyle = UI_COLORS.overlay;
         ctx.fillRect(0, 0, W, H);
       }
 
+      ctx.restore();
+    }
+
+    function drawCRTOverlay() {
+      ctx.save();
+      ctx.globalCompositeOperation = "soft-light";
+      ctx.globalAlpha = CRT_SETTINGS.vignetteOpacity;
+      const vignette = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H));
+      vignette.addColorStop(0, "rgba(0, 0, 0, 0)");
+      vignette.addColorStop(1, "rgba(0, 0, 0, 1)");
+      ctx.fillStyle = vignette;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+
+      ctx.save();
+      ctx.globalAlpha = CRT_SETTINGS.scanlineOpacity;
+      ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
+      for (let y = 0; y < H; y += CRT_SETTINGS.scanlineSpacing) {
+        ctx.fillRect(0, y, W, 1);
+      }
+      ctx.restore();
+
+      ctx.save();
+      ctx.globalCompositeOperation = "screen";
+      ctx.globalAlpha = 0.08;
+      ctx.fillStyle = "rgba(0, 255, 170, 0.25)";
+      ctx.fillRect(-CRT_SETTINGS.chromaShift, 0, W, H);
+      ctx.fillStyle = "rgba(255, 70, 0, 0.18)";
+      ctx.fillRect(CRT_SETTINGS.chromaShift, 0, W, H);
       ctx.restore();
     }
 
@@ -5474,9 +5588,9 @@ const Index = () => {
       ctx.scale(titleScale, titleScale);
 
       // Glow effect en el título
-      ctx.shadowColor = "#fbbf24";
+      ctx.shadowColor = "#ffc300";
       ctx.shadowBlur = 40 * pulse * animProgress;
-      ctx.fillStyle = "#fbbf24";
+      ctx.fillStyle = "#ffc300";
       ctx.font = "bold 56px system-ui";
       ctx.textAlign = "center";
       ctx.fillText(t.levelUp, 0, 0);
@@ -5709,6 +5823,9 @@ const Index = () => {
       const currentLanguage = (gameState.language ?? "es") as Language;
       const t = translations[currentLanguage];
       const camera = gameState.camera ?? { x: gameState.player.x, y: gameState.player.y };
+      const nightVisionActive = Boolean(gameState.player?.nightVisionActive);
+      const textPrimary = nightVisionActive ? "rgba(220, 255, 220, 0.95)" : UI_COLORS.textPrimary;
+      const textSecondary = nightVisionActive ? "rgba(190, 255, 190, 0.75)" : UI_COLORS.textSecondary;
       ctx.clearRect(0, 0, W, H);
 
       const offsetX = Math.round(W / 2 - camera.x);
@@ -5744,9 +5861,9 @@ const Index = () => {
           camera.y - H / 3,
           Math.max(W, H),
         );
-        gradient.addColorStop(0, "#0f1729");
-        gradient.addColorStop(0.5, "#0a0f1a");
-        gradient.addColorStop(1, "#060a10");
+        gradient.addColorStop(0, UI_COLORS.backgroundGradient[0]);
+        gradient.addColorStop(0.5, UI_COLORS.backgroundGradient[1]);
+        gradient.addColorStop(1, UI_COLORS.backgroundGradient[2]);
         ctx.fillStyle = gradient;
         ctx.fillRect(viewLeft, viewTop, W, H);
       }
@@ -5830,7 +5947,7 @@ const Index = () => {
           // Borde de la zona
           ctx.strokeStyle = `rgba(132, 204, 22, ${pulse * intensity})`;
           ctx.lineWidth = 3;
-          ctx.shadowColor = "#84cc16";
+          ctx.shadowColor = "#5dbb63";
           ctx.shadowBlur = 15 * pulse * intensity;
           ctx.setLineDash([10, 10]);
           ctx.strokeRect(zone.x, zone.y, zone.width, zone.height);
@@ -5842,7 +5959,7 @@ const Index = () => {
           ctx.fillStyle = `rgba(132, 204, 22, ${pulse})`;
           ctx.font = "bold 48px system-ui";
           ctx.textAlign = "center";
-          ctx.shadowColor = "#84cc16";
+          ctx.shadowColor = "#5dbb63";
           ctx.shadowBlur = 20;
           ctx.fillText("🌫️", zone.x + zone.width / 2, zone.y + zone.height / 2 + 16);
           ctx.shadowBlur = 0;
@@ -5873,7 +5990,7 @@ const Index = () => {
         // Borde pulsante
         ctx.strokeStyle = `rgba(96, 165, 250, ${pulse * intensity})`;
         ctx.lineWidth = 4;
-        ctx.shadowColor = "#60a5fa";
+        ctx.shadowColor = "#2e86c1";
         ctx.shadowBlur = 20 * pulse * intensity;
         ctx.setLineDash([8, 8]);
         ctx.beginPath();
@@ -5887,7 +6004,7 @@ const Index = () => {
         ctx.fillStyle = `rgba(96, 165, 250, ${pulse})`;
         ctx.font = "bold 56px system-ui";
         ctx.textAlign = "center";
-        ctx.shadowColor = "#60a5fa";
+        ctx.shadowColor = "#2e86c1";
         ctx.shadowBlur = 25;
         ctx.fillText("⚡", storm.x, storm.y + 20);
         ctx.shadowBlur = 0;
@@ -5949,7 +6066,7 @@ const Index = () => {
           // Timer de expiración
           if (!h.active) {
             const remaining = h.maxExpiration - h.expirationTimer;
-            ctx.fillStyle = "#fbbf24";
+            ctx.fillStyle = "#ffc300";
             ctx.font = "bold 16px system-ui";
             ctx.fillText(`${Math.ceil(remaining)}s`, h.x, h.y + 45);
           }
@@ -5970,7 +6087,7 @@ const Index = () => {
           // Borde radiactivo animado
           ctx.strokeStyle = `rgba(168, 85, 247, ${radioPulse})`;
           ctx.lineWidth = 3;
-          ctx.shadowColor = "#a855f7";
+          ctx.shadowColor = "#8e44ad";
           ctx.shadowBlur = 20 * radioPulse;
           ctx.setLineDash([6, 6]);
           ctx.beginPath();
@@ -5980,7 +6097,7 @@ const Index = () => {
           ctx.shadowBlur = 0;
 
           // Icono radiactivo
-          ctx.fillStyle = "#a855f7";
+          ctx.fillStyle = "#8e44ad";
           ctx.font = "bold 28px system-ui";
           ctx.textAlign = "center";
           ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
@@ -5990,7 +6107,7 @@ const Index = () => {
         } else {
           // HOTSPOT POSITIVO (recompensa)
           // Outer circle
-          ctx.strokeStyle = h.active ? "#fbbf24" : "rgba(251, 191, 36, 0.5)";
+          ctx.strokeStyle = h.active ? "#ffc300" : "rgba(251, 191, 36, 0.5)";
           ctx.lineWidth = 3;
           ctx.setLineDash([10, 10]);
           ctx.beginPath();
@@ -6000,7 +6117,7 @@ const Index = () => {
 
           // Progress circle (cuando está activo - progreso de recompensa)
           if (h.active) {
-            ctx.strokeStyle = "#22c55e";
+            ctx.strokeStyle = "#5dbb63";
             ctx.lineWidth = 6;
             ctx.beginPath();
             ctx.arc(h.x, h.y, h.rad - 10, 0, (Math.PI * 2 * h.progress) / h.required);
@@ -6024,7 +6141,7 @@ const Index = () => {
           // Time remaining text
           if (h.active) {
             // Mostrar tiempo para completar
-            ctx.fillStyle = "#22c55e";
+            ctx.fillStyle = "#5dbb63";
             ctx.font = "bold 20px system-ui";
             ctx.textAlign = "center";
             ctx.fillText(`${Math.ceil(h.required - h.progress)}s`, h.x, h.y + 5);
@@ -6147,9 +6264,9 @@ const Index = () => {
         } else if (e.isSummoned && gameState.ghoulImg?.complete) {
           // Ghoul summons should use the same sprite as their summoner
           enemyImage = gameState.ghoulImg;
-        } else if (e.color === "#22c55e" && gameState.greenZombieImg?.complete) {
+        } else if (e.color === "#5dbb63" && gameState.greenZombieImg?.complete) {
           enemyImage = gameState.greenZombieImg;
-        } else if ((e.color === "#9333ea" || e.color === "#a855f7") && gameState.purpleZombieImg?.complete) {
+        } else if ((e.color === "#9333ea" || e.color === "#8e44ad") && gameState.purpleZombieImg?.complete) {
           enemyImage = gameState.purpleZombieImg;
         } else if (e.color === "#78716c" && gameState.shieldImg?.complete) {
           enemyImage = gameState.shieldImg;
@@ -6203,7 +6320,7 @@ const Index = () => {
               ? `rgba(251, 191, 36, ${pulse * intensity})`
               : `rgba(239, 68, 68, ${pulse * intensity})`;
           ctx.lineWidth = e.explosionTimer < 0.5 ? 4 : 3;
-          ctx.shadowColor = e.explosionTimer < 0.5 ? "#fbbf24" : "#ef4444";
+          ctx.shadowColor = e.explosionTimer < 0.5 ? "#ffc300" : "#ef4444";
           ctx.shadowBlur = 20 * pulse;
           ctx.beginPath();
           ctx.arc(e.x, e.y, warningRadius, 0, Math.PI * 2);
@@ -6235,7 +6352,7 @@ const Index = () => {
         // Ancho de la barra de HP actual (proporcional al HP)
         const hpBarWidth = barW * Math.max(0, Math.min(1, e.hp / e.maxhp));
 
-        ctx.fillStyle = e.isBoss ? "#dc2626" : e.isMiniBoss ? "#fbbf24" : e.isElite ? "#f87171" : "#34d399";
+        ctx.fillStyle = e.isBoss ? "#dc2626" : e.isMiniBoss ? "#ffc300" : e.isElite ? "#ff3b3b" : "#5dbb63";
         ctx.fillRect(barX, barY, hpBarWidth, barH);
 
         // Fase del boss
@@ -6278,21 +6395,21 @@ const Index = () => {
           // Efecto eléctrico
           glowSize = 15;
           ctx.shadowBlur = 20;
-          ctx.shadowColor = "#60a5fa";
+          ctx.shadowColor = "#2e86c1";
         } else if (b.fire) {
           // Efecto de fuego
           glowSize = 12;
-          ctx.shadowColor = "#fb923c";
+          ctx.shadowColor = "#ff7a2a";
         } else if (b.freeze) {
           // Efecto de hielo
           glowSize = 12;
-          ctx.shadowColor = "#38bdf8";
+          ctx.shadowColor = "#2e86c1";
         }
 
         // Balas de enemigos (rojo)
         if (b.isEnemyBullet) {
-          ctx.fillStyle = "#ef4444";
-          ctx.shadowColor = "#ef4444";
+          ctx.fillStyle = UI_COLORS.healthHigh;
+          ctx.shadowColor = UI_COLORS.healthHigh;
           bulletSize = 4;
           glowSize = 15;
         } else {
@@ -6331,19 +6448,22 @@ const Index = () => {
       if (blink) ctx.globalAlpha = 0.4;
 
       // Rage mode glow
+      const playerAccent = isRage ? UI_COLORS.rageAccent : UI_COLORS.accent;
+      const playerGlow = isRage ? UI_COLORS.rageGlow : UI_COLORS.accentGlow;
+
       if (isRage) {
-        ctx.shadowColor = "#ef4444";
+        ctx.shadowColor = playerAccent;
         ctx.shadowBlur = 40;
-        ctx.strokeStyle = "#ef4444";
+        ctx.strokeStyle = playerAccent;
         ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.arc(gameState.player.x, gameState.player.y, gameState.player.rad + 10, 0, Math.PI * 2);
         ctx.stroke();
       }
 
-      ctx.fillStyle = isRage ? "#ef4444" : "#60a5fa";
-      ctx.shadowColor = isRage ? "#ef4444" : "#60a5fa";
-      ctx.shadowBlur = isRage ? 30 : 20;
+      ctx.fillStyle = playerAccent;
+      ctx.shadowColor = playerGlow;
+      ctx.shadowBlur = isRage ? 32 : 20;
       ctx.beginPath();
       ctx.arc(gameState.player.x, gameState.player.y, gameState.player.rad, 0, Math.PI * 2);
       ctx.fill();
@@ -6352,15 +6472,15 @@ const Index = () => {
 
       // Powerup indicators
       let indicatorY = gameState.player.y - gameState.player.rad - 30;
-      if (gameState.player.tempMagnetTimer > 0) {
-        ctx.fillStyle = "#10b981";
+        if (gameState.player.tempMagnetTimer > 0) {
+          ctx.fillStyle = "#5dbb63";
         ctx.font = "bold 12px system-ui";
         ctx.textAlign = "center";
         ctx.fillText(`🧲 ${Math.ceil(gameState.player.tempMagnetTimer)}s`, gameState.player.x, indicatorY);
         indicatorY -= 15;
       }
       if (gameState.player.rageTimer > 0) {
-        ctx.fillStyle = "#ef4444";
+        ctx.fillStyle = playerAccent;
         ctx.font = "bold 12px system-ui";
         ctx.fillText(`⚡ ${Math.ceil(gameState.player.rageTimer)}s`, gameState.player.x, indicatorY);
       }
@@ -6375,16 +6495,16 @@ const Index = () => {
         const radius = 60;
 
         // Background circle
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+        ctx.strokeStyle = "rgba(217, 217, 217, 0.25)";
         ctx.lineWidth = 8;
         ctx.beginPath();
         ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
         ctx.stroke();
 
         // Progress arc
-        ctx.strokeStyle = "#ef4444";
+        ctx.strokeStyle = UI_COLORS.healthHigh;
         ctx.lineWidth = 8;
-        ctx.shadowColor = "#ef4444";
+        ctx.shadowColor = UI_COLORS.healthHigh;
         ctx.shadowBlur = 20;
         ctx.beginPath();
         ctx.arc(centerX, centerY, radius, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress);
@@ -6392,7 +6512,7 @@ const Index = () => {
         ctx.shadowBlur = 0;
 
         // Text
-        ctx.fillStyle = "#fff";
+        ctx.fillStyle = textPrimary;
         ctx.font = "bold 24px system-ui";
         ctx.textAlign = "center";
         ctx.fillText("R", centerX, centerY + 8);
@@ -6400,7 +6520,7 @@ const Index = () => {
         // Timer text - prevent negative numbers
         const remaining = Math.max(0, Math.ceil(gameState.restartHoldTime - gameState.restartTimer));
         ctx.font = "bold 18px system-ui";
-        ctx.fillStyle = "#ef4444";
+        ctx.fillStyle = UI_COLORS.healthHigh;
         ctx.fillText(remaining === 0 ? "0s" : `${remaining}s`, centerX, centerY + 35);
       }
 
@@ -6413,16 +6533,31 @@ const Index = () => {
         ctx.save();
 
         // Borde rojo alrededor de toda la pantalla
-        ctx.strokeStyle = `rgba(239, 68, 68, ${flashIntensity})`;
+        ctx.strokeStyle = `rgba(255, 59, 59, ${flashIntensity})`;
         ctx.lineWidth = 15;
         ctx.strokeRect(7.5, 7.5, W - 15, H - 15);
 
         // Overlay rojo sutil en toda la pantalla
-        ctx.fillStyle = `rgba(220, 38, 38, ${flashIntensity * 0.15})`;
+        ctx.fillStyle = `rgba(176, 0, 32, ${flashIntensity * 0.2})`;
         ctx.fillRect(0, 0, W, H);
 
         ctx.restore();
       }
+
+      if (gameState.player.nightVisionActive) {
+        ctx.save();
+        ctx.globalCompositeOperation = "color";
+        ctx.globalAlpha = 0.35;
+        ctx.fillStyle = "rgba(93, 187, 99, 0.9)";
+        ctx.fillRect(0, 0, W, H);
+        ctx.globalCompositeOperation = "screen";
+        ctx.globalAlpha = 0.18;
+        ctx.fillStyle = "rgba(0, 209, 64, 0.9)";
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+      }
+
+      drawCRTOverlay();
 
       // Game Over overlay fade
       // GAME OVER SCREEN
@@ -6440,10 +6575,10 @@ const Index = () => {
           const pulse = Math.sin(gameState.time * 3) * 0.2 + 0.8;
 
           ctx.globalAlpha = messageAlpha;
-          ctx.fillStyle = "#ef4444";
+          ctx.fillStyle = UI_COLORS.healthHigh;
           ctx.font = "bold 48px system-ui";
           ctx.textAlign = "center";
-          ctx.shadowColor = "#ef4444";
+          ctx.shadowColor = UI_COLORS.healthHigh;
           ctx.shadowBlur = 30 * pulse;
           ctx.fillText("Has caído en la horda...", W / 2, H / 2 - 80);
           ctx.shadowBlur = 0;
@@ -6455,15 +6590,16 @@ const Index = () => {
             const time = Math.floor(gameState.elapsedTime);
             const mm = String(Math.floor(time / 60)).padStart(2, "0");
             const ss = String(time % 60).padStart(2, "0");
-            ctx.fillStyle = "#fbbf24";
+            ctx.fillStyle = UI_COLORS.ammo;
             ctx.font = "bold 56px system-ui";
-            ctx.shadowColor = "#fbbf24";
+            ctx.shadowColor = UI_COLORS.ammo;
             ctx.shadowBlur = 20 * pulse;
             ctx.fillText(`Tiempo sobrevivido: ${mm}:${ss}`, W / 2, H / 2 + 20);
             ctx.shadowBlur = 0;
           }
 
           ctx.globalAlpha = 1;
+          drawCRTOverlay();
           ctx.restore();
           return; // No mostrar el panel hasta después de 3 segundos
         }
@@ -6479,24 +6615,24 @@ const Index = () => {
 
         // Background con gradiente
         const bgGradient = ctx.createLinearGradient(menuX, menuY, menuX, menuY + menuH);
-        bgGradient.addColorStop(0, "rgba(20, 10, 10, 0.98)");
-        bgGradient.addColorStop(1, "rgba(40, 20, 20, 0.98)");
+        bgGradient.addColorStop(0, "rgba(10, 10, 10, 0.96)");
+        bgGradient.addColorStop(1, "rgba(24, 24, 24, 0.96)");
         ctx.fillStyle = bgGradient;
         ctx.fillRect(menuX, menuY, menuW, menuH);
 
         // Border con glow rojo
-        ctx.strokeStyle = "#ef4444";
+        ctx.strokeStyle = UI_COLORS.healthHigh;
         ctx.lineWidth = 4;
-        ctx.shadowColor = "#ef4444";
+        ctx.shadowColor = UI_COLORS.healthHigh;
         ctx.shadowBlur = 30;
         ctx.strokeRect(menuX, menuY, menuW, menuH);
         ctx.shadowBlur = 0;
 
         // Título GAME OVER
-        ctx.fillStyle = "#ef4444";
+        ctx.fillStyle = UI_COLORS.healthHigh;
         ctx.font = "bold 64px system-ui";
         ctx.textAlign = "center";
-        ctx.shadowColor = "#ef4444";
+        ctx.shadowColor = UI_COLORS.healthHigh;
         ctx.shadowBlur = 20;
         ctx.fillText(t.gameOver, W / 2, menuY + 90);
         ctx.shadowBlur = 0;
@@ -6504,7 +6640,7 @@ const Index = () => {
         let contentY = menuY + 160;
 
         // Separador
-        ctx.strokeStyle = "rgba(239, 68, 68, 0.3)";
+        ctx.strokeStyle = "rgba(255, 59, 59, 0.3)";
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(menuX + 60, contentY);
@@ -6518,35 +6654,35 @@ const Index = () => {
         const rightCol = menuX + menuW / 2 + 80;
 
         ctx.font = "bold 28px system-ui";
-        ctx.fillStyle = "#fbbf24";
+        ctx.fillStyle = UI_COLORS.accent;
         ctx.textAlign = "left";
         ctx.fillText("📊 " + t.stats, leftCol, contentY);
         contentY += 60;
 
         ctx.font = "24px system-ui";
-        ctx.fillStyle = "#d1d5db";
+        ctx.fillStyle = textSecondary;
 
         // Score
         ctx.fillText(t.finalScore + ":", leftCol, contentY);
-        ctx.fillStyle = "#a855f7";
+        ctx.fillStyle = UI_COLORS.xp;
         ctx.textAlign = "right";
         ctx.fillText(gameState.score.toString(), rightCol + 180, contentY);
         contentY += 50;
 
         // Level
-        ctx.fillStyle = "#d1d5db";
+        ctx.fillStyle = textSecondary;
         ctx.textAlign = "left";
         ctx.fillText(t.finalLevel + ":", leftCol, contentY);
-        ctx.fillStyle = "#22c55e";
+        ctx.fillStyle = UI_COLORS.accent;
         ctx.textAlign = "right";
         ctx.fillText(gameState.level.toString(), rightCol + 180, contentY);
         contentY += 50;
 
         // Wave
-        ctx.fillStyle = "#d1d5db";
+        ctx.fillStyle = textSecondary;
         ctx.textAlign = "left";
         ctx.fillText(t.finalWave + ":", leftCol, contentY);
-        ctx.fillStyle = "#3b82f6";
+        ctx.fillStyle = UI_COLORS.shield;
         ctx.textAlign = "right";
         ctx.fillText(gameState.wave.toString(), rightCol + 180, contentY);
         contentY += 50;
@@ -6555,10 +6691,10 @@ const Index = () => {
         const time = Math.floor(gameState.elapsedTime);
         const mm = String(Math.floor(time / 60)).padStart(2, "0");
         const ss = String(time % 60).padStart(2, "0");
-        ctx.fillStyle = "#d1d5db";
+        ctx.fillStyle = textSecondary;
         ctx.textAlign = "left";
         ctx.fillText("Tiempo:", leftCol, contentY);
-        ctx.fillStyle = "#fbbf24";
+        ctx.fillStyle = UI_COLORS.ammo;
         ctx.textAlign = "right";
         ctx.fillText(`${mm}:${ss}`, rightCol + 180, contentY);
 
@@ -6569,27 +6705,27 @@ const Index = () => {
         const btnY = menuY + menuH - 120;
 
         const btnGradient = ctx.createLinearGradient(btnX, btnY, btnX, btnY + btnH);
-        btnGradient.addColorStop(0, "#ef4444");
-        btnGradient.addColorStop(1, "#dc2626");
+        btnGradient.addColorStop(0, UI_COLORS.healthHigh);
+        btnGradient.addColorStop(1, UI_COLORS.healthLow);
         ctx.fillStyle = btnGradient;
         ctx.beginPath();
         ctx.roundRect(btnX, btnY, btnW, btnH, 15);
         ctx.fill();
 
-        ctx.strokeStyle = "#fff";
+        ctx.strokeStyle = textPrimary;
         ctx.lineWidth = 3;
-        ctx.shadowColor = "#ef4444";
+        ctx.shadowColor = UI_COLORS.healthHigh;
         ctx.shadowBlur = 20;
         ctx.stroke();
         ctx.shadowBlur = 0;
 
-        ctx.fillStyle = "#fff";
+        ctx.fillStyle = textPrimary;
         ctx.font = "bold 32px system-ui";
         ctx.textAlign = "center";
         ctx.fillText("🔄 " + t.playAgain, btnX + btnW / 2, btnY + btnH / 2 + 12);
 
         // Hint de teclas
-        ctx.fillStyle = "rgba(156, 163, 175, 0.8)";
+        ctx.fillStyle = textSecondary;
         ctx.font = "18px system-ui";
         ctx.fillText("Presiona R o Enter para reiniciar", W / 2, menuY + menuH - 25);
 
@@ -6599,7 +6735,7 @@ const Index = () => {
       // Pause menu - Simplified unified design
       if (gameState.state === "paused" && !gameState.showUpgradeUI && gameState.countdownTimer <= 0) {
         ctx.save();
-        ctx.fillStyle = "rgba(5, 10, 20, 0.85)";
+        ctx.fillStyle = UI_COLORS.overlay;
         ctx.fillRect(0, 0, W, H);
 
         const currentLanguage = (gameState.language ?? language) as Language;
@@ -6608,6 +6744,8 @@ const Index = () => {
         const layout = getPauseMenuLayout(W, H);
         const { menuX, menuY, menuW, menuH, padding, scale } = layout;
         const homeLayout = getPauseMenuHomeLayout(layout, gameState.pauseMenuAudioOpen);
+        const pauseAccent = gameState.player.rageTimer > 0 ? UI_COLORS.rageAccent : UI_COLORS.accent;
+        const pauseGlow = gameState.player.rageTimer > 0 ? UI_COLORS.rageGlow : UI_COLORS.accentGlow;
 
         const scaleValue = (value: number) => value * scale;
         const scaledRadius = (value: number) => Math.max(6, value * scale);
@@ -6621,24 +6759,24 @@ const Index = () => {
         ctx.beginPath();
         ctx.roundRect(menuX, menuY, menuW, menuH, scaledRadius(20));
         const bgGradient = ctx.createLinearGradient(menuX, menuY, menuX, menuY + menuH);
-        bgGradient.addColorStop(0, "rgba(10, 15, 30, 0.98)");
-        bgGradient.addColorStop(1, "rgba(15, 20, 35, 0.95)");
+        bgGradient.addColorStop(0, "rgba(10, 10, 10, 0.96)");
+        bgGradient.addColorStop(1, "rgba(24, 24, 24, 0.92)");
         ctx.fillStyle = bgGradient;
-        ctx.shadowColor = "rgba(34, 197, 94, 0.3)";
-        ctx.shadowBlur = scaleValue(40);
+        ctx.shadowColor = pauseGlow;
+        ctx.shadowBlur = scaleValue(36);
         ctx.fill();
         ctx.shadowBlur = 0;
-        ctx.strokeStyle = "rgba(34, 197, 94, 0.6)";
+        ctx.strokeStyle = pauseAccent;
         ctx.lineWidth = Math.max(2, 2.5 * scale);
         ctx.stroke();
         ctx.restore();
 
         // Header
         const headerY = menuY + padding;
-        ctx.fillStyle = "#22c55e";
+        ctx.fillStyle = pauseAccent;
         ctx.font = getScaledFont(32, "800");
         ctx.textAlign = "center";
-        ctx.shadowColor = "rgba(34, 197, 94, 0.8)";
+        ctx.shadowColor = pauseGlow;
         ctx.shadowBlur = scaleValue(15);
         ctx.fillText("⏸  " + t.paused.toUpperCase(), W / 2, headerY);
         ctx.shadowBlur = 0;
@@ -6651,9 +6789,9 @@ const Index = () => {
           const seconds = String(totalSeconds % 60).padStart(2, "0");
 
           const stats = [
-            { label: t.wave, value: `${gameState.wave}`, color: "#3b82f6" },
-            { label: t.level, value: `${gameState.level}`, color: "#fbbf24" },
-            { label: "⏱️", value: `${minutes}:${seconds}`, color: "#a855f7" },
+            { label: t.wave, value: `${gameState.wave}`, color: UI_COLORS.shield },
+            { label: t.level, value: `${gameState.level}`, color: UI_COLORS.ammo },
+            { label: "⏱️", value: `${minutes}:${seconds}`, color: UI_COLORS.xp },
           ];
 
           const statBoxW = (menuW - padding * 2 - 20 * scale) / 3;
@@ -6666,21 +6804,21 @@ const Index = () => {
             ctx.beginPath();
             ctx.roundRect(statX, statsY, statBoxW, statBoxH, scaledRadius(12));
             const statGradient = ctx.createLinearGradient(statX, statsY, statX, statsY + statBoxH);
-            statGradient.addColorStop(0, `${stat.color}40`);
-            statGradient.addColorStop(1, "rgba(15, 20, 35, 0.6)");
+            statGradient.addColorStop(0, `${stat.color}2a`);
+            statGradient.addColorStop(1, "rgba(15, 15, 15, 0.7)");
             ctx.fillStyle = statGradient;
             ctx.fill();
-            ctx.strokeStyle = `${stat.color}80`;
+            ctx.strokeStyle = `${stat.color}a5`;
             ctx.lineWidth = Math.max(1, 1.5 * scale);
             ctx.stroke();
             ctx.restore();
 
             ctx.textAlign = "center";
-            ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+            ctx.fillStyle = textSecondary;
             ctx.font = getScaledFont(13, "500");
-            ctx.fillText(stat.label, statX + statBoxW / 2, statsY + 22 * scale);
+            ctx.fillText(stat.label.toUpperCase(), statX + statBoxW / 2, statsY + 22 * scale);
 
-            ctx.fillStyle = "#ffffff";
+            ctx.fillStyle = stat.color;
             ctx.font = getScaledFont(24, "700");
             ctx.fillText(stat.value, statX + statBoxW / 2, statsY + statBoxH - 18 * scale);
           });
@@ -6710,30 +6848,31 @@ const Index = () => {
           ctx.beginPath();
           ctx.roundRect(panelX, panelY, panelW, panelH, scaledRadius(18));
           const panelGradient = ctx.createLinearGradient(panelX, panelY, panelX, panelY + panelH);
-          panelGradient.addColorStop(0, "rgba(37, 99, 235, 0.45)");
-          panelGradient.addColorStop(1, "rgba(15, 23, 42, 0.65)");
+          panelGradient.addColorStop(0, `${UI_COLORS.shield}2f`);
+          panelGradient.addColorStop(1, UI_COLORS.panelBg);
           ctx.fillStyle = panelGradient;
           ctx.fill();
-          ctx.strokeStyle = "rgba(191, 219, 254, 0.5)";
+          ctx.strokeStyle = `${UI_COLORS.shield}aa`;
           ctx.lineWidth = Math.max(1.5, 2 * scale);
-          ctx.shadowColor = "rgba(37, 99, 235, 0.45)";
+          ctx.shadowColor = `${UI_COLORS.shield}55`;
           ctx.shadowBlur = scaleValue(16);
           ctx.stroke();
           ctx.shadowBlur = 0;
           ctx.restore();
 
-          ctx.fillStyle = "#e0f2fe";
+          ctx.fillStyle = textPrimary;
           ctx.font = getScaledFont(18, "700");
           ctx.textAlign = "center";
           ctx.fillText(t.pauseMenu.audio.toUpperCase(), panelX + panelW / 2, panelY + Math.min(36 * scale, Math.max(24 * scale, panelH * 0.18)));
 
           ctx.textAlign = "left";
-          ctx.fillStyle = "rgba(226, 232, 240, 0.85)";
+          ctx.fillStyle = textSecondary;
           ctx.font = getScaledFont(14, "600");
           const volumeLabelY = Math.min(panelY + panelH - 20 * scale, panelY + Math.max(54 * scale, panelH * 0.32));
           ctx.fillText(t.pauseMenu.musicVolume, panelX + 20 * scale, volumeLabelY);
 
           ctx.textAlign = "right";
+          ctx.fillStyle = textPrimary;
           ctx.fillText(
             `${Math.round(gameState.targetMusicVolume * 100)}%`,
             panelX + panelW - 20 * scale,
@@ -6748,7 +6887,7 @@ const Index = () => {
           ctx.save();
           ctx.beginPath();
           ctx.roundRect(sliderX, sliderY, sliderW, sliderH, scaledRadius(12));
-          ctx.fillStyle = "rgba(15, 23, 42, 0.7)";
+          ctx.fillStyle = UI_COLORS.panelBg;
           ctx.fill();
           ctx.restore();
 
@@ -6758,7 +6897,7 @@ const Index = () => {
           ctx.save();
           ctx.beginPath();
           ctx.roundRect(sliderX, sliderY, sliderFillW, sliderH, scaledRadius(12));
-          ctx.fillStyle = "rgba(96, 165, 250, 0.75)";
+          ctx.fillStyle = `${UI_COLORS.shield}bb`;
           ctx.fill();
           ctx.restore();
 
@@ -6766,9 +6905,9 @@ const Index = () => {
           const handleRadius = Math.max(8, 12 * scale);
           ctx.beginPath();
           ctx.arc(handleX, sliderY + sliderH / 2, handleRadius, 0, Math.PI * 2);
-          ctx.fillStyle = "#60a5fa";
+          ctx.fillStyle = UI_COLORS.shield;
           ctx.fill();
-          ctx.strokeStyle = "#bfdbfe";
+          ctx.strokeStyle = `${UI_COLORS.shield}cc`;
           ctx.lineWidth = Math.max(1, 1.5 * scale);
           ctx.stroke();
 
@@ -6786,15 +6925,15 @@ const Index = () => {
             ctx.roundRect(toggle.x, toggle.y, toggle.w, toggle.h, scaledRadius(14));
             const gradient = ctx.createLinearGradient(toggle.x, toggle.y, toggle.x, toggle.y + toggle.h);
             if (active) {
-              gradient.addColorStop(0, "rgba(34, 197, 94, 0.4)");
-              gradient.addColorStop(1, "rgba(22, 163, 74, 0.35)");
-              ctx.strokeStyle = "rgba(134, 239, 172, 0.8)";
-              ctx.shadowColor = "rgba(34, 197, 94, 0.35)";
+              gradient.addColorStop(0, `${pauseAccent}33`);
+              gradient.addColorStop(1, `${pauseAccent}1f`);
+              ctx.strokeStyle = `${pauseAccent}aa`;
+              ctx.shadowColor = pauseGlow;
             } else {
-              gradient.addColorStop(0, "rgba(71, 85, 105, 0.45)");
-              gradient.addColorStop(1, "rgba(51, 65, 85, 0.35)");
-              ctx.strokeStyle = "rgba(148, 163, 184, 0.6)";
-              ctx.shadowColor = "rgba(30, 41, 59, 0.4)";
+              gradient.addColorStop(0, "rgba(80, 80, 80, 0.45)");
+              gradient.addColorStop(1, "rgba(50, 50, 50, 0.35)");
+              ctx.strokeStyle = "rgba(120, 120, 120, 0.6)";
+              ctx.shadowColor = "rgba(0, 0, 0, 0.35)";
             }
             ctx.fillStyle = gradient;
             ctx.fill();
@@ -6805,12 +6944,12 @@ const Index = () => {
             ctx.restore();
 
             ctx.textAlign = "left";
-            ctx.fillStyle = "#f8fafc";
+            ctx.fillStyle = textPrimary;
             ctx.font = getScaledFont(15, "600");
             ctx.fillText(label, toggle.x + 18 * scale, toggle.y + 24 * scale);
 
             ctx.textAlign = "right";
-            ctx.fillStyle = active ? "#bbf7d0" : "#cbd5f5";
+            ctx.fillStyle = active ? pauseAccent : textSecondary;
             ctx.font = getScaledFont(14, "500");
             ctx.fillText(
               active ? onText : offText,
@@ -6832,20 +6971,20 @@ const Index = () => {
         ctx.beginPath();
         ctx.roundRect(continueBtn.x, continueBtn.y, continueBtn.w, continueBtn.h, scaledRadius(14));
         const continueBg = ctx.createLinearGradient(0, continueY, 0, continueY + buttonH);
-        continueBg.addColorStop(0, "rgba(34, 197, 94, 0.4)");
-        continueBg.addColorStop(1, "rgba(34, 197, 94, 0.25)");
+        continueBg.addColorStop(0, `${pauseAccent}33`);
+        continueBg.addColorStop(1, `${pauseAccent}1d`);
         ctx.fillStyle = continueBg;
         ctx.fill();
-        ctx.strokeStyle = "rgba(134, 239, 172, 0.8)";
+        ctx.strokeStyle = `${pauseAccent}aa`;
         ctx.lineWidth = Math.max(2, 2 * scale);
-        ctx.shadowColor = "rgba(34, 197, 94, 0.5)";
+        ctx.shadowColor = pauseGlow;
         ctx.shadowBlur = scaleValue(15);
         ctx.stroke();
         ctx.shadowBlur = 0;
         ctx.restore();
 
         ctx.textAlign = "center";
-        ctx.fillStyle = "#ffffff";
+        ctx.fillStyle = textPrimary;
         ctx.font = getScaledFont(20, "700");
         ctx.fillText("▶  " + t.continue.toUpperCase(), W / 2, continueY + buttonH / 2 + scaleValue(7));
 
@@ -6855,19 +6994,19 @@ const Index = () => {
         ctx.beginPath();
         ctx.roundRect(audioBtn.x, audioBtn.y, audioBtn.w, audioBtn.h, scaledRadius(14));
         const audioBg = ctx.createLinearGradient(0, audioY, 0, audioY + buttonH);
-        audioBg.addColorStop(0, "rgba(168, 85, 247, 0.35)");
-        audioBg.addColorStop(1, "rgba(59, 130, 246, 0.28)");
+        audioBg.addColorStop(0, `${UI_COLORS.shield}33`);
+        audioBg.addColorStop(1, `${UI_COLORS.shield}18`);
         ctx.fillStyle = audioBg;
         ctx.fill();
-        ctx.strokeStyle = gameState.pauseMenuAudioOpen ? "rgba(192, 132, 252, 0.85)" : "rgba(147, 197, 253, 0.7)";
+        ctx.strokeStyle = gameState.pauseMenuAudioOpen ? `${UI_COLORS.shield}cc` : `${UI_COLORS.shield}88`;
         ctx.lineWidth = Math.max(1.5, 1.8 * scale);
-        ctx.shadowColor = gameState.pauseMenuAudioOpen ? "rgba(192, 132, 252, 0.5)" : "rgba(59, 130, 246, 0.35)";
+        ctx.shadowColor = `${UI_COLORS.shield}55`;
         ctx.shadowBlur = scaleValue(gameState.pauseMenuAudioOpen ? 18 : 12);
         ctx.stroke();
         ctx.shadowBlur = 0;
         ctx.restore();
 
-        ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+        ctx.fillStyle = textPrimary;
         ctx.font = getScaledFont(18, "600");
         ctx.fillText(
           `${gameState.pauseMenuAudioOpen ? "🎚️" : "🎧"}  ${t.pauseMenu.audio}`,
@@ -6881,20 +7020,20 @@ const Index = () => {
         ctx.beginPath();
         ctx.roundRect(languageBtn.x, languageBtn.y, languageBtn.w, languageBtn.h, scaledRadius(14));
         const languageBg = ctx.createLinearGradient(0, languageY, 0, languageY + buttonH);
-        languageBg.addColorStop(0, "rgba(20, 184, 166, 0.35)");
-        languageBg.addColorStop(1, "rgba(45, 212, 191, 0.28)");
+        languageBg.addColorStop(0, `${UI_COLORS.minimap}33`);
+        languageBg.addColorStop(1, `${UI_COLORS.minimap}18`);
         ctx.fillStyle = languageBg;
         ctx.fill();
-        ctx.strokeStyle = "rgba(94, 234, 212, 0.7)";
+        ctx.strokeStyle = `${UI_COLORS.minimap}aa`;
         ctx.lineWidth = Math.max(1.5, 1.8 * scale);
-        ctx.shadowColor = "rgba(45, 212, 191, 0.4)";
+        ctx.shadowColor = `${UI_COLORS.minimap}55`;
         ctx.shadowBlur = scaleValue(12);
         ctx.stroke();
         ctx.shadowBlur = 0;
         ctx.restore();
 
         const languageLabel = t.pauseMenu.languages[currentLanguage];
-        ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+        ctx.fillStyle = textPrimary;
         ctx.font = getScaledFont(18, "600");
         ctx.fillText(
           `${t.pauseMenu.language}: ${languageLabel ? languageLabel : currentLanguage.toUpperCase()}`,
@@ -6908,16 +7047,16 @@ const Index = () => {
         ctx.beginPath();
         ctx.roundRect(restartBtn.x, restartBtn.y, restartBtn.w, restartBtn.h, scaledRadius(14));
         const restartBg = ctx.createLinearGradient(0, restartY, 0, restartY + buttonH);
-        restartBg.addColorStop(0, "rgba(239, 68, 68, 0.3)");
-        restartBg.addColorStop(1, "rgba(239, 68, 68, 0.2)");
+        restartBg.addColorStop(0, `${UI_COLORS.healthHigh}33`);
+        restartBg.addColorStop(1, `${UI_COLORS.healthLow}1f`);
         ctx.fillStyle = restartBg;
         ctx.fill();
-        ctx.strokeStyle = "rgba(252, 165, 165, 0.6)";
+        ctx.strokeStyle = `${UI_COLORS.healthHigh}aa`;
         ctx.lineWidth = Math.max(1.5, 1.5 * scale);
         ctx.stroke();
         ctx.restore();
 
-        ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+        ctx.fillStyle = textPrimary;
         ctx.font = getScaledFont(18, "600");
         ctx.fillText("🔄  " + t.restart, W / 2, restartY + buttonH / 2 + scaleValue(6));
 
@@ -6928,17 +7067,17 @@ const Index = () => {
       // Countdown después de pausa
       if (gameState.countdownTimer > 0) {
         ctx.save();
-        ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+        ctx.fillStyle = UI_COLORS.overlay;
         ctx.fillRect(0, 0, W, H);
 
         const countdownNumber = Math.ceil(gameState.countdownTimer);
         const scale = 1 - (gameState.countdownTimer - Math.floor(gameState.countdownTimer)); // Efecto de escala
 
         // Número del countdown con glow
-        ctx.fillStyle = "#fbbf24";
+        ctx.fillStyle = UI_COLORS.ammo;
         ctx.font = `bold ${120 * (1 + scale * 0.3)}px system-ui`;
         ctx.textAlign = "center";
-        ctx.shadowColor = "#fbbf24";
+        ctx.shadowColor = UI_COLORS.ammo;
         ctx.shadowBlur = 40;
         ctx.fillText(countdownNumber.toString(), W / 2, H / 2 + 20);
         ctx.shadowBlur = 0;

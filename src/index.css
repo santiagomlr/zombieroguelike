@@ -9,52 +9,52 @@ All colors MUST be HSL.
 @layer base {
   :root {
     /* Dark roguelike theme */
-    --background: 220 30% 5%;
-    --foreground: 210 40% 98%;
+    --background: 0 0% 4%;
+    --foreground: 0 0% 85%;
 
-    --card: 220 25% 8%;
-    --card-foreground: 210 40% 98%;
+    --card: 0 0% 6%;
+    --card-foreground: 0 0% 85%;
 
-    --popover: 220 25% 8%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 0 0% 6%;
+    --popover-foreground: 0 0% 85%;
 
-    --primary: 142 76% 36%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 138 100% 41%;
+    --primary-foreground: 0 0% 10%;
 
-    --secondary: 220 20% 15%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 0 0% 8%;
+    --secondary-foreground: 0 0% 85%;
 
-    --muted: 220 20% 15%;
-    --muted-foreground: 215 20% 60%;
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 60%;
 
-    --accent: 280 80% 60%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 46 100% 50%;
+    --accent-foreground: 0 0% 10%;
 
-    --destructive: 0 70% 50%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 100% 62%;
+    --destructive-foreground: 0 0% 98%;
 
-    --border: 220 20% 18%;
-    --input: 220 20% 18%;
-    --ring: 142 76% 36%;
+    --border: 0 0% 18%;
+    --input: 0 0% 18%;
+    --ring: 138 100% 41%;
 
     /* Game colors */
-    --neon-green: 142 76% 46%;
-    --neon-purple: 280 80% 60%;
-    --neon-blue: 188 95% 48%;
-    --neon-yellow: 43 96% 56%;
-    --neon-red: 0 85% 63%;
-    
+    --neon-green: 138 100% 41%;
+    --neon-purple: 282 44% 47%;
+    --neon-blue: 204 62% 47%;
+    --neon-yellow: 46 100% 50%;
+    --neon-red: 0 100% 62%;
+
     /* Rarity colors */
-    --rarity-common: 0 0% 60%;
-    --rarity-uncommon: 142 76% 46%;
-    --rarity-rare: 210 100% 60%;
-    --rarity-epic: 280 80% 60%;
-    --rarity-legendary: 43 96% 56%;
+    --rarity-common: 0 0% 45%;
+    --rarity-uncommon: 124 41% 55%;
+    --rarity-rare: 204 62% 47%;
+    --rarity-epic: 282 44% 47%;
+    --rarity-legendary: 46 100% 50%;
 
     --radius: 0.5rem;
 
-    --game-bg: 220 30% 5%;
-    --game-bg-light: 220 25% 8%;
+    --game-bg: 0 0% 4%;
+    --game-bg-light: 0 0% 8%;
   }
 }
 
