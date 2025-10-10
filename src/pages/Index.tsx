@@ -5309,21 +5309,6 @@ const Index = () => {
         ctx.fillRect(0, 0, W, H);
       }
 
-      // Upgrade animation
-      if (gameState.upgradeAnimation > 0) {
-        const alpha = Math.min(1, gameState.upgradeAnimation);
-        ctx.globalAlpha = alpha;
-        ctx.strokeStyle = "#06b6d4";
-        ctx.lineWidth = 8;
-        const radius = gameState.player.rad + 20;
-        for (let i = 0; i < 3; i++) {
-          ctx.beginPath();
-          ctx.arc(gameState.player.x, gameState.player.y, radius + i * 10, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-        ctx.globalAlpha = 1;
-      }
-
       ctx.restore();
     }
 
