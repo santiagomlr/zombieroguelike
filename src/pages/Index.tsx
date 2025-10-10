@@ -573,6 +573,7 @@ const Index = () => {
           regenRate: 0,
           regenInterval: 0,
           magnetMultiplier: 1,
+          cameraZoomMultiplier: 1,
           bounceOnEnemies: false,
           damageReduction: 0,
           powerupDuration: 1,
@@ -634,6 +635,7 @@ const Index = () => {
       upgradeAnimation: 0,
       upgradeUIAnimation: 0,
       xpBarRainbow: false,
+      minimapOpacity: 0,
       waveNotification: 0,
       restartTimer: 0,
       restartHoldTime: 2, // 2 segundos para reiniciar sosteniendo R
@@ -747,6 +749,8 @@ const Index = () => {
     };
 
     const getItemStacks = (id: string) => gameState.player.itemStacks[id] ?? 0;
+    const getCameraZoomMultiplier = () => gameState.player.stats.cameraZoomMultiplier ?? 1;
+    const getTargetCameraZoom = () => CAMERA_ZOOM * getCameraZoomMultiplier();
 
     gameStateRef.current = gameState;
 
@@ -1005,7 +1009,6 @@ const Index = () => {
       if (gameState.camera) {
         gameState.camera.x = gameState.player.x;
         gameState.camera.y = gameState.player.y;
-        gameState.camera.zoom = CAMERA_ZOOM;
       }
       gameState.player.hp = 100;
       gameState.player.maxhp = 100;
@@ -1037,6 +1040,7 @@ const Index = () => {
         regenRate: 0,
         regenInterval: 0,
         magnetMultiplier: 1,
+        cameraZoomMultiplier: 1,
         bounceOnEnemies: false,
         damageReduction: 0,
         powerupDuration: 1,
@@ -1078,6 +1082,7 @@ const Index = () => {
       gameState.upgradeAnimation = 0;
       gameState.xpBarRainbow = false;
       gameState.waveNotification = 0;
+      gameState.minimapOpacity = 0;
       gameState.musicNotificationTimer = 0;
       gameState.itemNotification = "";
       gameState.itemNotificationTimer = 0;
@@ -1104,6 +1109,10 @@ const Index = () => {
       gameState.fogZones = [];
       gameState.fogWarningZones = [];
       gameState.stormZone = null;
+
+      if (gameState.camera) {
+        gameState.camera.zoom = getTargetCameraZoom();
+      }
 
       // Reset tutorial
       gameState.tutorialActive = true;
@@ -1214,9 +1223,9 @@ const Index = () => {
         );
       }
       if (gameState.camera) {
-        const zoom = gameState.camera.zoom ?? CAMERA_ZOOM;
-        gameState.camera.zoom = zoom;
-        const { halfViewW, halfViewH } = getCameraViewExtents(W, H, zoom);
+        const targetZoom = getTargetCameraZoom();
+        gameState.camera.zoom = targetZoom;
+        const { halfViewW, halfViewH } = getCameraViewExtents(W, H, targetZoom);
         const maxX = Math.max(halfViewW, gameState.worldWidth - halfViewW);
         const maxY = Math.max(halfViewH, gameState.worldHeight - halfViewH);
         gameState.camera.x = clamp(gameState.camera.x, halfViewW, maxX);
@@ -1653,7 +1662,7 @@ const Index = () => {
       const camera = gameState.camera ?? {
         x: gameState.player.x,
         y: gameState.player.y,
-        zoom: CAMERA_ZOOM,
+        zoom: getTargetCameraZoom(),
       };
       const { minX, maxX, minY, maxY } = getCameraBounds(camera, W, H, 50);
 
@@ -1757,7 +1766,7 @@ const Index = () => {
       const camera = gameState.camera ?? {
         x: gameState.player.x,
         y: gameState.player.y,
-        zoom: CAMERA_ZOOM,
+        zoom: getTargetCameraZoom(),
       };
       const { minX, maxX, minY, maxY } = getCameraBounds(camera, W, H, 50);
       const onScreen = enemy.x >= minX && enemy.x <= maxX && enemy.y >= minY && enemy.y <= maxY;
@@ -2486,6 +2495,15 @@ const Index = () => {
         case "reactiveshield":
           stats.reactiveShieldActive = true;
           break;
+        case "horizonscanner": {
+          const stacks = gameState.player.itemStacks[item.id] ?? 0;
+          stats.cameraZoomMultiplier = stacks >= 1 ? 0.7 : 1;
+          if (gameState.camera) {
+            gameState.camera.zoom = getTargetCameraZoom();
+          }
+          gameState.minimapOpacity = stacks >= 2 ? 1 : 0;
+          break;
+        }
         case "chaosdamage":
           stats.chaosDamage = true;
           break;
@@ -3891,9 +3909,9 @@ const Index = () => {
           camera.y += dy * moveRatio;
         }
 
-        const zoom = camera.zoom ?? CAMERA_ZOOM;
-        camera.zoom = zoom;
-        const { halfViewW, halfViewH } = getCameraViewExtents(W, H, zoom);
+        const targetZoom = getTargetCameraZoom();
+        camera.zoom = targetZoom;
+        const { halfViewW, halfViewH } = getCameraViewExtents(W, H, targetZoom);
         const maxX = Math.max(halfViewW, gameState.worldWidth - halfViewW);
         const maxY = Math.max(halfViewH, gameState.worldHeight - halfViewH);
         camera.x = clamp(camera.x, halfViewW, maxX);
@@ -3903,9 +3921,9 @@ const Index = () => {
       const visibilityCamera = gameState.camera ?? {
         x: gameState.player.x,
         y: gameState.player.y,
-        zoom: CAMERA_ZOOM,
+        zoom: getTargetCameraZoom(),
       };
-      const visibilityZoom = visibilityCamera.zoom ?? CAMERA_ZOOM;
+      const visibilityZoom = visibilityCamera.zoom ?? getTargetCameraZoom();
       const visibilityExtents = getCameraViewExtents(W, H, visibilityZoom);
       const visibilityBounds: Bounds = {
         left: visibilityCamera.x - visibilityExtents.halfViewW,
@@ -4422,7 +4440,7 @@ const Index = () => {
         const camera = gameState.camera ?? {
           x: gameState.player.x,
           y: gameState.player.y,
-          zoom: CAMERA_ZOOM,
+          zoom: getTargetCameraZoom(),
         };
         const { minX, maxX, minY, maxY } = getCameraBounds(camera, W, H, 50);
         gameState.bullets = gameState.bullets.filter(
@@ -6189,7 +6207,7 @@ const Index = () => {
       const textSecondary = nightVisionActive ? "rgba(190, 255, 190, 0.75)" : UI_COLORS.textSecondary;
       ctx.clearRect(0, 0, W, H);
 
-      const zoom = camera.zoom ?? CAMERA_ZOOM;
+      const zoom = camera.zoom ?? getTargetCameraZoom();
       const { halfViewW, halfViewH } = getCameraViewExtents(W, H, zoom);
       const viewLeft = camera.x - halfViewW;
       const viewTop = camera.y - halfViewH;
@@ -6893,6 +6911,7 @@ const Index = () => {
           enemies: minimapEnemies,
           drops: minimapDrops,
           hotspots: minimapHotspots,
+          opacity: Math.max(0, Math.min(1, gameState.minimapOpacity ?? 0)),
         };
 
         overlayWorkerRef.current.postMessage({

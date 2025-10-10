@@ -20,6 +20,7 @@ export type MinimapFrame = {
   enemies: MinimapEntity[];
   drops: MinimapEntity[];
   hotspots: MinimapEntity[];
+  opacity: number;
 };
 
 export type OverlayFrameMessage = {
@@ -64,6 +65,7 @@ const overlay: OverlayRenderingContext = {
 const MINIMAP_SIZE = 180;
 const MINIMAP_PADDING = 24;
 const MINIMAP_RADIUS = MINIMAP_SIZE / 2;
+const MINIMAP_BOTTOM_OFFSET = 50;
 
 function ensureMinimapGeometry() {
   overlay.minimapPath = new Path2D();
@@ -96,11 +98,16 @@ function drawParticles(particles: OverlayParticle[]) {
 function drawMinimap(frame: MinimapFrame) {
   const ctx = overlay.ctx;
   if (!ctx) return;
+  const alpha = Math.max(0, Math.min(1, frame.opacity));
+  if (alpha <= 0) {
+    return;
+  }
 
-  const cx = overlay.width - MINIMAP_RADIUS - MINIMAP_PADDING;
-  const cy = overlay.height - MINIMAP_RADIUS - MINIMAP_PADDING;
+  const cx = MINIMAP_RADIUS + MINIMAP_PADDING;
+  const cy = overlay.height - MINIMAP_RADIUS - MINIMAP_BOTTOM_OFFSET;
 
   ctx.save();
+  ctx.globalAlpha = alpha;
   ctx.translate(cx, cy);
   ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
   ctx.fillRect(-MINIMAP_RADIUS - 6, -MINIMAP_RADIUS - 6, MINIMAP_SIZE + 12, MINIMAP_SIZE + 12);
