@@ -966,10 +966,11 @@ const Index = () => {
       fireSounds?: SfxKey[];
       loopSound?: SfxKey;
       loopStopDelay?: number;
+      impactSound?: SfxKey | null;
     };
 
     const weaponSoundConfigs: Record<string, WeaponSoundConfig> = {
-      pistol: { fireSounds: ["weapon_pistol"] },
+      pistol: { fireSounds: ["weapon_pistol"], impactSound: null },
       shotgun: { fireSounds: ["weapon_shotgun"] },
       smg: { loopSound: "weapon_smg", loopStopDelay: 0.12 },
       rocket: { fireSounds: ["weapon_rpg"] },
@@ -982,6 +983,30 @@ const Index = () => {
       flamethrower: { loopSound: "weapon_flamethrower", loopStopDelay: 0.08 },
       frostbow: { fireSounds: ["weapon_bow"] },
       homing: { fireSounds: ["weapon_homing_missile"] },
+    };
+
+    const playImpactSoundForWeapon = (weaponId?: string) => {
+      if (!weaponId) {
+        playHitSound();
+        return;
+      }
+
+      const config = weaponSoundConfigs[weaponId];
+      if (!config) {
+        playHitSound();
+        return;
+      }
+
+      if (config.impactSound === null) {
+        return;
+      }
+
+      if (config.impactSound) {
+        audioManager.playSfx(config.impactSound);
+        return;
+      }
+
+      playHitSound();
     };
 
     const weaponLastShotTime: Record<string, number> = {};
@@ -1997,6 +2022,7 @@ const Index = () => {
               life: range / weapon.projectileSpeed / 60,
               damage,
               color: weapon.color,
+              weaponId: weapon.id,
               bounces: gameState.player.stats.bounces,
               bounceOnEnemies: gameState.player.stats.bounceOnEnemies,
               pierce: false,
@@ -2012,6 +2038,7 @@ const Index = () => {
             life: range / weapon.projectileSpeed / 60,
             damage,
             color: weapon.color,
+            weaponId: weapon.id,
             bounces: gameState.player.stats.bounces,
             bounceOnEnemies: gameState.player.stats.bounceOnEnemies,
             pierce: isPierce,
@@ -4970,7 +4997,7 @@ const Index = () => {
         }
 
         if (hitSomething) {
-          playHitSound();
+          playImpactSoundForWeapon(bullet.weaponId);
         }
 
         for (let i = chainedEnemies.length - 1; i >= 0; i--) {
