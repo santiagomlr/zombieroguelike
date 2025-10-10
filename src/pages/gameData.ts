@@ -93,6 +93,13 @@ export interface Translations {
       damageReduction: string;
     };
   };
+  chestUI: {
+    title: string;
+    description: string;
+    keep: string;
+    banish: string;
+    skip: string;
+  };
 }
 
 export interface WeaponLocalization {
@@ -268,6 +275,14 @@ const translationsES: Translations = {
       damageReduction: "Reducción de daño",
     },
   },
+  chestUI: {
+    title: "Cofre de botín",
+    description:
+      "Elige qué hacer con este botín. Consérvalo para equiparlo, destiérralo para vetarlo de futuros cofres o sáltalo para decidir después.",
+    keep: "Conservar",
+    banish: "Desterrar",
+    skip: "Omitir",
+  },
 };
 
 const translationsEN: Translations = {
@@ -364,6 +379,14 @@ const translationsEN: Translations = {
       xpBonus: "XP bonus",
       damageReduction: "Damage reduction",
     },
+  },
+  chestUI: {
+    title: "Treasure Chest",
+    description:
+      "Choose how to handle this loot. Keep to claim it, banish to blacklist future drops, or skip to decide later.",
+    keep: "Keep",
+    banish: "Banish",
+    skip: "Skip",
   },
 };
 

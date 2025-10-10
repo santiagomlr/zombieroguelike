@@ -595,6 +595,13 @@ const Index = () => {
       enemies: [] as EnemyWithCategory[],
       normalEnemyCount: 0,
       drops: [] as any[],
+      chestBlacklist: new Set<string>(),
+      activeChestChoice: null as
+        | {
+            item: Item;
+            chestPosition: { x: number; y: number };
+          }
+        | null,
       particles: [] as any[],
       hotspots: [] as any[],
       worldWidth: worldW,
@@ -2231,6 +2238,8 @@ const Index = () => {
     }
 
     function dropChest(x: number, y: number) {
+      const cachedLoot = chooseChestItem();
+
       gameState.drops.push({
         x,
         y,
@@ -2238,11 +2247,18 @@ const Index = () => {
         type: "chest",
         color: "#ff7a2a",
         spawnTime: gameState.time,
+        lootItemId: cachedLoot?.id ?? null,
+        lootRarity: cachedLoot?.rarity ?? null,
       });
     }
 
     function chooseChestItem(): Item | null {
+      const blacklist = gameState.chestBlacklist ?? new Set<string>();
+
       const availableItems = ITEMS.filter((item) => {
+        if (blacklist.has(item.id)) {
+          return false;
+        }
         const currentStacks = gameState.player.itemStacks[item.id] ?? 0;
         if (item.maxStacks !== undefined) {
           return currentStacks < item.maxStacks;
@@ -2311,7 +2327,20 @@ const Index = () => {
     }
 
     function openChest(chest: any) {
-      const item = chooseChestItem();
+      if (gameState.activeChestChoice) {
+        return;
+      }
+
+      const lootItemId = chest.lootItemId as string | null;
+
+      if (!lootItemId) {
+        collectXP(25);
+        playPowerupSound();
+        spawnChestParticles(chest.x, chest.y, "#5dbb63");
+        return;
+      }
+
+      const item = ITEMS.find((candidate) => candidate.id === lootItemId) ?? null;
 
       if (!item) {
         collectXP(25);
@@ -2320,13 +2349,47 @@ const Index = () => {
         return;
       }
 
-      const granted = grantItemToPlayer(item, { notify: true, playSound: true });
+      gameState.activeChestChoice = {
+        item,
+        chestPosition: { x: chest.x, y: chest.y },
+      };
+    }
+
+    function grantChestFallbackReward(position: { x: number; y: number }) {
+      collectXP(25);
+      playPowerupSound();
+      spawnChestParticles(position.x, position.y, "#5dbb63");
+    }
+
+    function keepChestItem() {
+      const choice = gameState.activeChestChoice;
+      if (!choice) return;
+
+      const granted = grantItemToPlayer(choice.item, { notify: true, playSound: true });
 
       if (!granted) {
-        collectXP(25);
-        playPowerupSound();
-        spawnChestParticles(chest.x, chest.y, "#5dbb63");
+        grantChestFallbackReward(choice.chestPosition);
       }
+
+      gameState.activeChestChoice = null;
+    }
+
+    function banishChestItem() {
+      const choice = gameState.activeChestChoice;
+      if (!choice) return;
+
+      if (!gameState.chestBlacklist) {
+        gameState.chestBlacklist = new Set<string>();
+      }
+      gameState.chestBlacklist.add(choice.item.id);
+
+      gameState.activeChestChoice = null;
+    }
+
+    function skipChestItem() {
+      if (!gameState.activeChestChoice) return;
+
+      gameState.activeChestChoice = null;
     }
 
     function collectXP(v: number) {
@@ -2908,6 +2971,8 @@ const Index = () => {
       const rect = canvas.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
+      const pointInRect = (rect: { x: number; y: number; w: number; h: number }) =>
+        mx >= rect.x && mx <= rect.x + rect.w && my >= rect.y && my <= rect.y + rect.h;
 
       // Controles de música (solo cuando el juego está corriendo)
       if (gameState.state === "running") {
@@ -2957,9 +3022,6 @@ const Index = () => {
             w: controlSize,
             h: controlSize,
           };
-
-          const pointInRect = (rect: { x: number; y: number; w: number; h: number }) =>
-            mx >= rect.x && mx <= rect.x + rect.w && my >= rect.y && my <= rect.y + rect.h;
 
           if (pointInRect(previousBtn)) {
             if (gameState.musicTracks.length > 0) {
@@ -3019,6 +3081,22 @@ const Index = () => {
             return;
           }
         }
+      }
+
+      if (gameState.activeChestChoice) {
+        const layout = getChestChoiceLayout(W, H);
+        const {
+          buttons: { keep: keepBtn, banish: banishBtn, skip: skipBtn },
+        } = layout;
+
+        if (pointInRect(keepBtn)) {
+          keepChestItem();
+        } else if (pointInRect(banishBtn)) {
+          banishChestItem();
+        } else if (pointInRect(skipBtn)) {
+          skipChestItem();
+        }
+        return;
       }
 
       if (gameState.showUpgradeUI) {
@@ -5101,6 +5179,9 @@ const Index = () => {
         }
 
         if (d < gameState.player.rad + g.rad) {
+          if (gameState.activeChestChoice && g.type !== "chest") {
+            continue;
+          }
           if (g.type === "xp") {
             collectXP(g.val);
           } else if (g.type === "heal") {
@@ -6114,6 +6195,114 @@ const Index = () => {
       ctx.fillRect(-CRT_SETTINGS.chromaShift, 0, W, H);
       ctx.fillStyle = "rgba(255, 70, 0, 0.18)";
       ctx.fillRect(CRT_SETTINGS.chromaShift, 0, W, H);
+      ctx.restore();
+    }
+
+    function getChestChoiceLayout(W: number, H: number) {
+      const panelW = Math.min(460, W * 0.7);
+      const panelH = Math.min(360, H * 0.6);
+      const panelX = W / 2 - panelW / 2;
+      const panelY = H / 2 - panelH / 2;
+      const horizontalPadding = 32;
+      const buttonGap = 16;
+      const buttonW = (panelW - horizontalPadding * 2 - buttonGap * 2) / 3;
+      const buttonH = 48;
+      const buttonY = panelY + panelH - buttonH - 32;
+      const firstButtonX = panelX + horizontalPadding;
+
+      return {
+        panel: { x: panelX, y: panelY, w: panelW, h: panelH },
+        buttons: {
+          keep: { x: firstButtonX, y: buttonY, w: buttonW, h: buttonH },
+          banish: {
+            x: firstButtonX + buttonW + buttonGap,
+            y: buttonY,
+            w: buttonW,
+            h: buttonH,
+          },
+          skip: {
+            x: firstButtonX + (buttonW + buttonGap) * 2,
+            y: buttonY,
+            w: buttonW,
+            h: buttonH,
+          },
+        },
+      };
+    }
+
+    function drawChestChoiceUI() {
+      const choice = gameState.activeChestChoice;
+      if (!choice) return;
+
+      const currentLanguage = (gameState.language ?? "es") as Language;
+      const t = translations[currentLanguage];
+      const layout = getChestChoiceLayout(W, H);
+      const { panel, buttons } = layout;
+      const rarityColor = rarityColors[choice.item.rarity];
+      const itemText = getItemText(choice.item, currentLanguage);
+
+      ctx.save();
+
+      ctx.globalAlpha = 0.85;
+      ctx.fillStyle = UI_COLORS.overlay;
+      ctx.fillRect(0, 0, W, H);
+      ctx.globalAlpha = 1;
+
+      ctx.fillStyle = UI_COLORS.panelBg;
+      ctx.strokeStyle = UI_COLORS.panelBorder;
+      ctx.lineWidth = 2;
+      ctx.shadowColor = "rgba(0, 0, 0, 0.45)";
+      ctx.shadowBlur = 20;
+      ctx.fillRect(panel.x, panel.y, panel.w, panel.h);
+      ctx.shadowBlur = 0;
+      ctx.strokeRect(panel.x, panel.y, panel.w, panel.h);
+
+      ctx.strokeStyle = `${rarityColor}88`;
+      ctx.lineWidth = 3;
+      ctx.strokeRect(panel.x + 4, panel.y + 4, panel.w - 8, panel.h - 8);
+
+      ctx.fillStyle = rarityColor;
+      ctx.font = "bold 26px system-ui";
+      ctx.textAlign = "center";
+      ctx.fillText(t.chestUI.title, panel.x + panel.w / 2, panel.y + 50);
+
+      ctx.fillStyle = UI_COLORS.textSecondary;
+      ctx.font = "16px system-ui";
+      wrapText(ctx, t.chestUI.description, panel.x + panel.w / 2, panel.y + 80, panel.w - 64, 20);
+
+      ctx.fillStyle = rarityColor;
+      ctx.font = "bold 24px system-ui";
+      ctx.fillText(itemText.name, panel.x + panel.w / 2, panel.y + 140);
+
+      ctx.fillStyle = `${rarityColor}60`;
+      ctx.font = "13px system-ui";
+      ctx.fillText(choice.item.rarity.toUpperCase(), panel.x + panel.w / 2, panel.y + 170);
+
+      ctx.fillStyle = UI_COLORS.textPrimary;
+      ctx.font = "16px system-ui";
+      wrapText(ctx, itemText.description, panel.x + panel.w / 2, panel.y + 210, panel.w - 64, 22);
+
+      const drawButton = (
+        rect: { x: number; y: number; w: number; h: number },
+        label: string,
+        background: string,
+        textColor: string,
+      ) => {
+        ctx.fillStyle = background;
+        ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+        ctx.strokeStyle = `${textColor}90`;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
+        ctx.fillStyle = textColor;
+        ctx.font = "bold 16px system-ui";
+        ctx.textAlign = "center";
+        ctx.fillText(label, rect.x + rect.w / 2, rect.y + rect.h / 2 + 6);
+      };
+
+      drawButton(buttons.keep, t.chestUI.keep, UI_COLORS.accent, "#0d1f12");
+      drawButton(buttons.banish, t.chestUI.banish, "#ef4444", "#1f0d0d");
+      drawButton(buttons.skip, t.chestUI.skip, UI_COLORS.panelBorder, UI_COLORS.textPrimary);
+
       ctx.restore();
     }
 
@@ -7144,6 +7333,7 @@ const Index = () => {
 
       drawHUD();
       drawUpgradeUI();
+      drawChestChoiceUI();
 
       // Danger Zone visual effect (pantalla parpadeante roja si está >0.5s en zona de peligro)
       if (gameState.inDangerZone && gameState.dangerZoneTimer > 0.5) {
