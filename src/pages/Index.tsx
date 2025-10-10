@@ -1115,16 +1115,17 @@ const Index = () => {
 
       // Aplicar dispersión reducida por precisión
       const baseSpread = 0.15;
-      const spreadReduction = gameState.player.stats.precision > 0 ? 1 - gameState.player.stats.precision / 100 : 1;
-      const actualSpread = baseSpread * spreadReduction;
-
+      const spreadReduction = gameState.player.stats.precision > 0 ? (1 - gameState.player.stats.precision / 100) : 1;
+      const multishotTightening = 1 / (1 + gameState.player.stats.multishot * 0.5);
+      const actualSpread = baseSpread * spreadReduction * multishotTightening;
+      
       const shots = 1 + gameState.player.stats.multishot;
       for (let i = 0; i < shots; i++) {
         const spreadAngle = (i - (shots - 1) / 2) * actualSpread;
         const finalDir = dir + spreadAngle;
 
         if (isSpread) {
-          const spreadVariance = 0.3 * spreadReduction;
+          const spreadVariance = 0.3 * spreadReduction * multishotTightening;
           for (let j = -1; j <= 1; j++) {
             gameState.bullets.push({
               x: gameState.player.x,
