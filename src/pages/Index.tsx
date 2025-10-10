@@ -4,7 +4,7 @@ import type {
   MinimapFrame,
   OverlayParticle,
 } from "../workers/overlayRenderer";
-import { audioManager } from "../audio/audioManager";
+import { audioManager, type SfxKey } from "../audio/audioManager";
 
 import {
   ITEMS,
@@ -949,9 +949,6 @@ const Index = () => {
     audioManager.setSfxMuted(gameState.sfxMuted);
 
     // Sound effect functions
-    const playShootSound = () => {
-      audioManager.playSfx("shoot");
-    };
     const playHitSound = () => {
       audioManager.playSfx("hit");
     };
@@ -965,6 +962,76 @@ const Index = () => {
       audioManager.playSfx("pickup");
     };
 
+    type WeaponSoundConfig = {
+      fireSounds?: SfxKey[];
+      loopSound?: SfxKey;
+      loopStopDelay?: number;
+    };
+
+    const weaponSoundConfigs: Record<string, WeaponSoundConfig> = {
+      pistol: { fireSounds: ["weapon_pistol"] },
+      shotgun: { fireSounds: ["weapon_shotgun"] },
+      smg: { loopSound: "weapon_smg", loopStopDelay: 0.12 },
+      rocket: { fireSounds: ["weapon_rpg"] },
+      laser: {
+        fireSounds: ["weapon_laser_1", "weapon_laser_2", "weapon_laser_3", "weapon_laser_4"],
+      },
+      railgun: { fireSounds: ["weapon_railgun"] },
+      minigun: { loopSound: "weapon_minigun", loopStopDelay: 0.12 },
+      electric: { fireSounds: ["weapon_laser_2", "weapon_laser_3", "weapon_laser_4"] },
+      flamethrower: { loopSound: "weapon_flamethrower", loopStopDelay: 0.08 },
+      frostbow: { fireSounds: ["weapon_bow"] },
+      homing: { fireSounds: ["weapon_homing_missile"] },
+    };
+
+    const weaponLastShotTime: Record<string, number> = {};
+
+    const weaponAudioController = {
+      onWeaponFired(weaponId: string) {
+        const config = weaponSoundConfigs[weaponId];
+        if (!config) {
+          return;
+        }
+
+        if (config.fireSounds?.length) {
+          const sounds = config.fireSounds;
+          const key = sounds.length === 1 ? sounds[0] : sounds[Math.floor(Math.random() * sounds.length)];
+          audioManager.playSfx(key);
+        }
+
+        if (config.loopSound) {
+          weaponLastShotTime[weaponId] = gameState.time;
+          audioManager.playSfx(config.loopSound);
+        }
+      },
+      updateLoopingSounds() {
+        const now = gameState.time;
+        for (const [weaponId, config] of Object.entries(weaponSoundConfigs)) {
+          if (!config.loopSound) continue;
+          const lastShot = weaponLastShotTime[weaponId];
+          if (lastShot === undefined) continue;
+
+          const threshold = config.loopStopDelay ?? 0.2;
+          if (now - lastShot > threshold) {
+            delete weaponLastShotTime[weaponId];
+            audioManager.stopSfx(config.loopSound);
+          }
+        }
+      },
+      stopAllLooping() {
+        for (const config of Object.values(weaponSoundConfigs)) {
+          if (config.loopSound) {
+            audioManager.stopSfx(config.loopSound);
+          }
+        }
+      },
+      resetTimers() {
+        for (const key of Object.keys(weaponLastShotTime)) {
+          delete weaponLastShotTime[key];
+        }
+      },
+    };
+
     // Game state management
     function endGame() {
       if (gameState.state === "gameover") return; // Ya está en game over
@@ -973,6 +1040,8 @@ const Index = () => {
       gameState.player.hp = 0;
       gameState.gameOverTimer = 0; // No auto-restart, mostrar pantalla de game over
 
+      weaponAudioController.stopAllLooping();
+      weaponAudioController.resetTimers();
       playDeathSound();
 
       // Detener música normal y reproducir música de game over
@@ -993,6 +1062,9 @@ const Index = () => {
     }
 
     function resetGame() {
+      weaponAudioController.stopAllLooping();
+      weaponAudioController.resetTimers();
+
       // Limpiar arrays
       gameState.bullets.length = 0;
       gameState.enemies.length = 0;
@@ -1971,7 +2043,7 @@ const Index = () => {
         }
       }
 
-      playShootSound();
+      weaponAudioController.onWeaponFired(weapon.id);
     }
 
     function autoShoot(dt: number) {
@@ -4436,6 +4508,7 @@ const Index = () => {
 
       // Disparo automático
       autoShoot(dt);
+      weaponAudioController.updateLoopingSounds();
 
       // Actualizar balas
       for (const b of gameState.bullets) {
@@ -7594,6 +7667,8 @@ const Index = () => {
     document.addEventListener("gestureend", preventGesture, { passive: false });
 
     return () => {
+      weaponAudioController.stopAllLooping();
+      weaponAudioController.resetTimers();
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("resize", handleResize);

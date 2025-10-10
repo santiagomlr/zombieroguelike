@@ -1,6 +1,23 @@
 const DEFAULT_SFX_COOLDOWN_MS = 120;
 
-export type SfxKey = "shoot" | "hit" | "level_up" | "pickup" | "death";
+export type SfxKey =
+  | "hit"
+  | "level_up"
+  | "pickup"
+  | "death"
+  | "weapon_pistol"
+  | "weapon_shotgun"
+  | "weapon_smg"
+  | "weapon_minigun"
+  | "weapon_rpg"
+  | "weapon_laser_1"
+  | "weapon_laser_2"
+  | "weapon_laser_3"
+  | "weapon_laser_4"
+  | "weapon_railgun"
+  | "weapon_flamethrower"
+  | "weapon_bow"
+  | "weapon_homing_missile";
 
 type DuplicateStrategy = "drop" | "attenuate";
 
@@ -10,6 +27,7 @@ type SfxDefinition = {
   cooldownMs?: number;
   duplicateStrategy?: DuplicateStrategy;
   attenuation?: number;
+  loop?: boolean;
 };
 
 type PlaySfxOptions = {
@@ -28,13 +46,7 @@ type PooledSource = {
   gain: GainNode;
 };
 
-const SFX_DATA: Record<SfxKey, string> = {
-  shoot:
-    "data:audio/wav;base64,UklGRmQBAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YUABAAB/qL61k2dGQVqErL+zjmJEQl6Jr7+viV5CRGKO" +
-    "s7+shFpBRmeTtb6of1ZASWuXuL2kelI/S3CcurygdU8/T3WgvLqccEs/UnqkvbiXa0lAVn+ovrWTZ0ZBWoSsv7OOYkRCXomvv6+JXkJEYo6zv6yEWkFGZ5O1vqh/VkBJ" +
-    "a5e4vaR6Uj9LcJy6vKB1Tz9PdaC8upxwSz9SeqS9uJdrSUBWf6i+tZNnRkFahKy/s45iREJeia+/r4leQkRijrO/rIRaQUZnk7W+qH9WQElrl7i9pHpSP0twnLq8oHVP" +
-    "P091oLy6nHBLP1J6pL24l2tJQFZ/qL61k2dGQVqErL+zjmJEQl6Jr7+viV5CRGKOs7+shFpBRmeTtb6of1ZASWuXuL2kelI/S3CcurygdU8/T3WgvLqccEs/UnqkvbiX" +
-    "a0lAVg==",
+const SFX_DATA: Partial<Record<SfxKey, string>> = {
   hit:
     "data:audio/wav;base64,UklGRqQCAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YYACAAB/jpyqtb/GyszKxr+1qpyOf3BiVEk/ODQzNDg/SVRi" +
     "cH+OnKq1v8bKzMrGv7WqnI5/cGJUST84NDM0OD9JVGJwf46cqrW/xsrMysa/taqcjn9wYlRJPzg0MzQ4P0lUYnB/jpyqtb/GyszKxr+1qpyOf3BiVEk/ODQzNDg/SVRi" +
@@ -56,12 +68,6 @@ const SFX_DATA: Record<SfxKey, string> = {
 };
 
 const SFX_DEFINITIONS: Record<SfxKey, SfxDefinition> = {
-  shoot: {
-    dataUrl: SFX_DATA.shoot,
-    cooldownMs: 45,
-    duplicateStrategy: "attenuate",
-    attenuation: 0.35,
-  },
   hit: {
     dataUrl: SFX_DATA.hit,
     cooldownMs: 90,
@@ -83,6 +89,78 @@ const SFX_DEFINITIONS: Record<SfxKey, SfxDefinition> = {
     cooldownMs: 800,
     duplicateStrategy: "drop",
   },
+  weapon_pistol: {
+    url: "/audio/weapons/pistol.wav",
+    cooldownMs: 60,
+    duplicateStrategy: "drop",
+  },
+  weapon_shotgun: {
+    url: "/audio/weapons/shotgun.wav",
+    cooldownMs: 160,
+    duplicateStrategy: "drop",
+  },
+  weapon_smg: {
+    url: "/audio/weapons/smg.wav",
+    cooldownMs: 0,
+    duplicateStrategy: "drop",
+    loop: true,
+  },
+  weapon_minigun: {
+    url: "/audio/weapons/mini.mp3",
+    cooldownMs: 0,
+    duplicateStrategy: "drop",
+    loop: true,
+  },
+  weapon_rpg: {
+    url: "/audio/weapons/rpg.wav",
+    cooldownMs: 200,
+    duplicateStrategy: "drop",
+  },
+  weapon_laser_1: {
+    url: "/audio/weapons/laser%20gun%201.wav",
+    cooldownMs: 45,
+    duplicateStrategy: "attenuate",
+    attenuation: 0.4,
+  },
+  weapon_laser_2: {
+    url: "/audio/weapons/laser%20gun%202.wav",
+    cooldownMs: 45,
+    duplicateStrategy: "attenuate",
+    attenuation: 0.4,
+  },
+  weapon_laser_3: {
+    url: "/audio/weapons/laser%20gun%203.wav",
+    cooldownMs: 45,
+    duplicateStrategy: "attenuate",
+    attenuation: 0.4,
+  },
+  weapon_laser_4: {
+    url: "/audio/weapons/laser%20gun%204.wav",
+    cooldownMs: 45,
+    duplicateStrategy: "attenuate",
+    attenuation: 0.4,
+  },
+  weapon_railgun: {
+    url: "/audio/weapons/railgun.wav",
+    cooldownMs: 250,
+    duplicateStrategy: "drop",
+  },
+  weapon_flamethrower: {
+    url: "/audio/weapons/flamethrower.wav",
+    cooldownMs: 0,
+    duplicateStrategy: "drop",
+    loop: true,
+  },
+  weapon_bow: {
+    url: "/audio/weapons/bow.wav",
+    cooldownMs: 120,
+    duplicateStrategy: "drop",
+  },
+  weapon_homing_missile: {
+    url: "/audio/weapons/homingmissle.wav",
+    cooldownMs: 180,
+    duplicateStrategy: "drop",
+  },
 };
 
 class AudioManager {
@@ -92,6 +170,7 @@ class AudioManager {
   private sfxBuffers = new Map<SfxKey, AudioBuffer>();
   private sfxLastPlay = new Map<SfxKey, number>();
   private sourcePool: PooledSource[] = [];
+  private activeLoopingSources = new Map<SfxKey, PooledSource>();
   private sfxMuted = false;
   private sfxVolume = 1;
 
@@ -177,19 +256,31 @@ class AudioManager {
     if (!definition) return;
 
     const now = performance.now();
-    const last = this.sfxLastPlay.get(key) ?? 0;
     const cooldown = definition.cooldownMs ?? DEFAULT_SFX_COOLDOWN_MS;
     let effectiveVolume = options.volume ?? 1;
 
-    if (cooldown > 0 && now - last < cooldown) {
-      if (definition.duplicateStrategy === "drop") {
+    if (definition.loop) {
+      const existing = this.activeLoopingSources.get(key);
+      if (existing) {
+        existing.gain.gain.value = effectiveVolume * this.sfxVolume;
+        if (options.playbackRate !== undefined) {
+          existing.source.playbackRate.value = options.playbackRate;
+        }
+        this.sfxLastPlay.set(key, now);
         return;
       }
-      if (definition.duplicateStrategy === "attenuate") {
-        const attenuation = definition.attenuation ?? 0.3;
-        effectiveVolume *= attenuation;
-        if (effectiveVolume <= 0.001) {
+    } else {
+      const last = this.sfxLastPlay.get(key) ?? 0;
+      if (cooldown > 0 && now - last < cooldown) {
+        if (definition.duplicateStrategy === "drop") {
           return;
+        }
+        if (definition.duplicateStrategy === "attenuate") {
+          const attenuation = definition.attenuation ?? 0.3;
+          effectiveVolume *= attenuation;
+          if (effectiveVolume <= 0.001) {
+            return;
+          }
         }
       }
     }
@@ -202,19 +293,40 @@ class AudioManager {
     const wrapper = this.acquireSource();
     wrapper.source.buffer = buffer;
     wrapper.source.playbackRate.value = options.playbackRate ?? 1;
+    wrapper.source.loop = !!definition.loop;
     wrapper.gain.gain.value = effectiveVolume * this.sfxVolume;
 
     wrapper.source.onended = () => {
+      if (definition.loop) {
+        this.activeLoopingSources.delete(key);
+      }
       this.releaseSource(wrapper);
     };
 
     try {
       wrapper.source.start();
       this.sfxLastPlay.set(key, now);
+      if (definition.loop) {
+        this.activeLoopingSources.set(key, wrapper);
+      }
     } catch (error) {
       console.warn("Failed to play SFX", key, error);
       this.releaseSource(wrapper);
     }
+  }
+
+  stopSfx(key: SfxKey) {
+    const active = this.activeLoopingSources.get(key);
+    if (!active) return;
+    this.activeLoopingSources.delete(key);
+    this.sfxLastPlay.delete(key);
+    try {
+      active.source.stop();
+    } catch {}
+  }
+
+  isLoopingSfxPlaying(key: SfxKey) {
+    return this.activeLoopingSources.has(key);
   }
 
   private acquireSource(): PooledSource {
