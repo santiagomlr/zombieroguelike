@@ -28,6 +28,16 @@ const PAUSE_MENU_TABS: PauseMenuTab[] = ["home", "settings", "stats"];
 const CHEST_DROP_RATE = 0.07;
 const ENTITY_SCALE = 0.75;
 const CAMERA_DEADZONE_RADIUS = 140;
+const CAMERA_ZOOM = 1.8;
+
+const PLAYER_BASE_RADIUS = 16;
+const WEAK_ENEMY_BASE_RADIUS = 16;
+const MEDIUM_ENEMY_BASE_RADIUS = 20;
+const STRONG_ENEMY_BASE_RADIUS = 24;
+const FAST_ENEMY_BASE_RADIUS = 16;
+const EXPLOSIVE_ENEMY_BASE_RADIUS = 18;
+const SUMMONER_ENEMY_BASE_RADIUS = 20;
+const TANK_ENEMY_BASE_RADIUS = 28;
 
 const scaleEntitySize = (value: number) => Math.max(1, Math.round(value * ENTITY_SCALE));
 
@@ -327,7 +337,7 @@ const Index = () => {
         vx: 0,
         vy: 0,
         spd: 3.5,
-        rad: scaleEntitySize(16),
+        rad: scaleEntitySize(PLAYER_BASE_RADIUS),
         hp: 100,
         maxhp: 100,
         stamina: 20,
@@ -383,6 +393,7 @@ const Index = () => {
         x: worldW / 2,
         y: worldH / 2,
         deadzone: CAMERA_DEADZONE_RADIUS,
+        zoom: CAMERA_ZOOM,
       },
       maxParticles: 200,
       bosses: [] as any[],
@@ -820,6 +831,7 @@ const Index = () => {
       if (gameState.camera) {
         gameState.camera.x = gameState.player.x;
         gameState.camera.y = gameState.player.y;
+        gameState.camera.zoom = CAMERA_ZOOM;
       }
       gameState.player.hp = 100;
       gameState.player.maxhp = 100;
@@ -999,8 +1011,9 @@ const Index = () => {
         );
       }
       if (gameState.camera) {
-        const halfViewW = W / 2;
-        const halfViewH = H / 2;
+        const zoom = gameState.camera.zoom ?? CAMERA_ZOOM;
+        gameState.camera.zoom = zoom;
+        const { halfViewW, halfViewH } = getCameraViewExtents(W, H, zoom);
         const maxX = Math.max(halfViewW, gameState.worldWidth - halfViewW);
         const maxY = Math.max(halfViewH, gameState.worldHeight - halfViewH);
         gameState.camera.x = clamp(gameState.camera.x, halfViewW, maxX);
@@ -1084,7 +1097,7 @@ const Index = () => {
             }
             damage = bomberBaseDamage;
             baseHp = 2;
-            rad = 12;
+            rad = EXPLOSIVE_ENEMY_BASE_RADIUS;
             spd = 1.8; // Más rápido para ser más peligroso
           } else if (specialRoll < 0.5) {
             specialType = "fast";
@@ -1092,7 +1105,7 @@ const Index = () => {
             color = "#ffc300";
             damage = 3;
             baseHp = 1;
-            rad = 10;
+            rad = FAST_ENEMY_BASE_RADIUS;
             spd = 2.5;
           } else if (specialRoll < 0.75) {
             specialType = "tank";
@@ -1100,7 +1113,7 @@ const Index = () => {
             color = "#78716c";
             damage = 20;
             baseHp = 15;
-            rad = 20;
+            rad = TANK_ENEMY_BASE_RADIUS;
             spd = 0.6;
           } else {
             specialType = "summoner";
@@ -1108,7 +1121,7 @@ const Index = () => {
             color = "#8e44ad";
             damage = 5;
             baseHp = 8;
-            rad = 14;
+            rad = SUMMONER_ENEMY_BASE_RADIUS;
             spd = 0.9;
           }
         } else {
@@ -1122,7 +1135,7 @@ const Index = () => {
             color = "#5dbb63";
             damage = 5;
             baseHp = 3;
-            rad = 12;
+            rad = WEAK_ENEMY_BASE_RADIUS;
             spd = 1.3;
           } else if (gameState.wave === 2) {
             // Wave 2: Mayoría verdes, algunos morados (≤10%)
@@ -1131,14 +1144,14 @@ const Index = () => {
               color = "#5dbb63";
               damage = 5;
               baseHp = 3;
-              rad = 12;
+              rad = WEAK_ENEMY_BASE_RADIUS;
               spd = 1.3;
             } else {
               enemyType = "medium";
               color = "#8e44ad";
               damage = 10;
               baseHp = 5;
-              rad = 15;
+              rad = MEDIUM_ENEMY_BASE_RADIUS;
               spd = 1.1;
             }
           } else if (gameState.wave === 3) {
@@ -1148,14 +1161,14 @@ const Index = () => {
               color = "#5dbb63";
               damage = 5;
               baseHp = 3;
-              rad = 12;
+              rad = WEAK_ENEMY_BASE_RADIUS;
               spd = 1.3;
             } else {
               enemyType = "medium";
               color = "#8e44ad";
               damage = 10;
               baseHp = 5;
-              rad = 15;
+              rad = MEDIUM_ENEMY_BASE_RADIUS;
               spd = 1.1;
             }
           } else if (gameState.wave === 4) {
@@ -1165,14 +1178,14 @@ const Index = () => {
               color = "#5dbb63";
               damage = 5;
               baseHp = 3;
-              rad = 12;
+              rad = WEAK_ENEMY_BASE_RADIUS;
               spd = 1.3;
             } else {
               enemyType = "medium";
               color = "#8e44ad";
               damage = 10;
               baseHp = 5;
-              rad = 15;
+              rad = MEDIUM_ENEMY_BASE_RADIUS;
               spd = 1.1;
             }
           } else if (gameState.wave === 5) {
@@ -1182,21 +1195,21 @@ const Index = () => {
               color = "#ffc300";
               damage = 20;
               baseHp = 8;
-              rad = 18;
+              rad = STRONG_ENEMY_BASE_RADIUS;
               spd = 0.9;
             } else if (roll < 0.6) {
               enemyType = "medium";
               color = "#8e44ad";
               damage = 10;
               baseHp = 5;
-              rad = 15;
+              rad = MEDIUM_ENEMY_BASE_RADIUS;
               spd = 1.1;
             } else {
               enemyType = "weak";
               color = "#5dbb63";
               damage = 5;
               baseHp = 3;
-              rad = 12;
+              rad = WEAK_ENEMY_BASE_RADIUS;
               spd = 1.3;
             }
           } else if (gameState.wave === 6) {
@@ -1206,21 +1219,21 @@ const Index = () => {
               color = "#ffc300";
               damage = 20;
               baseHp = 8;
-              rad = 18;
+              rad = STRONG_ENEMY_BASE_RADIUS;
               spd = 0.9;
             } else if (roll < 0.5) {
               enemyType = "medium";
               color = "#8e44ad";
               damage = 10;
               baseHp = 5;
-              rad = 15;
+              rad = MEDIUM_ENEMY_BASE_RADIUS;
               spd = 1.1;
             } else {
               enemyType = "weak";
               color = "#5dbb63";
               damage = 5;
               baseHp = 3;
-              rad = 12;
+              rad = WEAK_ENEMY_BASE_RADIUS;
               spd = 1.3;
             }
           } else if (gameState.wave === 7) {
@@ -1230,21 +1243,21 @@ const Index = () => {
               color = "#ffc300";
               damage = 20;
               baseHp = 8;
-              rad = 18;
+              rad = STRONG_ENEMY_BASE_RADIUS;
               spd = 0.9;
             } else if (roll < 0.6) {
               enemyType = "medium";
               color = "#8e44ad";
               damage = 10;
               baseHp = 5;
-              rad = 15;
+              rad = MEDIUM_ENEMY_BASE_RADIUS;
               spd = 1.1;
             } else {
               enemyType = "weak";
               color = "#5dbb63";
               damage = 5;
               baseHp = 3;
-              rad = 12;
+              rad = WEAK_ENEMY_BASE_RADIUS;
               spd = 1.3;
             }
           } else {
@@ -1429,50 +1442,18 @@ const Index = () => {
       });
     }
 
-    function scoreEnemyForAutoAim(enemy: any, range: number, preferredTarget: any | null) {
-      const player = gameState.player;
-      const dist = Math.hypot(enemy.x - player.x, enemy.y - player.y);
+    function nearestEnemy() {
+      const camera = gameState.camera ?? {
+        x: gameState.player.x,
+        y: gameState.player.y,
+        zoom: CAMERA_ZOOM,
+      };
+      const { minX, maxX, minY, maxY } = getCameraBounds(camera, W, H, 50);
+      const onScreenEnemies = gameState.enemies.filter(
+        (e: any) => e.x >= minX && e.x <= maxX && e.y >= minY && e.y <= maxY,
+      );
 
-      if (dist > range * 1.35) {
-        return { score: -Infinity, dist };
-      }
-
-      const camera = gameState.camera ?? { x: player.x, y: player.y };
-      const halfViewW = W / 2;
-      const halfViewH = H / 2;
-      const detectionPadding = Math.max(120, Math.min(range * 0.4, 320));
-      const minX = camera.x - halfViewW - detectionPadding;
-      const maxX = camera.x + halfViewW + detectionPadding;
-      const minY = camera.y - halfViewH - detectionPadding;
-      const maxY = camera.y + halfViewH + detectionPadding;
-      const onScreen = enemy.x >= minX && enemy.x <= maxX && enemy.y >= minY && enemy.y <= maxY;
-
-      const normalizedDistance = 1 - Math.min(dist / range, 1);
-      const speed = enemy.spd || 0;
-      const approachScore = Math.min(1, speed / 3.5);
-      const timeToImpact = speed > 0 ? dist / (speed * 60) : Infinity;
-      const imminentImpactScore = Number.isFinite(timeToImpact) && timeToImpact < 4 ? Math.max(0, 1 - timeToImpact / 4) : 0;
-
-      let typePriority = 0.3;
-      if (enemy.isBoss) typePriority = 1.4;
-      else if (enemy.isMiniBoss) typePriority = 1.2;
-      else if (enemy.specialType === "explosive") typePriority = 1.3;
-      else if (enemy.isElite) typePriority = 1.0;
-      else if (enemy.specialType) typePriority = 0.8;
-      else if (enemy.enemyType === "strong") typePriority = 0.7;
-      else if (enemy.enemyType === "medium") typePriority = 0.55;
-
-      const damageScore = Math.min(1, (enemy.damage || 0) / 40);
-
-      let explosiveUrgency = 0;
-      if (enemy.specialType === "explosive") {
-        const timer = typeof enemy.explosionTimer === "number" ? enemy.explosionTimer : null;
-        if (timer !== null && timer >= 0) {
-          explosiveUrgency = Math.max(0, 1 - Math.min(timer, 2) / 2);
-        } else {
-          explosiveUrgency = 0.4;
-        }
-      }
+      if (onScreenEnemies.length === 0) return null;
 
       const healthRatio = enemy.maxhp ? enemy.hp / enemy.maxhp : 1;
       const finishingScore = (1 - healthRatio) * 0.35;
@@ -1763,24 +1744,6 @@ const Index = () => {
       });
     }
 
-    function spawnChestParticles(x: number, y: number, color: string) {
-      if (gameState.particles.length < gameState.maxParticles - 25) {
-        for (let i = 0; i < 25; i++) {
-          const angle = (Math.PI * 2 * i) / 25;
-          const speed = 4 + Math.random() * 3;
-          gameState.particles.push({
-            x,
-            y,
-            vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed,
-            life: 0.8,
-            color,
-            size: 4,
-          });
-        }
-      }
-    }
-
     function chooseChestItem(): Item | null {
       const availableItems = ITEMS.filter((item) => {
         const currentStacks = gameState.player.itemStacks[item.id] ?? 0;
@@ -1862,9 +1825,7 @@ const Index = () => {
 
       const granted = grantItemToPlayer(item, { notify: true, playSound: true });
 
-      if (granted) {
-        spawnChestParticles(chest.x, chest.y, rarityColors[item.rarity]);
-      } else {
+      if (!granted) {
         collectXP(25);
         playPowerupSound();
         spawnChestParticles(chest.x, chest.y, "#5dbb63");
@@ -1931,22 +1892,6 @@ const Index = () => {
         // Incrementar velocidad permanentemente en 1%, máximo 200% (2.0x)
         gameState.player.stats.speedMultiplier = Math.min(2.0, gameState.player.stats.speedMultiplier + 0.01);
       }
-
-      // Partículas de powerup con límite
-      if (gameState.particles.length < gameState.maxParticles - 20) {
-        for (let i = 0; i < 20; i++) {
-          const angle = (Math.PI * 2 * i) / 20;
-          gameState.particles.push({
-            x: drop.x,
-            y: drop.y,
-            vx: Math.cos(angle) * 6,
-            vy: Math.sin(angle) * 6,
-            life: 0.8,
-            color: drop.color,
-            size: 4,
-          });
-        }
-      }
     }
 
     function spawnHotspot(isNegative = false) {
@@ -1955,7 +1900,7 @@ const Index = () => {
       gameState.hotspots.push({
         x,
         y,
-        rad: scaleEntitySize(isNegative ? 80 : 60), // Hotspots negativos son más grandes
+        rad: scaleEntitySize(isNegative ? 120 : 80), // Hotspots negativos son más grandes
         progress: 0,
         required: isNegative ? 10 : 3, // Positivos: 3s para completar, Negativos: no aplica
         expirationTimer: 0,
@@ -3600,8 +3545,9 @@ const Index = () => {
           camera.y += dy * moveRatio;
         }
 
-        const halfViewW = W / 2;
-        const halfViewH = H / 2;
+        const zoom = camera.zoom ?? CAMERA_ZOOM;
+        camera.zoom = zoom;
+        const { halfViewW, halfViewH } = getCameraViewExtents(W, H, zoom);
         const maxX = Math.max(halfViewW, gameState.worldWidth - halfViewW);
         const maxY = Math.max(halfViewH, gameState.worldHeight - halfViewH);
         camera.x = clamp(camera.x, halfViewW, maxX);
@@ -4088,13 +4034,12 @@ const Index = () => {
       }
 
       {
-        const camera = gameState.camera ?? { x: gameState.player.x, y: gameState.player.y };
-        const halfViewW = W / 2;
-        const halfViewH = H / 2;
-        const minX = camera.x - halfViewW - 50;
-        const maxX = camera.x + halfViewW + 50;
-        const minY = camera.y - halfViewH - 50;
-        const maxY = camera.y + halfViewH + 50;
+        const camera = gameState.camera ?? {
+          x: gameState.player.x,
+          y: gameState.player.y,
+          zoom: CAMERA_ZOOM,
+        };
+        const { minX, maxX, minY, maxY } = getCameraBounds(camera, W, H, 50);
         gameState.bullets = gameState.bullets.filter(
           (b: any) => b.life > 0 && b.x >= minX && b.x <= maxX && b.y >= minY && b.y <= maxY,
         );
@@ -4462,21 +4407,6 @@ const Index = () => {
               }
 
               playHitSound();
-
-              // Partículas de muerte con límite
-              if (gameState.particles.length < gameState.maxParticles - 8) {
-                for (let j = 0; j < 8; j++) {
-                  gameState.particles.push({
-                    x: e.x,
-                    y: e.y,
-                    vx: (Math.random() - 0.5) * 4,
-                    vy: (Math.random() - 0.5) * 4,
-                    life: 0.8,
-                    color: e.color,
-                    size: e.rad / 3,
-                  });
-                }
-              }
               break;
             }
           }
@@ -5567,17 +5497,6 @@ const Index = () => {
       ctx.fillRect(0, 0, W, H);
       ctx.globalAlpha = 1;
 
-      // Particles background effect
-      for (let i = 0; i < 30; i++) {
-        const px = W / 2 + Math.sin(gameState.time * 0.5 + i) * (300 + i * 10);
-        const py = H / 2 + Math.cos(gameState.time * 0.7 + i) * (200 + i * 8);
-        const size = 2 + Math.sin(gameState.time * 2 + i) * 1;
-        ctx.fillStyle = `rgba(251, 191, 36, ${0.1 * animProgress})`;
-        ctx.beginPath();
-        ctx.arc(px, py, size, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
       const pulse = Math.sin(gameState.time * 3) * 0.15 + 0.85;
 
       // Título con animación de escala y fade
@@ -5828,15 +5747,19 @@ const Index = () => {
       const textSecondary = nightVisionActive ? "rgba(190, 255, 190, 0.75)" : UI_COLORS.textSecondary;
       ctx.clearRect(0, 0, W, H);
 
-      const offsetX = Math.round(W / 2 - camera.x);
-      const offsetY = Math.round(H / 2 - camera.y);
-      const viewLeft = camera.x - W / 2;
-      const viewTop = camera.y - H / 2;
-      const viewRight = camera.x + W / 2;
-      const viewBottom = camera.y + H / 2;
+      const zoom = camera.zoom ?? CAMERA_ZOOM;
+      const { halfViewW, halfViewH } = getCameraViewExtents(W, H, zoom);
+      const viewLeft = camera.x - halfViewW;
+      const viewTop = camera.y - halfViewH;
+      const viewRight = camera.x + halfViewW;
+      const viewBottom = camera.y + halfViewH;
+      const viewWidth = halfViewW * 2;
+      const viewHeight = halfViewH * 2;
 
       ctx.save();
-      ctx.translate(offsetX, offsetY);
+      ctx.translate(W / 2, H / 2);
+      ctx.scale(zoom, zoom);
+      ctx.translate(-camera.x, -camera.y);
 
       // Draw tiled background map
       if (gameState.mapBackground && gameState.mapBackground.complete) {
@@ -5853,19 +5776,20 @@ const Index = () => {
         }
       } else {
         // Fallback gradient background
+        const gradientHeightOffset = viewHeight / 3;
         const gradient = ctx.createRadialGradient(
           camera.x,
-          camera.y - H / 3,
+          camera.y - gradientHeightOffset,
           0,
           camera.x,
-          camera.y - H / 3,
-          Math.max(W, H),
+          camera.y - gradientHeightOffset,
+          Math.max(viewWidth, viewHeight),
         );
         gradient.addColorStop(0, UI_COLORS.backgroundGradient[0]);
         gradient.addColorStop(0.5, UI_COLORS.backgroundGradient[1]);
         gradient.addColorStop(1, UI_COLORS.backgroundGradient[2]);
         ctx.fillStyle = gradient;
-        ctx.fillRect(viewLeft, viewTop, W, H);
+        ctx.fillRect(viewLeft, viewTop, viewWidth, viewHeight);
       }
 
       // Marcas de explosión en el suelo (quemadura)
