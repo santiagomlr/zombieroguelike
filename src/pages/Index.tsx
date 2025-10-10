@@ -594,6 +594,7 @@ const Index = () => {
         settings: 0,
         stats: 0,
       } as Record<PauseMenuTab, number>,
+      pauseMenuAudioOpen: false,
       pauseMenuUiScalePercent: (() => {
         const stored = localStorage.getItem("pauseMenuUiScalePercent");
         const allowed = [70, 80, 90, 100, 110, 120];
@@ -624,6 +625,12 @@ const Index = () => {
             options: [] as Array<{ x: number; y: number; w: number; h: number; value: number }>,
           },
         },
+      },
+      pauseMenuAudioHitAreas: {
+        button: { x: 0, y: 0, w: 0, h: 0 },
+        slider: { x: 0, y: 0, w: 0, h: 0 },
+        musicToggle: { x: 0, y: 0, w: 0, h: 0 },
+        sfxToggle: { x: 0, y: 0, w: 0, h: 0 },
       },
       language,
     };
@@ -843,6 +850,7 @@ const Index = () => {
       gameState.musicNotificationTimer = 0;
       gameState.musicMuted = false;
       gameState.sfxMuted = false;
+      gameState.pauseMenuAudioOpen = false;
       gameState.restartTimer = 0;
       gameState.showUpgradeUI = false;
       gameState.upgradeOptions = [];
@@ -902,6 +910,7 @@ const Index = () => {
         if (gameState.state === 'running') {
           gameState.state = 'paused';
           gameState.pauseMenuTab = 'home';
+          gameState.pauseMenuAudioOpen = false;
           PAUSE_MENU_TABS.forEach((tab) => {
             gameState.pauseMenuScroll[tab] = 0;
           });
@@ -910,6 +919,7 @@ const Index = () => {
         } else if (gameState.state === 'paused' && !gameState.showUpgradeUI) {
           // Iniciar countdown de 3 segundos
           gameState.countdownTimer = 3;
+          gameState.pauseMenuAudioOpen = false;
         }
       }
     };
@@ -2136,37 +2146,107 @@ const Index = () => {
         const layout = getPauseMenuLayout(W, H);
         const { menuX, menuY, menuW, menuH, padding, scale } = layout;
         
-        // Continue button
-        const buttonH = 52 * scale;
+        const buttonH = 56 * scale;
         const buttonGap = 14 * scale;
-        const buttonsY = menuY + menuH - padding - buttonH * 2 - buttonGap - 16 * scale;
+        const buttonCount = 3;
+        const audioPanelHeight = 200 * scale;
+        const audioPanelMargin = 24 * scale;
+        const baseButtonsY =
+          menuY +
+          menuH -
+          padding -
+          buttonH * buttonCount -
+          buttonGap * (buttonCount - 1) -
+          16 * scale;
+        const buttonsY = baseButtonsY - (gameState.pauseMenuAudioOpen ? audioPanelHeight + audioPanelMargin : 0);
+
         const continueBtn = { x: menuX + padding, y: buttonsY, w: menuW - padding * 2, h: buttonH };
-        const restartBtn = { x: menuX + padding, y: buttonsY + buttonH + buttonGap, w: menuW - padding * 2, h: buttonH };
-        
+        const audioBtn = {
+          x: menuX + padding,
+          y: buttonsY + buttonH + buttonGap,
+          w: menuW - padding * 2,
+          h: buttonH,
+        };
+        const restartBtn = {
+          x: menuX + padding,
+          y: audioBtn.y + buttonH + buttonGap,
+          w: menuW - padding * 2,
+          h: buttonH,
+        };
+
         if (mx >= continueBtn.x && mx <= continueBtn.x + continueBtn.w && my >= continueBtn.y && my <= continueBtn.y + continueBtn.h) {
           gameState.countdownTimer = 3;
+          gameState.pauseMenuAudioOpen = false;
           return;
         }
-        
+
         if (mx >= restartBtn.x && mx <= restartBtn.x + restartBtn.w && my >= restartBtn.y && my <= restartBtn.y + restartBtn.h) {
           resetGame();
           return;
         }
-        
-        // Music toggle (small icon in header)
-        const iconSize = 32 * scale;
-        const iconPad = 12 * scale;
-        const musicIcon = { x: menuX + menuW - padding - iconSize, y: menuY + iconPad, w: iconSize, h: iconSize };
-        if (mx >= musicIcon.x && mx <= musicIcon.x + musicIcon.w && my >= musicIcon.y && my <= musicIcon.y + musicIcon.h) {
-          gameState.musicMuted = !gameState.musicMuted;
-          if (gameState.music) {
-            if (gameState.musicMuted) {
-              gameState.music.pause();
-            } else {
-              gameState.music.play().catch(err => console.warn("Audio play failed:", err));
-            }
-          }
+
+        if (mx >= audioBtn.x && mx <= audioBtn.x + audioBtn.w && my >= audioBtn.y && my <= audioBtn.y + audioBtn.h) {
+          gameState.pauseMenuAudioOpen = !gameState.pauseMenuAudioOpen;
           return;
+        }
+
+        if (gameState.pauseMenuAudioOpen) {
+          const panelX = menuX + padding;
+          const panelW = menuW - padding * 2;
+          const panelY = buttonsY - audioPanelMargin - audioPanelHeight;
+
+          const sliderX = panelX + 28 * scale;
+          const sliderW = panelW - 56 * scale;
+          const sliderY = panelY + 70 * scale;
+          const sliderHitY = sliderY - 14 * scale;
+          const sliderHitH = 10 * scale + 28 * scale;
+
+          if (mx >= sliderX && mx <= sliderX + sliderW && my >= sliderHitY && my <= sliderHitY + sliderHitH) {
+            const relative = clamp((mx - sliderX) / sliderW, 0, 1);
+            gameState.targetMusicVolume = relative;
+            if (!gameState.musicMuted) {
+              gameState.musicVolume = relative;
+              if (gameState.music) {
+                gameState.music.volume = relative;
+              }
+            }
+            return;
+          }
+
+          const toggleGap = 18 * scale;
+          const toggleHeight = 56 * scale;
+          const toggleWidth = (panelW - toggleGap - 40 * scale) / 2;
+          const toggleY = sliderY + 10 * scale + 36 * scale;
+          const musicToggle = {
+            x: panelX + 20 * scale,
+            y: toggleY,
+            w: toggleWidth,
+            h: toggleHeight,
+          };
+          const sfxToggle = {
+            x: musicToggle.x + toggleWidth + toggleGap,
+            y: toggleY,
+            w: toggleWidth,
+            h: toggleHeight,
+          };
+
+          if (mx >= musicToggle.x && mx <= musicToggle.x + musicToggle.w && my >= musicToggle.y && my <= musicToggle.y + musicToggle.h) {
+            gameState.musicMuted = !gameState.musicMuted;
+            if (gameState.music) {
+              if (gameState.musicMuted) {
+                gameState.music.pause();
+              } else {
+                gameState.music.volume = gameState.targetMusicVolume;
+                gameState.music.play().catch((err) => console.warn("Audio play failed:", err));
+              }
+            }
+            return;
+          }
+
+          if (mx >= sfxToggle.x && mx <= sfxToggle.x + sfxToggle.w && my >= sfxToggle.y && my <= sfxToggle.y + sfxToggle.h) {
+            gameState.sfxMuted = !gameState.sfxMuted;
+            return;
+          }
         }
       } else if (gameState.state === 'gameover') {
         // GAME OVER SCREEN CLICK HANDLER
@@ -5837,13 +5917,192 @@ const Index = () => {
         // Buttons
         const buttonH = 56 * scale;
         const buttonGap = 14 * scale;
-        const buttonsY = menuY + menuH - padding - buttonH * 2 - buttonGap - 8 * scale;
+        const buttonCount = 3;
+        const audioPanelHeight = 200 * scale;
+        const audioPanelMargin = 24 * scale;
+        const baseButtonsY =
+          menuY +
+          menuH -
+          padding -
+          buttonH * buttonCount -
+          buttonGap * (buttonCount - 1) -
+          16 * scale;
+        const buttonsY = baseButtonsY - (gameState.pauseMenuAudioOpen ? audioPanelHeight + audioPanelMargin : 0);
+
+        const continueBtn = { x: menuX + padding, y: buttonsY, w: menuW - padding * 2, h: buttonH };
+        const audioBtn = {
+          x: menuX + padding,
+          y: buttonsY + buttonH + buttonGap,
+          w: menuW - padding * 2,
+          h: buttonH,
+        };
+        const restartBtn = {
+          x: menuX + padding,
+          y: audioBtn.y + buttonH + buttonGap,
+          w: menuW - padding * 2,
+          h: buttonH,
+        };
+
+        gameState.pauseMenuHitAreas.home.resume = continueBtn;
+        gameState.pauseMenuHitAreas.home.restart = restartBtn;
+        gameState.pauseMenuAudioHitAreas.button = audioBtn;
+
+        // Audio settings panel
+        if (gameState.pauseMenuAudioOpen) {
+          const panelX = menuX + padding;
+          const panelW = menuW - padding * 2;
+          const panelY = buttonsY - audioPanelMargin - audioPanelHeight;
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.roundRect(panelX, panelY, panelW, audioPanelHeight, scaledRadius(18));
+          const panelGradient = ctx.createLinearGradient(panelX, panelY, panelX, panelY + audioPanelHeight);
+          panelGradient.addColorStop(0, "rgba(37, 99, 235, 0.45)");
+          panelGradient.addColorStop(1, "rgba(15, 23, 42, 0.65)");
+          ctx.fillStyle = panelGradient;
+          ctx.fill();
+          ctx.strokeStyle = "rgba(191, 219, 254, 0.5)";
+          ctx.lineWidth = Math.max(1.5, 2 * scale);
+          ctx.shadowColor = "rgba(37, 99, 235, 0.45)";
+          ctx.shadowBlur = scaleValue(16);
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+          ctx.restore();
+
+          ctx.fillStyle = "#e0f2fe";
+          ctx.font = getScaledFont(18, "700");
+          ctx.textAlign = "center";
+          ctx.fillText(t.pauseMenu.audio.toUpperCase(), panelX + panelW / 2, panelY + 36 * scale);
+
+          ctx.textAlign = "left";
+          ctx.fillStyle = "rgba(226, 232, 240, 0.85)";
+          ctx.font = getScaledFont(14, "600");
+          ctx.fillText(t.pauseMenu.musicVolume, panelX + 20 * scale, panelY + 56 * scale);
+
+          ctx.textAlign = "right";
+          ctx.fillText(`${Math.round(gameState.targetMusicVolume * 100)}%`, panelX + panelW - 20 * scale, panelY + 56 * scale);
+
+          const sliderX = panelX + 28 * scale;
+          const sliderW = panelW - 56 * scale;
+          const sliderY = panelY + 70 * scale;
+          const sliderH = 10 * scale;
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.roundRect(sliderX, sliderY, sliderW, sliderH, scaledRadius(12));
+          ctx.fillStyle = "rgba(15, 23, 42, 0.7)";
+          ctx.fill();
+          ctx.restore();
+
+          const sliderValue = clamp(gameState.targetMusicVolume, 0, 1);
+          const sliderFillW = sliderW * sliderValue;
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.roundRect(sliderX, sliderY, sliderFillW, sliderH, scaledRadius(12));
+          ctx.fillStyle = "rgba(96, 165, 250, 0.75)";
+          ctx.fill();
+          ctx.restore();
+
+          const handleX = sliderX + sliderFillW;
+          const handleRadius = Math.max(8, 12 * scale);
+          ctx.beginPath();
+          ctx.arc(handleX, sliderY + sliderH / 2, handleRadius, 0, Math.PI * 2);
+          ctx.fillStyle = "#60a5fa";
+          ctx.fill();
+          ctx.strokeStyle = "#bfdbfe";
+          ctx.lineWidth = Math.max(1, 1.5 * scale);
+          ctx.stroke();
+
+          gameState.pauseMenuAudioHitAreas.slider = {
+            x: sliderX,
+            y: sliderY - 14 * scale,
+            w: sliderW,
+            h: sliderH + 28 * scale,
+          };
+
+          const toggleGap = 18 * scale;
+          const toggleHeight = 56 * scale;
+          const toggleWidth = (panelW - toggleGap - 40 * scale) / 2;
+          const toggleY = sliderY + sliderH + 36 * scale;
+          const musicToggleX = panelX + 20 * scale;
+          const sfxToggleX = musicToggleX + toggleWidth + toggleGap;
+
+          const drawToggle = (
+            x: number,
+            label: string,
+            active: boolean,
+            onText: string,
+            offText: string,
+          ) => {
+            ctx.save();
+            ctx.beginPath();
+            ctx.roundRect(x, toggleY, toggleWidth, toggleHeight, scaledRadius(14));
+            const gradient = ctx.createLinearGradient(x, toggleY, x, toggleY + toggleHeight);
+            if (active) {
+              gradient.addColorStop(0, "rgba(34, 197, 94, 0.4)");
+              gradient.addColorStop(1, "rgba(22, 163, 74, 0.35)");
+              ctx.strokeStyle = "rgba(134, 239, 172, 0.8)";
+              ctx.shadowColor = "rgba(34, 197, 94, 0.35)";
+            } else {
+              gradient.addColorStop(0, "rgba(71, 85, 105, 0.45)");
+              gradient.addColorStop(1, "rgba(51, 65, 85, 0.35)");
+              ctx.strokeStyle = "rgba(148, 163, 184, 0.6)";
+              ctx.shadowColor = "rgba(30, 41, 59, 0.4)";
+            }
+            ctx.fillStyle = gradient;
+            ctx.fill();
+            ctx.lineWidth = Math.max(1.5, 1.8 * scale);
+            ctx.shadowBlur = scaleValue(active ? 18 : 10);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            ctx.restore();
+
+            ctx.textAlign = "left";
+            ctx.fillStyle = "#f8fafc";
+            ctx.font = getScaledFont(15, "600");
+            ctx.fillText(label, x + 18 * scale, toggleY + 24 * scale);
+
+            ctx.textAlign = "right";
+            ctx.fillStyle = active ? "#bbf7d0" : "#cbd5f5";
+            ctx.font = getScaledFont(14, "500");
+            ctx.fillText(active ? onText : offText, x + toggleWidth - 18 * scale, toggleY + toggleHeight - 18 * scale);
+          };
+
+          drawToggle(
+            musicToggleX,
+            t.pauseMenu.music.label,
+            !gameState.musicMuted,
+            t.pauseMenu.music.on,
+            t.pauseMenu.music.off,
+          );
+          drawToggle(
+            sfxToggleX,
+            t.pauseMenu.sfx.label,
+            !gameState.sfxMuted,
+            t.pauseMenu.sfx.on,
+            t.pauseMenu.sfx.off,
+          );
+
+          gameState.pauseMenuAudioHitAreas.musicToggle = {
+            x: musicToggleX,
+            y: toggleY,
+            w: toggleWidth,
+            h: toggleHeight,
+          };
+          gameState.pauseMenuAudioHitAreas.sfxToggle = {
+            x: sfxToggleX,
+            y: toggleY,
+            w: toggleWidth,
+            h: toggleHeight,
+          };
+        }
 
         // Continue button
-        const continueY = buttonsY;
+        const continueY = continueBtn.y;
         ctx.save();
         ctx.beginPath();
-        ctx.roundRect(menuX + padding, continueY, menuW - padding * 2, buttonH, scaledRadius(14));
+        ctx.roundRect(continueBtn.x, continueBtn.y, continueBtn.w, continueBtn.h, scaledRadius(14));
         const continueBg = ctx.createLinearGradient(0, continueY, 0, continueY + buttonH);
         continueBg.addColorStop(0, "rgba(34, 197, 94, 0.4)");
         continueBg.addColorStop(1, "rgba(34, 197, 94, 0.25)");
@@ -5862,11 +6121,37 @@ const Index = () => {
         ctx.font = getScaledFont(20, "700");
         ctx.fillText("▶  " + t.continue.toUpperCase(), W / 2, continueY + buttonH / 2 + scaleValue(7));
 
-        // Restart button
-        const restartY = continueY + buttonH + buttonGap;
+        // Audio button
+        const audioY = audioBtn.y;
         ctx.save();
         ctx.beginPath();
-        ctx.roundRect(menuX + padding, restartY, menuW - padding * 2, buttonH, scaledRadius(14));
+        ctx.roundRect(audioBtn.x, audioBtn.y, audioBtn.w, audioBtn.h, scaledRadius(14));
+        const audioBg = ctx.createLinearGradient(0, audioY, 0, audioY + buttonH);
+        audioBg.addColorStop(0, "rgba(168, 85, 247, 0.35)");
+        audioBg.addColorStop(1, "rgba(59, 130, 246, 0.28)");
+        ctx.fillStyle = audioBg;
+        ctx.fill();
+        ctx.strokeStyle = gameState.pauseMenuAudioOpen ? "rgba(192, 132, 252, 0.85)" : "rgba(147, 197, 253, 0.7)";
+        ctx.lineWidth = Math.max(1.5, 1.8 * scale);
+        ctx.shadowColor = gameState.pauseMenuAudioOpen ? "rgba(192, 132, 252, 0.5)" : "rgba(59, 130, 246, 0.35)";
+        ctx.shadowBlur = scaleValue(gameState.pauseMenuAudioOpen ? 18 : 12);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.restore();
+
+        ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+        ctx.font = getScaledFont(18, "600");
+        ctx.fillText(
+          `${gameState.pauseMenuAudioOpen ? "🎚️" : "🎧"}  ${t.pauseMenu.audio}`,
+          W / 2,
+          audioY + buttonH / 2 + scaleValue(6),
+        );
+
+        // Restart button
+        const restartY = restartBtn.y;
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(restartBtn.x, restartBtn.y, restartBtn.w, restartBtn.h, scaledRadius(14));
         const restartBg = ctx.createLinearGradient(0, restartY, 0, restartY + buttonH);
         restartBg.addColorStop(0, "rgba(239, 68, 68, 0.3)");
         restartBg.addColorStop(1, "rgba(239, 68, 68, 0.2)");
@@ -5880,26 +6165,6 @@ const Index = () => {
         ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
         ctx.font = getScaledFont(18, "600");
         ctx.fillText("🔄  " + t.restart, W / 2, restartY + buttonH / 2 + scaleValue(6));
-
-        // Music toggle icon (top right)
-        const iconSize = 32 * scale;
-        const iconPad = 12 * scale;
-        const musicIcon = { x: menuX + menuW - padding - iconSize, y: menuY + iconPad, w: iconSize, h: iconSize };
-        
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(musicIcon.x + iconSize / 2, musicIcon.y + iconSize / 2, iconSize / 2, 0, Math.PI * 2);
-        ctx.fillStyle = gameState.musicMuted ? "rgba(239, 68, 68, 0.3)" : "rgba(34, 197, 94, 0.3)";
-        ctx.fill();
-        ctx.strokeStyle = gameState.musicMuted ? "rgba(239, 68, 68, 0.6)" : "rgba(34, 197, 94, 0.6)";
-        ctx.lineWidth = Math.max(1.5, 2 * scale);
-        ctx.stroke();
-        ctx.restore();
-
-        ctx.textAlign = "center";
-        ctx.fillStyle = "#ffffff";
-        ctx.font = getScaledFont(16, "600");
-        ctx.fillText(gameState.musicMuted ? "🔇" : "🎵", musicIcon.x + iconSize / 2, musicIcon.y + iconSize / 2 + scaleValue(6));
 
         ctx.textAlign = "left";
         ctx.restore();
