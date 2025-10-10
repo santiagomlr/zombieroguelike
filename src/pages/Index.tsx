@@ -370,6 +370,34 @@ const getPauseMenuHomeLayout = (
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
+const getCameraViewExtents = (width: number, height: number, zoom: number) => {
+  const safeZoom = Math.max(zoom, 0.0001);
+  const viewWidth = width / safeZoom;
+  const viewHeight = height / safeZoom;
+
+  return {
+    halfViewW: viewWidth / 2,
+    halfViewH: viewHeight / 2,
+  };
+};
+
+const getCameraBounds = (
+  camera: { x: number; y: number; zoom?: number | null },
+  width: number,
+  height: number,
+  padding = 0,
+) => {
+  const zoom = camera.zoom ?? CAMERA_ZOOM;
+  const { halfViewW, halfViewH } = getCameraViewExtents(width, height, zoom);
+
+  return {
+    minX: camera.x - halfViewW + padding,
+    maxX: camera.x + halfViewW - padding,
+    minY: camera.y - halfViewH + padding,
+    maxY: camera.y + halfViewH - padding,
+  };
+};
+
 const drawRoundedRect = (
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -3853,6 +3881,25 @@ const Index = () => {
         camera.x = clamp(camera.x, halfViewW, maxX);
         camera.y = clamp(camera.y, halfViewH, maxY);
       }
+
+      const visibilityCamera = gameState.camera ?? {
+        x: gameState.player.x,
+        y: gameState.player.y,
+        zoom: CAMERA_ZOOM,
+      };
+      const visibilityZoom = visibilityCamera.zoom ?? CAMERA_ZOOM;
+      const visibilityExtents = getCameraViewExtents(W, H, visibilityZoom);
+      const visibilityBounds: Bounds = {
+        left: visibilityCamera.x - visibilityExtents.halfViewW,
+        top: visibilityCamera.y - visibilityExtents.halfViewH,
+        right: visibilityCamera.x + visibilityExtents.halfViewW,
+        bottom: visibilityCamera.y + visibilityExtents.halfViewH,
+      };
+      const visibleEnemies = cullEntities(
+        gameState.enemies,
+        expandBounds(visibilityBounds, MAX_ENEMY_RADIUS),
+        (enemy) => enemy.rad,
+      );
 
       // ═══════════════════════════════════════════════════════════
       // SISTEMA DE SPAWN DE ENEMIGOS - Estilo COD Zombies
