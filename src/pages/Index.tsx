@@ -309,17 +309,19 @@ const Index = () => {
       console.log('Enemy logo loaded successfully');
       
       // Pre-render colored enemy logos for performance
-      const colors = ['#22c55e', '#a855f7', '#fbbf24', '#16a34a', '#9333ea', '#f59e0b'];
-      colors.forEach(color => {
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = 60;
-        tempCanvas.height = 60;
-        const tempCtx = tempCanvas.getContext('2d')!;
-        tempCtx.drawImage(enemyLogoImg, 0, 0, 60, 60);
-        tempCtx.globalCompositeOperation = 'source-in';
-        tempCtx.fillStyle = color;
-        tempCtx.fillRect(0, 0, 60, 60);
-        prerenderedLogosRef.current[color] = tempCanvas;
+      const spawnEnemyColors = [
+        "#22c55e",
+        "#a855f7",
+        "#fbbf24",
+        "#16a34a",
+        "#9333ea",
+        "#f59e0b",
+        "#ef4444",
+        "#78716c",
+      ];
+
+      spawnEnemyColors.forEach((color) => {
+        ensureTintedLogo(color);
       });
     };
     enemyLogoImg.onerror = () => {
@@ -5376,25 +5378,17 @@ const Index = () => {
           // Dibujar el logo escalado al tamaño del enemigo
           const logoSize = e.rad * 2;
           
-          // Usar logo pre-renderizado si está disponible, sino crear temporalmente
-          const prerenderedLogo = prerenderedLogosRef.current[e.color];
-          if (prerenderedLogo) {
-            // Usar logo pre-renderizado (mucho más rápido)
-            ctx.drawImage(prerenderedLogo, -logoSize / 2, -logoSize / 2, logoSize, logoSize);
-          } else {
-            // Fallback: crear canvas temporal (para colores personalizados)
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = logoSize;
-            tempCanvas.height = logoSize;
-            const tempCtx = tempCanvas.getContext('2d');
-            
-            if (tempCtx) {
-              tempCtx.drawImage(gameState.enemyLogo, 0, 0, logoSize, logoSize);
-              tempCtx.globalCompositeOperation = 'source-in';
-              tempCtx.fillStyle = e.color;
-              tempCtx.fillRect(0, 0, logoSize, logoSize);
-              ctx.drawImage(tempCanvas, -logoSize / 2, -logoSize / 2);
+          // Usar logo pre-renderizado si está disponible; en caso contrario, generarlo y guardarlo
+          let prerenderedLogo = prerenderedLogosRef.current[e.color];
+          if (!prerenderedLogo) {
+            const generatedLogo = ensureTintedLogo(e.color);
+            if (generatedLogo) {
+              prerenderedLogo = generatedLogo;
             }
+          }
+
+          if (prerenderedLogo) {
+            ctx.drawImage(prerenderedLogo, -logoSize / 2, -logoSize / 2, logoSize, logoSize);
           }
           
           ctx.shadowBlur = 0;
