@@ -1473,7 +1473,71 @@ const Index = () => {
       return closest;
     }
 
-    function scoreEnemyForAutoAim(enemy: any, range: number, preferredTarget: any | null) {
+    const CLUSTER_RADIUS = 180;
+    const CLUSTER_RADIUS_SQ = CLUSTER_RADIUS * CLUSTER_RADIUS;
+    const CLUSTER_CELL_SIZE = CLUSTER_RADIUS;
+
+    function buildClusterScoreMap() {
+      const clusterScores = new WeakMap<any, number>();
+
+      if (gameState.enemies.length <= 1) {
+        return clusterScores;
+      }
+
+      type ClusterBucket = { cellX: number; cellY: number; enemies: any[] };
+      const buckets = new Map<string, ClusterBucket>();
+
+      for (const enemy of gameState.enemies) {
+        if (!enemy || enemy.hp <= 0) continue;
+        const cellX = Math.floor(enemy.x / CLUSTER_CELL_SIZE);
+        const cellY = Math.floor(enemy.y / CLUSTER_CELL_SIZE);
+        const key = `${cellX}:${cellY}`;
+        let bucket = buckets.get(key);
+        if (!bucket) {
+          bucket = { cellX, cellY, enemies: [] };
+          buckets.set(key, bucket);
+        }
+        bucket.enemies.push(enemy);
+      }
+
+      for (const bucket of buckets.values()) {
+        if (!bucket.enemies.length) continue;
+        const { cellX, cellY, enemies } = bucket;
+
+        for (const enemy of enemies) {
+          let closeCount = 0;
+          for (let ix = -1; ix <= 1; ix++) {
+            for (let iy = -1; iy <= 1; iy++) {
+              const neighborBucket = buckets.get(`${cellX + ix}:${cellY + iy}`);
+              if (!neighborBucket) continue;
+              for (const other of neighborBucket.enemies) {
+                if (other === enemy || other.hp <= 0) continue;
+                const ndx = other.x - enemy.x;
+                if (Math.abs(ndx) > CLUSTER_RADIUS) continue;
+                const ndy = other.y - enemy.y;
+                if (Math.abs(ndy) > CLUSTER_RADIUS) continue;
+                if (ndx * ndx + ndy * ndy <= CLUSTER_RADIUS_SQ) {
+                  closeCount++;
+                  if (closeCount >= 6) break;
+                }
+              }
+              if (closeCount >= 6) break;
+            }
+            if (closeCount >= 6) break;
+          }
+          clusterScores.set(enemy, clamp(closeCount / 4, 0, 1));
+        }
+      }
+
+      return clusterScores;
+    }
+
+    function scoreEnemyForAutoAim(
+      enemy: any,
+      range: number,
+      preferredTarget: any | null,
+      clusterScoreMap: WeakMap<any, number>,
+    ) {
       const dx = enemy.x - gameState.player.x;
       const dy = enemy.y - gameState.player.y;
       const dist = Math.hypot(dx, dy);
@@ -1520,22 +1584,7 @@ const Index = () => {
       const healthRatio = enemy.maxhp ? clamp(enemy.hp / enemy.maxhp, 0, 1) : 1;
       const finishingScore = (1 - healthRatio) * 0.3;
 
-      let clusterScore = 0;
-      if (gameState.enemies.length > 1) {
-        let closeCount = 0;
-        for (const other of gameState.enemies) {
-          if (other === enemy || other.hp <= 0) continue;
-          const ndx = other.x - enemy.x;
-          if (Math.abs(ndx) > 160) continue;
-          const ndy = other.y - enemy.y;
-          if (Math.abs(ndy) > 160) continue;
-          if (Math.hypot(ndx, ndy) <= 180) {
-            closeCount++;
-            if (closeCount >= 6) break;
-          }
-        }
-        clusterScore = clamp(closeCount / 4, 0, 1);
-      }
+      const clusterScore = clusterScoreMap.get(enemy) ?? 0;
 
       const baseScore =
         typePriority * 0.3 +
@@ -1552,14 +1601,18 @@ const Index = () => {
       return { score: baseScore + sameTargetBonus + visibilityBonus, dist };
     }
 
-    function selectSmartTarget(range: number, preferredTarget: any | null) {
+    function selectSmartTarget(
+      range: number,
+      preferredTarget: any | null,
+      clusterScoreMap: WeakMap<any, number>,
+    ) {
       let bestEnemy: any | null = null;
       let bestScore = -Infinity;
       let bestDistance = Infinity;
 
       const consider = (enemy: any) => {
         if (!enemy || enemy.hp <= 0) return;
-        const { score, dist } = scoreEnemyForAutoAim(enemy, range, preferredTarget);
+        const { score, dist } = scoreEnemyForAutoAim(enemy, range, preferredTarget, clusterScoreMap);
         if (score === -Infinity) return;
 
         const betterScore = score > bestScore + 0.05;
@@ -1688,6 +1741,7 @@ const Index = () => {
 
     function autoShoot(dt: number) {
       const player = gameState.player;
+      const clusterScoreMap = buildClusterScoreMap();
 
       for (const weapon of player.weapons) {
         const cooldownKey = weapon.id;
@@ -1717,7 +1771,7 @@ const Index = () => {
         }
 
         const range = weapon.range * player.stats.rangeMultiplier;
-        const { target, score, distance } = selectSmartTarget(range, memory.target);
+        const { target, score, distance } = selectSmartTarget(range, memory.target, clusterScoreMap);
 
         memory.target = target;
         memory.lastScore = score;
