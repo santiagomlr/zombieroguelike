@@ -1,4 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import type {
+  MinimapEntity,
+  MinimapFrame,
+  OverlayParticle,
+} from "../workers/overlayRenderer";
 
 import {
   ITEMS,
@@ -75,6 +80,86 @@ const UI_COLORS = {
   xp: "#8e44ad",
   minimap: "#5dbb63",
   backgroundGradient: ["#111", "#0a0a0a", "#050505"],
+};
+
+type Bounds = {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+};
+
+const explosionGradientCache = new Map<number, CanvasGradient>();
+const dropPathCache = new Map<number, Path2D>();
+const hotspotPathCache = new Map<number, Path2D>();
+
+const getDiamondPath = (radius: number) => {
+  let path = dropPathCache.get(radius);
+  if (!path) {
+    path = new Path2D();
+    path.moveTo(0, -radius);
+    path.lineTo(radius, 0);
+    path.lineTo(0, radius);
+    path.lineTo(-radius, 0);
+    path.closePath();
+    dropPathCache.set(radius, path);
+  }
+  return path;
+};
+
+const getHotspotPath = (radius: number) => {
+  let path = hotspotPathCache.get(radius);
+  if (!path) {
+    path = new Path2D();
+    path.arc(0, 0, radius, 0, Math.PI * 2);
+    hotspotPathCache.set(radius, path);
+  }
+  return path;
+};
+
+const getExplosionGradient = (ctx: CanvasRenderingContext2D, radius: number) => {
+  let gradient = explosionGradientCache.get(radius);
+  if (!gradient) {
+    gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, radius);
+    gradient.addColorStop(0, "rgba(80, 30, 10, 0.8)");
+    gradient.addColorStop(0.5, "rgba(60, 20, 5, 0.5)");
+    gradient.addColorStop(1, "rgba(40, 10, 0, 0)");
+    explosionGradientCache.set(radius, gradient);
+  }
+  return gradient;
+};
+
+const expandBounds = (bounds: Bounds, padding: number): Bounds => ({
+  left: bounds.left - padding,
+  top: bounds.top - padding,
+  right: bounds.right + padding,
+  bottom: bounds.bottom + padding,
+});
+
+const isEntityVisible = <T extends { x: number; y: number }>(
+  entity: T,
+  bounds: Bounds,
+  radius: number,
+) =>
+  !(entity.x + radius < bounds.left ||
+    entity.x - radius > bounds.right ||
+    entity.y + radius < bounds.top ||
+    entity.y - radius > bounds.bottom);
+
+const cullEntities = <T extends { x: number; y: number }>(
+  entities: readonly T[],
+  bounds: Bounds,
+  radiusAccessor: (entity: T) => number,
+) => {
+  const visible: T[] = [];
+  for (let i = 0; i < entities.length; i++) {
+    const entity = entities[i];
+    const radius = radiusAccessor(entity);
+    if (isEntityVisible(entity, bounds, radius)) {
+      visible.push(entity);
+    }
+  }
+  return visible;
 };
 
 const CRT_SETTINGS = {
@@ -315,6 +400,9 @@ const getMusicControlPanelRect = (W: number, H: number) => {
 
 const Index = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
+  const overlayWorkerRef = useRef<Worker | null>(null);
+  const overlaySupportedRef = useRef(false);
   const [score, setScore] = useState(0);
   const [level, setLevel] = useState(1);
   const [language, setLanguage] = useState<Language>(() => {
@@ -340,6 +428,7 @@ const Index = () => {
 
   useEffect(() => {
     const canvas = canvasRef.current;
+    const overlayCanvas = overlayCanvasRef.current;
     if (!canvas) return;
 
     const ctx = canvas.getContext("2d");
@@ -349,6 +438,34 @@ const Index = () => {
     let H = window.innerHeight;
     canvas.width = W;
     canvas.height = H;
+    if (overlayCanvas) {
+      overlayCanvas.width = W;
+      overlayCanvas.height = H;
+      overlayCanvas.style.width = `${W}px`;
+      overlayCanvas.style.height = `${H}px`;
+    }
+
+    const supportsOffscreen =
+      typeof window !== "undefined" && typeof Worker !== "undefined" && "OffscreenCanvas" in window;
+
+    if (overlayCanvas && supportsOffscreen && !overlayWorkerRef.current) {
+      try {
+        const offscreen = overlayCanvas.transferControlToOffscreen();
+        const worker = new Worker(new URL("../workers/overlayRenderer.ts", import.meta.url), {
+          type: "module",
+        });
+        worker.postMessage(
+          { type: "init", canvas: offscreen, width: W, height: H },
+          [offscreen as unknown as Transferable],
+        );
+        overlayWorkerRef.current = worker;
+        overlaySupportedRef.current = true;
+      } catch (error) {
+        overlaySupportedRef.current = false;
+      }
+    } else {
+      overlaySupportedRef.current = false;
+    }
 
     const worldW = Math.max(W, 2200);
     const worldH = Math.max(H, 1600);
@@ -1020,6 +1137,13 @@ const Index = () => {
       H = window.innerHeight;
       canvas.width = W;
       canvas.height = H;
+      const overlayCanvasEl = overlayCanvasRef.current;
+      if (overlayCanvasEl) {
+        overlayCanvasEl.width = W;
+        overlayCanvasEl.height = H;
+        overlayCanvasEl.style.width = `${W}px`;
+        overlayCanvasEl.style.height = `${H}px`;
+      }
       if (gameState.player) {
         gameState.worldWidth = Math.max(gameState.worldWidth, Math.max(W, 2200));
         gameState.worldHeight = Math.max(gameState.worldHeight, Math.max(H, 1600));
@@ -1042,6 +1166,9 @@ const Index = () => {
         const maxY = Math.max(halfViewH, gameState.worldHeight - halfViewH);
         gameState.camera.x = clamp(gameState.camera.x, halfViewW, maxX);
         gameState.camera.y = clamp(gameState.camera.y, halfViewH, maxY);
+      }
+      if (overlaySupportedRef.current && overlayWorkerRef.current) {
+        overlayWorkerRef.current.postMessage({ type: "resize", width: W, height: H });
       }
     };
 
@@ -3816,7 +3943,7 @@ const Index = () => {
       }
 
       // Mover enemigos y aplicar efectos elementales
-      for (const e of gameState.enemies) {
+      for (const e of visibleEnemies) {
         // Efectos elementales (DoT)
         if (e.burnTimer > 0) {
           e.burnTimer -= dt;
@@ -5965,11 +6092,39 @@ const Index = () => {
       const viewWidth = halfViewW * 2;
       const viewHeight = halfViewH * 2;
 
+      const viewBounds: Bounds = {
+        left: viewLeft,
+        top: viewTop,
+        right: viewRight,
+        bottom: viewBottom,
+      };
+      const actorBounds = expandBounds(viewBounds, MAX_ENEMY_RADIUS);
+      const dropBounds = expandBounds(viewBounds, 64);
+      const hotspotBounds = expandBounds(viewBounds, 72);
+      const particleBounds = expandBounds(viewBounds, 96);
+
+      const visibleDrops = cullEntities(gameState.drops, dropBounds, (d) => d.rad);
+      const visibleHotspots = cullEntities(gameState.hotspots, hotspotBounds, (h) => h.rad);
+      const visibleParticles = cullEntities(gameState.particles, particleBounds, (p) => p.size);
+      const visibleEnemies = cullEntities(gameState.enemies, actorBounds, (e) => e.rad);
+      const visibleExplosionMarks = cullEntities(
+        gameState.explosionMarks,
+        dropBounds,
+        (m) => m.radius,
+      );
+
+      const worldToScreen = (x: number, y: number) => ({
+        x: (x - camera.x) * zoom + W / 2,
+        y: (y - camera.y) * zoom + H / 2,
+      });
+
       ctx.save();
       ctx.translate(W / 2, H / 2);
       ctx.scale(zoom, zoom);
       ctx.translate(-camera.x, -camera.y);
+      const worldTransform = ctx.getTransform();
 
+      const renderBackgroundPass = () => {
       // Draw tiled background map
       if (gameState.mapBackground && gameState.mapBackground.complete) {
         const imgW = gameState.mapBackground.width;
@@ -6002,31 +6157,24 @@ const Index = () => {
       }
 
       // Marcas de explosión en el suelo (quemadura)
-      for (const mark of gameState.explosionMarks) {
-        const alpha = mark.life / 3; // Fade out gradual
-        ctx.save();
+      for (const mark of visibleExplosionMarks) {
+        const alpha = mark.life / 3;
+        ctx.setTransform(worldTransform);
+        ctx.translate(mark.x, mark.y);
         ctx.globalAlpha = alpha * 0.4;
+        ctx.fillStyle = getExplosionGradient(ctx, mark.radius);
+        const path = getHotspotPath(mark.radius);
+        ctx.fill(path);
 
-        // Círculo quemado oscuro
-        const markGradient = ctx.createRadialGradient(mark.x, mark.y, 0, mark.x, mark.y, mark.radius);
-        markGradient.addColorStop(0, "rgba(80, 30, 10, 0.8)");
-        markGradient.addColorStop(0.5, "rgba(60, 20, 5, 0.5)");
-        markGradient.addColorStop(1, "rgba(40, 10, 0, 0)");
-        ctx.fillStyle = markGradient;
-        ctx.beginPath();
-        ctx.arc(mark.x, mark.y, mark.radius, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Borde quemado
         ctx.globalAlpha = alpha * 0.6;
         ctx.strokeStyle = "rgba(139, 69, 19, 0.8)";
         ctx.lineWidth = 2;
         ctx.setLineDash([5, 5]);
-        ctx.stroke();
+        ctx.stroke(path);
         ctx.setLineDash([]);
-
-        ctx.restore();
       }
+      ctx.setTransform(worldTransform);
+      ctx.globalAlpha = 1;
 
       // ═══════════════════════════════════════════════════════════
       // EFECTOS AMBIENTALES - Renderizado
@@ -6153,7 +6301,7 @@ const Index = () => {
       }
 
       // Hotspots
-      for (const h of gameState.hotspots) {
+      for (const h of visibleHotspots) {
         const pulse = Math.sin(gameState.time * 3) * 0.1 + 0.9;
 
         if (h.isNegative) {
@@ -6288,11 +6436,15 @@ const Index = () => {
           }
         }
       }
+      };
 
       // Drops con glow de rareza para powerups y cofres
-      for (const d of gameState.drops) {
+      renderBackgroundPass();
+
+      const renderActorPass = () => {
+      for (const d of visibleDrops) {
+        ctx.setTransform(worldTransform);
         if (d.type === "chest") {
-          ctx.save();
           const spawnTime = d.spawnTime ?? gameState.time;
           const bounce = Math.sin((gameState.time - spawnTime) * 5) * 4;
           ctx.translate(d.x, d.y + bounce);
@@ -6304,15 +6456,12 @@ const Index = () => {
           ctx.shadowColor = d.color;
           ctx.shadowBlur = 20;
 
-          // Base del cofre
           ctx.fillStyle = "#7c2d12";
           ctx.fillRect(-chestWidth / 2, -chestHeight / 2 + lidHeight, chestWidth, chestHeight - lidHeight);
 
-          // Tapa del cofre
           ctx.fillStyle = d.color;
           ctx.fillRect(-chestWidth / 2, -chestHeight / 2, chestWidth, lidHeight);
 
-          // Detalles dorados
           ctx.fillStyle = "#fcd34d";
           ctx.fillRect(-3, -chestHeight / 2, 6, chestHeight);
           ctx.strokeStyle = "#fcd34d";
@@ -6326,66 +6475,57 @@ const Index = () => {
           ctx.stroke();
 
           ctx.shadowBlur = 0;
-          ctx.restore();
+          ctx.shadowColor = "transparent";
           continue;
         }
 
-        // Parpadeo para XP que está por expirar
         let alpha = 1;
         if (d.type === "xp" && d.lifetime !== undefined && d.lifetime < 3) {
-          // Parpadeo más rápido cuando está cerca de expirar
           const blinkSpeed = d.lifetime < 1 ? 10 : 6;
           alpha = Math.abs(Math.sin(gameState.time * blinkSpeed)) * 0.7 + 0.3;
         }
 
-        ctx.save();
+        ctx.translate(d.x, d.y);
         ctx.globalAlpha = alpha;
         ctx.fillStyle = d.color;
         ctx.shadowColor = d.color;
 
-        // Powerups tienen glow animado según rareza
         if (d.type === "powerup") {
           const pulse = Math.sin(gameState.time * 5) * 10 + 20;
           ctx.shadowBlur = pulse;
-
-          // Anillo exterior de rareza
           ctx.strokeStyle = d.color;
           ctx.lineWidth = 3;
           ctx.beginPath();
-          ctx.arc(d.x, d.y, d.rad + 5, 0, Math.PI * 2);
+          ctx.arc(0, 0, d.rad + 5, 0, Math.PI * 2);
           ctx.stroke();
         } else {
           ctx.shadowBlur = 10;
         }
 
-        ctx.beginPath();
-        ctx.moveTo(d.x, d.y - d.rad);
-        ctx.lineTo(d.x + d.rad, d.y);
-        ctx.lineTo(d.x, d.y + d.rad);
-        ctx.lineTo(d.x - d.rad, d.y);
-        ctx.closePath();
-        ctx.fill();
+        ctx.fill(getDiamondPath(d.rad));
         ctx.shadowBlur = 0;
-        ctx.restore();
+        ctx.shadowColor = "transparent";
+        ctx.globalAlpha = 1;
       }
+      ctx.setTransform(worldTransform);
 
       // Partículas
-      for (const p of gameState.particles) {
-        ctx.fillStyle = p.color;
-        ctx.globalAlpha = p.life;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fill();
+      if (!overlaySupportedRef.current) {
+        for (const p of visibleParticles) {
+          ctx.fillStyle = p.color;
+          ctx.globalAlpha = p.life;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fill();
+        }
         ctx.globalAlpha = 1;
       }
 
       // Enemigos
-      for (const e of gameState.enemies) {
-        ctx.save();
-
+      for (const e of visibleEnemies) {
         // Determine which image to use based on enemy type and color
         let enemyImage: HTMLImageElement | null = null;
-        
+
         if (e.specialType === "explosive" && gameState.bomberImg?.complete) {
           enemyImage = gameState.bomberImg;
         } else if (e.specialType === "fast" && gameState.runnerImg?.complete) {
@@ -6395,7 +6535,6 @@ const Index = () => {
         } else if (e.specialType === "summoner" && gameState.ghoulImg?.complete) {
           enemyImage = gameState.ghoulImg;
         } else if (e.isSummoned && gameState.ghoulImg?.complete) {
-          // Ghoul summons should use the same sprite as their summoner
           enemyImage = gameState.ghoulImg;
         } else if (e.color === "#5dbb63" && gameState.greenZombieImg?.complete) {
           enemyImage = gameState.greenZombieImg;
@@ -6404,20 +6543,12 @@ const Index = () => {
         } else if (e.color === "#78716c" && gameState.shieldImg?.complete) {
           enemyImage = gameState.shieldImg;
         }
-        
+
         if (enemyImage) {
-          ctx.translate(e.x, e.y);
-
-          // Dibujar el logo escalado al tamaño del enemigo (3x bigger to scale with player)
           const logoSize = e.rad * 3;
-          ctx.drawImage(enemyImage, -logoSize / 2, -logoSize / 2, logoSize, logoSize);
-
-          ctx.restore();
+          ctx.drawImage(enemyImage, e.x - logoSize / 2, e.y - logoSize / 2, logoSize, logoSize);
         } else if (gameState.enemyLogo && gameState.enemyLogo.complete) {
-          // Fallback to colored logo
-          ctx.translate(e.x, e.y);
           const logoSize = e.rad * 3;
-
           let prerenderedLogo = prerenderedLogosRef.current[e.color];
           if (!prerenderedLogo) {
             const generatedLogo = ensureTintedLogo(e.color);
@@ -6427,26 +6558,18 @@ const Index = () => {
           }
 
           if (prerenderedLogo) {
-            ctx.drawImage(prerenderedLogo, -logoSize / 2, -logoSize / 2, logoSize, logoSize);
+            ctx.drawImage(prerenderedLogo, e.x - logoSize / 2, e.y - logoSize / 2, logoSize, logoSize);
           }
-
-          ctx.restore();
         } else {
-          // Fallback: dibujar círculo si la imagen no está cargada
           ctx.fillStyle = e.color;
           ctx.beginPath();
           ctx.arc(e.x, e.y, e.rad, 0, Math.PI * 2);
           ctx.fill();
-          ctx.restore();
         }
 
-        // 💣 Anillo de advertencia para bombers a punto de explotar
         if (e.specialType === "explosive" && e.explosionTimer !== undefined && e.explosionTimer >= 0) {
-          ctx.save();
           const pulse = Math.sin(gameState.time * 12) * 0.4 + 0.6;
           const warningRadius = e.rad + 8 + pulse * 5;
-
-          // Anillo pulsante (más intenso cuando está cerca)
           const intensity = e.explosionTimer < 0.5 ? 1 : 0.6;
           ctx.strokeStyle =
             e.explosionTimer < 0.5
@@ -6459,22 +6582,20 @@ const Index = () => {
           ctx.arc(e.x, e.y, warningRadius, 0, Math.PI * 2);
           ctx.stroke();
 
-          // Radio de explosión (círculo más grande y tenue)
           ctx.globalAlpha = 0.15 * pulse;
           ctx.strokeStyle = "#ef4444";
           ctx.lineWidth = 2;
           ctx.setLineDash([5, 5]);
           ctx.beginPath();
-          ctx.arc(e.x, e.y, 80, 0, Math.PI * 2); // Radio AOE de explosión
+          ctx.arc(e.x, e.y, 80, 0, Math.PI * 2);
           ctx.stroke();
           ctx.setLineDash([]);
-
           ctx.shadowBlur = 0;
-          ctx.restore();
+          ctx.shadowColor = "transparent";
+          ctx.globalAlpha = 1;
         }
 
-        // HP bar para todos los enemigos (FIX: tamaño consistente)
-        const barW = e.rad * 2; // Ancho fijo basado en radio
+        const barW = e.rad * 2;
         const barH = e.isBoss ? 8 : e.isMiniBoss ? 6 : e.isElite ? 5 : 3;
         const barX = e.x - barW / 2;
         const barY = e.y - e.rad - (e.isBoss ? 35 : 10);
@@ -6482,20 +6603,19 @@ const Index = () => {
         ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
         ctx.fillRect(barX, barY, barW, barH);
 
-        // Ancho de la barra de HP actual (proporcional al HP)
         const hpBarWidth = barW * Math.max(0, Math.min(1, e.hp / e.maxhp));
-
         ctx.fillStyle = e.isBoss ? "#dc2626" : e.isMiniBoss ? "#ffc300" : e.isElite ? "#ff3b3b" : "#5dbb63";
         ctx.fillRect(barX, barY, hpBarWidth, barH);
 
-        // Fase del boss
         if (e.isBoss) {
-          ctx.save();
+          const prevAlign = ctx.textAlign;
+          const prevFill = ctx.fillStyle;
           ctx.fillStyle = "#fff";
           ctx.font = "bold 14px system-ui";
           ctx.textAlign = "center";
           ctx.fillText(`FASE ${e.phase}`, e.x, e.y + e.rad + 15);
-          ctx.restore();
+          ctx.textAlign = prevAlign;
+          ctx.fillStyle = prevFill;
         }
       }
 
@@ -6618,8 +6738,72 @@ const Index = () => {
         ctx.fillText(`⚡ ${Math.ceil(gameState.player.rageTimer)}s`, gameState.player.x, indicatorY);
       }
 
-      ctx.restore();
+      if (overlaySupportedRef.current && overlayWorkerRef.current) {
+        const particlePayload: OverlayParticle[] = visibleParticles.map((particle) => {
+          const screen = worldToScreen(particle.x, particle.y);
+          return {
+            x: screen.x,
+            y: screen.y,
+            size: Math.max(1, particle.size * zoom),
+            life: particle.life,
+            color: particle.color,
+          };
+        });
 
+        const minimapPlayer: MinimapEntity | null = gameState.player
+          ? {
+              x: gameState.player.x,
+              y: gameState.player.y,
+              radius: gameState.player.rad,
+              color: UI_COLORS.minimap,
+            }
+          : null;
+
+        const minimapEnemies: MinimapEntity[] = visibleEnemies.map((enemy) => ({
+          x: enemy.x,
+          y: enemy.y,
+          radius: enemy.rad,
+          color: enemy.isBoss ? "#dc2626" : enemy.isMiniBoss ? "#ffc300" : enemy.color,
+        }));
+
+        const minimapDrops: MinimapEntity[] = visibleDrops.map((drop) => ({
+          x: drop.x,
+          y: drop.y,
+          radius: drop.rad,
+          color: drop.color,
+        }));
+
+        const minimapHotspots: MinimapEntity[] = visibleHotspots.map((hotspot) => ({
+          x: hotspot.x,
+          y: hotspot.y,
+          radius: hotspot.rad,
+          color: hotspot.isNegative ? "#ef4444" : hotspot.isRadioactive ? "#8e44ad" : "#ffc300",
+        }));
+
+        const minimapFrame: MinimapFrame = {
+          worldWidth: gameState.worldWidth,
+          worldHeight: gameState.worldHeight,
+          player: minimapPlayer,
+          enemies: minimapEnemies,
+          drops: minimapDrops,
+          hotspots: minimapHotspots,
+        };
+
+        overlayWorkerRef.current.postMessage({
+          type: "frame",
+          width: W,
+          height: H,
+          particles: particlePayload,
+          minimap: minimapFrame,
+        });
+      }
+
+      ctx.restore();
+      };
+
+      renderActorPass();
+
+      const renderUIPass = () => {
       // Restart hold indicator
       if (gameState.restartTimer > 0) {
         const progress = Math.min(1, gameState.restartTimer / gameState.restartHoldTime);
@@ -7217,6 +7401,9 @@ const Index = () => {
 
         ctx.restore();
       }
+      };
+
+      renderUIPass();
     } // Cierre de función draw()
 
     // Game loop
@@ -7257,6 +7444,11 @@ const Index = () => {
       document.removeEventListener("gesturestart", preventGesture);
       document.removeEventListener("gesturechange", preventGesture);
       document.removeEventListener("gestureend", preventGesture);
+      if (overlayWorkerRef.current) {
+        overlayWorkerRef.current.terminate();
+        overlayWorkerRef.current = null;
+        overlaySupportedRef.current = false;
+      }
     };
   }, []);
 
@@ -7269,6 +7461,7 @@ const Index = () => {
   return (
     <div className="relative w-full h-screen overflow-hidden bg-background">
       <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" style={{ cursor: "crosshair" }} />
+      <canvas ref={overlayCanvasRef} className="absolute inset-0 w-full h-full pointer-events-none" />
 
       {/* TUTORIAL SIMPLIFICADO */}
       {gameStateRef.current?.tutorialActive && !tutorialCompleted && gameStateRef.current?.wave === 1 && (
