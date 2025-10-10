@@ -179,6 +179,7 @@ const Index = () => {
       xp: 0,
       nextXP: 25,
       time: 0,
+      elapsedTime: 0,
       wave: 1,
       waveKills: 0,
       waveEnemiesTotal: 10, // Wave 1 empieza con 10 (estilo COD Zombies)
@@ -563,6 +564,7 @@ const Index = () => {
       gameState.xp = 0;
       gameState.nextXP = 25;
       gameState.time = 0;
+      gameState.elapsedTime = 0;
       gameState.wave = 1;
       gameState.waveKills = 0;
       gameState.waveEnemiesTotal = 10; // Wave 1 empieza con 10 enemigos (estilo COD Zombies)
@@ -2300,6 +2302,11 @@ const Index = () => {
       // Actualizar tiempo siempre (necesario para animaciones)
       gameState.time += dt;
 
+      // Solo incrementar el temporizador de partida cuando el juego está corriendo
+      if (gameState.state === "running" && gameState.countdownTimer <= 0) {
+        gameState.elapsedTime += dt;
+      }
+
       for (const key of Object.keys(gameState.musicButtonClickAnim) as Array<
         keyof typeof gameState.musicButtonClickAnim
       >) {
@@ -2372,7 +2379,6 @@ const Index = () => {
       // Game Over - seguir corriendo el tiempo durante la animación
       if (gameState.state === "gameover") {
         gameState.gameOverAnimationTimer += dt;
-        gameState.time += dt; // El tiempo sigue corriendo
         return;
       }
 
@@ -6018,7 +6024,7 @@ const Index = () => {
           if (gameState.gameOverAnimationTimer > 1.5) {
             const timeAlpha = Math.min(1, (gameState.gameOverAnimationTimer - 1.5) / 1);
             ctx.globalAlpha = timeAlpha;
-            const time = Math.floor(gameState.time);
+            const time = Math.floor(gameState.elapsedTime);
             const mm = String(Math.floor(time / 60)).padStart(2, "0");
             const ss = String(time % 60).padStart(2, "0");
             ctx.fillStyle = "#fbbf24";
@@ -6118,7 +6124,7 @@ const Index = () => {
         contentY += 50;
 
         // Tiempo
-        const time = Math.floor(gameState.time);
+        const time = Math.floor(gameState.elapsedTime);
         const mm = String(Math.floor(time / 60)).padStart(2, "0");
         const ss = String(time % 60).padStart(2, "0");
         ctx.fillStyle = "#d1d5db";
@@ -6210,7 +6216,7 @@ const Index = () => {
 
         // Quick stats grid
         const statsY = headerY + 60 * scale;
-        const totalSeconds = Math.floor(gameState.time);
+        const totalSeconds = Math.floor(gameState.elapsedTime);
         const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
         const seconds = String(totalSeconds % 60).padStart(2, "0");
 
