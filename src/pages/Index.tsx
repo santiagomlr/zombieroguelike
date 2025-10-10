@@ -1057,7 +1057,7 @@ const Index = () => {
       pistol: { fireSounds: ["weapon_pistol"], impactSound: null },
       shotgun: { fireSounds: ["weapon_shotgun"] },
       smg: { fireSounds: ["weapon_smg"] },
-      rocket: { fireSounds: ["weapon_rpg"] },
+      rocket: { fireSounds: ["weapon_rpg"], impactSound: "death" },
       laser: {
         fireSounds: ["weapon_laser_1", "weapon_laser_2", "weapon_laser_3", "weapon_laser_4"],
       },
@@ -1066,7 +1066,7 @@ const Index = () => {
       electric: { fireSounds: ["weapon_laser_2", "weapon_laser_3", "weapon_laser_4"] },
       flamethrower: { loopSound: "weapon_flamethrower", loopStopDelay: 0.08 },
       frostbow: { fireSounds: ["weapon_bow"] },
-      homing: { fireSounds: ["weapon_homing_missile"] },
+      homing: { fireSounds: ["weapon_homing_missile"], impactSound: "death" },
     };
 
     const playImpactSoundForWeapon = (weaponId?: string, enemyCategories: EnemyCategory[] = []) => {
@@ -2125,9 +2125,42 @@ const Index = () => {
           ? "flame"
           : weapon.id === "frostbow"
             ? "frost"
-            : "bullet";
+            : weapon.id === "rocket"
+              ? "rocket"
+              : weapon.id === "homing"
+                ? "missile"
+                : "bullet";
       const muzzleColor =
-        visualType === "flame" ? "#fb923c" : visualType === "frost" ? "#60a5fa" : "#facc15";
+        visualType === "flame"
+          ? "#fb923c"
+          : visualType === "frost"
+            ? "#60a5fa"
+            : visualType === "rocket"
+              ? "#f97316"
+              : visualType === "missile"
+                ? "#a855f7"
+                : "#facc15";
+
+      const explosiveSettings =
+        weapon.id === "rocket"
+          ? {
+              radius: 130,
+              damageMultiplier: 0.85,
+              color: "#ff7a2a",
+              secondaryColor: "#facc15",
+              ringColor: "rgba(255, 255, 255, 0.9)",
+              trailColor: "rgba(249, 115, 22, 0.9)",
+            }
+          : weapon.id === "homing"
+            ? {
+                radius: 115,
+                damageMultiplier: 0.8,
+                color: "#c084fc",
+                secondaryColor: "#8e44ad",
+                ringColor: "rgba(255, 255, 255, 0.85)",
+                trailColor: "rgba(168, 85, 247, 0.85)",
+              }
+            : null;
 
       const createPlayerBullet = (
         bulletDir: number,
@@ -2153,7 +2186,7 @@ const Index = () => {
         bounces: gameState.player.stats.bounces,
         bounceOnEnemies: gameState.player.stats.bounceOnEnemies,
         pierce: overrides.pierce ?? isPierce,
-        aoe: overrides.aoe ?? isAoe,
+        aoe: overrides.aoe ?? (isAoe || Boolean(explosiveSettings)),
         chain: overrides.chain ?? isChain,
         fire: overrides.fire ?? isFire,
         freeze: overrides.freeze ?? isFreeze,
@@ -2165,6 +2198,14 @@ const Index = () => {
         originY: gameState.player.y,
         frostTarget: (overrides.freeze ?? isFreeze) ? target : null,
         visualType,
+        explosive: Boolean(explosiveSettings),
+        explosionRadius: explosiveSettings?.radius,
+        explosionDamageMultiplier: explosiveSettings?.damageMultiplier,
+        explosionColor: explosiveSettings?.color,
+        explosionSecondaryColor: explosiveSettings?.secondaryColor,
+        explosionRingColor: explosiveSettings?.ringColor,
+        trailColor: explosiveSettings?.trailColor,
+        explosionTriggered: false,
       });
 
       const shots = 1 + gameState.player.stats.multishot;
@@ -4925,6 +4966,31 @@ const Index = () => {
         b.y += Math.sin(b.dir) * b.spd;
         b.life -= dt;
 
+        if (b.explosive && b.trailColor && gameState.particles.length < gameState.maxParticles - 5) {
+          const jitter = (Math.random() - 0.5) * 4;
+          gameState.particles.push({
+            x: b.x - Math.cos(b.dir) * 10 + jitter,
+            y: b.y - Math.sin(b.dir) * 10 + (Math.random() - 0.5) * 4,
+            vx: (Math.random() - 0.5) * 2,
+            vy: (Math.random() - 0.5) * 2,
+            life: 0.35 + Math.random() * 0.2,
+            color: b.trailColor,
+            size: 3.5 + Math.random() * 2,
+          });
+
+          if (gameState.particles.length < gameState.maxParticles - 2) {
+            gameState.particles.push({
+              x: b.x - Math.cos(b.dir) * 14 + (Math.random() - 0.5) * 6,
+              y: b.y - Math.sin(b.dir) * 14 + (Math.random() - 0.5) * 6,
+              vx: (Math.random() - 0.5) * 1.2,
+              vy: (Math.random() - 0.5) * 1.2,
+              life: 0.5 + Math.random() * 0.3,
+              color: "rgba(55, 65, 81, 0.5)",
+              size: 4 + Math.random() * 3,
+            });
+          }
+        }
+
         // Rebote en bordes
         if (b.bounces > 0) {
           if (b.x < 0 || b.x > gameState.worldWidth) {
@@ -5196,6 +5262,114 @@ const Index = () => {
         }
       };
 
+      const triggerExplosion = (bullet: any, hitCategories: EnemyCategory[]) => {
+        if (!bullet.explosive || bullet.explosionTriggered) {
+          return;
+        }
+
+        bullet.explosionTriggered = true;
+
+        const originX = bullet.x;
+        const originY = bullet.y;
+        const explosionRadius = bullet.explosionRadius ?? 100;
+        const explosionRadiusSq = explosionRadius * explosionRadius;
+        const splashMultiplier = bullet.explosionDamageMultiplier ?? 0.75;
+        const splashBaseDamage = bullet.damage * splashMultiplier;
+
+        const enemiesSnapshot = [...gameState.enemies];
+        for (const candidate of enemiesSnapshot) {
+          if (!candidate || (candidate as any).__removed || candidate.hp <= 0) continue;
+
+          const cdx = candidate.x - originX;
+          const cdy = candidate.y - originY;
+          const distSq = cdx * cdx + cdy * cdy;
+          if (distSq > explosionRadiusSq) continue;
+
+          const distance = Math.sqrt(distSq);
+          const damageMultiplier = 1 - (distance / explosionRadius) * 0.5;
+          const damageAmount = splashBaseDamage * damageMultiplier;
+          if (damageAmount <= 0) continue;
+
+          candidate.hp -= damageAmount;
+          trackEnemyCategoryHit(candidate as EnemyWithCategory, hitCategories);
+
+          if (candidate.hp <= 0) {
+            handleEnemyDeath(candidate, bullet);
+          }
+        }
+
+        const pushParticle = (particle: any) => {
+          if (gameState.particles.length < gameState.maxParticles) {
+            gameState.particles.push(particle);
+          }
+        };
+
+        const primaryColor = bullet.explosionColor ?? "#ff7a2a";
+        const secondaryColor = bullet.explosionSecondaryColor ?? "#facc15";
+        const ringColor = bullet.explosionRingColor ?? "rgba(255, 255, 255, 0.85)";
+
+        pushParticle({
+          x: originX,
+          y: originY,
+          vx: 0,
+          vy: 0,
+          life: 0.22,
+          color: ringColor,
+          size: 16,
+        });
+
+        for (let j = 0; j < 36; j++) {
+          const angle = (Math.PI * 2 * j) / 36;
+          const speed = 7 + Math.random() * 7;
+          pushParticle({
+            x: originX,
+            y: originY,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            life: 0.7 + Math.random() * 0.4,
+            color: j % 2 === 0 ? primaryColor : secondaryColor,
+            size: 5 + Math.random() * 3,
+          });
+        }
+
+        for (let j = 0; j < 24; j++) {
+          const angle = (Math.PI * 2 * j) / 24;
+          const outward = explosionRadius * 0.12;
+          pushParticle({
+            x: originX + Math.cos(angle) * (explosionRadius * 0.25),
+            y: originY + Math.sin(angle) * (explosionRadius * 0.25),
+            vx: Math.cos(angle) * outward,
+            vy: Math.sin(angle) * outward,
+            life: 0.45 + Math.random() * 0.25,
+            color: ringColor,
+            size: 3 + Math.random() * 1.5,
+          });
+        }
+
+        for (let j = 0; j < 18; j++) {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = Math.random() * 2.5;
+          pushParticle({
+            x: originX,
+            y: originY,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            life: 0.8 + Math.random() * 0.6,
+            color: "rgba(31, 41, 55, 0.55)",
+            size: 6 + Math.random() * 4,
+          });
+        }
+
+        gameState.explosionMarks.push({
+          x: originX,
+          y: originY,
+          radius: explosionRadius * 0.65,
+          life: 3.5,
+        });
+
+        bullet.life = 0;
+      };
+
       for (const bullet of gameState.bullets) {
         if (bullet.isEnemyBullet || bullet.life <= 0) continue;
 
@@ -5280,54 +5454,61 @@ const Index = () => {
           }
 
           if (bullet.aoe) {
-            const explosionRadius = 100;
-            const splashDamage = bullet.damage * 0.75;
-            const explosionRadiusSq = explosionRadius * explosionRadius;
+            if (bullet.explosive) {
+              triggerExplosion(bullet, hitCategories);
+              if (bullet.life <= 0) {
+                break;
+              }
+            } else {
+              const explosionRadius = 100;
+              const splashDamage = bullet.damage * 0.75;
+              const explosionRadiusSq = explosionRadius * explosionRadius;
 
-            for (const candidate of neighbors) {
-              if (!candidate || (candidate as any).__removed) continue;
-              const cdx = candidate.x - bullet.x;
-              const cdy = candidate.y - bullet.y;
-              const candidateDistSq = cdx * cdx + cdy * cdy;
-              if (candidateDistSq < explosionRadiusSq) {
-                const distance = Math.sqrt(candidateDistSq);
-                const damageMultiplier = 1 - (distance / explosionRadius) * 0.5;
-                candidate.hp -= splashDamage * damageMultiplier;
-                trackEnemyCategoryHit(candidate as EnemyWithCategory, hitCategories);
+              for (const candidate of neighbors) {
+                if (!candidate || (candidate as any).__removed) continue;
+                const cdx = candidate.x - bullet.x;
+                const cdy = candidate.y - bullet.y;
+                const candidateDistSq = cdx * cdx + cdy * cdy;
+                if (candidateDistSq < explosionRadiusSq) {
+                  const distance = Math.sqrt(candidateDistSq);
+                  const damageMultiplier = 1 - (distance / explosionRadius) * 0.5;
+                  candidate.hp -= splashDamage * damageMultiplier;
+                  trackEnemyCategoryHit(candidate as EnemyWithCategory, hitCategories);
 
-                if (gameState.particles.length < gameState.maxParticles - 3) {
-                  for (let k = 0; k < 3; k++) {
-                    gameState.particles.push({
-                      x: candidate.x,
-                      y: candidate.y,
-                      vx: (Math.random() - 0.5) * 3,
-                      vy: (Math.random() - 0.5) * 3,
-                      life: 0.4,
-                      color: "#ef4444",
-                      size: 4,
-                    });
+                  if (gameState.particles.length < gameState.maxParticles - 3) {
+                    for (let k = 0; k < 3; k++) {
+                      gameState.particles.push({
+                        x: candidate.x,
+                        y: candidate.y,
+                        vx: (Math.random() - 0.5) * 3,
+                        vy: (Math.random() - 0.5) * 3,
+                        life: 0.4,
+                        color: "#ef4444",
+                        size: 4,
+                      });
+                    }
+                  }
+
+                  if (candidate.hp <= 0) {
+                    handleEnemyDeath(candidate, bullet);
                   }
                 }
-
-                if (candidate.hp <= 0) {
-                  handleEnemyDeath(candidate, bullet);
-                }
               }
-            }
 
-            if (gameState.particles.length < gameState.maxParticles - 30) {
-              for (let j = 0; j < 30; j++) {
-                const angle = (Math.PI * 2 * j) / 30;
-                const speed = 3 + Math.random() * 5;
-                gameState.particles.push({
-                  x: bullet.x,
-                  y: bullet.y,
-                  vx: Math.cos(angle) * speed,
-                  vy: Math.sin(angle) * speed,
-                  life: 0.8,
-                  color: j % 2 === 0 ? "#8e44ad" : "#ff7a2a",
-                  size: 4,
-                });
+              if (gameState.particles.length < gameState.maxParticles - 30) {
+                for (let j = 0; j < 30; j++) {
+                  const angle = (Math.PI * 2 * j) / 30;
+                  const speed = 3 + Math.random() * 5;
+                  gameState.particles.push({
+                    x: bullet.x,
+                    y: bullet.y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    life: 0.8,
+                    color: j % 2 === 0 ? "#8e44ad" : "#ff7a2a",
+                    size: 4,
+                  });
+                }
               }
             }
           }
@@ -7639,6 +7820,84 @@ const Index = () => {
           ctx.arc(b.x, b.y, 3.5, 0, Math.PI * 2);
           ctx.fill();
           ctx.shadowBlur = 0;
+        } else if (visualType === "rocket" || visualType === "missile") {
+          const bodyLength = visualType === "rocket" ? 26 : 22;
+          const bodyWidth = visualType === "rocket" ? 8 : 6;
+          const noseLength = visualType === "rocket" ? 8 : 7;
+          const tailLength = visualType === "rocket" ? 16 : 13;
+          const bodyColor = visualType === "rocket" ? "#f97316" : "#a855f7";
+          const accentColor = visualType === "rocket" ? "#fde68a" : "#c4b5fd";
+          const finColor = visualType === "rocket" ? "#7c2d12" : "#5b21b6";
+          const glowColor = visualType === "rocket" ? "rgba(249, 115, 22, 0.6)" : "rgba(168, 85, 247, 0.6)";
+          const thrusterColor =
+            b.trailColor ?? (visualType === "rocket" ? "rgba(249, 115, 22, 0.85)" : "rgba(168, 85, 247, 0.85)");
+
+          ctx.save();
+          ctx.translate(b.x, b.y);
+          ctx.rotate(b.dir);
+
+          const bodyGradient = ctx.createLinearGradient(-bodyLength / 2, 0, bodyLength / 2, 0);
+          bodyGradient.addColorStop(0, bodyColor);
+          bodyGradient.addColorStop(0.5, "#ffffff");
+          bodyGradient.addColorStop(1, bodyColor);
+
+          ctx.fillStyle = bodyGradient;
+          ctx.shadowColor = glowColor;
+          ctx.shadowBlur = 12;
+          ctx.fillRect(-bodyLength / 2, -bodyWidth / 2, bodyLength, bodyWidth);
+
+          ctx.shadowBlur = 0;
+
+          ctx.fillStyle = accentColor;
+          ctx.beginPath();
+          ctx.moveTo(bodyLength / 2, 0);
+          ctx.lineTo(bodyLength / 2 - noseLength, bodyWidth / 2);
+          ctx.lineTo(bodyLength / 2 - noseLength, -bodyWidth / 2);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.fillStyle = finColor;
+          ctx.beginPath();
+          ctx.moveTo(-bodyLength / 3, -bodyWidth / 2);
+          ctx.lineTo(-bodyLength / 2, -bodyWidth);
+          ctx.lineTo(-bodyLength / 2 + bodyWidth * 0.8, -bodyWidth / 2);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.moveTo(-bodyLength / 3, bodyWidth / 2);
+          ctx.lineTo(-bodyLength / 2, bodyWidth);
+          ctx.lineTo(-bodyLength / 2 + bodyWidth * 0.8, bodyWidth / 2);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.fillStyle = accentColor;
+          ctx.fillRect(-bodyLength / 8, -bodyWidth / 3, bodyLength / 6, bodyWidth / 1.5);
+
+          const tailGradient = ctx.createLinearGradient(-bodyLength / 2 - tailLength, 0, -bodyLength / 2, 0);
+          tailGradient.addColorStop(0, "rgba(255, 255, 255, 0)");
+          tailGradient.addColorStop(0.3, thrusterColor);
+          tailGradient.addColorStop(1, "rgba(255, 255, 255, 0.9)");
+
+          ctx.fillStyle = tailGradient;
+          ctx.shadowColor = glowColor;
+          ctx.shadowBlur = 18;
+          ctx.beginPath();
+          ctx.moveTo(-bodyLength / 2, -bodyWidth * 0.4);
+          ctx.lineTo(-bodyLength / 2 - tailLength, 0);
+          ctx.lineTo(-bodyLength / 2, bodyWidth * 0.4);
+          ctx.closePath();
+          ctx.fill();
+          ctx.shadowBlur = 0;
+
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.35)";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(-bodyLength / 6, -bodyWidth / 2 + 1);
+          ctx.lineTo(bodyLength / 3, -bodyWidth / 2 + 1);
+          ctx.stroke();
+
+          ctx.restore();
         } else {
           const bulletColor = "#facc15";
           const bulletSize = 2.5;
