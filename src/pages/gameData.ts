@@ -278,8 +278,7 @@ const translationsES: Translations = {
   },
   chestUI: {
     title: "Cofre de botín",
-    description:
-      "Elige qué hacer con este botín. Consérvalo para equiparlo, destiérralo para vetarlo de futuros cofres o sáltalo para decidir después.",
+    description: "Un cofre antiguo rebosa energía.",
     keep: "Conservar",
     banish: "Desterrar",
     skip: "Omitir",
@@ -384,8 +383,7 @@ const translationsEN: Translations = {
   },
   chestUI: {
     title: "Treasure Chest",
-    description:
-      "Choose how to handle this loot. Keep to claim it, banish to blacklist future drops, or skip to decide later.",
+    description: "A radiant trove hums with power.",
     keep: "Keep",
     banish: "Banish",
     skip: "Skip",
