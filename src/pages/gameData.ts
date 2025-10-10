@@ -31,6 +31,13 @@ export interface Translations {
   paused: string;
   startMusicButton: string;
   shufflePlaylistReady: string;
+  musicControls: {
+    previous: string;
+    pause: string;
+    resume: string;
+    next: string;
+    nowPlaying: string;
+  };
   clickToSelect: string;
   tutorial: {
     move: string;
@@ -194,6 +201,13 @@ const translationsES: Translations = {
   paused: "PAUSA",
   startMusicButton: "🎵 Iniciar música",
   shufflePlaylistReady: "Reproducción aleatoria lista",
+  musicControls: {
+    previous: "Canción anterior",
+    pause: "Pausar",
+    resume: "Reanudar",
+    next: "Siguiente canción",
+    nowPlaying: "Reproduciendo ahora",
+  },
   clickToSelect: "Click para seleccionar",
   tutorial: {
     move: "Usa WASD para moverte",
@@ -284,6 +298,13 @@ const translationsEN: Translations = {
   paused: "PAUSED",
   startMusicButton: "🎵 Start Music",
   shufflePlaylistReady: "Shuffle playlist ready",
+  musicControls: {
+    previous: "Previous song",
+    pause: "Pause",
+    resume: "Resume",
+    next: "Next song",
+    nowPlaying: "Now playing",
+  },
   clickToSelect: "Click to select",
   tutorial: {
     move: "Use WASD to move",
