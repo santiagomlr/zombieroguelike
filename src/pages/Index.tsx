@@ -2039,7 +2039,7 @@ const Index = () => {
         if (gameState.pauseMenuAudioOpen) {
           const panelX = menuX + padding;
           const panelW = menuW - padding * 2;
-          const panelY = buttonsY - audioPanelMargin - audioPanelHeight;
+          const panelY = baseButtonsY - audioPanelMargin - audioPanelHeight;
 
           const sliderX = panelX + 28 * scale;
           const sliderW = panelW - 56 * scale;
