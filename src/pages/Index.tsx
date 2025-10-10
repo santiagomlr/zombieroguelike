@@ -42,6 +42,7 @@ const CHEST_DROP_RATE = 0.07;
 const ENTITY_SCALE = 0.75;
 const CAMERA_DEADZONE_RADIUS = 80;
 const CAMERA_ZOOM = 1.8;
+const CHEST_INTERACTION_KEY = "f";
 
 const PLAYER_BASE_RADIUS = 16;
 const WEAK_ENEMY_BASE_RADIUS = 16;
@@ -602,6 +603,8 @@ const Index = () => {
             chestPosition: { x: number; y: number };
           }
         | null,
+      nearbyChest: null as any | null,
+      pendingChestDrop: null as any | null,
       particles: [] as any[],
       hotspots: [] as any[],
       worldWidth: worldW,
@@ -1151,6 +1154,8 @@ const Index = () => {
       gameState.drops.length = 0;
       gameState.particles.length = 0;
       gameState.hotspots.length = 0;
+      gameState.nearbyChest = null;
+      gameState.pendingChestDrop = null;
 
       // Resetear jugador
       gameState.worldWidth = Math.max(gameState.worldWidth, Math.max(W, 2200));
@@ -1318,6 +1323,18 @@ const Index = () => {
       // Running: Sostener R para reiniciar (modo hold)
       if (gameState.state === "running" && e.key.toLowerCase() === "r") {
         // R key ya está siendo presionada, no hacer nada aquí
+      }
+
+      if (
+        e.key.toLowerCase() === CHEST_INTERACTION_KEY &&
+        gameState.state === "running" &&
+        !gameState.showUpgradeUI &&
+        !gameState.activeChestChoice
+      ) {
+        const chest = gameState.nearbyChest;
+        if (chest && !chest.opened) {
+          openChest(chest);
+        }
       }
 
       // Escape para pausar/reanudar (solo en running o paused)
@@ -2258,6 +2275,7 @@ const Index = () => {
         spawnTime: gameState.time,
         lootItemId: cachedLoot?.id ?? null,
         lootRarity: cachedLoot?.rarity ?? null,
+        opened: false,
       });
     }
 
@@ -2339,6 +2357,13 @@ const Index = () => {
       if (gameState.activeChestChoice) {
         return;
       }
+      if (!chest || chest.opened) {
+        return;
+      }
+
+      chest.opened = true;
+      gameState.nearbyChest = null;
+      gameState.pendingChestDrop = chest;
 
       const lootItemId = chest.lootItemId as string | null;
 
@@ -2346,6 +2371,7 @@ const Index = () => {
         collectXP(25);
         playPowerupSound();
         spawnChestParticles(chest.x, chest.y, "#5dbb63");
+        finalizeChestDrop();
         return;
       }
 
@@ -2355,6 +2381,7 @@ const Index = () => {
         collectXP(25);
         playPowerupSound();
         spawnChestParticles(chest.x, chest.y, "#5dbb63");
+        finalizeChestDrop();
         return;
       }
 
@@ -2362,6 +2389,24 @@ const Index = () => {
         item,
         chestPosition: { x: chest.x, y: chest.y },
       };
+    }
+
+    function finalizeChestDrop() {
+      const chest = gameState.pendingChestDrop;
+      if (!chest) {
+        return;
+      }
+
+      const index = gameState.drops.indexOf(chest);
+      if (index !== -1) {
+        gameState.drops.splice(index, 1);
+      }
+
+      if (gameState.nearbyChest === chest) {
+        gameState.nearbyChest = null;
+      }
+
+      gameState.pendingChestDrop = null;
     }
 
     function grantChestFallbackReward(position: { x: number; y: number }) {
@@ -2381,6 +2426,7 @@ const Index = () => {
       }
 
       gameState.activeChestChoice = null;
+      finalizeChestDrop();
     }
 
     function banishChestItem() {
@@ -2393,12 +2439,14 @@ const Index = () => {
       gameState.chestBlacklist.add(choice.item.id);
 
       gameState.activeChestChoice = null;
+      finalizeChestDrop();
     }
 
     function skipChestItem() {
       if (!gameState.activeChestChoice) return;
 
       gameState.activeChestChoice = null;
+      finalizeChestDrop();
     }
 
     function collectXP(v: number) {
@@ -5170,11 +5218,23 @@ const Index = () => {
       if (gameState.player.isSprinting) playerPickupSpeed *= 1.7;
       const pickupAttractionSpeed = playerPickupSpeed * 1.2;
 
+      let nearbyChest: any | null = null;
+
       for (let i = gameState.drops.length - 1; i >= 0; i--) {
         const g = gameState.drops[i];
         const dx = gameState.player.x - g.x;
         const dy = gameState.player.y - g.y;
         const d = Math.hypot(dx, dy) || 1;
+
+        if (g.type === "chest") {
+          if (!g.opened && !gameState.activeChestChoice) {
+            const interactRange = gameState.player.rad + g.rad;
+            if (d < interactRange) {
+              nearbyChest = g;
+            }
+          }
+          continue;
+        }
 
         // Magnet: aplicar multiplicadores del libro y del powerup temporal
         let magnetRange = gameState.player.magnet * gameState.player.stats.magnetMultiplier;
@@ -5188,7 +5248,7 @@ const Index = () => {
         }
 
         if (d < gameState.player.rad + g.rad) {
-          if (gameState.activeChestChoice && g.type !== "chest") {
+          if (gameState.activeChestChoice) {
             continue;
           }
           if (g.type === "xp") {
@@ -5213,12 +5273,12 @@ const Index = () => {
             }
           } else if (g.type === "powerup") {
             collectPowerup(g);
-          } else if (g.type === "chest") {
-            openChest(g);
           }
           gameState.drops.splice(i, 1);
         }
       }
+
+      gameState.nearbyChest = gameState.activeChestChoice ? null : nearbyChest;
 
       // Colisión jugador-enemigo con separación física - Rage mode invulnerable
       for (const e of gameState.enemies) {
@@ -5892,6 +5952,21 @@ const Index = () => {
           const moreItemsText = currentLanguage === "es" ? `+${remaining} más` : `+${remaining} more`;
           ctx.fillText(moreItemsText, W - 220, itemY + 10 + maxItemsToShow * 20 + 15);
         }
+      }
+
+      if (!gameState.activeChestChoice && gameState.nearbyChest) {
+        const hintText = t.chestUI.interactHint.replace(
+          "{key}",
+          CHEST_INTERACTION_KEY.toUpperCase(),
+        );
+        ctx.save();
+        ctx.textAlign = "center";
+        ctx.font = "bold 18px system-ui";
+        ctx.fillStyle = textPrimary;
+        ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+        ctx.shadowBlur = 0;
+        ctx.fillText(hintText, W / 2, H - 90);
+        ctx.restore();
       }
 
       if (isNightVision) {
