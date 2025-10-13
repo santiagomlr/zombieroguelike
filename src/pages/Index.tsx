@@ -61,7 +61,7 @@ const MEDIUM_ELITE_COLOR = "#9333ea";
 const STRONG_ENEMY_COLOR = "#f97316";
 const STRONG_ELITE_COLOR = "#ea580c";
 const FAST_ENEMY_COLOR = "#fb923c";
-const MINI_BOSS_COLOR = STRONG_ENEMY_COLOR;
+const BOSS_COLOR = "#ffc300";
 
 const scaleEntitySize = (value: number) => Math.max(1, Math.round(value * ENTITY_SCALE));
 
@@ -285,7 +285,6 @@ const createEmptyAuditLog = (): AuditLog => ({
 
 const ENEMY_LOG_LABELS: Record<string, { en: string; es: string }> = {
   boss: { en: "Bosses", es: "Jefes" },
-  miniBoss: { en: "Mini-bosses", es: "Mini jefes" },
   explosive: { en: "Explosive Zombies", es: "Zombis explosivos" },
   fast: { en: "Fast Zombies", es: "Zombis veloces" },
   tank: { en: "Tank Zombies", es: "Zombis tanque" },
@@ -992,7 +991,6 @@ const Index = () => {
       maxConcurrentEnemies: 12,
       lastSpawn: 0,
       lastBossSpawn: 0,
-      lastMiniBossSpawn: 0,
       spawnCooldown: 0, // Cooldown de 3 segundos después de matar todos los enemigos
       canSpawn: true, // Flag para controlar si se puede spawnar
       weaponCooldowns: {} as Record<string, number>,
@@ -1055,6 +1053,7 @@ const Index = () => {
       musicQueue: [] as number[],
       sfxMuted: false,
       playerImg: null as HTMLImageElement | null,
+      bossImg: null as HTMLImageElement | null,
       mediumZombieImg: null as HTMLImageElement | null,
       greenZombieImg: null as HTMLImageElement | null,
       bomberImg: null as HTMLImageElement | null,
@@ -1125,7 +1124,6 @@ const Index = () => {
 
     const getEnemyLogKey = (enemy: any) => {
       if (enemy?.isBoss) return "boss";
-      if (enemy?.isMiniBoss) return "miniBoss";
       if (enemy?.isElite) return "elite";
       if (enemy?.specialType) return String(enemy.specialType);
       if (enemy?.enemyType) return String(enemy.enemyType);
@@ -1227,6 +1225,17 @@ const Index = () => {
     playerImg.onerror = (error) => {
       gameState.playerImg = null;
       console.error("Failed to load player sprite", error);
+    };
+
+    const bossImg = new Image();
+    bossImg.src = "/images/boss.png";
+    bossImg.onload = () => {
+      gameState.bossImg = bossImg;
+      console.log("Boss sprite loaded successfully");
+    };
+    bossImg.onerror = (error) => {
+      gameState.bossImg = null;
+      console.error("Failed to load boss sprite", error);
     };
 
     // Load base medium zombie image (used for tinting fallbacks)
@@ -1763,7 +1772,6 @@ const Index = () => {
       gameState.lastSpawn = 0;
       gameState.spawnCooldown = 0;
       gameState.canSpawn = true;
-      gameState.lastMiniBossSpawn = 0;
       gameState.weaponCooldowns = {};
       gameState.regenTimer = 0;
       gameState.auraTimer = 0;
@@ -2330,7 +2338,6 @@ const Index = () => {
           enemyType,
           damage,
           isElite,
-          isMiniBoss: false,
           isBoss: false,
           color,
           specialType,
@@ -2344,7 +2351,7 @@ const Index = () => {
         };
 
         gameState.enemies.push(enemy);
-        if (!enemy.isBoss && !enemy.isMiniBoss) {
+        if (!enemy.isBoss) {
           gameState.normalEnemyCount++;
         }
       }
@@ -2374,9 +2381,8 @@ const Index = () => {
         enemyType: "strong",
         damage: 30,
         isElite: false,
-        isMiniBoss: false,
         isBoss: true,
-        color: "#dc2626",
+        color: BOSS_COLOR,
         specialType: null,
         frozenTimer: 0,
         burnTimer: 0,
@@ -2388,36 +2394,6 @@ const Index = () => {
       };
 
       gameState.enemies.push(boss);
-    }
-
-    function spawnMiniBoss() {
-      const miniBossRad = scaleEnemyRadius(28);
-      const { x, y } = getSpawnPositionAroundPlayer(miniBossRad, {
-        minDistance: DEFAULT_SPAWN_DISTANCE_MAX - 50,
-        maxDistance: DEFAULT_SPAWN_DISTANCE_MAX + 120,
-      });
-
-      // Mini-boss HP escalado estilo COD Zombies
-      const baseHp = 25;
-      const difficultyLevel = gameState.difficulty.level;
-      const miniBossHpMultiplier = 1 + (difficultyLevel - 1) * 2; // Más tanque que antes
-      const scaledHp = Math.floor(baseHp * miniBossHpMultiplier);
-
-      const miniBoss: EnemyWithCategory = {
-        x,
-        y,
-        rad: miniBossRad,
-        hp: scaledHp,
-        maxhp: scaledHp,
-        spd: applyEnemySpeedModifier(1.0),
-        category: inferEnemyCategory({}),
-        isElite: false,
-        isMiniBoss: true,
-        color: "#ffc300",
-        damage: Math.floor(25 * (1 + (difficultyLevel - 1) * 0.05)),
-      };
-
-      gameState.enemies.push(miniBoss);
     }
 
     function nearestEnemy() {
@@ -2537,7 +2513,6 @@ const Index = () => {
 
       let typePriority = 0.4;
       if (enemy.isBoss) typePriority = 1;
-      else if (enemy.isMiniBoss) typePriority = 0.9;
       else if (enemy.isElite) typePriority = 0.7;
       else if (enemy.specialType === "explosive") typePriority = 0.6;
 
@@ -4972,15 +4947,6 @@ const Index = () => {
         gameState.lastBossSpawn = gameState.elapsedTime;
       }
 
-      const miniBossInterval = Math.max(45, 150 - difficultyIntensity * 12);
-      if (
-        !gameState.tutorialActive &&
-        gameState.elapsedTime - gameState.lastMiniBossSpawn > miniBossInterval
-      ) {
-        spawnMiniBoss();
-        gameState.lastMiniBossSpawn = gameState.elapsedTime;
-      }
-
       const handleEnemyDeath = (enemy: any, killer: any | null) => {
         if (!enemy || (enemy as any).__removed) {
           return;
@@ -4995,7 +4961,7 @@ const Index = () => {
         recordEnemyKill(enemy);
         (enemy as any).__removed = true;
 
-        if (!enemy.isBoss && !enemy.isMiniBoss) {
+        if (!enemy.isBoss) {
           gameState.normalEnemyCount = Math.max(0, gameState.normalEnemyCount - 1);
           normalEnemyCount = gameState.normalEnemyCount;
         }
@@ -5060,10 +5026,6 @@ const Index = () => {
             grantItemToPlayer(randomLegendary, { notify: true, playSound: true });
           }
           gameState.player.hp = gameState.player.maxhp;
-        } else if (enemy.isMiniBoss) {
-          points = 100;
-          xpBundles = Math.floor(Math.random() * 3) + 4;
-          dropChance = 0.1;
         } else if (enemy.isElite) {
           points = 25;
           xpBundles = 2;
@@ -5092,9 +5054,8 @@ const Index = () => {
         for (let k = 0; k < xpBundles; k++) {
           const offsetX = (Math.random() - 0.5) * 40;
           const offsetY = (Math.random() - 0.5) * 40;
-          let xpValue = enemy.isMiniBoss
-            ? 30
-            : enemy.enemyType === "strong"
+          let xpValue =
+            enemy.enemyType === "strong"
               ? 5
               : enemy.enemyType === "medium"
                 ? 3
@@ -5195,7 +5156,7 @@ const Index = () => {
                   vx: Math.cos(angle) * 4,
                   vy: Math.sin(angle) * 4,
                   life: 0.8,
-                  color: "#dc2626",
+                  color: BOSS_COLOR,
                   size: 4,
                 });
               }
@@ -5402,7 +5363,6 @@ const Index = () => {
                 enemyType: "weak",
                 damage: 3,
                 isElite: false,
-                isMiniBoss: false,
                 isBoss: false,
                 isSummoned: true, // Marcado como invocado, no cuenta para la dificultad
                 color: "#8e44ad",
@@ -5509,7 +5469,7 @@ const Index = () => {
                     vx: Math.cos(angle) * 8,
                     vy: Math.sin(angle) * 8,
                     life: 0.8,
-                    color: "#dc2626",
+                    color: BOSS_COLOR,
                     size: 4,
                   });
                 }
@@ -5555,7 +5515,7 @@ const Index = () => {
                   spd: 5,
                   life: 4,
                   damage: 20,
-                  color: "#dc2626",
+                  color: BOSS_COLOR,
                   bounces: 0,
                   bounceOnEnemies: false,
                   pierce: false,
@@ -5574,7 +5534,7 @@ const Index = () => {
                     vx: Math.cos(angle) * 10,
                     vy: Math.sin(angle) * 10,
                     life: 1,
-                    color: "#dc2626",
+                    color: BOSS_COLOR,
                     size: 5,
                   });
                 }
@@ -8296,7 +8256,9 @@ const Index = () => {
         // Determine which image to use based on enemy type and color
         let enemyImage: HTMLImageElement | null = null;
 
-        if (e.specialType === "explosive" && gameState.bomberImg?.complete) {
+        if (e.isBoss && gameState.bossImg?.complete) {
+          enemyImage = gameState.bossImg;
+        } else if (e.specialType === "explosive" && gameState.bomberImg?.complete) {
           enemyImage = gameState.bomberImg;
         } else if (e.specialType === "fast" && gameState.larvaImg?.complete) {
           enemyImage = gameState.larvaImg;
@@ -8368,7 +8330,7 @@ const Index = () => {
         }
 
         const barW = e.rad * 2;
-        const barH = e.isBoss ? 8 : e.isMiniBoss ? 6 : e.isElite ? 5 : 3;
+        const barH = e.isBoss ? 8 : e.isElite ? 5 : 3;
         const barX = e.x - barW / 2;
         const barY = e.y - e.rad - (e.isBoss ? 35 : 10);
 
@@ -8378,12 +8340,10 @@ const Index = () => {
         const hpBarWidth = barW * Math.max(0, Math.min(1, e.hp / e.maxhp));
         ctx.fillStyle =
           e.isBoss
-            ? "#dc2626"
-            : e.isMiniBoss
-              ? MINI_BOSS_COLOR
-              : e.isElite
-                ? "#ff3b3b"
-                : WEAK_ENEMY_COLOR;
+            ? BOSS_COLOR
+            : e.isElite
+              ? "#ff3b3b"
+              : WEAK_ENEMY_COLOR;
         ctx.fillRect(barX, barY, hpBarWidth, barH);
 
         if (e.isBoss) {
@@ -8734,7 +8694,7 @@ const Index = () => {
           x: enemy.x,
           y: enemy.y,
           radius: enemy.rad,
-          color: enemy.isBoss ? "#dc2626" : enemy.isMiniBoss ? MINI_BOSS_COLOR : enemy.color,
+          color: enemy.isBoss ? BOSS_COLOR : enemy.color,
         }));
 
         const minimapDrops: MinimapEntity[] = visibleDrops.map((drop) => ({
