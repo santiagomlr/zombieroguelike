@@ -476,6 +476,13 @@ export type Bounds = {
   bottom: number;
 };
 
+export type BossPortalStatus =
+  | "awaitingActivation"
+  | "activating"
+  | "spawningBoss"
+  | "sealed"
+  | "open";
+
 export type GamePortal = {
   x: number;
   y: number;
@@ -484,4 +491,9 @@ export type GamePortal = {
   active: boolean;
   activated?: boolean;
   spawnTime: number;
+  status?: BossPortalStatus;
+  activationProgress?: number;
+  activationHoldSeconds?: number;
+  bossSpawnAt?: number | null;
+  interactable?: boolean;
 };
