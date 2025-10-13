@@ -40,7 +40,7 @@ type PauseMenuTab = "home" | "settings" | "stats";
 
 const PAUSE_MENU_TABS: PauseMenuTab[] = ["home", "settings", "stats"];
 
-const CHEST_DROP_RATE = 0.07;
+const CHEST_DROP_RATE = 0.025;
 const ENTITY_SCALE = 0.75;
 const CAMERA_DEADZONE_RADIUS = 80;
 const CAMERA_ZOOM = 1.8;
@@ -5542,6 +5542,8 @@ const Index = () => {
         const healRoll = Math.random();
         const luckStacks = getItemStacks("luck");
         const luckMultiplier = luckStacks > 0 ? 1 + 0.5 * luckStacks : 1;
+        const chestDropLuckBonus = luckStacks > 0 ? Math.min(0.02 * luckStacks, 0.06) : 0;
+        const chestDropChance = Math.min(1, CHEST_DROP_RATE + chestDropLuckBonus);
 
         if (healRoll < 0.05 * luckMultiplier) {
           dropHeal(enemy.x, enemy.y);
@@ -5553,7 +5555,7 @@ const Index = () => {
           dropPowerup(enemy.x, enemy.y, powerupType);
         }
 
-        if (Math.random() < CHEST_DROP_RATE) {
+        if (Math.random() < chestDropChance) {
           dropChest(enemy.x, enemy.y);
         }
 
