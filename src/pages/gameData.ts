@@ -29,14 +29,14 @@ export interface Translations {
   stats: string;
   continue: string;
   paused: string;
-  startMusicButton: string;
-  shufflePlaylistReady: string;
   musicControls: {
-    previous: string;
+    buttonLabel: string;
+    menuTitle: string;
+    play: string;
     pause: string;
-    resume: string;
-    next: string;
+    skip: string;
     nowPlaying: string;
+    selectTrack: string;
   };
   clickToSelect: string;
   tutorial: {
@@ -209,14 +209,14 @@ const translationsES: Translations = {
   stats: "Estadísticas",
   continue: "Continuar",
   paused: "PAUSA",
-  startMusicButton: "Iniciar música",
-  shufflePlaylistReady: "Reproducción aleatoria lista",
   musicControls: {
-    previous: "Canción anterior",
+    buttonLabel: "Música",
+    menuTitle: "Control de música",
+    play: "Reproducir",
     pause: "Pausar",
-    resume: "Reanudar",
-    next: "Siguiente canción",
+    skip: "Saltar pista",
     nowPlaying: "Reproduciendo ahora",
+    selectTrack: "Elegir pista",
   },
   clickToSelect: "Click para seleccionar",
   tutorial: {
@@ -314,14 +314,14 @@ const translationsEN: Translations = {
   stats: "Stats",
   continue: "Continue",
   paused: "PAUSED",
-  startMusicButton: "Start Music",
-  shufflePlaylistReady: "Shuffle playlist ready",
   musicControls: {
-    previous: "Previous song",
+    buttonLabel: "Music",
+    menuTitle: "Music controls",
+    play: "Play",
     pause: "Pause",
-    resume: "Resume",
-    next: "Next song",
+    skip: "Skip track",
     nowPlaying: "Now playing",
+    selectTrack: "Choose a track",
   },
   clickToSelect: "Click to select",
   tutorial: {
