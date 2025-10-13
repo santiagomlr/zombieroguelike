@@ -4922,7 +4922,11 @@ const Index = () => {
         gameState.waveEnemiesSpawned++;
       }
 
-      const handleEnemyDeath = (enemy: any, killer: any | null) => {
+      const handleEnemyDeath = (
+        enemy: any,
+        killer: any | null,
+        options?: { skipExplosiveEffect?: boolean },
+      ) => {
         if (!enemy || (enemy as any).__removed) {
           return;
         }
@@ -4942,7 +4946,9 @@ const Index = () => {
         }
         gameState.enemies.splice(enemyIndex, 1);
 
-        if (enemy.specialType === "explosive") {
+        const { skipExplosiveEffect = false } = options ?? {};
+
+        if (enemy.specialType === "explosive" && !skipExplosiveEffect) {
           const explosionRadiusSq = 80 * 80;
           const impactedEnemies = [...gameState.enemies];
           for (const otherEnemy of impactedEnemies) {
@@ -5323,7 +5329,11 @@ const Index = () => {
             e.hp = 0;
             victims.push(e);
             for (const victim of victims) {
-              handleEnemyDeath(victim, null);
+              if (victim === e) {
+                handleEnemyDeath(victim, null, { skipExplosiveEffect: true });
+              } else {
+                handleEnemyDeath(victim, null);
+              }
             }
             continue;
           }
