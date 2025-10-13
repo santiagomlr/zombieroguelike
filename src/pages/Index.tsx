@@ -112,6 +112,16 @@ const UI_COLORS = {
   backgroundGradient: ["#111", "#0a0a0a", "#050505"],
 };
 
+const PORTAL_COLORS: Record<PortalType, string> = {
+  boss: "#6366f1",
+  exit: "#22c55e",
+};
+
+const PORTAL_GLOW_COLORS: Record<PortalType, string> = {
+  boss: "#a855f7",
+  exit: "#4ade80",
+};
+
 const DIFFICULTY_TIERS = [
   { label: "Tranquilo", threshold: 0, color: "#22c55e" },
   { label: "Fácil", threshold: 120, color: "#84cc16" },
@@ -176,6 +186,25 @@ type Bounds = {
   top: number;
   right: number;
   bottom: number;
+};
+
+type PortalType = "boss" | "exit";
+
+type GamePortal = {
+  x: number;
+  y: number;
+  rad: number;
+  type: PortalType;
+  active: boolean;
+  activated?: boolean;
+  spawnTime: number;
+};
+
+type BossEncounterState = {
+  portalSpawned: boolean;
+  bossActive: boolean;
+  bossDefeated: boolean;
+  uniqueBossId: string | null;
 };
 
 const explosionGradientCache = new Map<number, CanvasGradient>();
@@ -989,6 +1018,17 @@ const Index = () => {
       nextXpDisplayTarget: 25,
       time: 0,
       elapsedTime: 0,
+      globalEventTimer: 600,
+      bossEncounter: {
+        portalSpawned: false,
+        bossActive: false,
+        bossDefeated: false,
+        uniqueBossId: null,
+      } as BossEncounterState,
+      bossPortal: null as GamePortal | null,
+      exitPortal: null as GamePortal | null,
+      nearbyBossPortal: null as GamePortal | null,
+      nearbyExitPortal: null as GamePortal | null,
       difficulty: {
         intensity: 0,
         level: 1,
@@ -1703,6 +1743,17 @@ const Index = () => {
       gameState.drops.length = 0;
       gameState.particles.length = 0;
       gameState.hotspots.length = 0;
+      gameState.globalEventTimer = 600;
+      gameState.bossEncounter = {
+        portalSpawned: false,
+        bossActive: false,
+        bossDefeated: false,
+        uniqueBossId: null,
+      } as BossEncounterState;
+      gameState.bossPortal = null;
+      gameState.exitPortal = null;
+      gameState.nearbyBossPortal = null;
+      gameState.nearbyExitPortal = null;
       gameState.nearbyChest = null;
       gameState.pendingChestDrop = null;
       gameState.chestBanishesRemaining = 3;
@@ -1883,6 +1934,43 @@ const Index = () => {
     // Exponer resetGame al ref para usarlo desde el JSX
     resetGameRef.current = resetGame;
 
+    function activateBossPortal() {
+      const portal = gameState.bossPortal;
+      if (!portal || portal.activated || !portal.active) {
+        return;
+      }
+
+      portal.activated = true;
+      portal.active = false;
+      gameState.bossPortal = null;
+
+      for (let i = 0; i < 40 && gameState.particles.length < gameState.maxParticles - 40; i++) {
+        const angle = (Math.PI * 2 * i) / 40;
+        gameState.particles.push({
+          x: portal.x,
+          y: portal.y,
+          vx: Math.cos(angle) * 6,
+          vy: Math.sin(angle) * 6,
+          life: 1,
+          color: PORTAL_GLOW_COLORS.boss,
+          size: 5,
+        });
+      }
+
+      spawnUniqueBoss();
+    }
+
+    function enterExitPortal() {
+      const portal = gameState.exitPortal;
+      if (!portal || !portal.active) {
+        return;
+      }
+
+      portal.active = false;
+      gameState.exitPortal = null;
+      endGame();
+    }
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "º" || e.key === "§") {
         e.preventDefault();
@@ -1903,6 +1991,19 @@ const Index = () => {
       }
 
       gameState.keys[e.key.toLowerCase()] = true;
+
+      if (gameState.state === "running" && e.key.toLowerCase() === "e") {
+        if (gameState.nearbyBossPortal) {
+          e.preventDefault();
+          activateBossPortal();
+          return;
+        }
+        if (gameState.nearbyExitPortal) {
+          e.preventDefault();
+          enterExitPortal();
+          return;
+        }
+      }
 
       // Game Over: Enter para reiniciar inmediatamente
       if (gameState.state === "gameover" && (e.key === "Enter" || e.key === "r" || e.key === "R")) {
@@ -2418,6 +2519,125 @@ const Index = () => {
       };
 
       gameState.enemies.push(boss);
+    }
+
+    function spawnMiniBoss() {
+      const miniBossRad = scaleEnemyRadius(28);
+      const { x, y } = getSpawnPositionAroundPlayer(miniBossRad, {
+        minDistance: DEFAULT_SPAWN_DISTANCE_MAX - 50,
+        maxDistance: DEFAULT_SPAWN_DISTANCE_MAX + 120,
+      });
+
+      // Mini-boss HP escalado estilo COD Zombies
+      const baseHp = 25;
+      const difficultyLevel = gameState.difficulty.level;
+      const miniBossHpMultiplier = 1 + (difficultyLevel - 1) * 2; // Más tanque que antes
+      const scaledHp = Math.floor(baseHp * miniBossHpMultiplier);
+
+      const miniBoss: EnemyWithCategory = {
+        x,
+        y,
+        rad: miniBossRad,
+        hp: scaledHp,
+        maxhp: scaledHp,
+        spd: applyEnemySpeedModifier(1.0),
+        category: inferEnemyCategory({}),
+        isElite: false,
+        isMiniBoss: true,
+        color: "#ffc300",
+        damage: Math.floor(25 * (1 + (difficultyLevel - 1) * 0.05)),
+      };
+
+      gameState.enemies.push(miniBoss);
+    }
+
+    function spawnBossPortal() {
+      if (gameState.bossEncounter.portalSpawned || gameState.bossPortal || gameState.bossEncounter.bossDefeated) {
+        return;
+      }
+
+      const angle = Math.random() * Math.PI * 2;
+      const distance = 220;
+      const margin = 80;
+      const rawX = gameState.player.x + Math.cos(angle) * distance;
+      const rawY = gameState.player.y + Math.sin(angle) * distance;
+      const x = clamp(rawX, margin, gameState.worldWidth - margin);
+      const y = clamp(rawY, margin, gameState.worldHeight - margin);
+
+      const portal: GamePortal = {
+        x,
+        y,
+        rad: 48,
+        type: "boss",
+        active: true,
+        activated: false,
+        spawnTime: gameState.time,
+      };
+
+      gameState.bossPortal = portal;
+      gameState.bossEncounter.portalSpawned = true;
+      gameState.globalEventTimer = 0;
+    }
+
+    function spawnUniqueBoss() {
+      const bossRad = scaleEnemyRadius(44);
+      const { x, y } = getSpawnPositionAroundPlayer(bossRad, {
+        minDistance: DEFAULT_SPAWN_DISTANCE_MAX - 80,
+        maxDistance: DEFAULT_SPAWN_DISTANCE_MAX + 200,
+      });
+
+      const uniqueBossId = `unique-boss-${Date.now()}`;
+      const boss: EnemyWithCategory = {
+        x,
+        y,
+        rad: bossRad,
+        hp: 1500,
+        maxhp: 1500,
+        spd: applyEnemySpeedModifier(0.85),
+        category: inferEnemyCategory({}),
+        enemyType: "strong",
+        damage: 32,
+        isElite: false,
+        isMiniBoss: false,
+        isBoss: true,
+        color: "#7c3aed",
+        specialType: null,
+        frozenTimer: 0,
+        burnTimer: 0,
+        poisonTimer: 0,
+        phase: 1,
+        attackCooldown: 0,
+        jumpCooldown: 0,
+        projectileCooldown: 0,
+        isUniqueBoss: true,
+        uniqueBossId,
+      } as EnemyWithCategory & { isUniqueBoss: true; uniqueBossId: string };
+
+      gameState.enemies.push(boss);
+      gameState.bossEncounter.bossActive = true;
+      gameState.bossEncounter.uniqueBossId = uniqueBossId;
+      gameState.lastBossSpawn = gameState.elapsedTime;
+    }
+
+    function spawnExitPortal(position?: { x: number; y: number }) {
+      if (gameState.exitPortal) {
+        return;
+      }
+
+      const margin = 80;
+      const x = clamp(position?.x ?? gameState.player.x, margin, gameState.worldWidth - margin);
+      const y = clamp(position?.y ?? gameState.player.y, margin, gameState.worldHeight - margin);
+
+      const portal: GamePortal = {
+        x,
+        y,
+        rad: 52,
+        type: "exit",
+        active: true,
+        spawnTime: gameState.time,
+      };
+
+      gameState.exitPortal = portal;
     }
 
     function nearestEnemy() {
@@ -4204,6 +4424,14 @@ const Index = () => {
       // Solo incrementar el temporizador de partida cuando el juego está corriendo
       if (gameState.state === "running" && gameState.countdownTimer <= 0) {
         gameState.elapsedTime += dt;
+        if (!gameState.bossEncounter.bossDefeated) {
+          if (gameState.globalEventTimer > 0) {
+            gameState.globalEventTimer = Math.max(0, gameState.globalEventTimer - dt);
+          }
+          if (gameState.globalEventTimer === 0 && !gameState.bossEncounter.portalSpawned) {
+            spawnBossPortal();
+          }
+        }
       }
 
       for (const key of MUSIC_CONTROL_KEYS) {
@@ -5169,6 +5397,8 @@ const Index = () => {
       const bossInterval = Math.max(75, 240 - difficultyIntensity * 18);
       if (
         !gameState.tutorialActive &&
+        !gameState.bossEncounter.portalSpawned &&
+        !gameState.bossEncounter.bossActive &&
         gameState.elapsedTime - gameState.lastBossSpawn > bossInterval
       ) {
         spawnBoss();
@@ -5194,6 +5424,18 @@ const Index = () => {
           normalEnemyCount = gameState.normalEnemyCount;
         }
         gameState.enemies.splice(enemyIndex, 1);
+
+        if (enemy.isBoss && (enemy as any).isUniqueBoss) {
+          gameState.bossEncounter.bossActive = false;
+          if (gameState.bossEncounter.uniqueBossId === (enemy as any).uniqueBossId) {
+            gameState.bossEncounter.uniqueBossId = null;
+          }
+          gameState.bossEncounter.portalSpawned = false;
+          if (!gameState.bossEncounter.bossDefeated) {
+            gameState.bossEncounter.bossDefeated = true;
+            spawnExitPortal({ x: enemy.x, y: enemy.y });
+          }
+        }
 
         if (enemy.specialType === "explosive") {
           const explosionRadiusSq = 80 * 80;
@@ -6284,6 +6526,29 @@ const Index = () => {
 
       gameState.nearbyChest = gameState.activeChestChoice ? null : nearbyChest;
 
+      gameState.nearbyBossPortal = null;
+      gameState.nearbyExitPortal = null;
+
+      const checkPortalProximity = (portal: GamePortal | null) => {
+        if (!portal || !portal.active) {
+          return;
+        }
+        const dx = gameState.player.x - portal.x;
+        const dy = gameState.player.y - portal.y;
+        const dist = Math.hypot(dx, dy);
+        const interactRadius = portal.rad + gameState.player.rad + 20;
+        if (dist <= interactRadius) {
+          if (portal.type === "boss") {
+            gameState.nearbyBossPortal = portal;
+          } else {
+            gameState.nearbyExitPortal = portal;
+          }
+        }
+      };
+
+      checkPortalProximity(gameState.bossPortal);
+      checkPortalProximity(gameState.exitPortal);
+
       // Colisión jugador-enemigo con separación física - Rage mode invulnerable
       for (const e of gameState.enemies) {
         const dx = e.x - gameState.player.x;
@@ -6592,6 +6857,95 @@ const Index = () => {
       const accentGlow = isRage ? UI_COLORS.rageGlow : UI_COLORS.accentGlow;
       const textPrimary = isNightVision ? "rgba(220, 255, 220, 0.95)" : UI_COLORS.textPrimary;
       const textSecondary = isNightVision ? "rgba(190, 255, 190, 0.8)" : UI_COLORS.textSecondary;
+
+      const bossEventTexts = t.bossEvent;
+
+      const drawTopStatus = (message: string, color: string) => {
+        if (!message) return;
+        ctx.save();
+        ctx.font = "bold 20px system-ui";
+        ctx.textAlign = "center";
+        const paddingX = 20;
+        const paddingY = 8;
+        const textWidth = ctx.measureText(message).width;
+        const boxW = textWidth + paddingX * 2;
+        const boxH = 24 + paddingY * 2;
+        const boxX = W / 2 - boxW / 2;
+        const boxY = 28 - boxH / 2;
+
+        ctx.fillStyle = UI_COLORS.panelBg;
+        ctx.beginPath();
+        drawRoundedRect(ctx, boxX, boxY, boxW, boxH, 12);
+        ctx.fill();
+
+        ctx.beginPath();
+        drawRoundedRect(ctx, boxX, boxY, boxW, boxH, 12);
+        ctx.strokeStyle = hexToRgba(color, 0.6);
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.fillStyle = color;
+        ctx.shadowColor = hexToRgba(color, 0.5);
+        ctx.shadowBlur = 0;
+        ctx.fillText(message, W / 2, boxY + boxH / 2 + 6);
+        ctx.restore();
+      };
+
+      if (!gameState.bossEncounter.bossDefeated) {
+        if (gameState.globalEventTimer > 0) {
+          const minutes = Math.floor(gameState.globalEventTimer / 60);
+          const seconds = Math.floor(gameState.globalEventTimer % 60)
+            .toString()
+            .padStart(2, "0");
+          drawTopStatus(`${bossEventTexts.timerLabel}: ${minutes}:${seconds}`, PORTAL_COLORS.boss);
+        } else if (gameState.bossPortal && !gameState.bossEncounter.bossActive) {
+          drawTopStatus(bossEventTexts.portalReady, PORTAL_COLORS.boss);
+        }
+      } else if (gameState.exitPortal) {
+        drawTopStatus(bossEventTexts.exitPortalReady, PORTAL_COLORS.exit);
+      }
+
+      const uniqueBoss = gameState.enemies.find(
+        (enemy: any) => enemy?.isBoss && Boolean(enemy?.isUniqueBoss),
+      ) as (EnemyWithCategory & { isUniqueBoss?: boolean }) | undefined;
+
+      if (uniqueBoss) {
+        const barW = Math.min(W - 160, 600);
+        const barH = 28;
+        const barX = W / 2 - barW / 2;
+        const barY = 60;
+
+        ctx.save();
+        ctx.fillStyle = UI_COLORS.panelBg;
+        ctx.beginPath();
+        drawRoundedRect(ctx, barX, barY, barW, barH, 14);
+        ctx.fill();
+
+        const progress = uniqueBoss.maxhp ? Math.max(0, Math.min(1, uniqueBoss.hp / uniqueBoss.maxhp)) : 0;
+        const fillW = (barW - 8) * progress;
+        if (fillW > 0) {
+          ctx.fillStyle = PORTAL_COLORS.boss;
+          ctx.beginPath();
+          drawRoundedRect(ctx, barX + 4, barY + 4, fillW, barH - 8, 10);
+          ctx.fill();
+        }
+
+        ctx.beginPath();
+        drawRoundedRect(ctx, barX, barY, barW, barH, 14);
+        ctx.strokeStyle = hexToRgba(PORTAL_GLOW_COLORS.boss, 0.65);
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.fillStyle = textPrimary;
+        ctx.font = "bold 18px system-ui";
+        ctx.textAlign = "center";
+        ctx.shadowColor = hexToRgba(PORTAL_GLOW_COLORS.boss, 0.4);
+        ctx.shadowBlur = 0;
+        const currentHp = Math.max(0, Math.ceil(uniqueBoss.hp));
+        const label = `${bossEventTexts.bossName} — ${currentHp} / ${uniqueBoss.maxhp}`;
+        ctx.fillText(label, W / 2, barY + barH / 2 + 6);
+        ctx.restore();
+      }
 
       // HP Bar - Barra horizontal con valor numérico
       const hpBarX = 20;
@@ -7093,6 +7447,55 @@ const Index = () => {
         ctx.shadowBlur = 0;
 
         ctx.globalAlpha = 1;
+      }
+
+      const drawPortalPrompt = (primary: string, secondary: string | null, color: string) => {
+        ctx.save();
+        ctx.textAlign = "center";
+        ctx.font = "bold 20px system-ui";
+        const primaryWidth = ctx.measureText(primary).width;
+        ctx.font = "14px system-ui";
+        const secondaryWidth = secondary ? ctx.measureText(secondary).width : 0;
+        const boxW = Math.max(primaryWidth, secondaryWidth) + 40;
+        const boxH = secondary ? 80 : 52;
+        const boxX = W / 2 - boxW / 2;
+        const boxY = H - boxH - 60;
+
+        ctx.fillStyle = UI_COLORS.panelBg;
+        ctx.beginPath();
+        drawRoundedRect(ctx, boxX, boxY, boxW, boxH, 16);
+        ctx.fill();
+
+        ctx.beginPath();
+        drawRoundedRect(ctx, boxX, boxY, boxW, boxH, 16);
+        ctx.strokeStyle = hexToRgba(color, 0.65);
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.font = "bold 20px system-ui";
+        ctx.fillStyle = color;
+        ctx.shadowColor = hexToRgba(color, 0.45);
+        ctx.shadowBlur = 0;
+        ctx.fillText(primary, W / 2, boxY + 26);
+
+        if (secondary) {
+          ctx.font = "14px system-ui";
+          ctx.fillStyle = textSecondary;
+          ctx.shadowBlur = 0;
+          ctx.fillText(secondary, W / 2, boxY + boxH - 18);
+        }
+
+        ctx.restore();
+      };
+
+      if (gameState.state === "running") {
+        if (gameState.nearbyBossPortal) {
+          const prompt = bossEventTexts.interactPrompt.replace("{key}", "E");
+          drawPortalPrompt(prompt, null, PORTAL_COLORS.boss);
+        } else if (gameState.nearbyExitPortal) {
+          const prompt = bossEventTexts.exitPrompt.replace("{key}", "E");
+          drawPortalPrompt(prompt, bossEventTexts.continueNotice, PORTAL_COLORS.exit);
+        }
       }
 
       if (gameState.itemNotificationTimer > 0 && gameState.itemNotification) {
@@ -8065,6 +8468,73 @@ const Index = () => {
       ctx.setTransform(worldTransform);
       ctx.globalAlpha = 1;
 
+      const drawPortal = (portal: GamePortal) => {
+        ctx.save();
+        ctx.setTransform(worldTransform);
+        ctx.translate(portal.x, portal.y);
+
+        const baseColor = PORTAL_COLORS[portal.type];
+        const glowColor = PORTAL_GLOW_COLORS[portal.type];
+        const pulse = Math.sin((gameState.time - portal.spawnTime) * 4) * 0.5 + 0.5;
+
+        ctx.save();
+        ctx.globalAlpha = 0.4 + pulse * 0.2;
+        ctx.fillStyle = hexToRgba(glowColor, 0.4 + pulse * 0.3);
+        ctx.beginPath();
+        ctx.arc(0, 0, portal.rad * (1.8 + pulse * 0.2), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        ctx.save();
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = hexToRgba(glowColor, 0.75);
+        ctx.globalAlpha = 0.9;
+        ctx.beginPath();
+        ctx.arc(0, 0, portal.rad * 1.2, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+
+        const swirlCount = 6;
+        const swirlRadius = portal.rad * 1.35;
+        for (let i = 0; i < swirlCount; i++) {
+          const angle = (gameState.time * 1.5 + (Math.PI * 2 * i) / swirlCount) * (portal.type === "boss" ? 1 : -1);
+          ctx.save();
+          ctx.rotate(angle);
+          const gradient = ctx.createLinearGradient(0, -swirlRadius, 0, swirlRadius);
+          gradient.addColorStop(0, hexToRgba(baseColor, 0));
+          gradient.addColorStop(0.4, hexToRgba(baseColor, 0.4));
+          gradient.addColorStop(0.6, hexToRgba(glowColor, 0.9));
+          gradient.addColorStop(1, hexToRgba(baseColor, 0));
+          ctx.strokeStyle = gradient;
+          ctx.lineWidth = 6;
+          ctx.beginPath();
+          ctx.moveTo(0, -swirlRadius);
+          ctx.lineTo(0, swirlRadius);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        ctx.save();
+        ctx.globalAlpha = 0.8;
+        const innerGradient = ctx.createRadialGradient(0, 0, portal.rad * 0.1, 0, 0, portal.rad * 0.9);
+        innerGradient.addColorStop(0, hexToRgba(baseColor, 0.7));
+        innerGradient.addColorStop(1, hexToRgba(baseColor, 0.05));
+        ctx.fillStyle = innerGradient;
+        ctx.beginPath();
+        ctx.arc(0, 0, portal.rad, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        ctx.restore();
+      };
+
+      if (gameState.bossPortal?.active) {
+        drawPortal(gameState.bossPortal);
+      }
+      if (gameState.exitPortal?.active) {
+        drawPortal(gameState.exitPortal);
+      }
+
       // ═══════════════════════════════════════════════════════════
       // EFECTOS AMBIENTALES - Renderizado
       // ═══════════════════════════════════════════════════════════
@@ -8931,6 +9401,24 @@ const Index = () => {
           radius: drop.rad,
           color: drop.color,
         }));
+
+        if (gameState.bossPortal?.active) {
+          minimapDrops.push({
+            x: gameState.bossPortal.x,
+            y: gameState.bossPortal.y,
+            radius: gameState.bossPortal.rad,
+            color: PORTAL_COLORS.boss,
+          });
+        }
+
+        if (gameState.exitPortal?.active) {
+          minimapDrops.push({
+            x: gameState.exitPortal.x,
+            y: gameState.exitPortal.y,
+            radius: gameState.exitPortal.rad,
+            color: PORTAL_COLORS.exit,
+          });
+        }
 
         const minimapHotspots: MinimapEntity[] = visibleHotspots.map((hotspot) => ({
           x: hotspot.x,
