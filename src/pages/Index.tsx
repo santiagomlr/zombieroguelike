@@ -16,6 +16,7 @@ import {
 import {
   HORIZON_VISOR_ITEM,
   ITEMS,
+  ITEM_MECHANICS,
   TOMES,
   WEAPONS,
   getItemText,
@@ -26,6 +27,7 @@ import {
   rarityColors,
   translations,
   type Item,
+  type ItemMechanicHook,
   type Language,
   type Rarity,
   type Tome,
@@ -118,6 +120,29 @@ const POST_BOSS_SURVIVAL_LIMIT = 600;
 const POST_BOSS_REWARD_INTERVAL = 120;
 const POST_BOSS_REWARD_XP = 50;
 const POST_BOSS_SPAWN_DENSITY_PER_MIN = 0.1;
+
+type ItemEffectRuntimeState = {
+  adrenalineShot: {
+    timer: number;
+    multiplier: number;
+    active: boolean;
+    duration: number;
+  };
+  morphine: {
+    timer: number;
+    interval: number;
+    healAmount: number;
+    gracePeriod: number;
+    lastDamageTime: number;
+  };
+  stationary: {
+    timer: number;
+    healPerSecond: number;
+    lastX: number;
+    lastY: number;
+  };
+  lastLevelForCombatRation: number;
+};
 const POST_BOSS_ELITE_CHANCE_PER_MIN = 0.02;
 
 const EXPLODER_INNER_RADIUS = 30;
@@ -1012,6 +1037,29 @@ const Index = () => {
       };
     };
 
+    const createDefaultItemEffectState = ({
+      x,
+      y,
+      level,
+      elapsedTime,
+    }: {
+      x: number;
+      y: number;
+      level: number;
+      elapsedTime: number;
+    }): ItemEffectRuntimeState => ({
+      adrenalineShot: { timer: 0, multiplier: 1, active: false, duration: 0 },
+      morphine: {
+        timer: 0,
+        interval: 10,
+        healAmount: 0,
+        gracePeriod: 5,
+        lastDamageTime: elapsedTime,
+      },
+      stationary: { timer: 0, healPerSecond: 0, lastX: x, lastY: y },
+      lastLevelForCombatRation: level,
+    });
+
     const gameState = {
       state: "running" as "running" | "paused" | "gameover",
       player: {
@@ -1039,6 +1087,12 @@ const Index = () => {
         tomes: [] as Tome[],
         items: [] as Item[],
         itemStacks: {} as Record<string, number>,
+        itemEffectState: createDefaultItemEffectState({
+          x: worldW / 2,
+          y: worldH / 2,
+          level: 1,
+          elapsedTime: 0,
+        }),
         stats: {
           damageMultiplier: 1,
           speedMultiplier: 1,
@@ -1052,16 +1106,21 @@ const Index = () => {
           precision: 0,
           regenRate: 0,
           regenInterval: 0,
-          magnetMultiplier: 1,
-          cameraZoomMultiplier: 1,
-          bounceOnEnemies: false,
-          damageReduction: 0,
-          powerupDuration: 1,
-          xpBonus: 0,
-          firstHitImmuneChargesUsed: 0,
-          chaosDamage: false,
-          solarGauntletKills: 0,
-          bloodstoneKills: 0,
+        magnetMultiplier: 1,
+        cameraZoomMultiplier: 1,
+        bounceOnEnemies: false,
+        damageReduction: 0,
+        powerupDuration: 1,
+        critDamageMultiplier: 1,
+        lowHealthDamageThreshold: 0,
+        lowHealthDamageBonus: 0,
+        lootDropChanceBonus: 0,
+        weaponSwapSpeedMultiplier: 1,
+        xpBonus: 0,
+        firstHitImmuneChargesUsed: 0,
+        chaosDamage: false,
+        solarGauntletKills: 0,
+        bloodstoneKills: 0,
           reactiveShieldActive: false,
           sprintEfficiencyMultiplier: 1,
           sprintRecoveryMultiplier: 1,
@@ -2035,6 +2094,12 @@ const Index = () => {
       gameState.player.tomes = [];
       gameState.player.items = [];
       gameState.player.itemStacks = {};
+      gameState.player.itemEffectState = createDefaultItemEffectState({
+        x: gameState.player.x,
+        y: gameState.player.y,
+        level: 1,
+        elapsedTime: gameState.elapsedTime,
+      });
       gameState.player.stats = {
         damageMultiplier: 1,
         speedMultiplier: 1,
@@ -2053,6 +2118,11 @@ const Index = () => {
         bounceOnEnemies: false,
         damageReduction: 0,
         powerupDuration: 1,
+        critDamageMultiplier: 1,
+        lowHealthDamageThreshold: 0,
+        lowHealthDamageBonus: 0,
+        lootDropChanceBonus: 0,
+        weaponSwapSpeedMultiplier: 1,
         xpBonus: 0,
         firstHitImmuneChargesUsed: 0,
         chaosDamage: false,
@@ -2717,6 +2787,7 @@ const Index = () => {
           frozenTimer: 0,
           burnTimer: 0,
           poisonTimer: 0,
+          stunnedTimer: 0,
           summonCooldown: 0,
           // Bomber-specific properties
           explosionTimer: specialType === "explosive" ? -1 : undefined, // -1 = no activado, >= 0 = contando
@@ -2763,6 +2834,7 @@ const Index = () => {
         frozenTimer: 0,
         burnTimer: 0,
         poisonTimer: 0,
+        stunnedTimer: 0,
         phase: 1,
         attackCooldown: 0,
         jumpCooldown: 0,
@@ -2797,6 +2869,7 @@ const Index = () => {
         isMiniBoss: true,
         color: "#ffc300",
         damage: Math.floor(25 * (1 + (difficultyLevel - 1) * 0.05)),
+        stunnedTimer: 0,
       };
 
       gameState.enemies.push(miniBoss);
@@ -2863,6 +2936,7 @@ const Index = () => {
         frozenTimer: 0,
         burnTimer: 0,
         poisonTimer: 0,
+        stunnedTimer: 0,
         phase: 1,
         attackCooldown: 0,
         jumpCooldown: 0,
@@ -3053,7 +3127,12 @@ const Index = () => {
             gameState.player.shield--;
           } else {
             const reducedDamage = finalDamage * (1 - gameState.player.stats.damageReduction);
-            gameState.player.hp = Math.max(0, gameState.player.hp - reducedDamage);
+            const prevHp = gameState.player.hp;
+            gameState.player.hp = Math.max(0, prevHp - reducedDamage);
+            if (gameState.player.hp <= 0 && tryPreventLethalDamage()) {
+              // prevented
+            }
+            registerPlayerDamage(Math.max(0, prevHp - gameState.player.hp));
             const knockbackForce = EXPLODER_RAGDOLL_FORCE;
             const angle = Math.atan2(gameState.player.y - originY, gameState.player.x - originX);
             const displacement = knockbackForce * falloff * dt * 6;
@@ -3322,6 +3401,14 @@ const Index = () => {
         baseDamage *= 1 + stats.adrenalineDamageBonus;
       }
 
+      if (
+        stats.lowHealthDamageThreshold > 0 &&
+        stats.lowHealthDamageBonus > 0 &&
+        gameState.player.hp <= gameState.player.maxhp * stats.lowHealthDamageThreshold
+      ) {
+        baseDamage *= 1 + stats.lowHealthDamageBonus;
+      }
+
       // Amuleto del Caos: daño aleatorio +10% a +50%
       if (stats.chaosDamage) {
         const chaosStacks = Math.max(1, getItemStacks("chaosamuleto"));
@@ -3332,7 +3419,10 @@ const Index = () => {
       // Chance de crítico (10% base)
       const critChance = 0.1;
       const isCrit = Math.random() < critChance;
-      if (isCrit) baseDamage *= 2;
+      if (isCrit) {
+        const critMultiplier = Math.max(0, stats.critDamageMultiplier);
+        baseDamage *= 2 * (critMultiplier || 1);
+      }
 
       const damage = baseDamage;
       const dir = Math.atan2(target.y - gameState.player.y, target.x - gameState.player.x);
@@ -3498,8 +3588,10 @@ const Index = () => {
 
         const interval = 1 / (weapon.fireRate * player.stats.fireRateMultiplier);
         const maxStored = interval * 2;
+        const swapRecovery =
+          player.weapons.length > 1 ? Math.max(1, player.stats.weaponSwapSpeedMultiplier) : 1;
         gameState.weaponCooldowns[cooldownKey] = Math.min(
-          gameState.weaponCooldowns[cooldownKey] + dt,
+          gameState.weaponCooldowns[cooldownKey] + dt * swapRecovery,
           maxStored,
         );
 
@@ -4253,12 +4345,57 @@ const Index = () => {
       gameState.upgradeOptions = options;
     }
 
+    function recomputeMinimapDetail() {
+      const horizonStacks =
+        getItemStacks("horizonscanner") + getItemStacks(HORIZON_VISOR_ITEM.id);
+      const compassStacks = getItemStacks("rustyCompass");
+      const radioStacks = getItemStacks("oldRadio");
+
+      let detailLevel = 0;
+      let opacity = 0;
+
+      if (radioStacks > 0) {
+        const radioHook = ITEM_MECHANICS.oldRadio?.hooks.find(
+          (hook) => hook.kind === "minimapDetail",
+        ) as Extract<ItemMechanicHook, { kind: "minimapDetail" }> | undefined;
+        const baseOpacity = radioHook?.baseOpacity ?? 0.65;
+        detailLevel = Math.max(detailLevel, radioHook?.minimumDetail ?? 2);
+        opacity = Math.max(
+          opacity,
+          Math.min(1, baseOpacity + Math.min(0.15, (radioStacks - 1) * 0.05)),
+        );
+      }
+
+      if (horizonStacks >= 2) {
+        detailLevel = Math.max(detailLevel, 2);
+        opacity = Math.max(opacity, 1);
+      } else if (horizonStacks >= 1) {
+        detailLevel = Math.max(detailLevel, 1);
+        opacity = Math.max(opacity, 0.45);
+      }
+
+      if (compassStacks > 0) {
+        const compassHook = ITEM_MECHANICS.rustyCompass?.hooks.find(
+          (hook) => hook.kind === "minimapDetail",
+        ) as Extract<ItemMechanicHook, { kind: "minimapDetail" }> | undefined;
+        const baseOpacity = compassHook?.baseOpacity ?? 0.35;
+        const extraOpacity = Math.min(0.2, (compassStacks - 1) * 0.05);
+        detailLevel = Math.max(detailLevel, compassHook?.minimumDetail ?? 1);
+        opacity = Math.max(opacity, baseOpacity + extraOpacity);
+      }
+
+      if (detailLevel === 0) {
+        opacity = 0;
+      }
+
+      gameState.minimapDetailLevel = detailLevel;
+      gameState.minimapOpacity = opacity;
+    }
+
     function updateHorizonVisionEffect() {
       const totalStacks =
         getItemStacks("horizonscanner") + getItemStacks(HORIZON_VISOR_ITEM.id);
       const stats = gameState.player.stats;
-
-      const minimapDetailLevel = totalStacks >= 2 ? 2 : totalStacks >= 1 ? 1 : 0;
 
       stats.cameraZoomMultiplier = totalStacks >= 1 ? 0.7 : 1;
 
@@ -4266,15 +4403,208 @@ const Index = () => {
         gameState.camera.zoom = getTargetCameraZoom();
       }
 
-      gameState.minimapDetailLevel = minimapDetailLevel;
-      gameState.minimapOpacity =
-        minimapDetailLevel === 2 ? 1 : minimapDetailLevel === 1 ? 0.45 : 0;
+      recomputeMinimapDetail();
+    }
+
+    function getItemEffectState(): ItemEffectRuntimeState {
+      const existing =
+        (gameState.player.itemEffectState as ItemEffectRuntimeState | undefined) ??
+        null;
+      if (existing) {
+        return existing;
+      }
+      const fallback = createDefaultItemEffectState({
+        x: gameState.player.x,
+        y: gameState.player.y,
+        level: gameState.level,
+        elapsedTime: gameState.elapsedTime,
+      });
+      gameState.player.itemEffectState = fallback;
+      return fallback;
+    }
+
+    function healPlayer(amount: number, options: { allowFirstAidTape?: boolean } = {}) {
+      if (amount <= 0) return 0;
+      let total = amount;
+      if (options.allowFirstAidTape !== false) {
+        const tapeStacks = getItemStacks("firstAidTape");
+        if (tapeStacks > 0) {
+          const healHook = ITEM_MECHANICS.firstAidTape?.hooks.find(
+            (hook) => hook.kind === "healBonus",
+          ) as Extract<ItemMechanicHook, { kind: "healBonus" }> | undefined;
+          const bonusPerStack = healHook?.bonusPerStack ?? 0.1;
+          total *= 1 + tapeStacks * bonusPerStack;
+        }
+      }
+
+      const before = gameState.player.hp;
+      gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + total);
+      return Math.max(0, gameState.player.hp - before);
+    }
+
+    function registerPlayerDamage(amount: number) {
+      if (amount <= 0) return;
+      const state = getItemEffectState();
+      state.morphine.timer = 0;
+      state.morphine.lastDamageTime = gameState.elapsedTime;
+      state.stationary.timer = 0;
+    }
+
+    function tryPreventLethalDamage() {
+      const stacks = getItemStacks("luckyCigarStub");
+      if (stacks <= 0) {
+        return false;
+      }
+      const hook = ITEM_MECHANICS.luckyCigarStub?.hooks.find(
+        (h) => h.kind === "lethalProtection",
+      ) as Extract<ItemMechanicHook, { kind: "lethalProtection" }> | undefined;
+      const chancePerStack = hook?.chancePerStack ?? 0.02;
+      const survivalChance = 1 - Math.pow(1 - chancePerStack, stacks);
+      if (Math.random() < survivalChance) {
+        gameState.player.hp = Math.max(1, gameState.player.hp);
+        gameState.player.ifr = Math.max(gameState.player.ifr, 1.2);
+        if (gameState.particles.length < gameState.maxParticles - 12) {
+          for (let j = 0; j < 12; j++) {
+            const angle = (Math.PI * 2 * j) / 12;
+            gameState.particles.push({
+              x: gameState.player.x,
+              y: gameState.player.y,
+              vx: Math.cos(angle) * 6,
+              vy: Math.sin(angle) * 6,
+              life: 0.6,
+              color: "#d97706",
+              size: 3,
+            });
+          }
+        }
+        return true;
+      }
+      return false;
+    }
+
+    function triggerAdrenalineShotBuff() {
+      const stacks = getItemStacks("adrenalineShot");
+      if (stacks <= 0) return;
+      const hook = ITEM_MECHANICS.adrenalineShot?.hooks.find(
+        (h) => h.kind === "onKillTempStat",
+      ) as Extract<ItemMechanicHook, { kind: "onKillTempStat" }> | undefined;
+      const perStackMultiplier = hook?.multiplierPerStack ?? 1.1;
+      const duration = hook?.duration ?? 5;
+      const state = getItemEffectState();
+      if (state.adrenalineShot.active && state.adrenalineShot.multiplier !== 0) {
+        gameState.player.stats.fireRateMultiplier /= state.adrenalineShot.multiplier;
+      }
+      const multiplier = 1 + (perStackMultiplier - 1) * stacks;
+      state.adrenalineShot.multiplier = multiplier;
+      state.adrenalineShot.timer = duration;
+      state.adrenalineShot.duration = duration;
+      state.adrenalineShot.active = true;
+      gameState.player.stats.fireRateMultiplier *= multiplier;
     }
 
     function applyItemEffect(item: Item) {
       const player = gameState.player;
       const stats = player.stats;
       const effect = item.effect;
+
+      const mechanic = ITEM_MECHANICS[effect];
+      if (mechanic) {
+        const state = getItemEffectState();
+        let updatedMinimap = false;
+        for (const hook of mechanic.hooks) {
+          switch (hook.kind) {
+            case "statMultiplier": {
+              const currentValue =
+                (stats as Record<string, number>)[hook.stat] ?? 1;
+              (stats as Record<string, number>)[hook.stat] =
+                currentValue * hook.multiplierPerStack;
+              break;
+            }
+            case "statAdd": {
+              const amount = hook.amountPerStack;
+              (stats as Record<string, number>)[hook.stat] =
+                ((stats as Record<string, number>)[hook.stat] ?? 0) + amount;
+              break;
+            }
+            case "onKillTempStat": {
+              state.adrenalineShot.duration = hook.duration;
+              break;
+            }
+            case "outOfCombatRegen": {
+              state.morphine.interval = hook.interval;
+              state.morphine.healAmount = hook.healPerStack;
+              state.morphine.gracePeriod = hook.gracePeriod;
+              break;
+            }
+            case "minimapDetail": {
+              updatedMinimap = true;
+              break;
+            }
+            case "stationaryRegen": {
+              const stacks = getItemStacks(item.id);
+              state.stationary.healPerSecond = stacks * hook.healPerSecondPerStack;
+              break;
+            }
+            case "staminaRegen": {
+              if (hook.recoveryBonusPerStack) {
+                stats.sprintRecoveryMultiplier *= 1 + hook.recoveryBonusPerStack;
+              }
+              if (hook.efficiencyBonusPerStack) {
+                stats.sprintEfficiencyMultiplier = Math.max(
+                  0.25,
+                  stats.sprintEfficiencyMultiplier * (1 - hook.efficiencyBonusPerStack),
+                );
+              }
+              if (hook.maxStaminaBonusPerStack) {
+                player.maxStamina += hook.maxStaminaBonusPerStack;
+                player.stamina = Math.min(player.maxStamina, player.stamina + hook.maxStaminaBonusPerStack);
+              }
+              break;
+            }
+            case "swapSpeed": {
+              stats.weaponSwapSpeedMultiplier *= 1 + hook.bonusPerStack;
+              break;
+            }
+            case "healBonus": {
+              // Healing bonuses are applied dynamically in healPlayer
+              break;
+            }
+            case "conditionalDamage": {
+              stats.lowHealthDamageThreshold = Math.max(
+                stats.lowHealthDamageThreshold,
+                hook.threshold,
+              );
+              stats.lowHealthDamageBonus += hook.bonusPerStack;
+              break;
+            }
+            case "lootBonus": {
+              stats.lootDropChanceBonus += hook.additivePerStack;
+              break;
+            }
+            case "critDamage": {
+              stats.critDamageMultiplier += hook.bonusPerStack;
+              break;
+            }
+            case "waveHeal": {
+              const currentLevel = gameState.difficulty?.level ?? gameState.level;
+              state.lastLevelForCombatRation = Math.max(
+                state.lastLevelForCombatRation,
+                currentLevel,
+              );
+              break;
+            }
+            case "stunOnHit":
+            case "lethalProtection":
+              break;
+          }
+        }
+
+        if (updatedMinimap) {
+          recomputeMinimapDetail();
+        }
+
+        return;
+      }
 
       const statMultKeys: Partial<Record<string, keyof PlayerStats>> = {
         damageMultiplier: "damageMultiplier",
@@ -4322,7 +4652,7 @@ const Index = () => {
         if (Number.isFinite(value) && value !== 0) {
           const amount = Math.round(value);
           player.maxhp += amount;
-          player.hp = Math.min(player.maxhp, player.hp + amount);
+          healPlayer(amount);
         }
         return;
       }
@@ -4332,7 +4662,7 @@ const Index = () => {
         if (Number.isFinite(percent) && percent > 0) {
           const bonus = Math.max(1, Math.round(player.maxhp * percent));
           player.maxhp += bonus;
-          player.hp = Math.min(player.maxhp, player.hp + bonus);
+          healPlayer(bonus);
         }
         return;
       }
@@ -4418,7 +4748,7 @@ const Index = () => {
         case "maxhp15": {
           const bonus15 = Math.floor(player.maxhp * 0.15);
           player.maxhp += bonus15;
-          player.hp = Math.min(player.maxhp, player.hp + bonus15);
+          healPlayer(bonus15);
           break;
         }
         case "heavyarmor":
@@ -4448,7 +4778,7 @@ const Index = () => {
           break;
         case "artificialheart":
           player.maxhp += 50;
-          player.hp = Math.min(player.maxhp, player.hp + 50);
+          healPlayer(50);
           break;
         case "infinitylens":
           stats.speedMultiplier *= 1.1;
@@ -5228,6 +5558,39 @@ const Index = () => {
           gameState.player.stats.firstHitImmuneChargesUsed = 0;
         }
 
+        const rationStacks = getItemStacks("combatRation");
+        if (rationStacks > 0) {
+          const rationHook = ITEM_MECHANICS.combatRation?.hooks.find(
+            (hook) => hook.kind === "waveHeal",
+          ) as Extract<ItemMechanicHook, { kind: "waveHeal" }> | undefined;
+          const healPerStack = rationHook?.healPerStack ?? 15;
+          const effectState = getItemEffectState();
+          const lastLevel = effectState.lastLevelForCombatRation;
+          if (difficultyLevel > lastLevel) {
+            const levelsCleared = difficultyLevel - lastLevel;
+            const totalHeal = healPerStack * rationStacks * levelsCleared;
+            const healed = healPlayer(totalHeal);
+            if (healed > 0 && gameState.particles.length < gameState.maxParticles - 12) {
+              for (let i = 0; i < 12; i++) {
+                const angle = (Math.PI * 2 * i) / 12;
+                gameState.particles.push({
+                  x: gameState.player.x + Math.cos(angle) * 12,
+                  y: gameState.player.y + Math.sin(angle) * 12,
+                  vx: Math.cos(angle) * 2,
+                  vy: Math.sin(angle) * 2,
+                  life: 0.5,
+                  color: "#9acd32",
+                  size: 3,
+                });
+              }
+            }
+          }
+          effectState.lastLevelForCombatRation = Math.max(
+            effectState.lastLevelForCombatRation,
+            difficultyLevel,
+          );
+        }
+
         if (gameState.environmentalEvent) {
           gameState.environmentalEvent = null;
           gameState.eventPhase = "none";
@@ -5386,7 +5749,13 @@ const Index = () => {
                 gameState.player.y - gameState.stormZone.y,
               );
               if (distToStorm < gameState.stormZone.radius) {
-                gameState.player.hp -= 10 * dt * intensity; // 10 HP/s escalado por intensidad
+                const damage = 10 * dt * intensity;
+                const prevHp = gameState.player.hp;
+                gameState.player.hp = Math.max(0, prevHp - damage);
+                if (gameState.player.hp <= 0 && tryPreventLethalDamage()) {
+                  // prevented
+                }
+                registerPlayerDamage(Math.max(0, prevHp - gameState.player.hp));
                 if (gameState.player.hp <= 0) {
                   gameState.state = "gameover";
                   gameState.gameOverTimer = 3;
@@ -5475,7 +5844,13 @@ const Index = () => {
 
               // Daño aumentado si está en zona de niebla (escalado por intensidad)
               if (inFogZone) {
-                gameState.player.hp -= 5 * dt * intensity; // 5 HP/s escalado por intensidad
+                const damage = 5 * dt * intensity;
+                const prevHp = gameState.player.hp;
+                gameState.player.hp = Math.max(0, prevHp - damage);
+                if (gameState.player.hp <= 0 && tryPreventLethalDamage()) {
+                  // prevented
+                }
+                registerPlayerDamage(Math.max(0, prevHp - gameState.player.hp));
                 if (gameState.player.hp <= 0) {
                   gameState.state = "gameover";
                   gameState.gameOverTimer = 3;
@@ -5607,7 +5982,13 @@ const Index = () => {
             gameState.dangerZoneTimer += dt;
 
             // Daño continuo: 8 HP/s (sin activar invulnerabilidad)
-            gameState.player.hp -= 8 * dt;
+            const damage = 8 * dt;
+            const prevHp = gameState.player.hp;
+            gameState.player.hp = Math.max(0, prevHp - damage);
+            if (gameState.player.hp <= 0 && tryPreventLethalDamage()) {
+              // prevented
+            }
+            registerPlayerDamage(Math.max(0, prevHp - gameState.player.hp));
 
             // Partículas de daño
             if (Math.random() < 0.15 && gameState.particles.length < gameState.maxParticles) {
@@ -5741,18 +6122,57 @@ const Index = () => {
         gameState.regenTimer += dt;
         if (gameState.regenTimer >= gameState.player.stats.regenInterval) {
           gameState.regenTimer = 0;
-          gameState.player.hp = Math.min(
-            gameState.player.maxhp,
-            gameState.player.hp + gameState.player.stats.regenRate,
-          );
+          healPlayer(gameState.player.stats.regenRate);
         }
       }
 
-      // Regeneración del item (si lo tiene)
-      if (gameState.player.items.find((it: Item) => it.id === "regen")) {
-        // El item de regeneración es adicional al libro
-        if (gameState.regenTimer >= 10) {
-          gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + 1);
+      const itemEffects = getItemEffectState();
+      const distanceMoved = Math.hypot(
+        gameState.player.x - itemEffects.stationary.lastX,
+        gameState.player.y - itemEffects.stationary.lastY,
+      );
+      const isStationary = distanceMoved < 1.2;
+      if (!isStationary) {
+        itemEffects.stationary.timer = 0;
+      }
+      itemEffects.stationary.lastX = gameState.player.x;
+      itemEffects.stationary.lastY = gameState.player.y;
+
+      const tornPatchStacks = getItemStacks("tornPatch");
+      if (
+        tornPatchStacks > 0 &&
+        itemEffects.stationary.healPerSecond > 0 &&
+        isStationary
+      ) {
+        itemEffects.stationary.timer += dt * itemEffects.stationary.healPerSecond;
+        if (itemEffects.stationary.timer >= 1) {
+          const heals = Math.floor(itemEffects.stationary.timer);
+          itemEffects.stationary.timer -= heals;
+          healPlayer(heals);
+        }
+      }
+
+      const morphineStacks = getItemStacks("morphineInjector");
+      if (morphineStacks > 0 && itemEffects.morphine.healAmount > 0) {
+        const grace = itemEffects.morphine.gracePeriod;
+        if (gameState.elapsedTime - itemEffects.morphine.lastDamageTime >= grace) {
+          itemEffects.morphine.timer += dt;
+          const interval = itemEffects.morphine.interval / morphineStacks;
+          if (itemEffects.morphine.timer >= interval) {
+            itemEffects.morphine.timer -= interval;
+            healPlayer(itemEffects.morphine.healAmount * morphineStacks);
+          }
+        } else {
+          itemEffects.morphine.timer = 0;
+        }
+      }
+
+      if (itemEffects.adrenalineShot.active) {
+        itemEffects.adrenalineShot.timer = Math.max(0, itemEffects.adrenalineShot.timer - dt);
+        if (itemEffects.adrenalineShot.timer <= 0 && itemEffects.adrenalineShot.multiplier !== 0) {
+          gameState.player.stats.fireRateMultiplier /= itemEffects.adrenalineShot.multiplier;
+          itemEffects.adrenalineShot.active = false;
+          itemEffects.adrenalineShot.multiplier = 1;
         }
       }
 
@@ -5804,10 +6224,10 @@ const Index = () => {
         if (gameState.droneSupportCooldown <= 0) {
           const level = droneStats.droneSupportLevel;
           const heal = 3 * level;
-          gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + heal);
+          const healed = healPlayer(heal);
           gameState.droneSupportCooldown = Math.max(3, 6 - level * 0.5);
 
-          if (gameState.particles.length < gameState.maxParticles) {
+          if (healed > 0 && gameState.particles.length < gameState.maxParticles) {
             gameState.particles.push({
               x: gameState.player.x,
               y: gameState.player.y,
@@ -6055,6 +6475,10 @@ const Index = () => {
         applyDifficultyEvent(enemy.isElite || enemy.isBoss ? "on_elite_kill" : "on_enemy_kill");
         gameState.difficulty.variables.no_kill_seconds = 0;
 
+        if (killer && !(killer as any).isEnemyBullet && getItemStacks("adrenalineShot") > 0) {
+          triggerAdrenalineShotBuff();
+        }
+
         if (!enemy.isBoss) {
           gameState.normalEnemyCount = Math.max(0, gameState.normalEnemyCount - 1);
           normalEnemyCount = gameState.normalEnemyCount;
@@ -6141,6 +6565,13 @@ const Index = () => {
           dropChance = 0.02;
         }
 
+        if (gameState.player.stats.lootDropChanceBonus > 0) {
+          dropChance = Math.min(
+            1,
+            Math.max(0, dropChance + gameState.player.stats.lootDropChanceBonus),
+          );
+        }
+
         gameState.score += points;
         setScore(gameState.score);
 
@@ -6192,7 +6623,7 @@ const Index = () => {
 
         if (gameState.player.stats.vampire > 0 && killer) {
           const healAmount = Math.floor(killer.damage * gameState.player.stats.vampire * 10);
-          gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + healAmount);
+          healPlayer(healAmount);
         }
 
         const solarStacks = getItemStacks("solargauntlet");
@@ -6241,8 +6672,8 @@ const Index = () => {
           if (gameState.player.stats.bloodstoneKills >= killsRequired) {
             gameState.player.stats.bloodstoneKills = 0;
             const healAmount = 5 * bloodstoneStacks;
-            gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + healAmount);
-            if (gameState.particles.length < gameState.maxParticles - 12) {
+            const healed = healPlayer(healAmount);
+            if (healed > 0 && gameState.particles.length < gameState.maxParticles - 12) {
               for (let j = 0; j < 12; j++) {
                 const angle = (Math.PI * 2 * j) / 12;
                 gameState.particles.push({
@@ -6318,6 +6749,15 @@ const Index = () => {
           movementSpeed *= 0.5; // 50% más lento
         }
 
+        const stunnedTimerValue = typeof (e as any).stunnedTimer === "number" ? (e as any).stunnedTimer : 0;
+        if (stunnedTimerValue > 0) {
+          const nextTimer = Math.max(0, stunnedTimerValue - dt);
+          (e as any).stunnedTimer = nextTimer;
+          if (nextTimer > 0) {
+            movementSpeed = 0;
+          }
+        }
+
         if (typeof (e as any).acceleration === "number") {
           const accel = Math.max(0.1, (e as any).acceleration);
           const current = typeof (e as any).currentSpeed === "number" ? (e as any).currentSpeed : 0;
@@ -6387,6 +6827,7 @@ const Index = () => {
                 frozenTimer: 0,
                 burnTimer: 0,
                 poisonTimer: 0,
+                stunnedTimer: 0,
               };
 
               gameState.enemies.push(summonedEnemy);
@@ -6733,6 +7174,10 @@ const Index = () => {
 
           candidate.hp -= damageAmount;
           trackEnemyCategoryHit(candidate as EnemyWithCategory, hitCategories);
+          if (stunChance > 0 && Math.random() < stunChance) {
+            const currentTimer = typeof (candidate as any).stunnedTimer === "number" ? (candidate as any).stunnedTimer : 0;
+            (candidate as any).stunnedTimer = Math.max(currentTimer, stunDuration);
+          }
 
           if (candidate.hp <= 0) {
             handleEnemyDeath(candidate, bullet);
@@ -6853,6 +7298,14 @@ const Index = () => {
 
         let hitSomething = false;
         const hitCategories: EnemyCategory[] = [];
+        const stunStacks = getItemStacks("stunGrenadeShard");
+        const stunHook = ITEM_MECHANICS.stunGrenadeShard?.hooks.find(
+          (hook) => hook.kind === "stunOnHit",
+        ) as Extract<ItemMechanicHook, { kind: "stunOnHit" }> | undefined;
+        const stunBaseChance = stunHook?.chancePerStack ?? 0.1;
+        const stunDuration = stunHook?.duration ?? 1.5;
+        const stunChance =
+          stunStacks > 0 ? 1 - Math.pow(1 - stunBaseChance, stunStacks) : 0;
 
         for (const enemy of neighbors) {
           if (!enemy || enemy.hp <= 0 || (enemy as any).__removed) continue;
@@ -6877,6 +7330,11 @@ const Index = () => {
             enemy.frozenTimer = 2;
           }
 
+          if (stunChance > 0 && Math.random() < stunChance) {
+            const currentTimer = typeof (enemy as any).stunnedTimer === "number" ? (enemy as any).stunnedTimer : 0;
+            (enemy as any).stunnedTimer = Math.max(currentTimer, stunDuration);
+          }
+
           if (bullet.chain && bullet.chainCount > 0) {
             bullet.chainCount--;
             let closestEnemy: any = null;
@@ -6897,6 +7355,12 @@ const Index = () => {
               closestEnemy.hp -= bullet.damage * 0.7;
               trackEnemyCategoryHit(closestEnemy as EnemyWithCategory, hitCategories);
               closestEnemy.chainedThisShot = true;
+              if (stunChance > 0 && Math.random() < stunChance) {
+                const currentTimer = typeof (closestEnemy as any).stunnedTimer === "number"
+                  ? (closestEnemy as any).stunnedTimer
+                  : 0;
+                (closestEnemy as any).stunnedTimer = Math.max(currentTimer, stunDuration);
+              }
               if (!chainedEnemies.includes(closestEnemy)) {
                 chainedEnemies.push(closestEnemy);
               }
@@ -7106,13 +7570,11 @@ const Index = () => {
           if (g.type === "xp") {
             collectXP(g.val);
           } else if (g.type === "heal") {
-            const beforeHp = gameState.player.hp;
-            gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + g.val);
-            const healedAmount = Math.max(0, gameState.player.hp - beforeHp);
+            const healedAmount = healPlayer(g.val);
             recordHealPickup(healedAmount);
             playPowerupSound();
             // Partículas de curación con límite
-            if (gameState.particles.length < gameState.maxParticles - 15) {
+            if (healedAmount > 0 && gameState.particles.length < gameState.maxParticles - 15) {
               for (let j = 0; j < 15; j++) {
                 const angle = (Math.PI * 2 * j) / 15;
                 gameState.particles.push({
@@ -7317,9 +7779,13 @@ const Index = () => {
               // Aplicar reducción de daño
               dmg *= 1 - gameState.player.stats.damageReduction;
 
-              const nextHp = Math.max(0, Math.min(Number(gameState.player.maxhp) || 0, safeCurrentHp - dmg));
+              let nextHp = Math.max(0, Math.min(Number(gameState.player.maxhp) || 0, safeCurrentHp - dmg));
               gameState.player.hp = nextHp;
               const playerDied = nextHp <= 0;
+              if (playerDied && tryPreventLethalDamage()) {
+                nextHp = gameState.player.hp;
+              }
+              registerPlayerDamage(Math.max(0, safeCurrentHp - gameState.player.hp));
               playerWasHit = true;
               gameState.player.ifr = gameState.player.ifrDuration;
 
@@ -7407,7 +7873,12 @@ const Index = () => {
                 gameState.player.shield--;
                 playerWasHit = true;
               } else {
-                gameState.player.hp -= b.damage;
+                const prevHp = gameState.player.hp;
+                gameState.player.hp = Math.max(0, prevHp - b.damage);
+                if (gameState.player.hp <= 0 && tryPreventLethalDamage()) {
+                  // prevented
+                }
+                registerPlayerDamage(Math.max(0, prevHp - gameState.player.hp));
                 playerWasHit = true;
               }
               gameState.player.ifr = gameState.player.ifrDuration;
