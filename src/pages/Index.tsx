@@ -2805,6 +2805,8 @@ const Index = () => {
               }
             : null;
 
+      const projectileSpeedPerSecond = weapon.projectileSpeed * 60;
+
       const createPlayerBullet = (
         bulletDir: number,
         overrides: Partial<{
@@ -2821,8 +2823,8 @@ const Index = () => {
         x: gameState.player.x,
         y: gameState.player.y,
         dir: bulletDir,
-        spd: weapon.projectileSpeed,
-        life: range / weapon.projectileSpeed / 60,
+        spd: projectileSpeedPerSecond,
+        life: range / projectileSpeedPerSecond,
         damage,
         color: weapon.color,
         weaponId: weapon.id,
@@ -5473,7 +5475,7 @@ const Index = () => {
                 x: gameState.player.x,
                 y: gameState.player.y,
                 dir: angle,
-                spd: 15,
+                spd: 15 * 60,
                 life: 3,
                 damage: gameState.player.stats.damageMultiplier * 50 * solarStacks,
                 color: "#ffc300",
@@ -5800,7 +5802,7 @@ const Index = () => {
                 x: e.x,
                 y: e.y,
                 dir,
-                spd: 5,
+                spd: 5 * 60,
                 life: 3,
                 damage: 15,
                 color: "#ef4444",
@@ -5846,7 +5848,7 @@ const Index = () => {
                   x: e.x,
                   y: e.y,
                   dir,
-                  spd: 6,
+                  spd: 6 * 60,
                   life: 3,
                   damage: 15,
                   color: "#ef4444",
@@ -5874,7 +5876,7 @@ const Index = () => {
                   x: e.x,
                   y: e.y,
                   dir: angle,
-                  spd: 5,
+                  spd: 5 * 60,
                   life: 4,
                   damage: 20,
                   color: BOSS_COLOR,
@@ -5930,8 +5932,9 @@ const Index = () => {
           b.dir += angleDiff * turnSpeed;
         }
 
-        b.x += Math.cos(b.dir) * b.spd;
-        b.y += Math.sin(b.dir) * b.spd;
+        const distance = b.spd * dt;
+        b.x += Math.cos(b.dir) * distance;
+        b.y += Math.sin(b.dir) * distance;
         b.life -= dt;
 
         if (b.explosive && b.trailColor && gameState.particles.length < gameState.maxParticles - 5) {
