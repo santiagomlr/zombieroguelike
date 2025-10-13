@@ -504,6 +504,184 @@ const RARITY_COLOR_MAP: Record<Rarity, string> = {
   legendary: "#ffc300",
 };
 
+type WeaponDefinition = Omit<Weapon, "color"> & { color?: string };
+
+const WEAPON_DEFINITIONS: WeaponDefinition[] = [
+  {
+    id: "pistol",
+    damage: 15,
+    fireRate: 1.2,
+    range: 500,
+    projectileSpeed: 750,
+    rarity: "common",
+    level: 1,
+  },
+  {
+    id: "shotgun",
+    damage: 40,
+    fireRate: 0.8,
+    range: 320,
+    projectileSpeed: 500,
+    rarity: "common",
+    special: "spread",
+    level: 1,
+  },
+  {
+    id: "smg",
+    damage: 12,
+    fireRate: 1.8,
+    range: 420,
+    projectileSpeed: 700,
+    rarity: "uncommon",
+    level: 1,
+  },
+  {
+    id: "rocket",
+    damage: 120,
+    fireRate: 0.6,
+    range: 520,
+    projectileSpeed: 600,
+    rarity: "rare",
+    special: "aoe",
+    level: 1,
+  },
+  {
+    id: "laser",
+    damage: 28,
+    fireRate: 1,
+    range: 650,
+    projectileSpeed: 900,
+    rarity: "rare",
+    special: "pierce",
+    level: 1,
+  },
+  {
+    id: "railgun",
+    damage: 160,
+    fireRate: 0.45,
+    range: 700,
+    projectileSpeed: 1000,
+    rarity: "epic",
+    special: "pierce",
+    level: 1,
+  },
+  {
+    id: "minigun",
+    damage: 18,
+    fireRate: 2.2,
+    range: 480,
+    projectileSpeed: 750,
+    rarity: "epic",
+    level: 1,
+  },
+  {
+    id: "flamethrower",
+    damage: 22,
+    fireRate: 1.6,
+    range: 280,
+    projectileSpeed: 400,
+    rarity: "rare",
+    special: "aoe",
+    level: 1,
+  },
+  {
+    id: "frostbow",
+    damage: 30,
+    fireRate: 1,
+    range: 600,
+    projectileSpeed: 650,
+    rarity: "uncommon",
+    level: 1,
+  },
+  {
+    id: "homing",
+    damage: 55,
+    fireRate: 1,
+    range: 540,
+    projectileSpeed: 550,
+    rarity: "rare",
+    level: 1,
+  },
+];
+
+export const WEAPONS: Weapon[] = WEAPON_DEFINITIONS.map(({ color, ...weapon }) => ({
+  ...weapon,
+  color: color ?? RARITY_COLOR_MAP[weapon.rarity],
+}));
+
+type TomeDefinition = Omit<Tome, "color"> & { color?: string };
+
+const TOME_DEFINITIONS: TomeDefinition[] = [
+  {
+    id: "power",
+    effect: "damage",
+    value: 1.25,
+    rarity: "rare",
+    level: 1,
+  },
+  {
+    id: "speed",
+    effect: "speed",
+    value: 1.15,
+    rarity: "uncommon",
+    level: 1,
+  },
+  {
+    id: "bounce",
+    effect: "bounce",
+    value: 1,
+    rarity: "epic",
+    level: 1,
+  },
+  {
+    id: "range",
+    effect: "range",
+    value: 1.25,
+    rarity: "uncommon",
+    level: 1,
+  },
+  {
+    id: "precision",
+    effect: "precision",
+    value: 0,
+    rarity: "rare",
+    level: 1,
+  },
+  {
+    id: "multi",
+    effect: "multishot",
+    value: 1,
+    rarity: "legendary",
+    level: 1,
+  },
+  {
+    id: "regen",
+    effect: "regen",
+    value: 0,
+    rarity: "rare",
+    level: 1,
+  },
+  {
+    id: "magnet",
+    effect: "magnet",
+    value: 1.2,
+    rarity: "uncommon",
+    level: 1,
+  },
+  {
+    id: "fire",
+    effect: "fireRate",
+    value: 1.2,
+    rarity: "rare",
+    level: 1,
+  },
+];
+
+export const TOMES: Tome[] = TOME_DEFINITIONS.map(({ color, ...tome }) => ({
+  ...tome,
+  color: color ?? RARITY_COLOR_MAP[tome.rarity],
+}));
+
 type ItemDefinition = Omit<Item, "color"> & {
   color?: string;
   translations: Record<Language, ItemLocalization>;
