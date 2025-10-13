@@ -27,7 +27,7 @@ export const MEDIUM_ELITE_COLOR = "#9333ea";
 export const STRONG_ENEMY_COLOR = "#f97316";
 export const STRONG_ELITE_COLOR = "#ea580c";
 export const FAST_ENEMY_COLOR = "#fb923c";
-export const BOSS_COLOR = "#ffc300";
+export const BOSS_COLOR = "#c81d3c";
 
 export const ENEMY_SIZE_MULTIPLIER = 1.3;
 export const ENEMY_SPEED_MULTIPLIER = 0.7;
@@ -72,43 +72,43 @@ export const BULLET_QUERY_RADIUS = Math.max(
 );
 
 export const UI_COLORS = {
-  textPrimary: "#d9d9d9",
-  textSecondary: "rgba(217, 217, 217, 0.7)",
-  accent: "#00d140",
-  accentGlow: "rgba(0, 209, 64, 0.45)",
-  rageAccent: "#ff7a2a",
-  rageGlow: "rgba(255, 122, 42, 0.45)",
-  panelBg: "rgba(10, 10, 10, 0.92)",
-  panelBorder: "rgba(217, 217, 217, 0.2)",
-  overlay: "rgba(0, 0, 0, 0.7)",
-  healthLow: "#b00020",
-  healthHigh: "#ff3b3b",
-  shield: "#2e86c1",
-  ammo: "#ffc300",
-  xp: "#8e44ad",
-  minimap: "#5dbb63",
-  backgroundGradient: ["#111", "#0a0a0a", "#050505"],
+  textPrimary: "#e6f1ff",
+  textSecondary: "rgba(230, 241, 255, 0.65)",
+  accent: "#00d9ff",
+  accentGlow: "rgba(0, 217, 255, 0.45)",
+  rageAccent: "#ff375e",
+  rageGlow: "rgba(255, 55, 94, 0.45)",
+  panelBg: "rgba(26, 26, 26, 0.94)",
+  panelBorder: "rgba(90, 90, 90, 0.6)",
+  overlay: "rgba(10, 10, 10, 0.72)",
+  healthLow: "#7a1124",
+  healthHigh: "#ff375e",
+  shield: "#2fb3a3",
+  ammo: "#00d9ff",
+  xp: "#ff7b2f",
+  minimap: "#3bc9db",
+  backgroundGradient: ["#1a1a1a", "#2e2e2e", "#1a1a1a"],
 } as const;
 
 export type PortalType = "boss" | "exit";
 
 export const PORTAL_COLORS: Record<PortalType, string> = {
-  boss: "#6366f1",
-  exit: "#22c55e",
+  boss: "#ff375e",
+  exit: "#00d9ff",
 };
 
 export const PORTAL_GLOW_COLORS: Record<PortalType, string> = {
-  boss: "#a855f7",
-  exit: "#4ade80",
+  boss: "#ff5f7c",
+  exit: "#4de3ff",
 };
 
 export const DIFFICULTY_TIERS = [
-  { label: "Tranquilo", threshold: 0, color: "#22c55e" },
-  { label: "Fácil", threshold: 120, color: "#84cc16" },
-  { label: "Desafiante", threshold: 300, color: "#fbbf24" },
-  { label: "Implacable", threshold: 540, color: "#f97316" },
-  { label: "Apocalíptico", threshold: 780, color: "#ef4444" },
-  { label: "Imposible", threshold: 1080, color: "#a855f7" },
+  { label: "Tranquilo", threshold: 0, color: "#3bc9db" },
+  { label: "Fácil", threshold: 120, color: "#2fb3a3" },
+  { label: "Desafiante", threshold: 300, color: "#66d981" },
+  { label: "Implacable", threshold: 540, color: "#ffb347" },
+  { label: "Apocalíptico", threshold: 780, color: "#ff7b2f" },
+  { label: "Imposible", threshold: 1080, color: "#ff375e" },
 ] as const;
 
 export type DifficultyTier = (typeof DIFFICULTY_TIERS)[number];
