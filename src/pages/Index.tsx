@@ -5953,7 +5953,7 @@ const Index = () => {
                 rad: scaleEnemyRadius(8),
                 hp: 1,
                 maxhp: 1,
-                spd: applyEnemySpeedModifier(1.2),
+                spd: applyEnemySpeedModifier(2.5),
                 category: inferEnemyCategory({ isSummoned: true }),
                 enemyType: "weak",
                 damage: 3,
