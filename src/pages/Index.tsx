@@ -93,6 +93,10 @@ const explosionGradientCache = new Map<number, CanvasGradient>();
 const dropPathCache = new Map<number, Path2D>();
 const hotspotPathCache = new Map<number, Path2D>();
 
+const HUD_FONT_FAMILY =
+  '"Orbitron", "Press Start 2P", "VT323", "IBM Plex Mono", monospace';
+const withTerminalFont = (font: string) => font.replace(/system-ui/g, HUD_FONT_FAMILY);
+
 const getDiamondPath = (radius: number) => {
   let path = dropPathCache.get(radius);
   if (!path) {
@@ -163,10 +167,78 @@ const cullEntities = <T extends { x: number; y: number }>(
 };
 
 const CRT_SETTINGS = {
-  scanlineSpacing: 3,
-  scanlineOpacity: 0.08,
-  vignetteOpacity: 0.15,
-  chromaShift: 1.5,
+  scanlineSpacing: 2,
+  scanlineOpacity: 0.12,
+  vignetteOpacity: 0.2,
+  chromaShift: 1.8,
+};
+
+const drawPixelPanel = (
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  {
+    background = UI_COLORS.panelBg,
+    border = UI_COLORS.panelBorder,
+    highlight = "rgba(255, 255, 255, 0.04)",
+  }: { background?: string; border?: string; highlight?: string } = {},
+) => {
+  ctx.save();
+  ctx.fillStyle = background;
+  ctx.fillRect(x, y, width, height);
+  ctx.fillStyle = highlight;
+  for (let row = 0; row < height; row += 2) {
+    ctx.fillRect(Math.floor(x), Math.floor(y + row), Math.floor(width), 1);
+  }
+  ctx.strokeStyle = border;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(Math.floor(x) + 0.5, Math.floor(y) + 0.5, Math.floor(width) - 1, Math.floor(height) - 1);
+  ctx.restore();
+};
+
+const drawSegmentedBar = (
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  color: string,
+  segment = 6,
+) => {
+  ctx.save();
+  ctx.fillStyle = color;
+  for (let offset = 0; offset < width; offset += segment) {
+    const segmentWidth = Math.min(segment - 2, width - offset);
+    if (segmentWidth <= 0) continue;
+    ctx.fillRect(Math.floor(x + offset), Math.floor(y), segmentWidth, height);
+  }
+  ctx.restore();
+};
+
+const drawWarningIcon = (
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+  color: string,
+) => {
+  const half = size / 2;
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x, y + size);
+  ctx.lineTo(x + half, y);
+  ctx.lineTo(x + size, y + size);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = UI_COLORS.textPrimary;
+  ctx.font = withTerminalFont(`bold ${Math.round(size * 0.6)}px system-ui`);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("!", x + half, y + size * 0.7);
+  ctx.restore();
 };
 
 const MUSIC_CONTROL_KEYS = ["toggle", "play", "skip"] as const;
@@ -6758,7 +6830,7 @@ const Index = () => {
       const drawTopStatus = (message: string, color: string) => {
         if (!message) return;
         ctx.save();
-        ctx.font = "bold 20px system-ui";
+        ctx.font = withTerminalFont("bold 20px system-ui");
         ctx.textAlign = "center";
         const paddingX = 20;
         const paddingY = 8;
@@ -6768,16 +6840,14 @@ const Index = () => {
         const boxX = W / 2 - boxW / 2;
         const boxY = 28 - boxH / 2;
 
-        ctx.fillStyle = UI_COLORS.panelBg;
-        ctx.beginPath();
-        drawRoundedRect(ctx, boxX, boxY, boxW, boxH, 12);
-        ctx.fill();
-
-        ctx.beginPath();
-        drawRoundedRect(ctx, boxX, boxY, boxW, boxH, 12);
-        ctx.strokeStyle = hexToRgba(color, 0.6);
-        ctx.lineWidth = 2;
-        ctx.stroke();
+        drawPixelPanel(ctx, boxX, boxY, boxW, boxH, {
+          border: hexToRgba(color, 0.8),
+          highlight: hexToRgba(color, 0.15),
+        });
+        ctx.fillStyle = hexToRgba(color, 0.12);
+        for (let row = 0; row < boxH - 4; row += 4) {
+          ctx.fillRect(boxX + 2, boxY + 2 + row, boxW - 4, 1);
+        }
 
         ctx.fillStyle = color;
         ctx.shadowColor = hexToRgba(color, 0.5);
@@ -6811,18 +6881,23 @@ const Index = () => {
         const barY = 60;
 
         ctx.save();
-        ctx.fillStyle = UI_COLORS.panelBg;
-        ctx.beginPath();
-        drawRoundedRect(ctx, barX, barY, barW, barH, 14);
-        ctx.fill();
+        drawPixelPanel(ctx, barX, barY, barW, barH, {
+          border: hexToRgba(PORTAL_COLORS.boss, 0.8),
+          highlight: hexToRgba(PORTAL_COLORS.boss, 0.18),
+        });
 
         const progress = uniqueBoss.maxhp ? Math.max(0, Math.min(1, uniqueBoss.hp / uniqueBoss.maxhp)) : 0;
         const fillW = (barW - 8) * progress;
         if (fillW > 0) {
-          ctx.fillStyle = PORTAL_COLORS.boss;
-          ctx.beginPath();
-          drawRoundedRect(ctx, barX + 4, barY + 4, fillW, barH - 8, 10);
-          ctx.fill();
+          drawSegmentedBar(
+            ctx,
+            barX + 4,
+            barY + 4,
+            fillW,
+            barH - 8,
+            PORTAL_COLORS.boss,
+            8,
+          );
         }
 
         ctx.beginPath();
@@ -6832,7 +6907,7 @@ const Index = () => {
         ctx.stroke();
 
         ctx.fillStyle = textPrimary;
-        ctx.font = "bold 18px system-ui";
+        ctx.font = withTerminalFont("bold 18px system-ui");
         ctx.textAlign = "center";
         ctx.shadowColor = hexToRgba(PORTAL_GLOW_COLORS.boss, 0.4);
         ctx.shadowBlur = 0;
@@ -6849,11 +6924,10 @@ const Index = () => {
       const hpBarH = 32;
 
       // Fondo de la barra de HP
-      ctx.fillStyle = UI_COLORS.panelBg;
-      ctx.fillRect(hpBarX, hpBarY, hpBarW, hpBarH);
-      ctx.strokeStyle = UI_COLORS.panelBorder;
-      ctx.lineWidth = 3;
-      ctx.strokeRect(hpBarX, hpBarY, hpBarW, hpBarH);
+      drawPixelPanel(ctx, hpBarX, hpBarY, hpBarW, hpBarH, {
+        border: hexToRgba(UI_COLORS.healthHigh, 0.5),
+        highlight: hexToRgba(UI_COLORS.healthHigh, 0.12),
+      });
 
       // Barra de HP actual (roja)
       const safeMaxHp = Math.max(1, Number(gameState.player.maxhp) || 1);
@@ -6863,21 +6937,28 @@ const Index = () => {
 
       // Gradiente para la barra de HP
       if (currentHpBarW > 0) {
-        const hpGradient = ctx.createLinearGradient(hpBarX, hpBarY, hpBarX + currentHpBarW, hpBarY);
-        hpGradient.addColorStop(0, UI_COLORS.healthLow);
-        hpGradient.addColorStop(1, UI_COLORS.healthHigh);
-
-        ctx.save();
-        ctx.shadowColor = UI_COLORS.healthHigh;
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = hpGradient;
-        ctx.fillRect(hpBarX + 2, hpBarY + 2, currentHpBarW - 4, hpBarH - 4);
-        ctx.restore();
+        const barHeight = hpBarH - 6;
+        const innerWidth = Math.max(0, currentHpBarW - 6);
+        if (innerWidth > 0) {
+          drawSegmentedBar(
+            ctx,
+            hpBarX + 3,
+            hpBarY + 3,
+            innerWidth,
+            barHeight,
+            UI_COLORS.healthHigh,
+            7,
+          );
+          ctx.fillStyle = hexToRgba(UI_COLORS.healthLow, 0.35);
+          for (let row = 0; row < barHeight; row += 4) {
+            ctx.fillRect(hpBarX + 3, hpBarY + 3 + row, innerWidth, 1);
+          }
+        }
       }
 
       // Texto de HP en el centro
       ctx.fillStyle = textPrimary;
-      ctx.font = "bold 18px system-ui";
+      ctx.font = withTerminalFont("bold 18px system-ui");
       ctx.textAlign = "center";
       ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
       ctx.shadowBlur = 0;
@@ -6898,6 +6979,8 @@ const Index = () => {
         ctx.shadowBlur = 0;
         ctx.strokeRect(hpBarX - 3, hpBarY - 3, hpBarW + 6, hpBarH + 6);
         ctx.restore();
+
+        drawWarningIcon(ctx, hpBarX - 32, hpBarY + 2, 22, UI_COLORS.healthHigh);
       }
 
       // Efecto de parpadeo durante invulnerabilidad
@@ -6914,7 +6997,7 @@ const Index = () => {
       if (gameState.player.shield > 0) {
         ctx.textAlign = "left";
         ctx.fillStyle = UI_COLORS.shield;
-        ctx.font = "bold 16px system-ui";
+        ctx.font = withTerminalFont("bold 16px system-ui");
         for (let i = 0; i < gameState.player.shield; i++) {
           const shieldX = hpBarX + hpBarW + 15 + i * 30;
           ctx.beginPath();
@@ -6937,33 +7020,34 @@ const Index = () => {
       const staminaBarH = 20;
 
       // Fondo de la barra de stamina
-      ctx.fillStyle = UI_COLORS.panelBg;
-      ctx.fillRect(staminaBarX, staminaBarY, staminaBarW, staminaBarH);
-      ctx.strokeStyle = UI_COLORS.panelBorder;
-      ctx.lineWidth = 2;
-      ctx.strokeRect(staminaBarX, staminaBarY, staminaBarW, staminaBarH);
+      drawPixelPanel(ctx, staminaBarX, staminaBarY, staminaBarW, staminaBarH, {
+        border: hexToRgba(accentColor, 0.4),
+        highlight: hexToRgba(accentColor, 0.12),
+      });
 
       // Barra de stamina actual (amarilla/verde)
       const staminaPercent = Math.max(0, Math.min(1, gameState.player.stamina / gameState.player.maxStamina));
       const currentStaminaBarW = Math.max(0, staminaBarW * staminaPercent);
 
       if (currentStaminaBarW > 0) {
-        const staminaGradient = ctx.createLinearGradient(
-          staminaBarX,
-          staminaBarY,
-          staminaBarX + currentStaminaBarW,
-          staminaBarY,
-        );
-        staminaGradient.addColorStop(0, accentColor);
-        staminaGradient.addColorStop(1, `${accentColor}cc`);
-        ctx.fillStyle = staminaGradient;
-        ctx.fillRect(staminaBarX + 1, staminaBarY + 1, currentStaminaBarW - 2, staminaBarH - 2);
+        const staminaWidth = Math.max(0, currentStaminaBarW - 4);
+        if (staminaWidth > 0) {
+          drawSegmentedBar(
+            ctx,
+            staminaBarX + 2,
+            staminaBarY + 2,
+            staminaWidth,
+            staminaBarH - 4,
+            accentColor,
+            6,
+          );
+        }
       }
 
       // Texto de stamina
       ctx.textAlign = "center";
       ctx.fillStyle = textSecondary;
-      ctx.font = "bold 12px system-ui";
+      ctx.font = withTerminalFont("bold 12px system-ui");
       ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
       ctx.shadowBlur = 0;
       ctx.fillText(
@@ -6976,7 +7060,7 @@ const Index = () => {
       // Indicador de sprint activo
       if (gameState.player.isSprinting) {
         ctx.globalAlpha = 0.6 + Math.sin(gameState.time * 10) * 0.4;
-        ctx.strokeStyle = "#5dbb63";
+        ctx.strokeStyle = hexToRgba(accentColor, 0.8);
         ctx.lineWidth = 3;
         ctx.strokeRect(staminaBarX - 2, staminaBarY - 2, staminaBarW + 4, staminaBarH + 4);
         ctx.globalAlpha = 1;
@@ -6984,8 +7068,8 @@ const Index = () => {
 
       // Level info (arriba izquierda, debajo de stamina)
       ctx.textAlign = "left";
-      ctx.fillStyle = "#fff";
-      ctx.font = "bold 18px system-ui";
+      ctx.fillStyle = textPrimary;
+      ctx.font = withTerminalFont("bold 18px system-ui");
       ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
       ctx.shadowBlur = 0;
       ctx.fillText(`${t.level.toUpperCase()} ${gameState.level}`, 20, staminaBarY + staminaBarH + 22);
@@ -7002,20 +7086,30 @@ const Index = () => {
       const tierSteps = Math.max(1, DIFFICULTY_TIERS.length - 1);
       const normalizedFill = Math.min(1, (tierIndex + tierProgress) / tierSteps);
 
-      ctx.fillStyle = "rgba(20, 25, 35, 0.9)";
-      ctx.fillRect(meterX, meterY, meterW, meterH);
-      ctx.strokeStyle = "#334155";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(meterX, meterY, meterW, meterH);
+      drawPixelPanel(ctx, meterX, meterY, meterW, meterH, {
+        background: "rgba(26, 26, 26, 0.95)",
+        border: UI_COLORS.panelBorder,
+        highlight: "rgba(255, 255, 255, 0.05)",
+      });
 
-      const meterGradient = ctx.createLinearGradient(0, meterY + meterH, 0, meterY);
-      meterGradient.addColorStop(0, "#22c55e");
-      meterGradient.addColorStop(0.5, "#facc15");
-      meterGradient.addColorStop(1, "#ef4444");
-      const fillHeight = Math.max(0, (meterH - 4) * normalizedFill);
-      if (fillHeight > 0) {
-        ctx.fillStyle = meterGradient;
-        ctx.fillRect(meterX + 2, meterY + meterH - 2 - fillHeight, meterW - 4, fillHeight);
+      const innerHeight = meterH - 4;
+      const fillHeight = Math.max(0, innerHeight * normalizedFill);
+      let remainingFill = fillHeight;
+      const stepHeight = innerHeight / tierSteps;
+      const innerTop = meterY + 2;
+      const innerBottom = meterY + meterH - 2;
+      for (let i = 0; i < DIFFICULTY_TIERS.length; i++) {
+        if (remainingFill <= 0) break;
+        const tierHeight = Math.min(remainingFill, stepHeight);
+        if (tierHeight <= 0) continue;
+        const baseY = innerBottom - tierHeight;
+        ctx.fillStyle = DIFFICULTY_TIERS[i].color;
+        for (let offset = 0; offset < tierHeight; offset += 6) {
+          const blockHeight = Math.min(4, tierHeight - offset);
+          const blockY = baseY + tierHeight - offset - blockHeight;
+          ctx.fillRect(meterX + 2, Math.max(innerTop, blockY), meterW - 4, blockHeight);
+        }
+        remainingFill -= tierHeight;
       }
 
       ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
@@ -7030,14 +7124,14 @@ const Index = () => {
 
         const tierInfo = DIFFICULTY_TIERS[i];
         ctx.textAlign = "left";
-        ctx.font = i === tierIndex ? "bold 12px system-ui" : "12px system-ui";
+        ctx.font = withTerminalFont(i === tierIndex ? "bold 12px system-ui" : "12px system-ui");
         ctx.fillStyle = i <= tierIndex ? tierInfo.color : textSecondary;
         ctx.shadowBlur = 0;
         ctx.fillText(tierInfo.label.toUpperCase(), meterX + meterW + 20, y + 4);
       }
 
       const pointerY = meterY + meterH - 2 - fillHeight;
-      ctx.fillStyle = UI_COLORS.accent;
+      ctx.fillStyle = UI_COLORS.xp;
       ctx.beginPath();
       ctx.moveTo(meterX + meterW + 6, pointerY);
       ctx.lineTo(meterX + meterW + 16, pointerY - 6);
@@ -7047,25 +7141,25 @@ const Index = () => {
 
       ctx.textAlign = "left";
       ctx.fillStyle = textPrimary;
-      ctx.font = "bold 16px system-ui";
+      ctx.font = withTerminalFont("bold 16px system-ui");
       ctx.fillText(t.difficulty.toUpperCase(), meterX + meterW + 20, meterY - 10);
-      ctx.font = "bold 20px system-ui";
+      ctx.font = withTerminalFont("bold 20px system-ui");
       ctx.fillStyle = DIFFICULTY_TIERS[tierIndex].color;
       ctx.fillText(gameState.difficulty.tierLabel.toUpperCase(), meterX + meterW + 20, meterY + 18);
-      ctx.font = "12px system-ui";
+      ctx.font = withTerminalFont("12px system-ui");
       ctx.fillStyle = textSecondary;
       ctx.fillText(`${t.levelShort ?? t.level} ${difficultyLevel}`, meterX + meterW + 20, meterY + 36);
       ctx.shadowBlur = 0;
 
       ctx.textAlign = "left";
       ctx.fillStyle = textSecondary;
-      ctx.font = "11px system-ui";
+      ctx.font = withTerminalFont("11px system-ui");
       ctx.fillText(t.difficultyHint, meterX + meterW + 20, meterY + meterH + 16);
 
       // Score
       ctx.textAlign = "right";
-      ctx.fillStyle = "#ffc300";
-      ctx.font = "bold 24px system-ui";
+      ctx.fillStyle = UI_COLORS.xp;
+      ctx.font = withTerminalFont("bold 24px system-ui");
       ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
       ctx.shadowBlur = 0;
       ctx.fillText(`${gameState.score}`, W - 20, 40);
@@ -7079,85 +7173,52 @@ const Index = () => {
       const xpBarRadius = 20;
 
       // Fondo de la barra (redondeada)
-      ctx.fillStyle = UI_COLORS.panelBg;
-      ctx.beginPath();
-      drawRoundedRect(ctx, xpBarX, xpBarY, xpBarW, xpBarH, xpBarRadius);
-      ctx.fill();
-
-      // Borde exterior con glow
-      ctx.strokeStyle = accentColor;
-      ctx.lineWidth = 2;
-      ctx.shadowColor = accentGlow;
-      ctx.shadowBlur = 0;
-      ctx.stroke();
-      ctx.shadowBlur = 0;
+      drawPixelPanel(ctx, xpBarX, xpBarY, xpBarW, xpBarH, {
+        border: hexToRgba(UI_COLORS.xp, 0.4),
+        highlight: hexToRgba(UI_COLORS.xp, 0.15),
+      });
 
       // Progreso de XP
       const xpProgress = Math.min(1, gameState.xpDisplay / Math.max(1, gameState.nextXpDisplay));
       const currentXpBarW = (xpBarW - 8) * xpProgress;
 
       if (currentXpBarW > 0) {
-        ctx.save();
-
-        // Clip para bordes redondeados
-        ctx.beginPath();
-        drawRoundedRect(ctx, xpBarX + 4, xpBarY + 4, currentXpBarW, xpBarH - 8, xpBarRadius - 4);
-        ctx.clip();
-
-        // Animación Rainbow cuando sube de nivel
-        if (gameState.xpBarRainbow) {
-          // Gradiente rainbow animado
-          const rainbowOffset = (gameState.time * 2) % 1;
-          const gradient = ctx.createLinearGradient(xpBarX, xpBarY, xpBarX + xpBarW, xpBarY);
-
-          // Colores rainbow con offset animado
-          const colors = [
-            { stop: 0, color: UI_COLORS.healthLow },
-            { stop: 0.2, color: UI_COLORS.ammo },
-            { stop: 0.45, color: UI_COLORS.accent },
-            { stop: 0.7, color: UI_COLORS.shield },
-            { stop: 1, color: UI_COLORS.xp },
-          ];
-
-          colors.forEach(({ stop, color }) => {
-            const animatedStop = (stop + rainbowOffset) % 1;
-            gradient.addColorStop(animatedStop, color);
-          });
-
-          // Agregar colores al final para seamless loop
-          colors.slice(0, 2).forEach(({ stop, color }) => {
-            const animatedStop = (stop + rainbowOffset + 1) % 1;
-            if (animatedStop < 1) {
-              gradient.addColorStop(animatedStop, color);
+        const innerWidth = Math.max(0, currentXpBarW - 6);
+        const innerHeight = xpBarH - 6;
+        const barX = xpBarX + 3;
+        const barY = xpBarY + 3;
+        if (innerWidth > 0) {
+          if (gameState.xpBarRainbow) {
+            const rainbowColors = [
+              UI_COLORS.healthHigh,
+              UI_COLORS.ammo,
+              UI_COLORS.accent,
+              UI_COLORS.shield,
+              UI_COLORS.xp,
+            ];
+            const segmentWidth = 12;
+            const shift = Math.floor((gameState.time * 8) % rainbowColors.length);
+            for (let offset = 0; offset < innerWidth; offset += segmentWidth) {
+              const colorIndex = (Math.floor(offset / segmentWidth) + shift) % rainbowColors.length;
+              const blockWidth = Math.min(segmentWidth - 2, innerWidth - offset);
+              if (blockWidth <= 0) continue;
+              ctx.fillStyle = rainbowColors[colorIndex];
+              ctx.fillRect(barX + offset, barY, blockWidth, innerHeight);
             }
-          });
+          } else {
+            drawSegmentedBar(ctx, barX, barY, innerWidth, innerHeight, UI_COLORS.xp, 8);
+          }
 
-          ctx.fillStyle = gradient;
-
-          // Glow effect pulsante
-          const pulse = Math.sin(gameState.time * 5) * 0.3 + 0.7;
-          ctx.shadowColor = "rgba(255, 255, 255, 0.8)";
-          ctx.shadowBlur = 0;
-        } else {
-          // Gradiente normal (neón cyan-purple)
-          const gradient = ctx.createLinearGradient(xpBarX, xpBarY, xpBarX + currentXpBarW, xpBarY);
-          gradient.addColorStop(0, "#301a3e");
-          gradient.addColorStop(1, UI_COLORS.xp);
-          ctx.fillStyle = gradient;
-
-          // Glow sutil
-          ctx.shadowColor = `${UI_COLORS.xp}cc`;
-          ctx.shadowBlur = 0;
+          ctx.fillStyle = hexToRgba(UI_COLORS.xp, 0.25);
+          for (let row = 0; row < innerHeight; row += 4) {
+            ctx.fillRect(barX, barY + row, innerWidth, 1);
+          }
         }
-
-        ctx.fillRect(xpBarX + 4, xpBarY + 4, currentXpBarW, xpBarH - 8);
-        ctx.shadowBlur = 0;
-        ctx.restore();
       }
 
       // Texto de XP centrado
       ctx.fillStyle = textPrimary;
-      ctx.font = "bold 20px system-ui";
+      ctx.font = withTerminalFont("bold 20px system-ui");
       ctx.textAlign = "center";
       ctx.shadowColor = "rgba(0, 0, 0, 0.9)";
       ctx.shadowBlur = 0;
@@ -7170,7 +7231,7 @@ const Index = () => {
 
       // Weapons display
       ctx.textAlign = "left";
-      ctx.font = "bold 14px system-ui";
+      ctx.font = withTerminalFont("bold 14px system-ui");
       ctx.save();
       ctx.shadowColor = `${UI_COLORS.ammo}aa`;
       ctx.shadowBlur = 0;
@@ -7188,7 +7249,7 @@ const Index = () => {
         ctx.fillRect(W - 220, 80 + i * 25, 18, 18);
         ctx.restore();
         ctx.fillStyle = textSecondary;
-        ctx.font = "12px system-ui";
+        ctx.font = withTerminalFont("12px system-ui");
         const weaponName = getWeaponName(w.id, currentLanguage);
         const weaponText = w.level > 1 ? `${weaponName} LVL ${w.level}` : weaponName;
         ctx.fillText(weaponText, W - 195, 93 + i * 25);
@@ -7196,7 +7257,7 @@ const Index = () => {
 
       // Books display
       ctx.fillStyle = textPrimary;
-      ctx.font = "bold 14px system-ui";
+      ctx.font = withTerminalFont("bold 14px system-ui");
       const tomeY = 80 + gameState.player.weapons.length * 25 + 10;
       ctx.fillText(t.tomes, W - 220, tomeY);
       for (let i = 0; i < gameState.player.tomes.length; i++) {
@@ -7208,7 +7269,7 @@ const Index = () => {
         ctx.fillRect(W - 220, tomeY + 10 + i * 25, 18, 18);
         ctx.restore();
         ctx.fillStyle = textSecondary;
-        ctx.font = "12px system-ui";
+        ctx.font = withTerminalFont("12px system-ui");
         const tomeName = getTomeName(tome.id, currentLanguage);
         const tomeText = tome.level > 1 ? `${tomeName} LVL ${tome.level}` : tomeName;
         ctx.fillText(tomeText, W - 195, tomeY + 23 + i * 25);
@@ -7217,7 +7278,7 @@ const Index = () => {
       // Items display
       if (gameState.player.items.length > 0) {
         ctx.fillStyle = textPrimary;
-        ctx.font = "bold 14px system-ui";
+        ctx.font = withTerminalFont("bold 14px system-ui");
         const itemY = tomeY + gameState.player.tomes.length * 25 + 20;
         ctx.fillText(t.items, W - 220, itemY);
 
@@ -7232,7 +7293,7 @@ const Index = () => {
           ctx.fillRect(W - 220, itemY + 10 + i * 20, 12, 12);
           ctx.restore();
           ctx.fillStyle = textSecondary;
-          ctx.font = "10px system-ui";
+          ctx.font = withTerminalFont("10px system-ui");
           // Truncar nombre si es muy largo
           const itemNameFull = getItemText(item, currentLanguage).name;
           const itemName = itemNameFull.length > 18 ? itemNameFull.substring(0, 16) + "..." : itemNameFull;
@@ -7242,7 +7303,7 @@ const Index = () => {
         // Indicador de más ítems
         if (gameState.player.items.length > 10) {
           ctx.fillStyle = textSecondary;
-          ctx.font = "10px system-ui";
+          ctx.font = withTerminalFont("10px system-ui");
           const remaining = gameState.player.items.length - 10;
           const moreItemsText = currentLanguage === "es" ? `+${remaining} más` : `+${remaining} more`;
           ctx.fillText(moreItemsText, W - 220, itemY + 10 + maxItemsToShow * 20 + 15);
@@ -7252,7 +7313,7 @@ const Index = () => {
       if (isNightVision) {
         ctx.save();
         ctx.textAlign = "right";
-        ctx.font = "bold 16px system-ui";
+        ctx.font = withTerminalFont("bold 16px system-ui");
         ctx.shadowColor = accentGlow;
         ctx.shadowBlur = 0;
         ctx.fillStyle = accentColor;
@@ -7265,7 +7326,7 @@ const Index = () => {
         const alpha = gameState.levelUpAnimation;
         ctx.globalAlpha = alpha;
         ctx.fillStyle = accentColor;
-        ctx.font = "bold 72px system-ui";
+        ctx.font = withTerminalFont("bold 72px system-ui");
         ctx.textAlign = "center";
         const scale = 1 + (1 - alpha) * 0.5;
         ctx.save();
@@ -7290,11 +7351,11 @@ const Index = () => {
         ctx.fillStyle = DIFFICULTY_TIERS[gameState.difficulty.tierIndex].color;
         ctx.shadowColor = `${DIFFICULTY_TIERS[gameState.difficulty.tierIndex].color}80`;
         ctx.shadowBlur = 40;
-        ctx.font = "bold 56px system-ui";
+        ctx.font = withTerminalFont("bold 56px system-ui");
         ctx.fillText(gameState.difficulty.tierLabel.toUpperCase(), 0, 0);
         ctx.shadowBlur = 0;
         ctx.fillStyle = textSecondary;
-        ctx.font = "18px system-ui";
+        ctx.font = withTerminalFont("18px system-ui");
         ctx.fillText(t.difficultyEscalation, 0, 34);
         ctx.restore();
       }
@@ -7334,7 +7395,7 @@ const Index = () => {
         const eventText = gameState.environmentalEvent ? eventTexts[gameState.environmentalEvent] : "";
 
         ctx.fillStyle = textPrimary;
-        ctx.font = "bold 20px system-ui";
+        ctx.font = withTerminalFont("bold 20px system-ui");
         ctx.textAlign = "left";
         ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
         ctx.shadowBlur = 0;
@@ -7347,9 +7408,9 @@ const Index = () => {
       const drawPortalPrompt = (primary: string, secondary: string | null, color: string) => {
         ctx.save();
         ctx.textAlign = "center";
-        ctx.font = "bold 20px system-ui";
+        ctx.font = withTerminalFont("bold 20px system-ui");
         const primaryWidth = ctx.measureText(primary).width;
-        ctx.font = "14px system-ui";
+        ctx.font = withTerminalFont("14px system-ui");
         const secondaryWidth = secondary ? ctx.measureText(secondary).width : 0;
         const boxW = Math.max(primaryWidth, secondaryWidth) + 40;
         const boxH = secondary ? 80 : 52;
@@ -7367,14 +7428,14 @@ const Index = () => {
         ctx.lineWidth = 2;
         ctx.stroke();
 
-        ctx.font = "bold 20px system-ui";
+        ctx.font = withTerminalFont("bold 20px system-ui");
         ctx.fillStyle = color;
         ctx.shadowColor = hexToRgba(color, 0.45);
         ctx.shadowBlur = 0;
         ctx.fillText(primary, W / 2, boxY + 26);
 
         if (secondary) {
-          ctx.font = "14px system-ui";
+          ctx.font = withTerminalFont("14px system-ui");
           ctx.fillStyle = textSecondary;
           ctx.shadowBlur = 0;
           ctx.fillText(secondary, W / 2, boxY + boxH - 18);
@@ -7401,7 +7462,7 @@ const Index = () => {
         const notifPadding = 20;
         const notifText = gameState.itemNotification;
 
-        ctx.font = "bold 22px system-ui";
+        ctx.font = withTerminalFont("bold 22px system-ui");
         ctx.textAlign = "center";
         const textMetrics = ctx.measureText(notifText);
         const notifW = textMetrics.width + notifPadding * 2;
@@ -7461,7 +7522,7 @@ const Index = () => {
 
       ctx.save();
       ctx.textAlign = "center";
-      ctx.font = "600 14px system-ui";
+      ctx.font = withTerminalFont("600 14px system-ui");
       ctx.fillStyle = "rgba(226, 232, 240, 0.92)";
       ctx.fillText(t.musicControls.buttonLabel, buttonCenterX, menuButtonRect.y + menuButtonRect.h / 2 + 5);
       ctx.restore();
@@ -7486,7 +7547,7 @@ const Index = () => {
 
         ctx.save();
         ctx.textAlign = "left";
-        ctx.font = "600 14px system-ui";
+        ctx.font = withTerminalFont("600 14px system-ui");
         ctx.fillStyle = "rgba(226, 232, 240, 0.92)";
         ctx.fillText(t.musicControls.menuTitle, headerX, titleY);
         ctx.restore();
@@ -7499,7 +7560,7 @@ const Index = () => {
 
         ctx.save();
         ctx.textAlign = "left";
-        ctx.font = "12px system-ui";
+        ctx.font = withTerminalFont("12px system-ui");
         ctx.fillStyle = "rgba(148, 163, 184, 0.85)";
         ctx.fillText(statusText, headerX, statusY);
         ctx.restore();
@@ -7545,7 +7606,7 @@ const Index = () => {
           ctx.stroke();
 
           ctx.fillStyle = "rgba(226, 232, 240, 0.95)";
-          ctx.font = "600 20px system-ui";
+          ctx.font = withTerminalFont("600 20px system-ui");
           ctx.textAlign = "center";
           ctx.fillText(icon, centerX, rect.y + rect.h / 2 + 7);
 
@@ -7562,7 +7623,7 @@ const Index = () => {
 
         ctx.save();
         ctx.textAlign = "center";
-        ctx.font = "11px system-ui";
+        ctx.font = withTerminalFont("11px system-ui");
         ctx.fillStyle = "rgba(148, 163, 184, 0.78)";
         ctx.fillText(
           gameState.musicIsPlaying ? t.musicControls.pause : t.musicControls.play,
@@ -7600,7 +7661,7 @@ const Index = () => {
 
           ctx.save();
           ctx.textAlign = "left";
-          ctx.font = "12px system-ui";
+          ctx.font = withTerminalFont("12px system-ui");
           ctx.fillStyle = isCurrent ? "rgba(224, 242, 254, 0.95)" : "rgba(203, 213, 225, 0.9)";
           ctx.fillText(
             track.name,
@@ -7628,7 +7689,7 @@ const Index = () => {
         if (trackCount === 0) {
           ctx.save();
           ctx.textAlign = "center";
-          ctx.font = "12px system-ui";
+          ctx.font = withTerminalFont("12px system-ui");
           ctx.fillStyle = "rgba(148, 163, 184, 0.75)";
           ctx.fillText(
             t.musicControls.selectTrack,
@@ -7660,7 +7721,8 @@ const Index = () => {
       ctx.restore();
 
       ctx.save();
-      ctx.globalAlpha = CRT_SETTINGS.scanlineOpacity;
+      const flicker = 0.9 + Math.sin(gameState.time * 18) * 0.08;
+      ctx.globalAlpha = CRT_SETTINGS.scanlineOpacity * flicker;
       ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
       for (let y = 0; y < H; y += CRT_SETTINGS.scanlineSpacing) {
         ctx.fillRect(0, y, W, 1);
@@ -7674,6 +7736,19 @@ const Index = () => {
       ctx.fillRect(-CRT_SETTINGS.chromaShift, 0, W, H);
       ctx.fillStyle = "rgba(255, 70, 0, 0.18)";
       ctx.fillRect(CRT_SETTINGS.chromaShift, 0, W, H);
+      ctx.restore();
+
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = 0.12;
+      const glitchBands = 5;
+      for (let i = 0; i < glitchBands; i++) {
+        const bandHeight = 2 + (i % 2);
+        const y = Math.floor((gameState.time * 90 + i * 37) % H);
+        const shift = Math.sin(gameState.time * 6 + i) * 8;
+        ctx.fillStyle = i % 2 === 0 ? hexToRgba(UI_COLORS.accent, 0.4) : hexToRgba(UI_COLORS.healthHigh, 0.35);
+        ctx.fillRect(shift, y, W, bandHeight);
+      }
       ctx.restore();
     }
 
@@ -7821,14 +7896,14 @@ const Index = () => {
         },
       ) => {
         let size = baseSize;
-        let font = `${weight} ${size}px system-ui`;
+        let font = withTerminalFont(`${weight} ${size}px system-ui`);
         let displayText = text;
         ctx.font = font;
         let measured = ctx.measureText(displayText).width + padding;
 
         while (size > minSize && measured > maxWidth) {
           size -= 1;
-          font = `${weight} ${size}px system-ui`;
+          font = withTerminalFont(`${weight} ${size}px system-ui`);
           ctx.font = font;
           measured = ctx.measureText(displayText).width + padding;
         }
@@ -7876,7 +7951,7 @@ const Index = () => {
       ctx.stroke();
 
       ctx.fillStyle = "#f8fafc";
-      ctx.font = "600 28px system-ui";
+      ctx.font = withTerminalFont("600 28px system-ui");
       ctx.textAlign = "center";
       ctx.fillText(t.chestUI.title, panel.x + panel.w / 2, panel.y + 58);
 
@@ -7950,7 +8025,7 @@ const Index = () => {
       ctx.fillText(nameFit.text, cardX + cardW / 2, cardY + 68);
 
       ctx.fillStyle = "rgba(226, 232, 240, 0.92)";
-      ctx.font = "16px system-ui";
+      ctx.font = withTerminalFont("16px system-ui");
       wrapText(ctx, itemText.description, cardX + cardW / 2, cardY + 118, cardW - 60, 24);
 
       const drawButton = (
@@ -7986,12 +8061,12 @@ const Index = () => {
 
         ctx.textAlign = "center";
         ctx.fillStyle = disabled ? "rgba(226, 232, 240, 0.55)" : textColor;
-        ctx.font = subtitle ? "600 18px system-ui" : "600 20px system-ui";
+      ctx.font = withTerminalFont(subtitle ? "600 18px system-ui" : "600 20px system-ui");
         const labelY = subtitle ? rect.y + rect.h / 2 - 2 : rect.y + rect.h / 2 + 6;
         ctx.fillText(label, rect.x + rect.w / 2, labelY);
 
         if (subtitle) {
-          ctx.font = "600 13px system-ui";
+          ctx.font = withTerminalFont("600 13px system-ui");
           ctx.fillStyle = disabled ? "rgba(203, 213, 225, 0.55)" : "rgba(248, 250, 252, 0.88)";
           ctx.fillText(subtitle, rect.x + rect.w / 2, rect.y + rect.h - 14);
         }
@@ -8048,7 +8123,7 @@ const Index = () => {
       ctx.shadowColor = "#ffc300";
       ctx.shadowBlur = 0;
       ctx.fillStyle = "#ffc300";
-      ctx.font = "bold 56px system-ui";
+      ctx.font = withTerminalFont("bold 56px system-ui");
       ctx.textAlign = "center";
       ctx.fillText(t.levelUp, 0, 0);
 
@@ -8060,7 +8135,7 @@ const Index = () => {
       ctx.restore();
 
       // Subtítulo con fade
-      ctx.font = "28px system-ui";
+      ctx.font = withTerminalFont("28px system-ui");
       ctx.fillStyle = `rgba(156, 163, 175, ${animProgress})`;
       ctx.textAlign = "center";
       ctx.fillText(t.chooseUpgrade, W / 2, H / 2 - 100);
@@ -8131,7 +8206,7 @@ const Index = () => {
         // Tipo badge
         const badgeY = yOffset + 25;
         ctx.fillStyle = rarityColor;
-        ctx.font = "bold 14px system-ui";
+        ctx.font = withTerminalFont("bold 14px system-ui");
         ctx.textAlign = "center";
         const typeLabel = option.type === "weapon" ? t.weapon : option.type === "tome" ? t.tome : t.item;
         const typeText = typeLabel;
@@ -8152,7 +8227,7 @@ const Index = () => {
         // Nombre con nivel
         const data = option.data as any;
         ctx.fillStyle = "#fff";
-        ctx.font = "bold 22px system-ui";
+        ctx.font = withTerminalFont("bold 22px system-ui");
         ctx.shadowColor = "#000";
         ctx.shadowBlur = 0;
         let nameText = "";
@@ -8176,7 +8251,7 @@ const Index = () => {
 
         // Descripción con mejor formato
         ctx.fillStyle = "#cbd5e1";
-        ctx.font = "15px system-ui";
+        ctx.font = withTerminalFont("15px system-ui");
 
         const descriptionText = getUpgradeDescriptionText(option.descriptionKey, currentLanguage);
 
@@ -8207,7 +8282,7 @@ const Index = () => {
         // Rareza badge en la parte inferior
         const rarityBadgeY = yOffset + cardH - 25;
         ctx.fillStyle = rarityColor;
-        ctx.font = "bold 13px system-ui";
+        ctx.font = withTerminalFont("bold 13px system-ui");
         ctx.textAlign = "center";
 
         const rarityBadgeW = 120;
@@ -8226,7 +8301,7 @@ const Index = () => {
       // Hint text
       ctx.globalAlpha = animProgress;
       ctx.fillStyle = "rgba(156, 163, 175, 0.6)";
-      ctx.font = "16px system-ui";
+      ctx.font = withTerminalFont("16px system-ui");
       ctx.textAlign = "center";
       ctx.fillText(t.clickToSelect, W / 2, H - 60);
 
@@ -8456,7 +8531,7 @@ const Index = () => {
 
           // Texto de warning
           ctx.fillStyle = `rgba(239, 68, 68, ${warningPulse})`;
-          ctx.font = "bold 32px system-ui";
+          ctx.font = withTerminalFont("bold 32px system-ui");
           ctx.textAlign = "center";
           ctx.shadowColor = "#ef4444";
           ctx.shadowBlur = 0;
@@ -8494,7 +8569,7 @@ const Index = () => {
           // Icono de niebla en el centro
           ctx.globalAlpha = intensity;
           ctx.fillStyle = `rgba(132, 204, 22, ${pulse})`;
-          ctx.font = "bold 48px system-ui";
+          ctx.font = withTerminalFont("bold 48px system-ui");
           ctx.textAlign = "center";
           ctx.shadowColor = "#5dbb63";
           ctx.shadowBlur = 0;
@@ -8540,7 +8615,7 @@ const Index = () => {
         const stormLabel = currentLanguage === "es" ? "TORMENTA" : "STORM";
         ctx.globalAlpha = intensity;
         ctx.fillStyle = `rgba(96, 165, 250, ${pulse})`;
-        ctx.font = "bold 24px system-ui";
+        ctx.font = withTerminalFont("bold 24px system-ui");
         ctx.textAlign = "center";
         ctx.shadowColor = "#2e86c1";
         ctx.shadowBlur = 0;
@@ -8589,7 +8664,7 @@ const Index = () => {
 
           // Indicador de peligro
           ctx.fillStyle = "#ef4444";
-          ctx.font = "bold 18px system-ui";
+          ctx.font = withTerminalFont("bold 18px system-ui");
           ctx.textAlign = "center";
           ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
           ctx.shadowBlur = 0;
@@ -8600,14 +8675,14 @@ const Index = () => {
 
           // Texto de advertencia
           ctx.fillStyle = "#fff";
-          ctx.font = "bold 14px system-ui";
+          ctx.font = withTerminalFont("bold 14px system-ui");
           ctx.fillText(dangerZoneText, h.x, h.y + 25);
 
           // Timer de expiración
           if (!h.active) {
             const remaining = h.maxExpiration - h.expirationTimer;
             ctx.fillStyle = "#ffc300";
-            ctx.font = "bold 16px system-ui";
+            ctx.font = withTerminalFont("bold 16px system-ui");
             ctx.fillText(`${Math.ceil(remaining)}s`, h.x, h.y + 45);
           }
         } else if (h.isRadioactive) {
@@ -8638,7 +8713,7 @@ const Index = () => {
 
           // Indicador radiactivo
           ctx.fillStyle = "#8e44ad";
-          ctx.font = "bold 18px system-ui";
+          ctx.font = withTerminalFont("bold 18px system-ui");
           ctx.textAlign = "center";
           ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
           ctx.shadowBlur = 0;
@@ -8683,14 +8758,14 @@ const Index = () => {
           if (h.active) {
             // Mostrar tiempo para completar
             ctx.fillStyle = "#5dbb63";
-            ctx.font = "bold 20px system-ui";
+            ctx.font = withTerminalFont("bold 20px system-ui");
             ctx.textAlign = "center";
             ctx.fillText(`${Math.ceil(h.required - h.progress)}s`, h.x, h.y + 5);
           } else {
             // Mostrar tiempo de caducación
             const remaining = h.maxExpiration - h.expirationTimer;
             ctx.fillStyle = "#ef4444";
-            ctx.font = "bold 18px system-ui";
+            ctx.font = withTerminalFont("bold 18px system-ui");
             ctx.textAlign = "center";
             ctx.fillText(`${Math.ceil(remaining)}s`, h.x, h.y + 5);
           }
@@ -8943,7 +9018,7 @@ const Index = () => {
           const prevAlign = ctx.textAlign;
           const prevFill = ctx.fillStyle;
           ctx.fillStyle = "#fff";
-          ctx.font = "bold 14px system-ui";
+          ctx.font = withTerminalFont("bold 14px system-ui");
           ctx.textAlign = "center";
           ctx.fillText(`FASE ${e.phase}`, e.x, e.y + e.rad + 15);
           ctx.textAlign = prevAlign;
@@ -9246,7 +9321,7 @@ const Index = () => {
       let indicatorY = gameState.player.y - gameState.player.rad - 30;
       if (gameState.player.tempMagnetTimer > 0) {
         ctx.fillStyle = "#5dbb63";
-        ctx.font = "bold 12px system-ui";
+        ctx.font = withTerminalFont("bold 12px system-ui");
         ctx.textAlign = "center";
         const magnetLabel = currentLanguage === "es" ? "IMÁN" : "MAGNET";
         ctx.fillText(`${magnetLabel} ${Math.ceil(gameState.player.tempMagnetTimer)}s`, gameState.player.x, indicatorY);
@@ -9254,7 +9329,7 @@ const Index = () => {
       }
       if (gameState.player.rageTimer > 0) {
         ctx.fillStyle = playerAccent;
-        ctx.font = "bold 12px system-ui";
+        ctx.font = withTerminalFont("bold 12px system-ui");
         const rageLabel = currentLanguage === "es" ? "FURIA" : "RAGE";
         ctx.fillText(`${rageLabel} ${Math.ceil(gameState.player.rageTimer)}s`, gameState.player.x, indicatorY);
       }
@@ -9390,41 +9465,44 @@ const Index = () => {
       renderActorPass();
 
       const renderUIPass = () => {
+        const textPrimary = UI_COLORS.textPrimary;
       // Restart hold indicator
       if (gameState.restartTimer > 0) {
         const progress = Math.min(1, gameState.restartTimer / gameState.restartHoldTime);
-        const centerX = W / 2;
-        const centerY = H / 2;
-        const radius = 60;
+        const panelSize = 140;
+        const panelX = W / 2 - panelSize / 2;
+        const panelY = H / 2 - panelSize / 2;
+        drawPixelPanel(ctx, panelX, panelY, panelSize, panelSize, {
+          border: hexToRgba(UI_COLORS.healthHigh, 0.8),
+          highlight: hexToRgba(UI_COLORS.healthHigh, 0.18),
+        });
 
-        // Background circle
-        ctx.strokeStyle = "rgba(217, 217, 217, 0.25)";
-        ctx.lineWidth = 8;
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-        ctx.stroke();
+        const barX = panelX + 12;
+        const barY = panelY + panelSize - 36;
+        const barW = panelSize - 24;
+        const barH = 18;
+        drawPixelPanel(ctx, barX, barY, barW, barH, {
+          background: "rgba(26, 26, 26, 0.9)",
+          border: hexToRgba(UI_COLORS.healthHigh, 0.45),
+          highlight: hexToRgba(UI_COLORS.healthHigh, 0.12),
+        });
 
-        // Progress arc
-        ctx.strokeStyle = UI_COLORS.healthHigh;
-        ctx.lineWidth = 8;
-        ctx.shadowColor = UI_COLORS.healthHigh;
-        ctx.shadowBlur = 0;
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, radius, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress);
-        ctx.stroke();
-        ctx.shadowBlur = 0;
+        const innerWidth = Math.max(0, (barW - 6) * progress);
+        if (innerWidth > 0) {
+          drawSegmentedBar(ctx, barX + 3, barY + 3, innerWidth, barH - 6, UI_COLORS.healthHigh, 6);
+        }
 
-        // Text
-        ctx.fillStyle = textPrimary;
-        ctx.font = "bold 24px system-ui";
-        ctx.textAlign = "center";
-        ctx.fillText("R", centerX, centerY + 8);
-
-        // Timer text - prevent negative numbers
         const remaining = Math.max(0, Math.ceil(gameState.restartHoldTime - gameState.restartTimer));
-        ctx.font = "bold 18px system-ui";
+        ctx.fillStyle = textPrimary;
+        ctx.font = withTerminalFont("bold 28px system-ui");
+        ctx.textAlign = "center";
+        ctx.fillText("R", panelX + panelSize / 2, panelY + panelSize / 2 - 6);
+
+        ctx.font = withTerminalFont("bold 16px system-ui");
         ctx.fillStyle = UI_COLORS.healthHigh;
-        ctx.fillText(remaining === 0 ? "0s" : `${remaining}s`, centerX, centerY + 35);
+        ctx.fillText(remaining === 0 ? "0s" : `${remaining}s`, panelX + panelSize / 2, barY - 6);
+
+        drawWarningIcon(ctx, panelX + panelSize - 36, panelY + 10, 18, UI_COLORS.healthHigh);
       }
 
       drawHUD();
@@ -9480,7 +9558,7 @@ const Index = () => {
 
           ctx.globalAlpha = messageAlpha;
           ctx.fillStyle = UI_COLORS.healthHigh;
-          ctx.font = "bold 48px system-ui";
+          ctx.font = withTerminalFont("bold 48px system-ui");
           ctx.textAlign = "center";
           ctx.shadowColor = UI_COLORS.healthHigh;
           ctx.shadowBlur = 0;
@@ -9495,7 +9573,7 @@ const Index = () => {
             const mm = String(Math.floor(time / 60)).padStart(2, "0");
             const ss = String(time % 60).padStart(2, "0");
             ctx.fillStyle = UI_COLORS.ammo;
-            ctx.font = "bold 56px system-ui";
+            ctx.font = withTerminalFont("bold 56px system-ui");
             ctx.shadowColor = UI_COLORS.ammo;
             ctx.shadowBlur = 0;
             ctx.fillText(`Tiempo sobrevivido: ${mm}:${ss}`, W / 2, H / 2 + 20);
@@ -9534,7 +9612,7 @@ const Index = () => {
 
         // Título GAME OVER
         ctx.fillStyle = UI_COLORS.healthHigh;
-        ctx.font = "bold 64px system-ui";
+        ctx.font = withTerminalFont("bold 64px system-ui");
         ctx.textAlign = "center";
         ctx.shadowColor = UI_COLORS.healthHigh;
         ctx.shadowBlur = 0;
@@ -9557,13 +9635,13 @@ const Index = () => {
         const leftCol = menuX + 120;
         const rightCol = menuX + menuW / 2 + 80;
 
-        ctx.font = "bold 28px system-ui";
+        ctx.font = withTerminalFont("bold 28px system-ui");
         ctx.fillStyle = UI_COLORS.accent;
         ctx.textAlign = "left";
         ctx.fillText(t.stats, leftCol, contentY);
         contentY += 60;
 
-        ctx.font = "24px system-ui";
+        ctx.font = withTerminalFont("24px system-ui");
         ctx.fillStyle = textSecondary;
 
         // Score
@@ -9628,13 +9706,13 @@ const Index = () => {
         ctx.shadowBlur = 0;
 
         ctx.fillStyle = textPrimary;
-        ctx.font = "bold 32px system-ui";
+        ctx.font = withTerminalFont("bold 32px system-ui");
         ctx.textAlign = "center";
         ctx.fillText(t.playAgain, btnX + btnW / 2, btnY + btnH / 2 + 12);
 
         // Hint de teclas
         ctx.fillStyle = textSecondary;
-        ctx.font = "18px system-ui";
+        ctx.font = withTerminalFont("18px system-ui");
         ctx.fillText("Presiona R o Enter para reiniciar", W / 2, menuY + menuH - 25);
 
         ctx.restore();
@@ -9664,7 +9742,7 @@ const Index = () => {
         const scaledRadius = (value: number) => Math.max(6, value * scale);
         const getScaledFont = (size: number, weight?: string) => {
           const px = Math.max(12, Math.round(size * scale));
-          return `${weight ? `${weight} ` : ""}${px}px system-ui`;
+        return withTerminalFont(`${weight ? `${weight} ` : ""}${px}px system-ui`);
         };
 
         // Main menu background with neon glow
@@ -9989,7 +10067,7 @@ const Index = () => {
 
         // Número del countdown con glow
         ctx.fillStyle = UI_COLORS.ammo;
-        ctx.font = `bold ${120 * (1 + scale * 0.3)}px system-ui`;
+        ctx.font = withTerminalFont(`bold ${120 * (1 + scale * 0.3)}px system-ui`);
         ctx.textAlign = "center";
         ctx.shadowColor = UI_COLORS.ammo;
         ctx.shadowBlur = 0;
