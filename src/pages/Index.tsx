@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { FormEvent } from "react";
 import type {
   MinimapEntity,
   MinimapFrame,
@@ -191,6 +192,112 @@ const CRT_SETTINGS = {
 
 const MUSIC_CONTROL_KEYS = ["start", "previous", "pause", "next"] as const;
 type MusicControlKey = (typeof MUSIC_CONTROL_KEYS)[number];
+
+type AuditLog = {
+  zombies: Record<string, { kills: number; damage: number }>;
+  totalDamageDealt: number;
+  drops: {
+    xp: { count: number; totalValue: number };
+    heal: { count: number; totalValue: number };
+    powerups: Record<string, number>;
+    items: Record<string, number>;
+  };
+};
+
+const createEmptyAuditLog = (): AuditLog => ({
+  zombies: {},
+  totalDamageDealt: 0,
+  drops: {
+    xp: { count: 0, totalValue: 0 },
+    heal: { count: 0, totalValue: 0 },
+    powerups: {},
+    items: {},
+  },
+});
+
+const ENEMY_LOG_LABELS: Record<string, { en: string; es: string }> = {
+  boss: { en: "Bosses", es: "Jefes" },
+  miniBoss: { en: "Mini-bosses", es: "Mini jefes" },
+  explosive: { en: "Explosive Zombies", es: "Zombis explosivos" },
+  fast: { en: "Fast Zombies", es: "Zombis veloces" },
+  tank: { en: "Tank Zombies", es: "Zombis tanque" },
+  summoner: { en: "Summoner Zombies", es: "Zombis invocadores" },
+  strong: { en: "Strong Zombies", es: "Zombis fuertes" },
+  medium: { en: "Medium Zombies", es: "Zombis medianos" },
+  weak: { en: "Weak Zombies", es: "Zombis débiles" },
+  elite: { en: "Elite Zombies", es: "Zombis élite" },
+  unknown: { en: "Unknown", es: "Desconocido" },
+};
+
+const POWERUP_LABELS: Record<string, { en: string; es: string }> = {
+  magnet: { en: "Magnet", es: "Imán" },
+  shield: { en: "Shield", es: "Escudo" },
+  rage: { en: "Rage", es: "Furia" },
+  speed: { en: "Speed", es: "Velocidad" },
+};
+
+const AUDIT_CONSOLE_TEXT = {
+  en: {
+    title: "Audit Console",
+    placeholder: "Type a command (auditlogz, auditlogi, auditlogd) and press Enter",
+    close: "Close",
+    outputEmpty: "No command executed yet. Try auditlogz, auditlogi or auditlogd.",
+    unknown: (cmd: string) => `Unknown command: ${cmd}`,
+    zombieHeader: "Zombie elimination summary",
+    zombieNone: "No zombies eliminated yet.",
+    zombieEntry: (label: string, kills: number, damage: number) =>
+      `• ${label}: Kills ${kills.toLocaleString("en-US")} | Damage ${damage.toLocaleString("en-US")}`,
+    zombieTotal: (damage: number) =>
+      `Estimated total damage dealt: ${damage.toLocaleString("en-US")}`,
+    itemsHeader: "Inventory summary",
+    itemsNone: "No items collected yet.",
+    itemsEntry: (name: string, description: string, count: number) =>
+      `• ${name} (x${count.toLocaleString("en-US")}) — ${description}`,
+    dropsHeader: "Drop summary",
+    dropsNone: "No drops collected yet.",
+    dropsXp: (count: number, total: number) =>
+      `• XP Crystals: ${count.toLocaleString("en-US")} collected | XP gained ${Math.round(total).toLocaleString("en-US")}`,
+    dropsHeal: (count: number, total: number) =>
+      `• Medkits: ${count.toLocaleString("en-US")} collected | HP restored ${Math.round(total).toLocaleString("en-US")}`,
+    dropsPowerupHeader: "• Power-ups:",
+    dropsPowerupEntry: (label: string, count: number) =>
+      `  - ${label}: ${count.toLocaleString("en-US")} picked up`,
+    dropsItemsHeader: "• Items:",
+    dropsItemEntry: (name: string, description: string, count: number) =>
+      `  - ${name} (x${count.toLocaleString("en-US")}) — ${description}`,
+  },
+  es: {
+    title: "Consola de auditoría",
+    placeholder: "Escribe un comando (auditlogz, auditlogi, auditlogd) y presiona Enter",
+    close: "Cerrar",
+    outputEmpty: "Aún no ejecutaste comandos. Prueba auditlogz, auditlogi o auditlogd.",
+    unknown: (cmd: string) => `Comando desconocido: ${cmd}`,
+    zombieHeader: "Resumen de eliminaciones",
+    zombieNone: "Aún no eliminaste zombis.",
+    zombieEntry: (label: string, kills: number, damage: number) =>
+      `• ${label}: Bajas ${kills.toLocaleString("es-ES")} | Daño ${damage.toLocaleString("es-ES")}`,
+    zombieTotal: (damage: number) =>
+      `Daño total estimado: ${damage.toLocaleString("es-ES")}`,
+    itemsHeader: "Inventario",
+    itemsNone: "Todavía no tienes ítems.",
+    itemsEntry: (name: string, description: string, count: number) =>
+      `• ${name} (x${count.toLocaleString("es-ES")}) — ${description}`,
+    dropsHeader: "Resumen de drops",
+    dropsNone: "Aún no recogiste drops.",
+    dropsXp: (count: number, total: number) =>
+      `• Cristales de XP: ${count.toLocaleString("es-ES")} recogidos | XP obtenida ${Math.round(total).toLocaleString("es-ES")}`,
+    dropsHeal: (count: number, total: number) =>
+      `• Botiquines: ${count.toLocaleString("es-ES")} recogidos | HP recuperada ${Math.round(total).toLocaleString("es-ES")}`,
+    dropsPowerupHeader: "• Power-ups:",
+    dropsPowerupEntry: (label: string, count: number) =>
+      `  - ${label}: ${count.toLocaleString("es-ES")} recogidos`,
+    dropsItemsHeader: "• Ítems:",
+    dropsItemEntry: (name: string, description: string, count: number) =>
+      `  - ${name} (x${count.toLocaleString("es-ES")}) — ${description}`,
+  },
+} as const;
+
+const ALL_ITEMS: Item[] = [...ITEMS, HORIZON_VISOR_ITEM];
 
 const getPauseMenuLayout = (W: number, H: number) => {
   const scale = Math.min(1, Math.max(0.7, Math.min(W / 1280, H / 720)));
@@ -492,8 +599,171 @@ const Index = () => {
   const bulletNeighborBufferRef = useRef<EnemyWithCategory[]>([]);
   const fallbackEnemyListRef = useRef<EnemyWithCategory[]>([]);
   const chainedEnemiesRef = useRef<EnemyWithCategory[]>([]);
+  const [consoleVisible, setConsoleVisibleState] = useState(false);
+  const consoleVisibleRef = useRef(false);
+  const [consoleInput, setConsoleInput] = useState("");
+  const [consoleOutput, setConsoleOutput] = useState<string[]>([]);
+  const consoleInputRef = useRef<HTMLInputElement>(null);
+
+  const setConsoleVisible = (value: boolean) => {
+    consoleVisibleRef.current = value;
+    setConsoleVisibleState(value);
+  };
 
   const t = translations[language];
+
+  const getLocalizedItemInfo = (id: string, lang: Language) => {
+    const item = ALL_ITEMS.find((candidate) => candidate.id === id);
+    if (item) {
+      const localized = getItemText(item, lang);
+      const description = localized.description || (lang === "es" ? "Sin descripción disponible." : "No description available.");
+      return { name: localized.name, description };
+    }
+    return {
+      name: id,
+      description: lang === "es" ? "Sin descripción disponible." : "No description available.",
+    };
+  };
+
+  const getConsoleStrings = (lang: Language) => AUDIT_CONSOLE_TEXT[lang] ?? AUDIT_CONSOLE_TEXT.en;
+
+  const buildZombieLog = (lang: Language) => {
+    const strings = getConsoleStrings(lang);
+    const lines: string[] = [strings.zombieHeader];
+    const audit = gameStateRef.current?.auditLog as AuditLog | undefined;
+    if (!audit) {
+      lines.push(strings.zombieNone);
+      return lines;
+    }
+
+    const entries = Object.entries(audit.zombies).filter(([, data]) => data.kills > 0);
+    if (entries.length === 0) {
+      lines.push(strings.zombieNone);
+      return lines;
+    }
+
+    entries.sort((a, b) => b[1].kills - a[1].kills);
+    for (const [key, data] of entries) {
+      const labelEntry = ENEMY_LOG_LABELS[key] ?? ENEMY_LOG_LABELS.unknown;
+      const label = labelEntry?.[lang] ?? labelEntry.en ?? key;
+      lines.push(strings.zombieEntry(label, data.kills, data.damage));
+    }
+    lines.push(strings.zombieTotal(audit.totalDamageDealt));
+    return lines;
+  };
+
+  const buildItemLog = (lang: Language) => {
+    const strings = getConsoleStrings(lang);
+    const lines: string[] = [strings.itemsHeader];
+    const stacks = gameStateRef.current?.player?.itemStacks ?? {};
+    const entries = Object.entries(stacks).filter(([, count]) => (Number(count) ?? 0) > 0);
+    if (entries.length === 0) {
+      lines.push(strings.itemsNone);
+      return lines;
+    }
+
+    const localizedEntries = entries.map(([id, count]) => {
+      const info = getLocalizedItemInfo(id, lang);
+      return { id, count: Number(count) || 0, ...info };
+    });
+
+    localizedEntries.sort((a, b) => a.name.localeCompare(b.name));
+
+    for (const entry of localizedEntries) {
+      lines.push(strings.itemsEntry(entry.name, entry.description, entry.count));
+    }
+
+    return lines;
+  };
+
+  const buildDropLog = (lang: Language) => {
+    const strings = getConsoleStrings(lang);
+    const lines: string[] = [strings.dropsHeader];
+    const audit = gameStateRef.current?.auditLog as AuditLog | undefined;
+    if (!audit) {
+      lines.push(strings.dropsNone);
+      return lines;
+    }
+
+    let hasData = false;
+    const { xp, heal, powerups, items } = audit.drops;
+
+    if (xp.count > 0) {
+      lines.push(strings.dropsXp(xp.count, xp.totalValue));
+      hasData = true;
+    }
+
+    if (heal.count > 0) {
+      lines.push(strings.dropsHeal(heal.count, heal.totalValue));
+      hasData = true;
+    }
+
+    const powerupEntries = Object.entries(powerups).filter(([, count]) => (Number(count) ?? 0) > 0);
+    if (powerupEntries.length > 0) {
+      hasData = true;
+      lines.push(strings.dropsPowerupHeader);
+      powerupEntries.sort((a, b) => a[0].localeCompare(b[0]));
+      for (const [key, count] of powerupEntries) {
+        const labelEntry = POWERUP_LABELS[key];
+        const label = labelEntry?.[lang] ?? labelEntry?.en ?? key;
+        lines.push(strings.dropsPowerupEntry(label, Number(count) || 0));
+      }
+    }
+
+    const itemEntries = Object.entries(items).filter(([, count]) => (Number(count) ?? 0) > 0);
+    if (itemEntries.length > 0) {
+      hasData = true;
+      lines.push(strings.dropsItemsHeader);
+      const localizedItems = itemEntries.map(([id, count]) => {
+        const info = getLocalizedItemInfo(id, lang);
+        return { id, count: Number(count) || 0, ...info };
+      });
+      localizedItems.sort((a, b) => a.name.localeCompare(b.name));
+      for (const entry of localizedItems) {
+        lines.push(strings.dropsItemEntry(entry.name, entry.description, entry.count));
+      }
+    }
+
+    if (!hasData) {
+      lines.push(strings.dropsNone);
+    }
+
+    return lines;
+  };
+
+  const handleConsoleCommand = (input: string) => {
+    const trimmed = input.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    const lang = (gameStateRef.current?.language ?? language) as Language;
+    const strings = getConsoleStrings(lang);
+    const normalized = trimmed.toLowerCase();
+    const lines: string[] = [`> ${trimmed}`];
+
+    if (normalized === "auditlogz") {
+      lines.push(...buildZombieLog(lang));
+    } else if (normalized === "auditlogi") {
+      lines.push(...buildItemLog(lang));
+    } else if (normalized === "auditlogd") {
+      lines.push(...buildDropLog(lang));
+    } else {
+      lines.push(strings.unknown(trimmed));
+    }
+
+    setConsoleOutput(lines);
+  };
+
+  const handleConsoleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    handleConsoleCommand(consoleInput);
+    setConsoleInput("");
+  };
+
+  const activeConsoleStrings = getConsoleStrings(
+    (gameStateRef.current?.language ?? language) as Language,
+  );
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -769,6 +1039,56 @@ const Index = () => {
         sfxToggle: { x: 0, y: 0, w: 0, h: 0 },
       },
       language,
+      auditLog: createEmptyAuditLog(),
+    };
+
+    const getEnemyLogKey = (enemy: any) => {
+      if (enemy?.isBoss) return "boss";
+      if (enemy?.isMiniBoss) return "miniBoss";
+      if (enemy?.isElite) return "elite";
+      if (enemy?.specialType) return String(enemy.specialType);
+      if (enemy?.enemyType) return String(enemy.enemyType);
+      return "unknown";
+    };
+
+    const recordEnemyKill = (enemy: any) => {
+      const audit = gameState.auditLog;
+      if (!audit) return;
+      const key = getEnemyLogKey(enemy);
+      const estimatedDamage = Math.max(0, Math.floor(Number(enemy?.maxhp ?? enemy?.hp ?? 0)));
+      if (!audit.zombies[key]) {
+        audit.zombies[key] = { kills: 0, damage: 0 };
+      }
+      audit.zombies[key].kills += 1;
+      audit.zombies[key].damage += estimatedDamage;
+      audit.totalDamageDealt += estimatedDamage;
+    };
+
+    const recordItemDrop = (item: Item) => {
+      const audit = gameState.auditLog;
+      if (!audit) return;
+      audit.drops.items[item.id] = (audit.drops.items[item.id] ?? 0) + 1;
+    };
+
+    const recordPowerupPickup = (type: string | undefined) => {
+      if (!type) return;
+      const audit = gameState.auditLog;
+      if (!audit) return;
+      audit.drops.powerups[type] = (audit.drops.powerups[type] ?? 0) + 1;
+    };
+
+    const recordXpPickup = (value: number) => {
+      const audit = gameState.auditLog;
+      if (!audit) return;
+      audit.drops.xp.count += 1;
+      audit.drops.xp.totalValue += value;
+    };
+
+    const recordHealPickup = (value: number) => {
+      const audit = gameState.auditLog;
+      if (!audit || value <= 0) return;
+      audit.drops.heal.count += 1;
+      audit.drops.heal.totalValue += value;
     };
 
     const getItemStacks = (id: string) => gameState.player.itemStacks[id] ?? 0;
@@ -1180,6 +1500,8 @@ const Index = () => {
     function resetGame() {
       weaponAudioController.stopAllLooping();
       weaponAudioController.resetTimers();
+      setConsoleVisible(false);
+      setConsoleOutput([]);
 
       // Limpiar arrays
       gameState.bullets.length = 0;
@@ -1193,6 +1515,7 @@ const Index = () => {
       gameState.chestBanishesRemaining = 3;
       gameState.chestSkipsRemaining = 3;
       gameState.pausedForChest = false;
+      gameState.auditLog = createEmptyAuditLog();
 
       // Resetear jugador
       gameState.worldWidth = Math.max(gameState.worldWidth, Math.max(W, 2200));
@@ -1347,6 +1670,24 @@ const Index = () => {
     resetGameRef.current = resetGame;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "º" || e.key === "§") {
+        e.preventDefault();
+        if (consoleVisibleRef.current) {
+          setConsoleVisible(false);
+        } else {
+          setConsoleVisible(true);
+        }
+        return;
+      }
+
+      if (consoleVisibleRef.current) {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setConsoleVisible(false);
+        }
+        return;
+      }
+
       gameState.keys[e.key.toLowerCase()] = true;
 
       // Game Over: Enter para reiniciar inmediatamente
@@ -2655,6 +2996,7 @@ const Index = () => {
       // Aplicar multiplicador y bonus de XP
       const xpGained = (v + gameState.player.stats.xpBonus) * gameState.player.stats.xpMultiplier;
       gameState.xp += xpGained;
+      recordXpPickup(xpGained);
       let leveledUp = false;
       while (gameState.xp >= gameState.nextXP) {
         gameState.xp -= gameState.nextXP;
@@ -2711,6 +3053,8 @@ const Index = () => {
         // Incrementar velocidad permanentemente en 1%, máximo 200% (2.0x)
         gameState.player.stats.speedMultiplier = Math.min(2.0, gameState.player.stats.speedMultiplier + 0.01);
       }
+
+      recordPowerupPickup(type);
     }
 
     function spawnHotspot(isNegative = false) {
@@ -3063,6 +3407,7 @@ const Index = () => {
 
       gameState.player.items.push({ ...item });
       gameState.player.itemStacks[item.id] = currentStacks + 1;
+      recordItemDrop(item);
 
       applyItemEffect(item);
 
@@ -5051,6 +5396,7 @@ const Index = () => {
           return;
         }
 
+        recordEnemyKill(enemy);
         (enemy as any).__removed = true;
 
         if (!enemy.isBoss && !enemy.isMiniBoss) {
@@ -5632,7 +5978,10 @@ const Index = () => {
           if (g.type === "xp") {
             collectXP(g.val);
           } else if (g.type === "heal") {
+            const beforeHp = gameState.player.hp;
             gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + g.val);
+            const healedAmount = Math.max(0, gameState.player.hp - beforeHp);
+            recordHealPickup(healedAmount);
             playPowerupSound();
             // Partículas de curación con límite
             if (gameState.particles.length < gameState.maxParticles - 15) {
@@ -8889,6 +9238,19 @@ const Index = () => {
   }, []);
 
   useEffect(() => {
+    if (!consoleVisible) {
+      setConsoleInput("");
+      return;
+    }
+
+    const focusTimeout = window.setTimeout(() => {
+      consoleInputRef.current?.focus();
+    }, 0);
+
+    return () => window.clearTimeout(focusTimeout);
+  }, [consoleVisible]);
+
+  useEffect(() => {
     if (gameStateRef.current) {
       gameStateRef.current.language = language;
     }
@@ -8898,6 +9260,66 @@ const Index = () => {
     <div className="relative w-full h-screen overflow-hidden bg-background">
       <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" style={{ cursor: "crosshair" }} />
       <canvas ref={overlayCanvasRef} className="absolute inset-0 w-full h-full pointer-events-none" />
+
+      {consoleVisible && (
+        <div className="fixed inset-0 z-[60] flex items-start justify-center pt-20 bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-3xl px-4 md:px-6">
+            <div className="bg-zinc-900/95 border border-zinc-700 rounded-lg shadow-2xl overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-700">
+                <h2 className="text-xs font-semibold tracking-[0.35em] uppercase text-zinc-200">
+                  {activeConsoleStrings.title}
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setConsoleVisible(false)}
+                  className="text-zinc-400 hover:text-zinc-200 transition-colors text-sm"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="p-4 space-y-4">
+                <form onSubmit={handleConsoleSubmit} className="flex flex-col gap-3 sm:flex-row">
+                  <input
+                    ref={consoleInputRef}
+                    value={consoleInput}
+                    onChange={(event) => setConsoleInput(event.target.value)}
+                    placeholder={activeConsoleStrings.placeholder}
+                    className="flex-1 rounded-md border border-zinc-700 bg-zinc-950/80 px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="submit"
+                      className="rounded-md border border-primary/60 bg-primary/90 px-4 py-2 text-sm font-semibold text-primary-foreground shadow hover:bg-primary transition-colors"
+                    >
+                      OK
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setConsoleVisible(false);
+                      }}
+                      className="rounded-md border border-zinc-600 px-4 py-2 text-sm font-semibold text-zinc-200 hover:bg-zinc-800/80 transition-colors"
+                    >
+                      {activeConsoleStrings.close}
+                    </button>
+                  </div>
+                </form>
+                <div className="bg-zinc-950/70 border border-zinc-800 rounded-md p-4 min-h-[160px] max-h-[320px] overflow-y-auto">
+                  {consoleOutput.length === 0 ? (
+                    <p className="text-sm text-zinc-400 italic">{activeConsoleStrings.outputEmpty}</p>
+                  ) : (
+                    <ul className="space-y-2 text-sm text-zinc-100 font-mono">
+                      {consoleOutput.map((line, index) => (
+                        <li key={`${line}-${index}`}>{line}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* TUTORIAL SIMPLIFICADO */}
       {gameStateRef.current?.tutorialActive && !tutorialCompleted && gameStateRef.current?.wave === 1 && (
