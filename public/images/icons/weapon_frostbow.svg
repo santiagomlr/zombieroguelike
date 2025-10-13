@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="frostbow-limb" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#7fd4ff" />
+      <stop offset="100%" stop-color="#1e4d6f" />
+    </linearGradient>
+    <linearGradient id="frostbow-body" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3a404a" />
+      <stop offset="100%" stop-color="#14171c" />
+    </linearGradient>
+    <linearGradient id="frostbow-string" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#c0f5ff" />
+      <stop offset="100%" stop-color="#4abbe6" />
+    </linearGradient>
+  </defs>
+  <path d="M12 16c6 6 6 26 0 32" stroke="url(#frostbow-limb)" stroke-width="6" stroke-linecap="round" fill="none" />
+  <path d="M52 16c-6 6-6 26 0 32" stroke="url(#frostbow-limb)" stroke-width="6" stroke-linecap="round" fill="none" />
+  <rect x="26" y="18" width="12" height="28" rx="6" fill="url(#frostbow-body)" stroke="#0b0d11" stroke-width="2" />
+  <path d="M12 18l20 14L52 18" stroke="url(#frostbow-string)" stroke-width="2" />
+  <path d="M12 46l20-14 20 14" stroke="url(#frostbow-string)" stroke-width="2" />
+  <rect x="30" y="12" width="4" height="40" rx="2" fill="#8ee6ff" />
+  <path d="M32 8l4 6-4 2-4-2z" fill="#00d4ff" stroke="#0b3d4f" stroke-width="1" />
+</svg>

@@ -172,6 +172,7 @@ export interface Weapon {
   projectileSpeed: number;
   rarity: Rarity;
   color: string;
+  icon: string;
   special?: string;
   level: number;
 }
@@ -515,6 +516,7 @@ const WEAPON_DEFINITIONS: WeaponDefinition[] = [
     projectileSpeed: 750,
     rarity: "common",
     level: 1,
+    icon: "/images/icons/weapon_pistol.svg",
   },
   {
     id: "shotgun",
@@ -525,6 +527,7 @@ const WEAPON_DEFINITIONS: WeaponDefinition[] = [
     rarity: "common",
     special: "spread",
     level: 1,
+    icon: "/images/icons/weapon_shotgun.svg",
   },
   {
     id: "smg",
@@ -534,6 +537,7 @@ const WEAPON_DEFINITIONS: WeaponDefinition[] = [
     projectileSpeed: 700,
     rarity: "uncommon",
     level: 1,
+    icon: "/images/icons/weapon_smg.svg",
   },
   {
     id: "rocket",
@@ -544,6 +548,7 @@ const WEAPON_DEFINITIONS: WeaponDefinition[] = [
     rarity: "rare",
     special: "aoe",
     level: 1,
+    icon: "/images/icons/weapon_rocket.svg",
   },
   {
     id: "laser",
@@ -554,6 +559,7 @@ const WEAPON_DEFINITIONS: WeaponDefinition[] = [
     rarity: "rare",
     special: "pierce",
     level: 1,
+    icon: "/images/icons/weapon_laser.svg",
   },
   {
     id: "railgun",
@@ -564,6 +570,7 @@ const WEAPON_DEFINITIONS: WeaponDefinition[] = [
     rarity: "epic",
     special: "pierce",
     level: 1,
+    icon: "/images/icons/weapon_railgun.svg",
   },
   {
     id: "minigun",
@@ -573,6 +580,7 @@ const WEAPON_DEFINITIONS: WeaponDefinition[] = [
     projectileSpeed: 750,
     rarity: "epic",
     level: 1,
+    icon: "/images/icons/weapon_minigun.svg",
   },
   {
     id: "flamethrower",
@@ -583,6 +591,7 @@ const WEAPON_DEFINITIONS: WeaponDefinition[] = [
     rarity: "rare",
     special: "aoe",
     level: 1,
+    icon: "/images/icons/weapon_flamethrower.svg",
   },
   {
     id: "frostbow",
@@ -592,6 +601,7 @@ const WEAPON_DEFINITIONS: WeaponDefinition[] = [
     projectileSpeed: 650,
     rarity: "uncommon",
     level: 1,
+    icon: "/images/icons/weapon_frostbow.svg",
   },
   {
     id: "homing",
@@ -601,6 +611,7 @@ const WEAPON_DEFINITIONS: WeaponDefinition[] = [
     projectileSpeed: 550,
     rarity: "rare",
     level: 1,
+    icon: "/images/icons/weapon_homing.svg",
   },
 ];
 
