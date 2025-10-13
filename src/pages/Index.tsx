@@ -5180,8 +5180,8 @@ const Index = () => {
           if (gameState.bossEncounter.uniqueBossId === (enemy as any).uniqueBossId) {
             gameState.bossEncounter.uniqueBossId = null;
           }
+          gameState.bossEncounter.portalSpawned = false;
           if (!gameState.bossEncounter.bossDefeated) {
-            gameState.bossEncounter.portalSpawned = false;
             gameState.bossEncounter.bossDefeated = true;
             spawnExitPortal({ x: enemy.x, y: enemy.y });
           }
