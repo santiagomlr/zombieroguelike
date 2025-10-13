@@ -103,6 +103,30 @@ const UI_COLORS = {
   backgroundGradient: ["#111", "#0a0a0a", "#050505"],
 };
 
+const hexToRgba = (hex: string, alpha: number) => {
+  if (!hex.startsWith("#")) {
+    return hex;
+  }
+
+  const normalized = hex.slice(1);
+
+  if (normalized.length !== 6 && normalized.length !== 3) {
+    return hex;
+  }
+
+  const expand = (value: string) => (value.length === 1 ? value + value : value);
+  const r = parseInt(expand(normalized.slice(0, normalized.length === 3 ? 1 : 2)), 16);
+  const g = parseInt(expand(normalized.slice(normalized.length === 3 ? 1 : 2, normalized.length === 3 ? 2 : 4)), 16);
+  const b = parseInt(expand(normalized.slice(normalized.length === 3 ? 2 : 4)), 16);
+
+  if ([r, g, b].some((component) => Number.isNaN(component))) {
+    return hex;
+  }
+
+  const clampedAlpha = Math.min(1, Math.max(0, alpha));
+  return `rgba(${r}, ${g}, ${b}, ${clampedAlpha})`;
+};
+
 type Bounds = {
   left: number;
   top: number;
@@ -873,6 +897,7 @@ const Index = () => {
             chestPosition: { x: number; y: number };
           }
         | null,
+      chestUIAnimation: 0,
       nearbyChest: null as any | null,
       pendingChestDrop: null as any | null,
       chestBanishesRemaining: 3,
@@ -2729,24 +2754,33 @@ const Index = () => {
         return;
       }
 
-      const particleCount = Math.min(18, availableSlots);
+      const particleCount = Math.min(14, availableSlots);
       if (particleCount <= 0) {
         return;
       }
 
-      const distributionCount = Math.max(8, particleCount);
-      const angleOffset = Math.random() * Math.PI * 2;
+      const distributionCount = Math.max(8, particleCount * 2);
+      const swirlOffset = Math.random() * Math.PI * 2;
       for (let i = 0; i < particleCount; i++) {
-        const angle = angleOffset + (Math.PI * 2 * i) / distributionCount + Math.random() * 0.35;
-        const speed = 1.6 + Math.random() * 2.1;
+        const ratio = i / particleCount;
+        const angle = swirlOffset + (Math.PI * 2 * ratio);
+        const swirl = Math.sin(ratio * Math.PI * 4) * 0.3;
+        const outwardSpeed = 0.8 + Math.random() * 0.9;
+        const upwardLift = 0.4 + Math.random() * 0.6;
+        const vx = Math.cos(angle + swirl) * outwardSpeed * 0.7;
+        const vy = Math.sin(angle + swirl) * outwardSpeed * 0.3 - upwardLift;
+        const isSpark = i % Math.ceil(distributionCount / particleCount) === 0;
+        const particleColor = isSpark ? hexToRgba(color, 0.95) : hexToRgba(color, 0.55);
+        const life = isSpark ? 1.1 + Math.random() * 0.5 : 0.8 + Math.random() * 0.4;
+        const size = isSpark ? 2.2 + Math.random() * 0.7 : 1.4 + Math.random() * 0.6;
         gameState.particles.push({
           x,
           y,
-          vx: Math.cos(angle) * speed,
-          vy: Math.sin(angle) * speed,
-          life: 0.7 + Math.random() * 0.5,
-          color,
-          size: 2.5 + Math.random() * 1.5,
+          vx,
+          vy,
+          life,
+          color: particleColor,
+          size,
         });
       }
     }
@@ -2929,6 +2963,7 @@ const Index = () => {
         item,
         chestPosition: { x: chest.x, y: chest.y },
       };
+      gameState.chestUIAnimation = 0;
     }
 
     function finalizeChestDrop() {
@@ -2987,6 +3022,7 @@ const Index = () => {
       }
 
       gameState.activeChestChoice = null;
+      gameState.chestUIAnimation = 0;
       finalizeChestDrop();
     }
 
@@ -3005,6 +3041,7 @@ const Index = () => {
       gameState.chestBanishesRemaining = Math.max(0, gameState.chestBanishesRemaining - 1);
 
       gameState.activeChestChoice = null;
+      gameState.chestUIAnimation = 0;
       finalizeChestDrop();
     }
 
@@ -3016,6 +3053,7 @@ const Index = () => {
 
       gameState.chestSkipsRemaining = Math.max(0, gameState.chestSkipsRemaining - 1);
       gameState.activeChestChoice = null;
+      gameState.chestUIAnimation = 0;
       finalizeChestDrop();
     }
 
@@ -3934,6 +3972,13 @@ const Index = () => {
       if (gameState.upgradeAnimation > 0) gameState.upgradeAnimation = Math.max(0, gameState.upgradeAnimation - dt);
       if (gameState.upgradeUIAnimation < 1 && gameState.showUpgradeUI)
         gameState.upgradeUIAnimation = Math.min(1, gameState.upgradeUIAnimation + dt * 3);
+      if (gameState.activeChestChoice) {
+        if (gameState.chestUIAnimation < 1) {
+          gameState.chestUIAnimation = Math.min(1, gameState.chestUIAnimation + dt * 3.2);
+        }
+      } else if (gameState.chestUIAnimation > 0) {
+        gameState.chestUIAnimation = Math.max(0, gameState.chestUIAnimation - dt * 6);
+      }
 
       // Music notification timer
       if (gameState.musicNotificationTimer > 0) {
@@ -7245,12 +7290,63 @@ const Index = () => {
       const rarityColor = rarityColors[choice.item.rarity];
       const itemText = getItemText(choice.item, currentLanguage);
 
+      const fade = Math.min(1, gameState.chestUIAnimation);
+      const easeOutBack = (t: number) => {
+        const c1 = 1.70158;
+        const c3 = c1 + 1;
+        return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+      };
+      const panelProgress = easeOutBack(fade);
+      const panelScale = 0.82 + panelProgress * 0.18;
+      const panelCenterX = panel.x + panel.w / 2;
+      const panelCenterY = panel.y + panel.h / 2;
+
       ctx.save();
 
-      ctx.globalAlpha = 0.78;
-      ctx.fillStyle = UI_COLORS.overlay;
+      const overlayGradient = ctx.createRadialGradient(
+        W / 2,
+        H / 2,
+        Math.min(W, H) * 0.1,
+        W / 2,
+        H / 2,
+        Math.max(W, H),
+      );
+      overlayGradient.addColorStop(0, "rgba(6, 10, 18, 0.55)");
+      overlayGradient.addColorStop(0.45, "rgba(4, 8, 16, 0.82)");
+      overlayGradient.addColorStop(1, "rgba(2, 4, 9, 0.94)");
+      ctx.globalAlpha = 0.88 * fade;
+      ctx.fillStyle = overlayGradient;
       ctx.fillRect(0, 0, W, H);
       ctx.globalAlpha = 1;
+
+      if (fade > 0) {
+        ctx.save();
+        ctx.translate(panelCenterX, panelCenterY);
+        ctx.globalCompositeOperation = "lighter";
+        ctx.globalAlpha = 0.5 * fade;
+        const swirlRadius = Math.max(panel.w, panel.h) * 0.95;
+        const swirlCount = 6;
+        const rayWidth = (Math.PI * 0.8) / swirlCount;
+        const baseRotation = gameState.time * 0.9;
+        const innerGlow = hexToRgba(rarityColor, 0.45);
+        const midGlow = hexToRgba(rarityColor, 0.16);
+        for (let i = 0; i < swirlCount; i++) {
+          const angle = baseRotation + (i * Math.PI * 2) / swirlCount;
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.arc(0, 0, swirlRadius, angle - rayWidth / 2, angle + rayWidth / 2);
+          ctx.closePath();
+          const glowGradient = ctx.createRadialGradient(0, 0, swirlRadius * 0.08, 0, 0, swirlRadius);
+          glowGradient.addColorStop(0, innerGlow);
+          glowGradient.addColorStop(0.6, midGlow);
+          glowGradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+          ctx.fillStyle = glowGradient;
+          ctx.fill();
+        }
+        ctx.restore();
+        ctx.globalCompositeOperation = "source-over";
+        ctx.globalAlpha = 1;
+      }
 
       const drawRoundedRectPath = (x: number, y: number, w: number, h: number, r: number) => {
         const radius = Math.min(r, w / 2, h / 2);
@@ -7266,6 +7362,64 @@ const Index = () => {
         ctx.quadraticCurveTo(x, y, x + radius, y);
         ctx.closePath();
       };
+
+      const fitTextWithinWidth = (
+        text: string,
+        {
+          weight,
+          baseSize,
+          minSize,
+          maxWidth,
+          padding = 0,
+        }: {
+          weight: string;
+          baseSize: number;
+          minSize: number;
+          maxWidth: number;
+          padding?: number;
+        },
+      ) => {
+        let size = baseSize;
+        let font = `${weight} ${size}px system-ui`;
+        let displayText = text;
+        ctx.font = font;
+        let measured = ctx.measureText(displayText).width + padding;
+
+        while (size > minSize && measured > maxWidth) {
+          size -= 1;
+          font = `${weight} ${size}px system-ui`;
+          ctx.font = font;
+          measured = ctx.measureText(displayText).width + padding;
+        }
+
+        if (measured > maxWidth) {
+          const ellipsis = "…";
+          let trimmed = displayText;
+          while (trimmed.length > 1) {
+            trimmed = trimmed.slice(0, -1);
+            const candidate = `${trimmed}${ellipsis}`;
+            const candidateWidth = ctx.measureText(candidate).width + padding;
+            if (candidateWidth <= maxWidth) {
+              displayText = candidate;
+              measured = candidateWidth;
+              break;
+            }
+          }
+          if (measured > maxWidth) {
+            displayText = ellipsis;
+            measured = ctx.measureText(displayText).width + padding;
+          }
+        }
+
+        ctx.font = font;
+        return { font, text: displayText, width: measured };
+      };
+
+      ctx.save();
+      ctx.translate(panelCenterX, panelCenterY);
+      ctx.scale(panelScale, panelScale);
+      ctx.translate(-panelCenterX, -panelCenterY);
+      ctx.globalAlpha = Math.min(1, 0.35 + fade * 0.75);
 
       const panelGradient = ctx.createLinearGradient(panel.x, panel.y, panel.x, panel.y + panel.h);
       panelGradient.addColorStop(0, "rgba(15, 23, 42, 0.96)");
@@ -7323,8 +7477,14 @@ const Index = () => {
       ctx.fill();
 
       const rarityLabel = choice.item.rarity.toUpperCase();
-      ctx.font = "600 13px system-ui";
-      const rarityLabelWidth = ctx.measureText(rarityLabel).width + 28;
+      const rarityFit = fitTextWithinWidth(rarityLabel, {
+        weight: "600",
+        baseSize: 13,
+        minSize: 11,
+        maxWidth: cardW - 40,
+        padding: 28,
+      });
+      const rarityLabelWidth = rarityFit.width;
       const rarityLabelHeight = 28;
       const rarityLabelX = cardX + cardW / 2 - rarityLabelWidth / 2;
       const rarityLabelY = cardY - rarityLabelHeight / 2;
@@ -7335,11 +7495,18 @@ const Index = () => {
       ctx.strokeStyle = `${rarityColor}aa`;
       ctx.stroke();
       ctx.fillStyle = rarityColor;
-      ctx.fillText(rarityLabel, rarityLabelX + rarityLabelWidth / 2, rarityLabelY + rarityLabelHeight / 2 + 4);
+      ctx.font = rarityFit.font;
+      ctx.fillText(rarityFit.text, rarityLabelX + rarityLabelWidth / 2, rarityLabelY + rarityLabelHeight / 2 + 4);
 
+      const nameFit = fitTextWithinWidth(itemText.name, {
+        weight: "600",
+        baseSize: 30,
+        minSize: 18,
+        maxWidth: cardW - 48,
+      });
       ctx.fillStyle = "#f8fafc";
-      ctx.font = "600 30px system-ui";
-      ctx.fillText(itemText.name, cardX + cardW / 2, cardY + 68);
+      ctx.font = nameFit.font;
+      ctx.fillText(nameFit.text, cardX + cardW / 2, cardY + 68);
 
       ctx.fillStyle = "rgba(226, 232, 240, 0.92)";
       ctx.font = "16px system-ui";
@@ -7406,6 +7573,7 @@ const Index = () => {
         disabled: gameState.chestSkipsRemaining <= 0,
       });
 
+      ctx.restore();
       ctx.restore();
     }
 
