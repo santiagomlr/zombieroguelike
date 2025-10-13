@@ -1060,6 +1060,8 @@ const Index = () => {
       upgradeUIAnimation: 0,
       xpBarRainbow: false,
       minimapOpacity: 0,
+      minimapDetailLevel: 0,
+      minimapHeading: 0,
       restartTimer: 0,
       restartHoldTime: 2, // 2 segundos para reiniciar sosteniendo R
       gameOverTimer: 0,
@@ -1858,6 +1860,8 @@ const Index = () => {
       gameState.xpBarRainbow = false;
       gameState.difficulty.notification = 0;
       gameState.minimapOpacity = 0;
+      gameState.minimapDetailLevel = 0;
+      gameState.minimapHeading = 0;
       gameState.itemNotification = "";
       gameState.itemNotificationTimer = 0;
       gameState.musicMuted = false;
@@ -3775,13 +3779,17 @@ const Index = () => {
         getItemStacks("horizonscanner") + getItemStacks(HORIZON_VISOR_ITEM.id);
       const stats = gameState.player.stats;
 
+      const minimapDetailLevel = totalStacks >= 2 ? 2 : totalStacks >= 1 ? 1 : 0;
+
       stats.cameraZoomMultiplier = totalStacks >= 1 ? 0.7 : 1;
 
       if (gameState.camera) {
         gameState.camera.zoom = getTargetCameraZoom();
       }
 
-      gameState.minimapOpacity = totalStacks >= 2 ? 1 : 0;
+      gameState.minimapDetailLevel = minimapDetailLevel;
+      gameState.minimapOpacity =
+        minimapDetailLevel === 2 ? 1 : minimapDetailLevel === 1 ? 0.45 : 0;
     }
 
     function applyItemEffect(item: Item) {
@@ -9381,27 +9389,46 @@ const Index = () => {
                 };
               });
 
+        if (gameState.player) {
+          const { vx, vy } = gameState.player;
+          if (Math.abs(vx) > 0.05 || Math.abs(vy) > 0.05) {
+            gameState.minimapHeading = Math.atan2(vy, vx);
+          }
+        }
+
         const minimapPlayer: MinimapEntity | null = gameState.player
           ? {
               x: gameState.player.x,
               y: gameState.player.y,
               radius: gameState.player.rad,
               color: UI_COLORS.minimap,
+              variant: "player",
             }
           : null;
 
-        const minimapEnemies: MinimapEntity[] = visibleEnemies.map((enemy) => ({
-          x: enemy.x,
-          y: enemy.y,
-          radius: enemy.rad,
-          color: enemy.isBoss ? BOSS_COLOR : enemy.color,
-        }));
+        const minimapEnemies: MinimapEntity[] = [];
+        const minimapBosses: MinimapEntity[] = [];
+        for (const enemy of visibleEnemies) {
+          const entity: MinimapEntity = {
+            x: enemy.x,
+            y: enemy.y,
+            radius: enemy.rad,
+            color: enemy.isBoss ? BOSS_COLOR : enemy.color,
+            variant: enemy.isBoss ? "boss" : "enemy",
+          };
+          if (enemy.isBoss) {
+            minimapBosses.push(entity);
+          } else {
+            minimapEnemies.push(entity);
+          }
+        }
 
         const minimapDrops: MinimapEntity[] = visibleDrops.map((drop) => ({
           x: drop.x,
           y: drop.y,
           radius: drop.rad,
           color: drop.color,
+          variant: "drop",
         }));
 
         if (gameState.bossPortal?.active) {
@@ -9427,15 +9454,37 @@ const Index = () => {
           y: hotspot.y,
           radius: hotspot.rad,
           color: hotspot.isNegative ? "#ef4444" : hotspot.isRadioactive ? "#8e44ad" : "#ffc300",
+          variant: hotspot.isNegative
+            ? "hotspot-danger"
+            : hotspot.isRadioactive
+              ? "hotspot-radioactive"
+              : "hotspot-objective",
+          pulse: hotspot.active ? 1 : 0,
         }));
+
+        const minimapPortals: MinimapEntity[] = [];
+        const chestPortal = gameState.activeChestChoice?.chestPosition;
+        if (chestPortal) {
+          minimapPortals.push({
+            x: chestPortal.x,
+            y: chestPortal.y,
+            radius: 22,
+            color: "#60a5fa",
+            variant: "portal",
+          });
+        }
 
         const minimapFrame: MinimapFrame = {
           worldWidth: gameState.worldWidth,
           worldHeight: gameState.worldHeight,
           player: minimapPlayer,
           enemies: minimapEnemies,
+          bosses: minimapBosses,
           drops: minimapDrops,
           hotspots: minimapHotspots,
+          portals: minimapPortals,
+          playerHeading: gameState.minimapHeading ?? 0,
+          detailLevel: gameState.minimapDetailLevel ?? 0,
           opacity: gameState.showUpgradeUI
             ? 0
             : Math.max(0, Math.min(1, gameState.minimapOpacity ?? 0)),
