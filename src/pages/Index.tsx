@@ -190,7 +190,7 @@ const CRT_SETTINGS = {
   chromaShift: 1.5,
 };
 
-const MUSIC_CONTROL_KEYS = ["start", "previous", "pause", "next"] as const;
+const MUSIC_CONTROL_KEYS = ["toggle", "play", "skip"] as const;
 type MusicControlKey = (typeof MUSIC_CONTROL_KEYS)[number];
 
 type AuditLog = {
@@ -546,9 +546,9 @@ const drawRoundedRect = (
   ctx.closePath();
 };
 
-const getMusicStartButtonRect = (W: number, H: number) => {
-  const width = 170;
-  const height = 48;
+const getMusicMenuButtonRect = (W: number, H: number) => {
+  const width = 160;
+  const height = 44;
   const marginX = 20;
   const marginY = 72;
 
@@ -560,11 +560,15 @@ const getMusicStartButtonRect = (W: number, H: number) => {
   };
 };
 
-const getMusicControlPanelRect = (W: number, H: number) => {
-  const width = 220;
-  const height = 76;
+const getMusicControlPanelRect = (W: number, H: number, trackCount: number) => {
+  const width = 260;
+  const baseHeight = 120;
+  const rowHeight = 32;
   const marginX = 20;
   const marginY = 82;
+  const calculatedHeight = baseHeight + Math.max(0, trackCount) * rowHeight;
+  const maxHeight = H - marginY - 20;
+  const height = Math.min(calculatedHeight, Math.max(baseHeight + rowHeight, maxHeight));
 
   return {
     x: W - width - marginX,
@@ -573,6 +577,11 @@ const getMusicControlPanelRect = (W: number, H: number) => {
     h: height,
   };
 };
+
+const MUSIC_MENU_CONTROL_SIZE = 42;
+const MUSIC_MENU_CONTROL_GAP = 12;
+const MUSIC_MENU_PANEL_PADDING_X = 16;
+const MUSIC_MENU_TRACK_ROW_HEIGHT = 28;
 
 const Index = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -955,8 +964,6 @@ const Index = () => {
       ],
       currentMusicIndex: 0,
       music: null as HTMLAudioElement | null,
-      musicNotification: "",
-      musicNotificationTimer: 0,
       itemNotification: "",
       itemNotificationTimer: 0,
       musicMuted: false,
@@ -965,13 +972,12 @@ const Index = () => {
       musicStarted: false, // Flag para saber si el usuario ya inició la música
       musicIsPlaying: false,
       musicButtonClickAnim: {
-        start: 0,
-        previous: 0,
-        pause: 0,
-        next: 0,
+        toggle: 0,
+        play: 0,
+        skip: 0,
       } as Record<MusicControlKey, number>,
       musicControlsVisible: false,
-      musicLastPointerTime: 0,
+      musicQueue: [] as number[],
       sfxMuted: false,
       playerImg: null as HTMLImageElement | null,
       mediumZombieImg: null as HTMLImageElement | null,
@@ -1304,8 +1310,10 @@ const Index = () => {
       if (musicListenersCleanup.length === 0) {
         musicListenersCleanup.push(
           audioManager.addMusicEventListener("background", "ended", () => {
-            gameState.currentMusicIndex = (gameState.currentMusicIndex + 1) % gameState.musicTracks.length;
-            playTrackAtCurrentIndex();
+            if (!gameState.musicStarted) {
+              return;
+            }
+            playNextTrack({ avoidIndex: gameState.currentMusicIndex, resetPosition: true });
           }),
           audioManager.addMusicEventListener("background", "play", () => {
             gameState.musicIsPlaying = true;
@@ -1321,10 +1329,102 @@ const Index = () => {
       }
     }
 
+    const shuffleIndices = (count: number) => {
+      const indices = Array.from({ length: count }, (_, i) => i);
+      for (let i = indices.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [indices[i], indices[j]] = [indices[j], indices[i]];
+      }
+      return indices;
+    };
+
+    const ensureMusicQueue = (excludeIndex: number | null) => {
+      const trackCount = gameState.musicTracks.length;
+      if (trackCount === 0) {
+        gameState.musicQueue = [];
+        return;
+      }
+      if (gameState.musicQueue.length === 0) {
+        const queue = shuffleIndices(trackCount);
+        if (excludeIndex !== null && trackCount > 1 && queue[0] === excludeIndex) {
+          const swapIndex = queue.findIndex((idx) => idx !== excludeIndex);
+          if (swapIndex > 0) {
+            [queue[0], queue[swapIndex]] = [queue[swapIndex], queue[0]];
+          }
+        }
+        gameState.musicQueue = queue;
+      }
+    };
+
+    const pickNextTrackIndex = (
+      options: { forceIndex?: number; avoidIndex?: number | null } = {},
+    ) => {
+      const trackCount = gameState.musicTracks.length;
+      if (trackCount === 0) {
+        return null;
+      }
+
+      if (options.forceIndex !== undefined) {
+        if (options.forceIndex < 0 || options.forceIndex >= trackCount) {
+          return null;
+        }
+        gameState.musicQueue = gameState.musicQueue.filter((idx) => idx !== options.forceIndex);
+        return options.forceIndex;
+      }
+
+      const avoidIndex = options.avoidIndex ?? (trackCount > 1 ? gameState.currentMusicIndex : null);
+      ensureMusicQueue(avoidIndex ?? null);
+
+      if (gameState.musicQueue.length === 0) {
+        return avoidIndex ?? 0;
+      }
+
+      let nextIndex = gameState.musicQueue.shift()!;
+      if (avoidIndex !== null && trackCount > 1 && nextIndex === avoidIndex) {
+        const alternative = gameState.musicQueue.find((idx) => idx !== avoidIndex);
+        if (alternative !== undefined) {
+          gameState.musicQueue = gameState.musicQueue.filter((idx) => idx !== alternative);
+          gameState.musicQueue.push(nextIndex);
+          nextIndex = alternative;
+        }
+      }
+
+      return nextIndex;
+    };
+
+    const playNextTrack = (
+      options: { forceIndex?: number; avoidIndex?: number | null; resetPosition?: boolean } = {},
+    ) => {
+      if (options.forceIndex !== undefined) {
+        gameState.musicQueue = [];
+      }
+
+      const nextIndex = pickNextTrackIndex({
+        forceIndex: options.forceIndex,
+        avoidIndex: options.avoidIndex,
+      });
+
+      if (nextIndex === null) {
+        return;
+      }
+
+      gameState.currentMusicIndex = nextIndex;
+      ensureMusicQueue(nextIndex);
+      gameState.musicStarted = true;
+      playTrackAtCurrentIndex(options.resetPosition ?? true);
+    };
+
     function playTrackAtCurrentIndex(resetPosition: boolean = true) {
       if (!gameState.musicStarted) return;
 
       const track = gameState.musicTracks[gameState.currentMusicIndex];
+
+      if (!track) {
+        return;
+      }
+
+      audioManager.stopMusic("background");
+      gameState.musicIsPlaying = false;
 
       audioManager.setMusicVolume("background", gameState.musicVolume);
       audioManager.setMusicMuted("background", gameState.musicMuted);
@@ -1341,10 +1441,6 @@ const Index = () => {
 
       const element = audioManager.getMusicElement("background");
       gameState.music = element ?? null;
-
-      // Mostrar notificación
-      gameState.musicNotification = track.name;
-      gameState.musicNotificationTimer = 3; // 3 segundos
     }
 
     // Inicializar música pero sin auto-play
@@ -1599,7 +1695,6 @@ const Index = () => {
       gameState.xpBarRainbow = false;
       gameState.waveNotification = 0;
       gameState.minimapOpacity = 0;
-      gameState.musicNotificationTimer = 0;
       gameState.itemNotification = "";
       gameState.itemNotificationTimer = 0;
       gameState.musicMuted = false;
@@ -1649,17 +1744,24 @@ const Index = () => {
       audioManager.stopMusic("gameOver");
       gameState.gameOverMusic = audioManager.getMusicElement("gameOver");
       if (gameState.musicStarted) {
+        const backgroundElement = audioManager.getMusicElement("background");
+        gameState.music = backgroundElement ?? null;
         audioManager.setMusicMuted("background", gameState.musicMuted);
         audioManager.setMusicVolume("background", gameState.musicVolume);
+
         if (!gameState.musicMuted) {
-          audioManager
-            .resumeMusic("background")
-            .then(() => {
-              gameState.musicIsPlaying = true;
-            })
-            .catch(() => {
-              gameState.musicIsPlaying = false;
-            });
+          if (backgroundElement && backgroundElement.paused) {
+            audioManager
+              .resumeMusic("background")
+              .then(() => {
+                gameState.musicIsPlaying = true;
+              })
+              .catch(() => {
+                gameState.musicIsPlaying = false;
+              });
+          } else {
+            gameState.musicIsPlaying = Boolean(backgroundElement && !backgroundElement.paused);
+          }
         } else {
           gameState.musicIsPlaying = false;
         }
@@ -3590,109 +3692,82 @@ const Index = () => {
 
       // Controles de música (solo cuando el juego está corriendo)
       if (gameState.state === "running") {
-        if (!gameState.musicStarted) {
-          const startRect = getMusicStartButtonRect(W, H);
+        const menuButtonRect = getMusicMenuButtonRect(W, H);
+        if (pointInRect(menuButtonRect)) {
+          gameState.musicControlsVisible = !gameState.musicControlsVisible;
+          gameState.musicButtonClickAnim.toggle = 1;
+          return;
+        }
 
-          if (
-            mx >= startRect.x &&
-            mx <= startRect.x + startRect.w &&
-            my >= startRect.y &&
-            my <= startRect.y + startRect.h
-          ) {
-            gameState.musicStarted = true;
-            gameState.musicControlsVisible = true;
-            gameState.musicLastPointerTime = gameState.time;
-            gameState.musicButtonClickAnim.start = 1;
-            playTrackAtCurrentIndex();
-            return;
-          }
-        } else {
-          if (!gameState.musicControlsVisible) {
-            return;
-          }
-          const panelRect = getMusicControlPanelRect(W, H);
-          const controlsPaddingY = 16;
-          const controlSize = 44;
-          const controlGap = 12;
-          const controlY = panelRect.y + controlsPaddingY;
-          const totalControlsWidth = controlSize * 3 + controlGap * 2;
+        if (gameState.musicControlsVisible) {
+          const trackCount = gameState.musicTracks.length;
+          const panelRect = getMusicControlPanelRect(W, H, trackCount);
+          const totalControlsWidth = MUSIC_MENU_CONTROL_SIZE * 2 + MUSIC_MENU_CONTROL_GAP;
           const controlsStartX = panelRect.x + (panelRect.w - totalControlsWidth) / 2;
+          const controlsY = panelRect.y + 54;
 
-          const previousBtn = {
+          const playBtn = {
             x: controlsStartX,
-            y: controlY,
-            w: controlSize,
-            h: controlSize,
+            y: controlsY,
+            w: MUSIC_MENU_CONTROL_SIZE,
+            h: MUSIC_MENU_CONTROL_SIZE,
           };
-          const pauseBtn = {
-            x: previousBtn.x + controlSize + controlGap,
-            y: controlY,
-            w: controlSize,
-            h: controlSize,
-          };
-          const nextBtn = {
-            x: pauseBtn.x + controlSize + controlGap,
-            y: controlY,
-            w: controlSize,
-            h: controlSize,
+          const skipBtn = {
+            x: controlsStartX + MUSIC_MENU_CONTROL_SIZE + MUSIC_MENU_CONTROL_GAP,
+            y: controlsY,
+            w: MUSIC_MENU_CONTROL_SIZE,
+            h: MUSIC_MENU_CONTROL_SIZE,
           };
 
-          if (pointInRect(previousBtn)) {
-            if (gameState.musicTracks.length > 0) {
-              gameState.musicControlsVisible = true;
-              gameState.musicLastPointerTime = gameState.time;
-              gameState.musicButtonClickAnim.previous = 1;
-              gameState.currentMusicIndex =
-                (gameState.currentMusicIndex - 1 + gameState.musicTracks.length) % gameState.musicTracks.length;
-              playTrackAtCurrentIndex();
-            }
-            return;
-          }
-
-          if (pointInRect(nextBtn)) {
-            if (gameState.musicTracks.length > 0) {
-              gameState.musicControlsVisible = true;
-              gameState.musicLastPointerTime = gameState.time;
-              gameState.musicButtonClickAnim.next = 1;
-              gameState.currentMusicIndex = (gameState.currentMusicIndex + 1) % gameState.musicTracks.length;
-              playTrackAtCurrentIndex();
-            }
-            return;
-          }
-
-          if (pointInRect(pauseBtn)) {
-            gameState.musicControlsVisible = true;
-            gameState.musicLastPointerTime = gameState.time;
-            gameState.musicButtonClickAnim.pause = 1;
-            const musicElement = audioManager.getMusicElement("background");
-            gameState.music = musicElement ?? null;
-            if (musicElement) {
-              if (gameState.musicIsPlaying) {
-                audioManager.pauseMusic("background");
-                gameState.musicIsPlaying = false;
+          if (pointInRect(playBtn)) {
+            gameState.musicButtonClickAnim.play = 1;
+            if (!gameState.musicStarted) {
+              playNextTrack({ avoidIndex: null, resetPosition: true });
+            } else if (gameState.musicIsPlaying) {
+              audioManager.pauseMusic("background");
+              gameState.musicIsPlaying = false;
+            } else {
+              const musicElement = audioManager.getMusicElement("background");
+              gameState.music = musicElement ?? null;
+              if (musicElement?.ended) {
+                playNextTrack({ avoidIndex: gameState.currentMusicIndex, resetPosition: true });
               } else {
-                if (musicElement.ended) {
-                  playTrackAtCurrentIndex();
-                } else {
-                  audioManager.setMusicMuted("background", gameState.musicMuted);
-                  audioManager.setMusicVolume("background", gameState.musicVolume);
-                  audioManager
-                    .resumeMusic("background")
-                    .then(() => {
-                      gameState.musicIsPlaying = true;
-                    })
-                    .catch((e) => {
-                      console.warn("Audio resume failed:", e);
-                      gameState.musicIsPlaying = false;
-                    });
-                }
-                if (gameState.musicTracks[gameState.currentMusicIndex]) {
-                  gameState.musicNotification = gameState.musicTracks[gameState.currentMusicIndex].name;
-                  gameState.musicNotificationTimer = 2;
-                }
+                audioManager.setMusicMuted("background", gameState.musicMuted);
+                audioManager.setMusicVolume("background", gameState.musicVolume);
+                audioManager
+                  .resumeMusic("background")
+                  .then(() => {
+                    gameState.musicIsPlaying = true;
+                  })
+                  .catch((e) => {
+                    console.warn("Audio resume failed:", e);
+                    gameState.musicIsPlaying = false;
+                  });
               }
             }
             return;
+          }
+
+          if (pointInRect(skipBtn)) {
+            if (trackCount > 0) {
+              gameState.musicButtonClickAnim.skip = 1;
+              playNextTrack({ avoidIndex: gameState.musicStarted ? gameState.currentMusicIndex : null, resetPosition: true });
+            }
+            return;
+          }
+
+          const trackStartY = controlsY + MUSIC_MENU_CONTROL_SIZE + 36;
+          for (let i = 0; i < trackCount; i++) {
+            const trackRect = {
+              x: panelRect.x + MUSIC_MENU_PANEL_PADDING_X,
+              y: trackStartY + i * MUSIC_MENU_TRACK_ROW_HEIGHT,
+              w: panelRect.w - MUSIC_MENU_PANEL_PADDING_X * 2,
+              h: MUSIC_MENU_TRACK_ROW_HEIGHT,
+            };
+            if (pointInRect(trackRect)) {
+              playNextTrack({ forceIndex: i, avoidIndex: i, resetPosition: true });
+              return;
+            }
           }
         }
       }
@@ -3864,14 +3939,6 @@ const Index = () => {
       }
     });
 
-    const handlePointerMove = () => {
-      if (!gameState.musicStarted) return;
-      gameState.musicControlsVisible = true;
-      gameState.musicLastPointerTime = gameState.time;
-    };
-
-    canvas.addEventListener("mousemove", handlePointerMove);
-
     const handlePauseMenuScroll = (e: WheelEvent) => {
       // Simplified - no scrolling needed in new design
       e.preventDefault();
@@ -3895,23 +3962,11 @@ const Index = () => {
         }
       }
 
-      if (gameState.musicStarted && gameState.musicControlsVisible) {
-        const idleDuration = 1.5;
-        if (gameState.time - gameState.musicLastPointerTime > idleDuration) {
-          gameState.musicControlsVisible = false;
-        }
-      }
-
       // Animations que deben correr siempre
       if (gameState.levelUpAnimation > 0) gameState.levelUpAnimation = Math.max(0, gameState.levelUpAnimation - dt * 2);
       if (gameState.upgradeAnimation > 0) gameState.upgradeAnimation = Math.max(0, gameState.upgradeAnimation - dt);
       if (gameState.upgradeUIAnimation < 1 && gameState.showUpgradeUI)
         gameState.upgradeUIAnimation = Math.min(1, gameState.upgradeUIAnimation + dt * 3);
-
-      // Music notification timer
-      if (gameState.musicNotificationTimer > 0) {
-        gameState.musicNotificationTimer = Math.max(0, gameState.musicNotificationTimer - dt);
-      }
 
       if (gameState.itemNotificationTimer > 0) {
         gameState.itemNotificationTimer = Math.max(0, gameState.itemNotificationTimer - dt);
@@ -6944,40 +6999,6 @@ const Index = () => {
         ctx.globalAlpha = 1;
       }
 
-      // Notificación de música
-      if (gameState.musicNotificationTimer > 0) {
-        const notifAlpha = Math.min(1, gameState.musicNotificationTimer);
-        ctx.globalAlpha = notifAlpha;
-
-        const notifY = 120;
-        const notifPadding = 20;
-        const notifText = gameState.musicNotification;
-
-        ctx.font = "bold 24px system-ui";
-        ctx.textAlign = "center";
-        const textMetrics = ctx.measureText(notifText);
-        const notifW = textMetrics.width + notifPadding * 2;
-        const notifH = 50;
-        const notifX = W / 2 - notifW / 2;
-
-        // Background
-        ctx.fillStyle = UI_COLORS.panelBg;
-        ctx.beginPath();
-        drawRoundedRect(ctx, notifX, notifY, notifW, notifH, 10);
-        ctx.fill();
-
-        // Border
-        ctx.strokeStyle = accentColor;
-        ctx.lineWidth = 2;
-        ctx.stroke();
-
-        // Text
-        ctx.fillStyle = textPrimary;
-        ctx.fillText(notifText, W / 2, notifY + notifH / 2 + 8);
-
-        ctx.globalAlpha = 1;
-      }
-
       if (gameState.itemNotificationTimer > 0 && gameState.itemNotification) {
         const notifAlpha = Math.min(1, gameState.itemNotificationTimer);
         ctx.globalAlpha = notifAlpha;
@@ -7012,118 +7033,216 @@ const Index = () => {
       }
 
       // Controles de música (esquina inferior derecha)
+      const menuButtonRect = getMusicMenuButtonRect(W, H);
+      const buttonCenterX = menuButtonRect.x + menuButtonRect.w / 2;
+      const buttonCenterY = menuButtonRect.y + menuButtonRect.h / 2;
+      const toggleAnim = gameState.musicButtonClickAnim.toggle ?? 0;
+      const toggleScale = 1 - toggleAnim * 0.08;
+
+      ctx.save();
+      ctx.translate(buttonCenterX, buttonCenterY);
+      ctx.scale(toggleScale, toggleScale);
+      ctx.translate(-buttonCenterX, -buttonCenterY);
+      ctx.beginPath();
+      drawRoundedRect(ctx, menuButtonRect.x, menuButtonRect.y, menuButtonRect.w, menuButtonRect.h, 12);
+      ctx.fillStyle = gameState.musicControlsVisible ? "rgba(15, 23, 42, 0.9)" : "rgba(15, 23, 42, 0.72)";
+      ctx.fill();
+      ctx.strokeStyle = gameState.musicControlsVisible ? "rgba(148, 163, 184, 0.55)" : "rgba(71, 85, 105, 0.52)";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.restore();
+
+      const statusColor = !gameState.musicStarted
+        ? "rgba(148, 163, 184, 0.85)"
+        : gameState.musicIsPlaying
+        ? "#22c55e"
+        : "#facc15";
+
+      ctx.save();
+      ctx.fillStyle = statusColor;
+      ctx.beginPath();
+      ctx.arc(menuButtonRect.x + 12, menuButtonRect.y + menuButtonRect.h / 2, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      ctx.save();
       ctx.textAlign = "center";
-      if (!gameState.musicStarted) {
-        const startRect = getMusicStartButtonRect(W, H);
-        const clickAnim = gameState.musicButtonClickAnim.start ?? 0;
-        const scaleFactor = 1 - clickAnim * 0.12;
-        const centerX = startRect.x + startRect.w / 2;
-        const centerY = startRect.y + startRect.h / 2;
+      ctx.font = "600 14px system-ui";
+      ctx.fillStyle = "rgba(226, 232, 240, 0.92)";
+      ctx.fillText(t.musicControls.buttonLabel, buttonCenterX, menuButtonRect.y + menuButtonRect.h / 2 + 5);
+      ctx.restore();
+
+      if (gameState.musicControlsVisible) {
+        const trackCount = gameState.musicTracks.length;
+        const panelRect = getMusicControlPanelRect(W, H, trackCount);
+        const panelRadius = 14;
 
         ctx.save();
-        ctx.translate(centerX, centerY);
-        ctx.scale(scaleFactor, scaleFactor);
-        ctx.translate(-centerX, -centerY);
-
-          ctx.beginPath();
-          drawRoundedRect(ctx, startRect.x, startRect.y, startRect.w, startRect.h, 14);
-          ctx.fillStyle = UI_COLORS.panelBg;
-          ctx.fill();
-
-          ctx.strokeStyle = UI_COLORS.panelBorder;
-          ctx.lineWidth = 2;
-          ctx.stroke();
-          ctx.restore();
-
-          ctx.save();
-          ctx.textAlign = "center";
-          ctx.fillStyle = textPrimary;
-          ctx.font = "600 16px system-ui";
-          ctx.fillText(t.startMusicButton, centerX, startRect.y + startRect.h / 2 + 2);
-
-          ctx.font = "12px system-ui";
-          ctx.fillStyle = textSecondary;
-          ctx.fillText(t.shufflePlaylistReady, centerX, startRect.y + startRect.h - 10);
-          ctx.restore();
-      } else if (gameState.musicControlsVisible) {
-        const panelRect = getMusicControlPanelRect(W, H);
-        const panelRadius = 16;
-
-        ctx.save();
-          ctx.beginPath();
-          drawRoundedRect(ctx, panelRect.x, panelRect.y, panelRect.w, panelRect.h, panelRadius);
-          ctx.fillStyle = UI_COLORS.panelBg;
-          ctx.fill();
-
-          ctx.strokeStyle = UI_COLORS.panelBorder;
-          ctx.lineWidth = 2;
-          ctx.stroke();
+        ctx.beginPath();
+        drawRoundedRect(ctx, panelRect.x, panelRect.y, panelRect.w, panelRect.h, panelRadius);
+        ctx.fillStyle = "rgba(15, 23, 42, 0.92)";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(100, 116, 139, 0.45)";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
         ctx.restore();
 
-        const controlSize = 44;
-        const controlGap = 12;
-        const totalControlsWidth = controlSize * 3 + controlGap * 2;
-        const controlStartX = panelRect.x + (panelRect.w - totalControlsWidth) / 2;
-        const controlY = panelRect.y + 16;
-
-        const rainbowColors = ["#2e86c1", "#5dbb63", "#ffc300", "#ff7a2a", "#8e44ad"];
-
-        const controls: Array<{ key: "previous" | "pause" | "next"; icon: string; index: number }> = [
-          { key: "previous", icon: "⏮", index: 0 },
-          { key: "pause", icon: gameState.musicIsPlaying ? "⏸" : "▶", index: 1 },
-          { key: "next", icon: "⏭", index: 2 },
-        ];
+        const headerX = panelRect.x + MUSIC_MENU_PANEL_PADDING_X;
+        const titleY = panelRect.y + 24;
 
         ctx.save();
-        ctx.textAlign = "center";
-        ctx.font = "600 24px system-ui";
+        ctx.textAlign = "left";
+        ctx.font = "600 14px system-ui";
+        ctx.fillStyle = "rgba(226, 232, 240, 0.92)";
+        ctx.fillText(t.musicControls.menuTitle, headerX, titleY);
+        ctx.restore();
 
-        controls.forEach((control) => {
-          const btnX = controlStartX + control.index * (controlSize + controlGap);
-          const btnY = controlY;
-          const centerX = btnX + controlSize / 2;
-          const centerY = btnY + controlSize / 2;
-          const clickAnim = gameState.musicButtonClickAnim[control.key] ?? 0;
-          const scaleFactor = 1 - clickAnim * 0.14;
+        const statusY = titleY + 18;
+        const currentTrack = gameState.musicTracks[gameState.currentMusicIndex];
+        const statusText = gameState.musicStarted && currentTrack
+          ? `${t.musicControls.nowPlaying}: ${currentTrack.name}`
+          : t.musicControls.selectTrack;
+
+        ctx.save();
+        ctx.textAlign = "left";
+        ctx.font = "12px system-ui";
+        ctx.fillStyle = "rgba(148, 163, 184, 0.85)";
+        ctx.fillText(statusText, headerX, statusY);
+        ctx.restore();
+
+        const totalControlsWidth = MUSIC_MENU_CONTROL_SIZE * 2 + MUSIC_MENU_CONTROL_GAP;
+        const controlsStartX = panelRect.x + (panelRect.w - totalControlsWidth) / 2;
+        const controlsY = panelRect.y + 54;
+
+        const playRect = {
+          x: controlsStartX,
+          y: controlsY,
+          w: MUSIC_MENU_CONTROL_SIZE,
+          h: MUSIC_MENU_CONTROL_SIZE,
+        };
+        const skipRect = {
+          x: controlsStartX + MUSIC_MENU_CONTROL_SIZE + MUSIC_MENU_CONTROL_GAP,
+          y: controlsY,
+          w: MUSIC_MENU_CONTROL_SIZE,
+          h: MUSIC_MENU_CONTROL_SIZE,
+        };
+
+        const drawControlButton = (
+          rect: { x: number; y: number; w: number; h: number },
+          icon: string,
+          animValue: number,
+          highlighted: boolean,
+        ) => {
+          const centerX = rect.x + rect.w / 2;
+          const centerY = rect.y + rect.h / 2;
+          const scale = 1 - animValue * 0.12;
 
           ctx.save();
           ctx.translate(centerX, centerY);
-          ctx.scale(scaleFactor, scaleFactor);
+          ctx.scale(scale, scale);
           ctx.translate(-centerX, -centerY);
 
-          const roundedRadius = 12;
           ctx.beginPath();
-          drawRoundedRect(ctx, btnX, btnY, controlSize, controlSize, roundedRadius);
-
-          if (clickAnim > 0) {
-            const shift = ((gameState.time * 70 + control.index * 40) % controlSize) / controlSize;
-            const gradient = ctx.createLinearGradient(
-              btnX - shift * controlSize,
-              btnY,
-              btnX + controlSize - shift * controlSize,
-              btnY,
-            );
-            rainbowColors.forEach((color, colorIndex) => {
-              gradient.addColorStop(colorIndex / (rainbowColors.length - 1), color);
-            });
-            ctx.fillStyle = gradient;
-          } else {
-            ctx.fillStyle = "rgba(71, 85, 105, 0.98)";
-          }
-
+          drawRoundedRect(ctx, rect.x, rect.y, rect.w, rect.h, 10);
+          ctx.fillStyle = highlighted ? "rgba(148, 163, 184, 0.18)" : "rgba(30, 41, 59, 0.92)";
           ctx.fill();
-
-          ctx.strokeStyle = "rgba(15, 23, 42, 0.55)";
-          ctx.lineWidth = 2;
+          ctx.strokeStyle = highlighted ? "rgba(226, 232, 240, 0.45)" : "rgba(51, 65, 85, 0.65)";
+          ctx.lineWidth = 1.5;
           ctx.stroke();
 
-          ctx.fillStyle = clickAnim > 0 ? "#0f172a" : "#e2e8f0";
-          ctx.fillText(control.icon, btnX + controlSize / 2, btnY + controlSize / 2 + 7);
+          ctx.fillStyle = "rgba(226, 232, 240, 0.95)";
+          ctx.font = "600 20px system-ui";
+          ctx.textAlign = "center";
+          ctx.fillText(icon, centerX, rect.y + rect.h / 2 + 7);
 
           ctx.restore();
-        });
+        };
 
+        drawControlButton(
+          playRect,
+          gameState.musicIsPlaying ? "⏸" : "▶",
+          gameState.musicButtonClickAnim.play ?? 0,
+          gameState.musicIsPlaying,
+        );
+        drawControlButton(skipRect, "⏭", gameState.musicButtonClickAnim.skip ?? 0, false);
+
+        ctx.save();
+        ctx.textAlign = "center";
+        ctx.font = "11px system-ui";
+        ctx.fillStyle = "rgba(148, 163, 184, 0.78)";
+        ctx.fillText(
+          gameState.musicIsPlaying ? t.musicControls.pause : t.musicControls.play,
+          playRect.x + playRect.w / 2,
+          playRect.y + playRect.h + 14,
+        );
+        ctx.fillText(t.musicControls.skip, skipRect.x + skipRect.w / 2, skipRect.y + skipRect.h + 14);
         ctx.restore();
+
+        const trackStartY = controlsY + MUSIC_MENU_CONTROL_SIZE + 36;
+        const trackRowWidth = panelRect.w - MUSIC_MENU_PANEL_PADDING_X * 2;
+        const trackRowHeight = MUSIC_MENU_TRACK_ROW_HEIGHT - 6;
+
+        for (let i = 0; i < trackCount; i++) {
+          const rowY = trackStartY + i * MUSIC_MENU_TRACK_ROW_HEIGHT;
+          const isCurrent = gameState.musicStarted && gameState.currentMusicIndex === i;
+          const track = gameState.musicTracks[i];
+
+          ctx.save();
+          ctx.beginPath();
+          drawRoundedRect(
+            ctx,
+            panelRect.x + MUSIC_MENU_PANEL_PADDING_X,
+            rowY,
+            trackRowWidth,
+            trackRowHeight,
+            8,
+          );
+          ctx.fillStyle = isCurrent ? "rgba(56, 189, 248, 0.18)" : "rgba(30, 41, 59, 0.75)";
+          ctx.fill();
+          ctx.strokeStyle = isCurrent ? "rgba(125, 211, 252, 0.55)" : "rgba(51, 65, 85, 0.55)";
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+          ctx.restore();
+
+          ctx.save();
+          ctx.textAlign = "left";
+          ctx.font = "12px system-ui";
+          ctx.fillStyle = isCurrent ? "rgba(224, 242, 254, 0.95)" : "rgba(203, 213, 225, 0.9)";
+          ctx.fillText(
+            track.name,
+            panelRect.x + MUSIC_MENU_PANEL_PADDING_X + 12,
+            rowY + trackRowHeight / 2 + 4,
+          );
+          ctx.restore();
+
+          if (isCurrent) {
+            ctx.save();
+            ctx.fillStyle = gameState.musicIsPlaying ? "#22c55e" : "#facc15";
+            ctx.beginPath();
+            ctx.arc(
+              panelRect.x + panelRect.w - MUSIC_MENU_PANEL_PADDING_X - 10,
+              rowY + trackRowHeight / 2,
+              4,
+              0,
+              Math.PI * 2,
+            );
+            ctx.fill();
+            ctx.restore();
+          }
+        }
+
+        if (trackCount === 0) {
+          ctx.save();
+          ctx.textAlign = "center";
+          ctx.font = "12px system-ui";
+          ctx.fillStyle = "rgba(148, 163, 184, 0.75)";
+          ctx.fillText(
+            t.musicControls.selectTrack,
+            panelRect.x + panelRect.w / 2,
+            panelRect.y + panelRect.h / 2,
+          );
+          ctx.restore();
+        }
       }
 
       // Overlay de Game Over con fade
@@ -9257,7 +9376,6 @@ const Index = () => {
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("resize", handleResize);
       canvas.removeEventListener("wheel", handlePauseMenuScroll);
-      canvas.removeEventListener("mousemove", handlePointerMove);
       document.removeEventListener("touchmove", preventScroll);
       document.removeEventListener("gesturestart", preventGesture);
       document.removeEventListener("gesturechange", preventGesture);
