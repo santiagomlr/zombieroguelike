@@ -195,6 +195,52 @@ const cullEntities = <T extends { x: number; y: number }>(
   return visible;
 };
 
+type DroneSummonRole = "attack" | "support" | "shield";
+
+type SummonBase = {
+  id: number;
+  x: number;
+  y: number;
+};
+
+type DroneSummon = SummonBase & {
+  kind: "drone";
+  role: DroneSummonRole;
+  angle: number;
+  orbitRadius: number;
+  orbitSpeed: number;
+  bobTimer: number;
+};
+
+type HoundSummon = SummonBase & {
+  kind: "companion";
+  subtype: "spectral-hound";
+  target: EnemyWithCategory | null;
+  attackCooldown: number;
+  moveSpeed: number;
+};
+
+type Summon = DroneSummon | HoundSummon;
+
+const DRONE_COLOR_MAP: Record<DroneSummonRole, string> = {
+  attack: "#f97316",
+  support: "#34d399",
+  shield: "#60a5fa",
+};
+
+const DRONE_GLOW_MAP: Record<DroneSummonRole, string> = {
+  attack: "rgba(249, 115, 22, 0.45)",
+  support: "rgba(52, 211, 153, 0.45)",
+  shield: "rgba(96, 165, 250, 0.45)",
+};
+
+const DRONE_RADIUS_BASE = 48;
+const DRONE_RADIUS_STEP = 14;
+const DRONE_BASE_SPEED = 1;
+const HOUND_TARGET_RANGE = 260;
+const HOUND_ATTACK_RANGE = 36;
+const HOUND_ATTACK_DAMAGE = 12;
+
 const CRT_SETTINGS = {
   scanlineSpacing: 2,
   scanlineOpacity: 0.12,
@@ -998,6 +1044,8 @@ const Index = () => {
       chestSkipsRemaining: 3,
       pausedForChest: false,
       particles: [] as any[],
+      summons: [] as Summon[],
+      nextSummonId: 1,
       chestParticleSnapshot: null as any[] | null,
       maxParticlesBeforeChest: null as number | null,
       suppressParticlesForChest: false,
@@ -1825,6 +1873,8 @@ const Index = () => {
       gameState.normalEnemyCount = 0;
       gameState.drops.length = 0;
       gameState.particles.length = 0;
+      gameState.summons.length = 0;
+      gameState.nextSummonId = 1;
       gameState.hotspots.length = 0;
       gameState.globalEventTimer = 600;
       gameState.bossEncounter = {
@@ -4118,6 +4168,73 @@ const Index = () => {
         minimapDetailLevel === 2 ? 1 : minimapDetailLevel === 1 ? 0.45 : 0;
     }
 
+    const createSummonId = () => {
+      const id = gameState.nextSummonId ?? 1;
+      gameState.nextSummonId = id + 1;
+      return id;
+    };
+
+    const removeSummons = (predicate: (summon: Summon) => boolean) => {
+      for (let i = gameState.summons.length - 1; i >= 0; i--) {
+        if (predicate(gameState.summons[i])) {
+          gameState.summons.splice(i, 1);
+        }
+      }
+    };
+
+    const ensureDroneSummon = (role: DroneSummonRole) => {
+      let summon = gameState.summons.find(
+        (candidate): candidate is DroneSummon =>
+          candidate.kind === "drone" && candidate.role === role,
+      );
+
+      if (!summon) {
+        const orbitIndex = gameState.summons.filter(
+          (candidate) => candidate.kind === "drone",
+        ).length;
+
+        summon = {
+          id: createSummonId(),
+          kind: "drone",
+          role,
+          x: gameState.player.x,
+          y: gameState.player.y,
+          angle: Math.random() * Math.PI * 2,
+          orbitRadius: DRONE_RADIUS_BASE + orbitIndex * DRONE_RADIUS_STEP,
+          orbitSpeed: DRONE_BASE_SPEED + orbitIndex * 0.12,
+          bobTimer: Math.random() * Math.PI * 2,
+        };
+
+        gameState.summons.push(summon);
+      }
+
+      return summon;
+    };
+
+    const ensureSpectralHound = () => {
+      let summon = gameState.summons.find(
+        (candidate): candidate is HoundSummon =>
+          candidate.kind === "companion" && candidate.subtype === "spectral-hound",
+      );
+
+      if (!summon) {
+        summon = {
+          id: createSummonId(),
+          kind: "companion",
+          subtype: "spectral-hound",
+          x: gameState.player.x + 24,
+          y: gameState.player.y + 12,
+          target: null,
+          attackCooldown: 0,
+          moveSpeed: 220,
+        };
+
+        gameState.summons.push(summon);
+      }
+
+      return summon;
+    };
+
     function applyItemEffect(item: Item) {
       const player = gameState.player;
       const stats = player.stats;
@@ -4235,10 +4352,13 @@ const Index = () => {
         if (Number.isFinite(amount) && amount > 0) {
           if (type === "attack") {
             stats.droneAttackLevel += amount;
+            ensureDroneSummon("attack");
           } else if (type === "support") {
             stats.droneSupportLevel += amount;
+            ensureDroneSummon("support");
           } else if (type === "shield") {
             stats.droneShieldLevel += amount;
+            ensureDroneSummon("shield");
           }
         }
         return;
@@ -4259,6 +4379,9 @@ const Index = () => {
           updateHorizonVisionEffect();
           break;
         }
+        case "houndmasterTotem":
+          ensureSpectralHound();
+          break;
         case "chaosdamage":
           stats.chaosDamage = true;
           break;
@@ -4750,6 +4873,109 @@ const Index = () => {
     };
 
     canvas.addEventListener("wheel", handlePauseMenuScroll, { passive: false });
+
+    function updateSummons(dt: number) {
+      const stats = gameState.player.stats;
+      const droneConfigs: [DroneSummonRole, number][] = [
+        ["attack", stats.droneAttackLevel],
+        ["support", stats.droneSupportLevel],
+        ["shield", stats.droneShieldLevel],
+      ];
+
+      for (const [role, level] of droneConfigs) {
+        if (level > 0) {
+          ensureDroneSummon(role);
+        } else {
+          removeSummons(
+            (summon) => summon.kind === "drone" && summon.role === role,
+          );
+        }
+      }
+
+      const hasHound = getItemStacks("houndmasterTotem") > 0;
+      if (hasHound) {
+        ensureSpectralHound();
+      } else {
+        removeSummons(
+          (summon) => summon.kind === "companion" && summon.subtype === "spectral-hound",
+        );
+      }
+
+      for (const summon of gameState.summons) {
+        if (summon.kind === "drone") {
+          summon.angle += summon.orbitSpeed * dt;
+          summon.bobTimer += dt * 3;
+          const bobOffset = Math.sin(summon.bobTimer) * 6;
+          summon.x =
+            gameState.player.x + Math.cos(summon.angle) * summon.orbitRadius;
+          summon.y =
+            gameState.player.y + Math.sin(summon.angle) * summon.orbitRadius + bobOffset;
+        } else if (summon.kind === "companion") {
+          summon.attackCooldown = Math.max(0, summon.attackCooldown - dt);
+
+          let target = summon.target;
+          const targetValid =
+            target &&
+            target.hp > 0 &&
+            !(target as any).__removed &&
+            gameState.enemies.includes(target as EnemyWithCategory);
+
+          if (!targetValid) {
+            target = null;
+            let closest: EnemyWithCategory | null = null;
+            let closestDistSq = HOUND_TARGET_RANGE * HOUND_TARGET_RANGE;
+            for (const enemy of gameState.enemies) {
+              if (!enemy || enemy.hp <= 0 || (enemy as any).__removed) continue;
+              const dx = enemy.x - summon.x;
+              const dy = enemy.y - summon.y;
+              const distSq = dx * dx + dy * dy;
+              if (distSq < closestDistSq) {
+                closestDistSq = distSq;
+                closest = enemy;
+              }
+            }
+            target = closest;
+          }
+
+          const followX = target ? target.x : gameState.player.x + Math.cos(gameState.time * 1.4) * 32;
+          const followY = target ? target.y : gameState.player.y + Math.sin(gameState.time * 1.4) * 32;
+          const dx = followX - summon.x;
+          const dy = followY - summon.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist > 1) {
+            const step = Math.min(dist, summon.moveSpeed * dt);
+            summon.x += (dx / dist) * step;
+            summon.y += (dy / dist) * step;
+          }
+
+          if (target) {
+            const attackDist = Math.hypot(target.x - summon.x, target.y - summon.y);
+            if (attackDist <= HOUND_ATTACK_RANGE && summon.attackCooldown <= 0) {
+              target.hp -= HOUND_ATTACK_DAMAGE;
+              if (target.hp <= 0) {
+                handleEnemyDeath(target, null);
+              }
+
+              if (gameState.particles.length < gameState.maxParticles) {
+                gameState.particles.push({
+                  x: target.x + (Math.random() - 0.5) * 10,
+                  y: target.y + (Math.random() - 0.5) * 10,
+                  vx: (Math.random() - 0.5) * 30,
+                  vy: (Math.random() - 0.5) * 30,
+                  life: 0.35,
+                  color: "#d1d5db",
+                  size: 3,
+                });
+              }
+
+              summon.attackCooldown = 1.1;
+            }
+          }
+
+          summon.target = target;
+        }
+      }
+    }
 
     function update(dt: number) {
       // Actualizar tiempo siempre (necesario para animaciones)
@@ -5630,6 +5856,8 @@ const Index = () => {
       } else {
         gameState.droneShieldCooldown = Math.max(0, gameState.droneShieldCooldown);
       }
+
+      updateSummons(dt);
 
       // Aura de fuego
       if (gameState.player.stats.auraRadius > 0) {
@@ -8937,6 +9165,11 @@ const Index = () => {
         dropBounds,
         (m) => m.radius,
       );
+      const visibleSummons = cullEntities(
+        gameState.summons,
+        actorBounds,
+        (summon) => (summon.kind === "drone" ? 22 : 28),
+      );
 
       const worldToScreen = (x: number, y: number) => ({
         x: (x - camera.x) * zoom + W / 2,
@@ -9466,6 +9699,75 @@ const Index = () => {
         ctx.restore();
       }
       ctx.setTransform(worldTransform);
+
+      if (visibleSummons.length > 0) {
+        for (const summon of visibleSummons) {
+          ctx.save();
+          ctx.setTransform(worldTransform);
+          if (summon.kind === "drone") {
+            const color = DRONE_COLOR_MAP[summon.role];
+            const glow = DRONE_GLOW_MAP[summon.role];
+            ctx.translate(summon.x, summon.y);
+            ctx.shadowColor = glow;
+            ctx.shadowBlur = 18;
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(0, 0, 9, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            ctx.globalAlpha = 0.6;
+            ctx.strokeStyle = glow;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(0, 0, 16, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+
+            ctx.strokeStyle = hexToRgba(color, 0.8);
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(-7, 0);
+            ctx.lineTo(7, 0);
+            ctx.moveTo(0, -7);
+            ctx.lineTo(0, 7);
+            ctx.stroke();
+          } else {
+            const target = summon.target ?? null;
+            const facingAngle = target
+              ? Math.atan2(target.y - summon.y, target.x - summon.x)
+              : Math.atan2(gameState.player.y - summon.y, gameState.player.x - summon.x);
+
+            ctx.translate(summon.x, summon.y);
+            ctx.rotate(facingAngle);
+            ctx.fillStyle = "rgba(148, 163, 184, 0.95)";
+            ctx.shadowColor = "rgba(148, 163, 184, 0.55)";
+            ctx.shadowBlur = 12;
+            ctx.beginPath();
+            ctx.moveTo(14, 0);
+            ctx.lineTo(-10, 9);
+            ctx.lineTo(-4, 0);
+            ctx.lineTo(-10, -9);
+            ctx.closePath();
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            ctx.fillStyle = "rgba(226, 232, 240, 0.85)";
+            ctx.beginPath();
+            ctx.arc(6, -3, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = "rgba(226, 232, 240, 0.6)";
+            ctx.beginPath();
+            ctx.moveTo(-10, 0);
+            ctx.lineTo(-16, 3);
+            ctx.lineTo(-16, -3);
+            ctx.closePath();
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+      }
 
       // Partículas
       const shouldRenderParticles = !gameState.activeChestChoice && !gameState.suppressParticlesForChest;
