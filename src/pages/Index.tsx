@@ -2822,7 +2822,7 @@ const Index = () => {
         y: gameState.player.y,
         dir: bulletDir,
         spd: weapon.projectileSpeed,
-        life: range / weapon.projectileSpeed / 60,
+        life: range / weapon.projectileSpeed,
         damage,
         color: weapon.color,
         weaponId: weapon.id,
@@ -5930,8 +5930,9 @@ const Index = () => {
           b.dir += angleDiff * turnSpeed;
         }
 
-        b.x += Math.cos(b.dir) * b.spd;
-        b.y += Math.sin(b.dir) * b.spd;
+        const distance = b.spd * dt;
+        b.x += Math.cos(b.dir) * distance;
+        b.y += Math.sin(b.dir) * distance;
         b.life -= dt;
 
         if (b.explosive && b.trailColor && gameState.particles.length < gameState.maxParticles - 5) {
