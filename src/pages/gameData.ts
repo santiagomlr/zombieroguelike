@@ -1033,21 +1033,6 @@ const UNCOMMON_ITEMS: ItemDefinition[] = [
     },
   },
   {
-    id: "medDroneChip",
-    effect: "medDroneChip",
-    rarity: "uncommon",
-    translations: {
-      es: {
-        name: "Chip de Dron Médico",
-        description: "Despliega un pequeño dron que cura 10 HP cada 20 segundos.",
-      },
-      en: {
-        name: "Med Drone Chip",
-        description: "Deploys a small drone that heals 10 HP every 20 seconds.",
-      },
-    },
-  },
-  {
     id: "tacticalRelay",
     effect: "tacticalRelay",
     rarity: "uncommon",
@@ -1470,21 +1455,6 @@ const EPIC_ITEMS: ItemDefinition[] = [
       en: {
         name: "Ethereal Ammo Belt",
         description: "Gain infinite ammo for 4s every 60s.",
-      },
-    },
-  },
-  {
-    id: "houndmasterTotem",
-    effect: "houndmasterTotem",
-    rarity: "epic",
-    translations: {
-      es: {
-        name: "Tótem del Amo de Bestias",
-        description: "Invoca un sabueso espectral que ataca a enemigos cercanos.",
-      },
-      en: {
-        name: "Houndmaster Totem",
-        description: "Summons a spectral hound that attacks nearby enemies.",
       },
     },
   },
