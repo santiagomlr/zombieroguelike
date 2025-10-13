@@ -8281,15 +8281,6 @@ const Index = () => {
           ctx.restore();
         }
 
-        ctx.save();
-        ctx.textAlign = "right";
-        ctx.font = withTerminalFont("600 11px system-ui");
-        ctx.fillStyle = "rgba(255, 255, 255, 0.65)";
-        const useLabel = currentLanguage === "es" ? "USAR (F)" : "USE (F)";
-        const labelX = Math.max(16, rowStartX - 12);
-        const labelY = itemRowY + itemTheme.iconSize / 2 + 4;
-        ctx.fillText(useLabel, labelX, labelY);
-        ctx.restore();
       }
 
       // Inventory tooltips
@@ -8332,11 +8323,10 @@ const Index = () => {
                 const item = hoveredSlot.item;
                 const itemText = getItemText(item, currentLanguage);
                 const stackLabel = currentLanguage === "es" ? `Cantidad: ${hoveredSlot.count}` : `Stack: ${hoveredSlot.count}`;
-                const useText = currentLanguage === "es" ? "Atajo F" : "Hotkey F";
                 const description = itemText.description || (currentLanguage === "es" ? "Sin descripción disponible." : "No description available.");
                 return {
                   title: itemText.name,
-                  subtitle: `${stackLabel} • ${useText}`,
+                  subtitle: stackLabel,
                   body: [description],
                   accent: item.color ?? rarityColors[item.rarity],
                 };
