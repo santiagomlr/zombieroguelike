@@ -1764,6 +1764,7 @@ const Index = () => {
       gameState.spawnCooldown = 0;
       gameState.canSpawn = true;
       gameState.lastMiniBossSpawn = 0;
+      gameState.lastBossSpawn = 0;
       gameState.weaponCooldowns = {};
       gameState.regenTimer = 0;
       gameState.auraTimer = 0;
