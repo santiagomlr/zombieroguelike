@@ -7647,20 +7647,6 @@ const Index = () => {
         ctx.moveTo(meterX, y);
         ctx.lineTo(meterX + meterW, y);
         ctx.stroke();
-
-        if (showTierLabels) {
-          const tierInfo = DIFFICULTY_TIERS[i];
-          const tierLabel = tierInfo.labels?.[language] ?? tierInfo.label;
-          ctx.textAlign = "right";
-          ctx.font = withTerminalFont(
-            i === tierIndex
-              ? `bold ${Math.round(12 * meterScale)}px system-ui`
-              : `${Math.round(12 * meterScale)}px system-ui`,
-          );
-          ctx.fillStyle = i <= tierIndex ? tierInfo.color : textSecondary;
-          ctx.shadowBlur = 0;
-          ctx.fillText(tierLabel.toUpperCase(), meterX - 12, y + 4);
-        }
       }
 
       const pointerY = meterY + meterH - 2 - fillHeight;
