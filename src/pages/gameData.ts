@@ -105,6 +105,15 @@ export interface Translations {
     skip: string;
     interactHint: string;
   };
+  bossEvent: {
+    timerLabel: string;
+    portalReady: string;
+    interactPrompt: string;
+    bossName: string;
+    exitPortalReady: string;
+    exitPrompt: string;
+    continueNotice: string;
+  };
 }
 
 export interface WeaponLocalization {
@@ -292,6 +301,15 @@ const translationsES: Translations = {
     skip: "Omitir",
     interactHint: "Pulsa {key} para abrir el cofre",
   },
+  bossEvent: {
+    timerLabel: "Inestabilidad dimensional",
+    portalReady: "¡Un portal dimensional ha aparecido!",
+    interactPrompt: "Pulsa {key} para entrar al portal",
+    bossName: "Avatar del Vacío",
+    exitPortalReady: "Se abre un portal de salida brillante.",
+    exitPrompt: "Pulsa {key} para escapar por el portal",
+    continueNotice: "Puedes ignorarlo para seguir cazando y subir tu puntuación.",
+  },
 };
 
 const translationsEN: Translations = {
@@ -400,6 +418,15 @@ const translationsEN: Translations = {
     banish: "Banish",
     skip: "Skip",
     interactHint: "Press {key} to open the chest",
+  },
+  bossEvent: {
+    timerLabel: "Dimensional instability",
+    portalReady: "An ominous portal tears open!",
+    interactPrompt: "Press {key} to step into the portal",
+    bossName: "Void Herald",
+    exitPortalReady: "A radiant exit portal materialises.",
+    exitPrompt: "Press {key} to escape through the portal",
+    continueNotice: "Ignore it to keep the run going and chase a new high score.",
   },
 };
 
