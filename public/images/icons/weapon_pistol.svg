@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="pistol-frame" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5f6b7a" />
+      <stop offset="50%" stop-color="#2b3036" />
+      <stop offset="100%" stop-color="#1a1d22" />
+    </linearGradient>
+    <linearGradient id="pistol-slide" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#98a4b3" />
+      <stop offset="100%" stop-color="#3d4652" />
+    </linearGradient>
+    <linearGradient id="pistol-grip" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#252a30" />
+      <stop offset="100%" stop-color="#121417" />
+    </linearGradient>
+  </defs>
+  <rect x="8" y="24" width="40" height="10" rx="3" fill="url(#pistol-slide)" stroke="#0f1115" stroke-width="2" />
+  <rect x="12" y="30" width="28" height="12" rx="4" fill="url(#pistol-frame)" stroke="#0b0d10" stroke-width="2" />
+  <path d="M30 42h10l4 10H32z" fill="url(#pistol-grip)" stroke="#0b0d10" stroke-width="2" />
+  <rect x="36" y="22" width="10" height="6" rx="2" fill="#1b9dff" stroke="#0f3a52" stroke-width="1.5" />
+  <path d="M18 38l6 6" stroke="#00f5ff" stroke-width="2" stroke-linecap="round" opacity="0.5" />
+  <rect x="8" y="26" width="6" height="6" rx="2" fill="#16181d" />
+</svg>

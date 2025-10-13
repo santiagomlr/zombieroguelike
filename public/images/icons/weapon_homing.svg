@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="homing-body" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#a0a7b8" />
+      <stop offset="100%" stop-color="#2f333c" />
+    </linearGradient>
+    <linearGradient id="homing-tip" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#00ffcc" />
+      <stop offset="100%" stop-color="#007a60" />
+    </linearGradient>
+    <linearGradient id="homing-fin" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3a414c" />
+      <stop offset="100%" stop-color="#15181d" />
+    </linearGradient>
+  </defs>
+  <path d="M12 28h18l6 6-6 6H12z" fill="url(#homing-fin)" stroke="#0a0c0f" stroke-width="2" />
+  <rect x="24" y="22" width="24" height="20" rx="6" fill="url(#homing-body)" stroke="#0f1216" stroke-width="2" />
+  <path d="M48 24l12 8-12 8z" fill="url(#homing-tip)" stroke="#005642" stroke-width="2" />
+  <path d="M18 24l-6-4" stroke="#66ff99" stroke-width="3" stroke-linecap="round" />
+  <path d="M18 44l-8-4" stroke="#00ffcc" stroke-width="3" stroke-linecap="round" opacity="0.6" />
+  <circle cx="36" cy="32" r="6" fill="#10141b" stroke="#00ffcc" stroke-width="2" />
+  <path d="M36 28l4 4-4 4-4-4z" fill="#00ffcc" />
+</svg>

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="shotgun-barrel" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#c0c5cf" />
+      <stop offset="50%" stop-color="#626a75" />
+      <stop offset="100%" stop-color="#2b2f35" />
+    </linearGradient>
+    <linearGradient id="shotgun-stock" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#362517" />
+      <stop offset="100%" stop-color="#1d140c" />
+    </linearGradient>
+  </defs>
+  <rect x="6" y="26" width="46" height="8" rx="4" fill="url(#shotgun-barrel)" stroke="#101215" stroke-width="2" />
+  <rect x="6" y="34" width="24" height="6" rx="2" fill="#1a1c20" stroke="#08090b" stroke-width="2" />
+  <path d="M34 32h12l8-4v12l-8-4H34z" fill="url(#shotgun-stock)" stroke="#120c08" stroke-width="2" />
+  <path d="M12 24l8-6" stroke="#ffae00" stroke-width="2" stroke-linecap="round" />
+  <circle cx="18" cy="24" r="2" fill="#ff3b00" />
+</svg>
