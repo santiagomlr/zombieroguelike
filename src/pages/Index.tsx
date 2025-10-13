@@ -54,6 +54,15 @@ const EXPLOSIVE_ENEMY_BASE_RADIUS = 18;
 const SUMMONER_ENEMY_BASE_RADIUS = 20;
 const TANK_ENEMY_BASE_RADIUS = 28;
 
+const WEAK_ENEMY_COLOR = "#5dbb63";
+const WEAK_ELITE_COLOR = "#16a34a";
+const MEDIUM_ENEMY_COLOR = "#8e44ad";
+const MEDIUM_ELITE_COLOR = "#9333ea";
+const STRONG_ENEMY_COLOR = "#f97316";
+const STRONG_ELITE_COLOR = "#ea580c";
+const FAST_ENEMY_COLOR = "#fb923c";
+const MINI_BOSS_COLOR = STRONG_ENEMY_COLOR;
+
 const scaleEntitySize = (value: number) => Math.max(1, Math.round(value * ENTITY_SCALE));
 
 const ENEMY_SIZE_MULTIPLIER = 1.3;
@@ -1229,12 +1238,13 @@ const Index = () => {
 
       // Pre-render colored enemy logos for performance (covers fallback colors)
       const spawnEnemyColors = [
-        "#8e44ad",
-        "#9333ea",
-        "#ffc300",
-        "#f59e0b",
-        "#5dbb63",
-        "#16a34a",
+        MEDIUM_ENEMY_COLOR,
+        MEDIUM_ELITE_COLOR,
+        STRONG_ENEMY_COLOR,
+        STRONG_ELITE_COLOR,
+        WEAK_ENEMY_COLOR,
+        WEAK_ELITE_COLOR,
+        FAST_ENEMY_COLOR,
         "#6e6e6e",
         "#ff7a2a",
         "#ff3b3b",
@@ -2063,7 +2073,7 @@ const Index = () => {
           } else if (specialRoll < 0.5) {
             specialType = "fast";
             enemyType = "fast";
-            color = "#ffc300";
+            color = FAST_ENEMY_COLOR;
             damage = 3;
             baseHp = 1;
             rad = FAST_ENEMY_BASE_RADIUS;
@@ -2079,7 +2089,7 @@ const Index = () => {
           } else {
             specialType = "summoner";
             enemyType = "summoner";
-            color = "#8e44ad";
+            color = MEDIUM_ENEMY_COLOR;
             damage = 5;
             baseHp = 8;
             rad = SUMMONER_ENEMY_BASE_RADIUS;
@@ -2093,7 +2103,7 @@ const Index = () => {
           if (difficultyLevel === 1) {
             // Wave 1: Solo verdes
             enemyType = "weak";
-            color = "#5dbb63";
+            color = WEAK_ENEMY_COLOR;
             damage = 5;
             baseHp = 3;
             rad = WEAK_ENEMY_BASE_RADIUS;
@@ -2102,14 +2112,14 @@ const Index = () => {
             // Wave 2: Mayoría verdes, algunos morados (≤10%)
             if (roll < 0.9) {
               enemyType = "weak";
-              color = "#5dbb63";
+              color = WEAK_ENEMY_COLOR;
               damage = 5;
               baseHp = 3;
               rad = WEAK_ENEMY_BASE_RADIUS;
               spd = 1.3;
             } else {
               enemyType = "medium";
-              color = "#8e44ad";
+              color = MEDIUM_ENEMY_COLOR;
               damage = 10;
               baseHp = 5;
               rad = MEDIUM_ENEMY_BASE_RADIUS;
@@ -2119,14 +2129,14 @@ const Index = () => {
             // Wave 3: Mezcla verde/morado (20-30% morado)
             if (roll < 0.75) {
               enemyType = "weak";
-              color = "#5dbb63";
+              color = WEAK_ENEMY_COLOR;
               damage = 5;
               baseHp = 3;
               rad = WEAK_ENEMY_BASE_RADIUS;
               spd = 1.3;
             } else {
               enemyType = "medium";
-              color = "#8e44ad";
+              color = MEDIUM_ENEMY_COLOR;
               damage = 10;
               baseHp = 5;
               rad = MEDIUM_ENEMY_BASE_RADIUS;
@@ -2136,14 +2146,14 @@ const Index = () => {
             // Wave 4: Más morado (30-40%)
             if (roll < 0.65) {
               enemyType = "weak";
-              color = "#5dbb63";
+              color = WEAK_ENEMY_COLOR;
               damage = 5;
               baseHp = 3;
               rad = WEAK_ENEMY_BASE_RADIUS;
               spd = 1.3;
             } else {
               enemyType = "medium";
-              color = "#8e44ad";
+              color = MEDIUM_ENEMY_COLOR;
               damage = 10;
               baseHp = 5;
               rad = MEDIUM_ENEMY_BASE_RADIUS;
@@ -2153,21 +2163,21 @@ const Index = () => {
             // Wave 5: Introducir amarillo (3-5%)
             if (roll < 0.04) {
               enemyType = "strong";
-              color = "#ffc300";
+              color = STRONG_ENEMY_COLOR;
               damage = 20;
               baseHp = 8;
               rad = STRONG_ENEMY_BASE_RADIUS;
               spd = 0.9;
             } else if (roll < 0.6) {
               enemyType = "medium";
-              color = "#8e44ad";
+              color = MEDIUM_ENEMY_COLOR;
               damage = 10;
               baseHp = 5;
               rad = MEDIUM_ENEMY_BASE_RADIUS;
               spd = 1.1;
             } else {
               enemyType = "weak";
-              color = "#5dbb63";
+              color = WEAK_ENEMY_COLOR;
               damage = 5;
               baseHp = 3;
               rad = WEAK_ENEMY_BASE_RADIUS;
@@ -2177,21 +2187,21 @@ const Index = () => {
             // Wave 6: Mezcla estable 50/40/10%
             if (roll < 0.1) {
               enemyType = "strong";
-              color = "#ffc300";
+              color = STRONG_ENEMY_COLOR;
               damage = 20;
               baseHp = 8;
               rad = STRONG_ENEMY_BASE_RADIUS;
               spd = 0.9;
             } else if (roll < 0.5) {
               enemyType = "medium";
-              color = "#8e44ad";
+              color = MEDIUM_ENEMY_COLOR;
               damage = 10;
               baseHp = 5;
               rad = MEDIUM_ENEMY_BASE_RADIUS;
               spd = 1.1;
             } else {
               enemyType = "weak";
-              color = "#5dbb63";
+              color = WEAK_ENEMY_COLOR;
               damage = 5;
               baseHp = 3;
               rad = WEAK_ENEMY_BASE_RADIUS;
@@ -2201,21 +2211,21 @@ const Index = () => {
             // Wave 7: Amarillos hasta 12-15%
             if (roll < 0.13) {
               enemyType = "strong";
-              color = "#ffc300";
+              color = STRONG_ENEMY_COLOR;
               damage = 20;
               baseHp = 8;
               rad = STRONG_ENEMY_BASE_RADIUS;
               spd = 0.9;
             } else if (roll < 0.6) {
               enemyType = "medium";
-              color = "#8e44ad";
+              color = MEDIUM_ENEMY_COLOR;
               damage = 10;
               baseHp = 5;
               rad = MEDIUM_ENEMY_BASE_RADIUS;
               spd = 1.1;
             } else {
               enemyType = "weak";
-              color = "#5dbb63";
+              color = WEAK_ENEMY_COLOR;
               damage = 5;
               baseHp = 3;
               rad = WEAK_ENEMY_BASE_RADIUS;
@@ -2225,26 +2235,26 @@ const Index = () => {
             // Wave 8+: Escalado progresivo (amarillos hasta 25-30%)
             const yellowChance = Math.min(0.3, 0.15 + (difficultyLevel - 8) * 0.02);
 
-            if (roll < yellowChance) {
+            if (roll < strongChance) {
               enemyType = "strong";
-              color = "#ffc300";
+              color = STRONG_ENEMY_COLOR;
               damage = 20;
               baseHp = 8;
-              rad = 18;
+              rad = STRONG_ENEMY_BASE_RADIUS;
               spd = 0.9;
-            } else if (roll < yellowChance + 0.45) {
+            } else if (roll < strongChance + 0.45) {
               enemyType = "medium";
-              color = "#8e44ad";
+              color = MEDIUM_ENEMY_COLOR;
               damage = 10;
               baseHp = 5;
-              rad = 15;
+              rad = MEDIUM_ENEMY_BASE_RADIUS;
               spd = 1.1;
             } else {
               enemyType = "weak";
-              color = "#5dbb63";
+              color = WEAK_ENEMY_COLOR;
               damage = 5;
               baseHp = 3;
-              rad = 12;
+              rad = WEAK_ENEMY_BASE_RADIUS;
               spd = 1.3;
             }
 
@@ -2253,7 +2263,12 @@ const Index = () => {
               isElite = true;
               baseHp *= 1.5;
               rad += 3;
-              color = enemyType === "strong" ? "#f59e0b" : enemyType === "medium" ? "#9333ea" : "#16a34a";
+              color =
+                enemyType === "strong"
+                  ? STRONG_ELITE_COLOR
+                  : enemyType === "medium"
+                    ? MEDIUM_ELITE_COLOR
+                    : WEAK_ELITE_COLOR;
             }
           }
 
@@ -8337,7 +8352,14 @@ const Index = () => {
         ctx.fillRect(barX, barY, barW, barH);
 
         const hpBarWidth = barW * Math.max(0, Math.min(1, e.hp / e.maxhp));
-        ctx.fillStyle = e.isBoss ? "#dc2626" : e.isMiniBoss ? "#ffc300" : e.isElite ? "#ff3b3b" : "#5dbb63";
+        ctx.fillStyle =
+          e.isBoss
+            ? "#dc2626"
+            : e.isMiniBoss
+              ? MINI_BOSS_COLOR
+              : e.isElite
+                ? "#ff3b3b"
+                : WEAK_ENEMY_COLOR;
         ctx.fillRect(barX, barY, hpBarWidth, barH);
 
         if (e.isBoss) {
@@ -8688,7 +8710,7 @@ const Index = () => {
           x: enemy.x,
           y: enemy.y,
           radius: enemy.rad,
-          color: enemy.isBoss ? "#dc2626" : enemy.isMiniBoss ? "#ffc300" : enemy.color,
+          color: enemy.isBoss ? "#dc2626" : enemy.isMiniBoss ? MINI_BOSS_COLOR : enemy.color,
         }));
 
         const minimapDrops: MinimapEntity[] = visibleDrops.map((drop) => ({
