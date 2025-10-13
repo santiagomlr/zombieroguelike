@@ -879,6 +879,9 @@ const Index = () => {
       chestSkipsRemaining: 3,
       pausedForChest: false,
       particles: [] as any[],
+      chestParticleSnapshot: null as any[] | null,
+      maxParticlesBeforeChest: null as number | null,
+      suppressParticlesForChest: false,
       hotspots: [] as any[],
       worldWidth: worldW,
       worldHeight: worldH,
@@ -2914,6 +2917,14 @@ const Index = () => {
         return;
       }
 
+      gameState.chestParticleSnapshot = gameState.particles.map((particle) => ({ ...particle }));
+      gameState.particles.length = 0;
+      if (gameState.maxParticlesBeforeChest == null) {
+        gameState.maxParticlesBeforeChest = gameState.maxParticles;
+      }
+      gameState.maxParticles = 0;
+      gameState.suppressParticlesForChest = true;
+
       gameState.activeChestChoice = {
         item,
         chestPosition: { x: chest.x, y: chest.y },
@@ -2940,6 +2951,22 @@ const Index = () => {
       if (gameState.pausedForChest) {
         gameState.state = "running";
         gameState.pausedForChest = false;
+      }
+
+      if (gameState.suppressParticlesForChest) {
+        if (gameState.chestParticleSnapshot) {
+          gameState.particles = gameState.chestParticleSnapshot;
+        } else {
+          gameState.particles.length = 0;
+        }
+
+        if (gameState.maxParticlesBeforeChest != null) {
+          gameState.maxParticles = gameState.maxParticlesBeforeChest;
+        }
+
+        gameState.chestParticleSnapshot = null;
+        gameState.maxParticlesBeforeChest = null;
+        gameState.suppressParticlesForChest = false;
       }
     }
 
@@ -8127,7 +8154,8 @@ const Index = () => {
       ctx.setTransform(worldTransform);
 
       // Partículas
-      if (!overlaySupportedRef.current) {
+      const shouldRenderParticles = !gameState.activeChestChoice && !gameState.suppressParticlesForChest;
+      if (!overlaySupportedRef.current && shouldRenderParticles) {
         for (const p of visibleParticles) {
           ctx.fillStyle = p.color;
           ctx.globalAlpha = p.life;
@@ -8135,6 +8163,8 @@ const Index = () => {
           ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
           ctx.fill();
         }
+      }
+      if (!overlaySupportedRef.current) {
         ctx.globalAlpha = 1;
       }
 
@@ -8547,18 +8577,19 @@ const Index = () => {
       }
 
       if (overlaySupportedRef.current && overlayWorkerRef.current) {
-        const overlayParticles: OverlayParticle[] = gameState.showUpgradeUI
-          ? []
-          : visibleParticles.map((particle) => {
-              const screen = worldToScreen(particle.x, particle.y);
-              return {
-                x: screen.x,
-                y: screen.y,
-                size: Math.max(1, particle.size * zoom),
-                life: particle.life,
-                color: particle.color,
-              };
-            });
+        const overlayParticles: OverlayParticle[] =
+          gameState.showUpgradeUI || !shouldRenderParticles
+            ? []
+            : visibleParticles.map((particle) => {
+                const screen = worldToScreen(particle.x, particle.y);
+                return {
+                  x: screen.x,
+                  y: screen.y,
+                  size: Math.max(1, particle.size * zoom),
+                  life: particle.life,
+                  color: particle.color,
+                };
+              });
 
         const minimapPlayer: MinimapEntity | null = gameState.player
           ? {
