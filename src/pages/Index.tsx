@@ -41,10 +41,17 @@ import {
   CAMERA_DEADZONE_RADIUS,
   CAMERA_ZOOM,
   CHEST_DROP_RATE,
+  clampDifficultyValue,
+  createDifficultyVariables,
+  DIFFICULTY_COOLING_RULES,
+  DIFFICULTY_EVENT_DELTAS,
+  DIFFICULTY_INITIAL_VALUE,
+  DIFFICULTY_RANGE,
   DIFFICULTY_TIERS,
   EXPLOSIVE_ENEMY_BASE_RADIUS,
   FAST_ENEMY_BASE_RADIUS,
   FAST_ENEMY_COLOR,
+  evaluateDifficultyValue,
   getDifficultyIntensity,
   getDifficultyLevel,
   getDifficultyTierIndex,
@@ -77,6 +84,7 @@ import {
 } from "./indexConstants";
 import type {
   Bounds,
+  DifficultyEventId,
   DifficultyTier,
   GamePortal,
   PauseMenuTab,
@@ -868,6 +876,27 @@ const Index = () => {
     const worldW = Math.max(W, 2200);
     const worldH = Math.max(H, 1600);
 
+    const createInitialDifficultyState = () => {
+      const variables = createDifficultyVariables();
+      variables.player_level = 1;
+      return {
+        intensity: 0,
+        value: DIFFICULTY_INITIAL_VALUE,
+        level: 1,
+        tierIndex: 0,
+        tierLabel:
+          DIFFICULTY_TIERS[0].labels?.[language] ?? DIFFICULTY_TIERS[0].label,
+        tierProgress: 0,
+        notification: 0,
+        stateId: DIFFICULTY_TIERS[0].id,
+        eventValue: 0,
+        freezeTimer: 0,
+        damageDeltaTimer: 0,
+        damageDeltaApplied: 0,
+        variables,
+      };
+    };
+
     const gameState = {
       state: "running" as "running" | "paused" | "gameover",
       player: {
@@ -983,14 +1012,7 @@ const Index = () => {
       exitPortal: null as GamePortal | null,
       nearbyBossPortal: null as GamePortal | null,
       nearbyExitPortal: null as GamePortal | null,
-      difficulty: {
-        intensity: 0,
-        level: 1,
-        tierIndex: 0,
-        tierLabel: DIFFICULTY_TIERS[0].label,
-        tierProgress: 0,
-        notification: 0,
-      },
+      difficulty: createInitialDifficultyState(),
       maxConcurrentEnemies: 12,
       lastSpawn: 0,
       lastBossSpawn: 0,
@@ -1129,6 +1151,77 @@ const Index = () => {
       language,
       auditLog: createEmptyAuditLog(),
     };
+
+    const getDifficultyValue = () => gameState.difficulty.value;
+
+    const addDifficultyValue = (delta: number) => {
+      if (!Number.isFinite(delta)) {
+        return gameState.difficulty.value;
+      }
+      gameState.difficulty.eventValue += delta;
+      return clampDifficultyValue(
+        evaluateDifficultyValue(gameState.difficulty.variables) +
+          gameState.difficulty.eventValue,
+      );
+    };
+
+    const setDifficultyValue = (value: number) => {
+      if (!Number.isFinite(value)) {
+        return gameState.difficulty.value;
+      }
+      const clamped = clampDifficultyValue(value);
+      const base = evaluateDifficultyValue(gameState.difficulty.variables);
+      gameState.difficulty.eventValue = clamped - base;
+      return clamped;
+    };
+
+    const freezeDifficulty = (seconds: number) => {
+      if (!Number.isFinite(seconds) || seconds <= 0) {
+        return;
+      }
+      gameState.difficulty.freezeTimer = Math.max(
+        gameState.difficulty.freezeTimer,
+        seconds,
+      );
+    };
+
+    const applyDifficultyEvent = (eventId: DifficultyEventId) => {
+      const config = DIFFICULTY_EVENT_DELTAS[eventId];
+      if (!config || typeof config.value_delta !== "number") {
+        return gameState.difficulty.value;
+      }
+
+      let delta = config.value_delta;
+      if (eventId === "on_player_damage_taken" && config.max_per_second) {
+        if (gameState.difficulty.damageDeltaTimer <= 0) {
+          gameState.difficulty.damageDeltaTimer = 1;
+          gameState.difficulty.damageDeltaApplied = 0;
+        }
+        const remaining =
+          config.max_per_second - gameState.difficulty.damageDeltaApplied;
+        if (remaining <= 0) {
+          return gameState.difficulty.value;
+        }
+        delta = Math.min(delta, remaining);
+        gameState.difficulty.damageDeltaApplied += delta;
+      }
+
+      gameState.difficulty.eventValue += delta;
+      return clampDifficultyValue(
+        evaluateDifficultyValue(gameState.difficulty.variables) +
+          gameState.difficulty.eventValue,
+      );
+    };
+
+    const difficultyApi = {
+      getValue: getDifficultyValue,
+      addValue: addDifficultyValue,
+      setValue: setDifficultyValue,
+      applyEvent: applyDifficultyEvent,
+      freeze: freezeDifficulty,
+    };
+
+    gameState.difficulty.api = difficultyApi;
 
     const getEnemyLogKey = (enemy: any) => {
       if (enemy?.isBoss) return "boss";
@@ -1788,14 +1881,8 @@ const Index = () => {
       gameState.nextXpDisplayTarget = 25;
       gameState.time = 0;
       gameState.elapsedTime = 0;
-      gameState.difficulty = {
-        intensity: 0,
-        level: 1,
-        tierIndex: 0,
-        tierLabel: DIFFICULTY_TIERS[0].label,
-        tierProgress: 0,
-        notification: 0,
-      };
+      gameState.difficulty = createInitialDifficultyState();
+      gameState.difficulty.api = difficultyApi;
       gameState.maxConcurrentEnemies = 12;
       gameState.lastSpawn = 0;
       gameState.spawnCooldown = 0;
@@ -4532,18 +4619,87 @@ const Index = () => {
       // ═══════════════════════════════════════════════════════════
       const previousDifficultyLevel = gameState.difficulty.level;
       const previousTierIndex = gameState.difficulty.tierIndex;
-      const difficultyIntensity = getDifficultyIntensity(gameState.elapsedTime);
-      const difficultyLevel = getDifficultyLevel(gameState.elapsedTime);
-      const tierIndex = getDifficultyTierIndex(gameState.elapsedTime);
+
+      const difficultyVars = gameState.difficulty.variables;
+      difficultyVars.time_minutes = gameState.elapsedTime / 60;
+      difficultyVars.player_level = gameState.level;
+      difficultyVars.no_kill_seconds = Math.min(
+        difficultyVars.no_kill_seconds + dt,
+        9999,
+      );
+
+      if (gameState.difficulty.damageDeltaTimer > 0) {
+        gameState.difficulty.damageDeltaTimer = Math.max(
+          0,
+          gameState.difficulty.damageDeltaTimer - dt,
+        );
+        if (gameState.difficulty.damageDeltaTimer === 0) {
+          gameState.difficulty.damageDeltaApplied = 0;
+        }
+      }
+
+      if (gameState.difficulty.freezeTimer > 0) {
+        gameState.difficulty.freezeTimer = Math.max(
+          0,
+          gameState.difficulty.freezeTimer - dt,
+        );
+      }
+
+      const baseDifficultyValue = evaluateDifficultyValue(difficultyVars);
+      let desiredDifficultyValue =
+        baseDifficultyValue + gameState.difficulty.eventValue;
+
+      if (
+        DIFFICULTY_COOLING_RULES.enabled &&
+        difficultyVars.no_kill_seconds >=
+          DIFFICULTY_COOLING_RULES.start_after_seconds_without_kill &&
+        (!DIFFICULTY_COOLING_RULES.pauses_during_boss ||
+          !gameState.bossEncounter.bossActive)
+      ) {
+        const cooledValue =
+          desiredDifficultyValue - DIFFICULTY_COOLING_RULES.decay_per_second * dt;
+        if (desiredDifficultyValue > DIFFICULTY_COOLING_RULES.floor) {
+          desiredDifficultyValue = Math.max(
+            DIFFICULTY_COOLING_RULES.floor,
+            cooledValue,
+          );
+        } else {
+          desiredDifficultyValue = Math.max(DIFFICULTY_RANGE.min, cooledValue);
+        }
+      }
+
+      desiredDifficultyValue = clampDifficultyValue(desiredDifficultyValue);
+
+      const difficultyWasFrozen = gameState.difficulty.freezeTimer > 0;
+      const nextDifficultyValue = difficultyWasFrozen
+        ? gameState.difficulty.value
+        : desiredDifficultyValue;
+
+      gameState.difficulty.value = nextDifficultyValue;
+      if (!difficultyWasFrozen) {
+        gameState.difficulty.eventValue =
+          gameState.difficulty.value - baseDifficultyValue;
+      }
+
+      const difficultyIntensity = getDifficultyIntensity(
+        gameState.difficulty.value,
+      );
+      const difficultyLevel = getDifficultyLevel(gameState.difficulty.value);
+      const tierIndex = getDifficultyTierIndex(gameState.difficulty.value);
       const tier = DIFFICULTY_TIERS[tierIndex];
       const nextTier = DIFFICULTY_TIERS[tierIndex + 1];
-      const tierProgress = getTierProgress(gameState.elapsedTime, tier, nextTier);
+      const tierProgress = getTierProgress(
+        gameState.difficulty.value,
+        tier,
+        nextTier,
+      );
 
       gameState.difficulty.intensity = difficultyIntensity;
       gameState.difficulty.level = difficultyLevel;
       gameState.difficulty.tierIndex = tierIndex;
-      gameState.difficulty.tierLabel = tier.label;
+      gameState.difficulty.tierLabel = tier.labels?.[language] ?? tier.label;
       gameState.difficulty.tierProgress = tierProgress;
+      gameState.difficulty.stateId = tier.id;
 
       if (previousTierIndex !== tierIndex) {
         gameState.difficulty.notification = 2.5;
@@ -5382,6 +5538,9 @@ const Index = () => {
 
         recordEnemyKill(enemy);
         (enemy as any).__removed = true;
+
+        applyDifficultyEvent(enemy.isElite || enemy.isBoss ? "on_elite_kill" : "on_enemy_kill");
+        gameState.difficulty.variables.no_kill_seconds = 0;
 
         if (!enemy.isBoss) {
           gameState.normalEnemyCount = Math.max(0, gameState.normalEnemyCount - 1);
@@ -7123,11 +7282,12 @@ const Index = () => {
         ctx.stroke();
 
         const tierInfo = DIFFICULTY_TIERS[i];
+        const tierLabel = tierInfo.labels?.[language] ?? tierInfo.label;
         ctx.textAlign = "left";
         ctx.font = withTerminalFont(i === tierIndex ? "bold 12px system-ui" : "12px system-ui");
         ctx.fillStyle = i <= tierIndex ? tierInfo.color : textSecondary;
         ctx.shadowBlur = 0;
-        ctx.fillText(tierInfo.label.toUpperCase(), meterX + meterW + 20, y + 4);
+        ctx.fillText(tierLabel.toUpperCase(), meterX + meterW + 20, y + 4);
       }
 
       const pointerY = meterY + meterH - 2 - fillHeight;
@@ -10147,6 +10307,11 @@ const Index = () => {
   useEffect(() => {
     if (gameStateRef.current) {
       gameStateRef.current.language = language;
+      const tier = DIFFICULTY_TIERS[gameStateRef.current.difficulty.tierIndex];
+      if (tier) {
+        gameStateRef.current.difficulty.tierLabel =
+          tier.labels?.[language] ?? tier.label;
+      }
     }
   }, [language]);
 
