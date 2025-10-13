@@ -511,656 +511,885 @@ type ItemDefinition = Omit<Item, "color"> & {
 
 const COMMON_ITEMS: ItemDefinition[] = [
   {
-    id: "streetboots",
-    effect: "stat-mult:speedMultiplier:1.04",
+    id: "adrenalineShot",
+    effect: "adrenalineShot",
     rarity: "common",
     translations: {
-      es: { name: "Botas Callejeras", description: "+4% velocidad" },
-      en: { name: "Street Boots", description: "+4% speed" },
+      es: {
+        name: "Inyección de Adrenalina",
+        description: "Obtén 10% de velocidad de ataque por 5 segundos tras matar a un enemigo.",
+      },
+      en: {
+        name: "Adrenaline Shot",
+        description: "Gain 10% attack speed for 5s after killing an enemy.",
+      },
     },
   },
   {
-    id: "urbantrackers",
-    effect: "stat-mult:speedMultiplier:1.04",
+    id: "kevlarVest",
+    effect: "kevlarVest",
     rarity: "common",
     translations: {
-      es: { name: "Rastreadores Urbanos", description: "+4% velocidad" },
-      en: { name: "Urban Trackers", description: "+4% speed" },
+      es: {
+        name: "Chaleco de Kevlar",
+        description: "Reduce el daño recibido en 5%.",
+      },
+      en: {
+        name: "Kevlar Vest",
+        description: "Reduces incoming damage by 5%.",
+      },
     },
   },
   {
-    id: "overclockedgloves",
-    effect: "stat-mult:fireRateMultiplier:1.04",
+    id: "combatBoots",
+    effect: "combatBoots",
     rarity: "common",
     translations: {
-      es: { name: "Guantes Sobreacelerados", description: "+4% cadencia" },
-      en: { name: "Overclocked Gloves", description: "+4% fire rate" },
+      es: {
+        name: "Botas de Combate",
+        description: "Aumenta la velocidad de movimiento en 7%.",
+      },
+      en: {
+        name: "Combat Boots",
+        description: "Increases movement speed by 7%.",
+      },
     },
   },
   {
-    id: "triggerkit",
-    effect: "stat-mult:fireRateMultiplier:1.04",
+    id: "morphineInjector",
+    effect: "morphineInjector",
     rarity: "common",
     translations: {
-      es: { name: "Kit de Gatillo", description: "+4% cadencia" },
-      en: { name: "Trigger Kit", description: "+4% fire rate" },
+      es: {
+        name: "Inyector de Morfina",
+        description: "Restaura 5 HP cada 10 segundos fuera de combate.",
+      },
+      en: {
+        name: "Morphine Injector",
+        description: "Restores 5 HP every 10 seconds outside combat.",
+      },
     },
   },
   {
-    id: "lightmeshvest",
-    effect: "maxhp-flat:10",
+    id: "tacticalGloves",
+    effect: "tacticalGloves",
     rarity: "common",
     translations: {
-      es: { name: "Chaleco de Malla Ligera", description: "+10 HP máximo" },
-      en: { name: "Light Mesh Vest", description: "+10 max HP" },
+      es: {
+        name: "Guantes Tácticos",
+        description: "Aumenta la velocidad de recarga en 15%.",
+      },
+      en: {
+        name: "Tactical Gloves",
+        description: "Reload speed increased by 15%.",
+      },
     },
   },
   {
-    id: "medpatch",
-    effect: "maxhp-flat:12",
+    id: "fieldManualFragment",
+    effect: "fieldManualFragment",
     rarity: "common",
     translations: {
-      es: { name: "Parche Médico", description: "+12 HP máximo" },
-      en: { name: "Medical Patch", description: "+12 max HP" },
+      es: {
+        name: "Fragmento de Manual de Campo",
+        description: "Obtén 5% más de experiencia al eliminar enemigos.",
+      },
+      en: {
+        name: "Field Manual Fragment",
+        description: "Gain 5% more experience from kills.",
+      },
     },
   },
   {
-    id: "signalbeacon",
-    effect: "stat-mult:magnetMultiplier:1.08",
+    id: "rustyCompass",
+    effect: "rustyCompass",
     rarity: "common",
     translations: {
-      es: { name: "Baliza de Señal", description: "+8% magnetismo" },
-      en: { name: "Signal Beacon", description: "+8% magnetism" },
+      es: {
+        name: "Brújula Oxidada",
+        description: "Expande ligeramente el rango del minimapa.",
+      },
+      en: {
+        name: "Rusty Compass",
+        description: "Expands minimap range slightly.",
+      },
     },
   },
   {
-    id: "supplysatchel",
-    effect: "stat-mult:magnetMultiplier:1.08",
+    id: "caffeinePills",
+    effect: "caffeinePills",
     rarity: "common",
     translations: {
-      es: { name: "Morral de Suministros", description: "+8% magnetismo" },
-      en: { name: "Supply Satchel", description: "+8% magnetism" },
+      es: {
+        name: "Píldoras de Cafeína",
+        description: "Incrementa la cadencia de fuego en 5%.",
+      },
+      en: {
+        name: "Caffeine Pills",
+        description: "Fire rate increased by 5%.",
+      },
     },
   },
   {
-    id: "trainingband",
-    effect: "stat-add:xpBonus:4",
+    id: "stunGrenadeShard",
+    effect: "stunGrenadeShard",
     rarity: "common",
     translations: {
-      es: { name: "Pulsera de Entrenamiento", description: "+4 XP por baja" },
-      en: { name: "Training Band", description: "+4 XP per kill" },
+      es: {
+        name: "Fragmento de Granada Aturdidora",
+        description: "10% de probabilidad de aturdir al golpear.",
+      },
+      en: {
+        name: "Stun Grenade Shard",
+        description: "10% chance to stun enemies on hit.",
+      },
     },
   },
   {
-    id: "fieldnotes",
-    effect: "stat-add:xpBonus:5",
+    id: "luckyCigarStub",
+    effect: "luckyCigarStub",
     rarity: "common",
     translations: {
-      es: { name: "Notas de Campo", description: "+5 XP por baja" },
-      en: { name: "Field Notes", description: "+5 XP per kill" },
+      es: {
+        name: "Colilla Afortunada",
+        description: "2% de probabilidad de sobrevivir con 1 HP al recibir daño letal.",
+      },
+      en: {
+        name: "Lucky Cigar Stub",
+        description: "2% chance to survive lethal damage with 1 HP.",
+      },
     },
   },
   {
-    id: "focusvisor",
-    effect: "stat-add:precision:6",
+    id: "dogTagOfValor",
+    effect: "dogTagOfValor",
     rarity: "common",
     translations: {
-      es: { name: "Visor de Enfoque", description: "+6 precisión" },
-      en: { name: "Focus Visor", description: "+6 accuracy" },
+      es: {
+        name: "Placa del Valor",
+        description: "+5% de daño cuando tu HP está por debajo del 50%.",
+      },
+      en: {
+        name: "Dog Tag of Valor",
+        description: "+5% damage when below 50% HP.",
+      },
     },
   },
   {
-    id: "stabilitybrace",
-    effect: "stat-add:precision:6",
+    id: "firstAidTape",
+    effect: "firstAidTape",
     rarity: "common",
     translations: {
-      es: { name: "Férula Estabilizadora", description: "+6 precisión" },
-      en: { name: "Stability Brace", description: "+6 accuracy" },
+      es: {
+        name: "Cinta de Primeros Auxilios",
+        description: "Las curaciones son 10% más efectivas.",
+      },
+      en: {
+        name: "First Aid Tape",
+        description: "Healing items are 10% more effective.",
+      },
     },
   },
   {
-    id: "shockabsorbers",
-    effect: "sprint-efficiency:0.95",
+    id: "brokenDogTags",
+    effect: "brokenDogTags",
     rarity: "common",
     translations: {
-      es: { name: "Amortiguadores", description: "-5% consumo de stamina al sprintar" },
-      en: { name: "Shock Absorbers", description: "-5% sprint stamina cost" },
+      es: {
+        name: "Placas Rotas",
+        description: "Aumenta ligeramente la probabilidad de obtener loot.",
+      },
+      en: {
+        name: "Broken Dog Tags",
+        description: "Slightly increases loot drop chance.",
+      },
     },
   },
   {
-    id: "hydrationkit",
-    effect: "sprint-recovery:1.1",
+    id: "improvisedScope",
+    effect: "improvisedScope",
     rarity: "common",
     translations: {
-      es: { name: "Kit de Hidratación", description: "+10% recuperación de stamina" },
-      en: { name: "Hydration Kit", description: "+10% stamina recovery" },
+      es: {
+        name: "Mira Improvisada",
+        description: "Incrementa la precisión en 5%.",
+      },
+      en: {
+        name: "Improvised Scope",
+        description: "Increases accuracy by 5%.",
+      },
     },
   },
   {
-    id: "auxbattery",
-    effect: "stamina-max:5",
+    id: "tornPatch",
+    effect: "tornPatch",
     rarity: "common",
     translations: {
-      es: { name: "Batería Auxiliar", description: "+5 stamina máxima" },
-      en: { name: "Aux Battery", description: "+5 max stamina" },
+      es: {
+        name: "Parche Roto",
+        description: "Regenera 1 HP por segundo mientras estás quieto.",
+      },
+      en: {
+        name: "Torn Patch",
+        description: "Regenerates 1 HP per second while stationary.",
+      },
     },
   },
   {
-    id: "chronocharms",
-    effect: "stat-mult:powerupDuration:1.05",
+    id: "leadBulletCharm",
+    effect: "leadBulletCharm",
     rarity: "common",
     translations: {
-      es: { name: "Amuletos Crono", description: "+5% duración de powerups" },
-      en: { name: "Chrono Charms", description: "+5% power-up duration" },
+      es: {
+        name: "Amuleto de Bala de Plomo",
+        description: "Aumenta el daño crítico en 10%.",
+      },
+      en: {
+        name: "Lead Bullet Charm",
+        description: "Critical hit damage increased by 10%.",
+      },
     },
   },
   {
-    id: "visorcalibration",
-    effect: "stat-mult:rangeMultiplier:1.05",
+    id: "combatRation",
+    effect: "combatRation",
     rarity: "common",
     translations: {
-      es: { name: "Calibración de Visor", description: "+5% alcance" },
-      en: { name: "Visor Calibration", description: "+5% range" },
+      es: {
+        name: "Ración de Combate",
+        description: "Restaura 15 HP al completar una oleada.",
+      },
+      en: {
+        name: "Combat Ration",
+        description: "Restores 15 HP after clearing a wave.",
+      },
     },
   },
   {
-    id: "carbonedge",
-    effect: "stat-mult:damageMultiplier:1.04",
+    id: "oldRadio",
+    effect: "oldRadio",
     rarity: "common",
     translations: {
-      es: { name: "Filo de Carbono", description: "+4% daño" },
-      en: { name: "Carbon Edge", description: "+4% damage" },
+      es: {
+        name: "Radio Vieja",
+        description: "Detecta enemigos ocultos cercanos.",
+      },
+      en: {
+        name: "Old Radio",
+        description: "Detects hidden enemies nearby.",
+      },
     },
   },
   {
-    id: "fieldstabilizers",
-    effect: "stat-add:damageReduction:0.03",
+    id: "bootKnifeHolster",
+    effect: "bootKnifeHolster",
     rarity: "common",
     translations: {
-      es: { name: "Estabilizadores de Campo", description: "-3% daño recibido" },
-      en: { name: "Field Stabilizers", description: "-3% damage taken" },
+      es: {
+        name: "Funda de Bota",
+        description: "Cambia de arma un 5% más rápido.",
+      },
+      en: {
+        name: "Boot Knife Holster",
+        description: "5% faster weapon swap speed.",
+      },
     },
   },
   {
-    id: "simchip",
-    effect: "stat-mult:xpMultiplier:1.08",
+    id: "fieldBattery",
+    effect: "fieldBattery",
     rarity: "common",
     translations: {
-      es: { name: "Chip Simulador", description: "+8% XP global" },
-      en: { name: "Sim Chip", description: "+8% global XP" },
+      es: {
+        name: "Batería de Campo",
+        description: "Regenera una pequeña cantidad de energía con el tiempo.",
+      },
+      en: {
+        name: "Field Battery",
+        description: "Small passive energy regeneration.",
+      },
     },
   },
 ];
 
 const UNCOMMON_ITEMS: ItemDefinition[] = [
   {
-    id: "kineticboots",
-    effect: "stat-mult:speedMultiplier:1.08",
+    id: "reinforcedExosuit",
+    effect: "reinforcedExosuit",
     rarity: "uncommon",
     translations: {
-      es: { name: "Botas Cinéticas", description: "+8% velocidad" },
-      en: { name: "Kinetic Boots", description: "+8% speed" },
+      es: {
+        name: "Exotraje Reforzado",
+        description: "Reduce el retroceso y otorga +5 de armadura.",
+      },
+      en: {
+        name: "Reinforced Exosuit",
+        description: "Reduces knockback and grants +5 armor.",
+      },
     },
   },
   {
-    id: "tempestboots",
-    effect: "stat-mult:speedMultiplier:1.08",
+    id: "medDroneChip",
+    effect: "medDroneChip",
     rarity: "uncommon",
     translations: {
-      es: { name: "Botas Tempestad", description: "+8% velocidad" },
-      en: { name: "Tempest Boots", description: "+8% speed" },
+      es: {
+        name: "Chip de Dron Médico",
+        description: "Despliega un pequeño dron que cura 10 HP cada 20 segundos.",
+      },
+      en: {
+        name: "Med Drone Chip",
+        description: "Deploys a small drone that heals 10 HP every 20 seconds.",
+      },
     },
   },
   {
-    id: "rapidgloves",
-    effect: "stat-mult:fireRateMultiplier:1.08",
+    id: "tacticalRelay",
+    effect: "tacticalRelay",
     rarity: "uncommon",
     translations: {
-      es: { name: "Guantes Ráfaga", description: "+8% cadencia" },
-      en: { name: "Rapid Gloves", description: "+8% fire rate" },
+      es: {
+        name: "Relé Táctico",
+        description: "Reduce los enfriamientos de habilidades en 10%.",
+      },
+      en: {
+        name: "Tactical Relay",
+        description: "Reduces skill cooldowns by 10%.",
+      },
     },
   },
   {
-    id: "cyclerig",
-    effect: "stat-mult:fireRateMultiplier:1.08",
+    id: "corrodedAmmoBelt",
+    effect: "corrodedAmmoBelt",
     rarity: "uncommon",
     translations: {
-      es: { name: "Arnés Cíclico", description: "+8% cadencia" },
-      en: { name: "Cycle Rig", description: "+8% fire rate" },
+      es: {
+        name: "Cinturón de Munición Corroído",
+        description: "Las balas atraviesan un enemigo adicional.",
+      },
+      en: {
+        name: "Corroded Ammo Belt",
+        description: "Bullets pierce one additional enemy.",
+      },
     },
   },
   {
-    id: "guardianvest",
-    effect: "maxhp-percent:0.1",
+    id: "smokeEmitter",
+    effect: "smokeEmitter",
     rarity: "uncommon",
     translations: {
-      es: { name: "Chaleco Guardián", description: "+10% HP máximo" },
-      en: { name: "Guardian Vest", description: "+10% max HP" },
+      es: {
+        name: "Emisor de Humo",
+        description: "Libera una nube de humo al recibir daño crítico.",
+      },
+      en: {
+        name: "Smoke Emitter",
+        description: "Release a smoke cloud when taking critical damage.",
+      },
     },
   },
   {
-    id: "platedweave",
-    effect: "maxhp-flat:20",
+    id: "overclockedProcessor",
+    effect: "overclockedProcessor",
     rarity: "uncommon",
     translations: {
-      es: { name: "Tejido Placado", description: "+20 HP máximo" },
-      en: { name: "Plated Weave", description: "+20 max HP" },
+      es: {
+        name: "Procesador Sobreacelerado",
+        description: "Aumenta toda la velocidad en 10% cuando tu HP está bajo 30%.",
+      },
+      en: {
+        name: "Overclocked Processor",
+        description: "Increases all speed by 10% under 30% HP.",
+      },
     },
   },
   {
-    id: "fluxbeacon",
-    effect: "stat-mult:magnetMultiplier:1.15",
+    id: "specterChip",
+    effect: "specterChip",
     rarity: "uncommon",
     translations: {
-      es: { name: "Baliza de Flujo", description: "+15% magnetismo" },
-      en: { name: "Flux Beacon", description: "+15% magnetism" },
+      es: {
+        name: "Chip Espectral",
+        description: "10% de probabilidad de volverte invisible 2 segundos tras matar.",
+      },
+      en: {
+        name: "Specter Chip",
+        description: "10% chance to turn invisible for 2s after a kill.",
+      },
     },
   },
   {
-    id: "pulsecollector",
-    effect: "stat-mult:magnetMultiplier:1.15",
+    id: "venomFilter",
+    effect: "venomFilter",
     rarity: "uncommon",
     translations: {
-      es: { name: "Colector de Pulsos", description: "+15% magnetismo" },
-      en: { name: "Pulse Collector", description: "+15% magnetism" },
+      es: {
+        name: "Filtro de Veneno",
+        description: "Otorga inmunidad al veneno y toxinas.",
+      },
+      en: {
+        name: "Venom Filter",
+        description: "Grants immunity to poison and toxin effects.",
+      },
     },
   },
   {
-    id: "mentorpatch",
-    effect: "stat-add:xpBonus:8",
+    id: "bloodInjector",
+    effect: "bloodInjector",
     rarity: "uncommon",
     translations: {
-      es: { name: "Parche Mentor", description: "+8 XP por baja" },
-      en: { name: "Mentor Patch", description: "+8 XP per kill" },
+      es: {
+        name: "Inyector de Sangre",
+        description: "Curarte otorga +20% de daño por 5 segundos.",
+      },
+      en: {
+        name: "Blood Injector",
+        description: "Healing grants +20% damage for 5s.",
+      },
     },
   },
   {
-    id: "simulatorchip",
-    effect: "stat-mult:xpMultiplier:1.15",
+    id: "thermalVisionLens",
+    effect: "thermalVisionLens",
     rarity: "uncommon",
     translations: {
-      es: { name: "Chip de Simulación", description: "+15% XP global" },
-      en: { name: "Simulator Chip", description: "+15% global XP" },
+      es: {
+        name: "Lente de Visión Térmica",
+        description: "Revela enemigos demoníacos ocultos tras paredes.",
+      },
+      en: {
+        name: "Thermal Vision Lens",
+        description: "Reveals hidden demonic enemies through walls.",
+      },
     },
   },
   {
-    id: "focusmatrix",
-    effect: "stat-add:precision:12",
+    id: "pulseGrenadeModule",
+    effect: "pulseGrenadeModule",
     rarity: "uncommon",
     translations: {
-      es: { name: "Matriz de Enfoque", description: "+12 precisión" },
-      en: { name: "Focus Matrix", description: "+12 accuracy" },
+      es: {
+        name: "Módulo de Pulso",
+        description: "Emite una onda expansiva al recargar.",
+      },
+      en: {
+        name: "Pulse Grenade Module",
+        description: "Releases a shockwave when reloading.",
+      },
     },
   },
   {
-    id: "reboundmod",
-    effect: "stat-add:bounces:1",
+    id: "demonToothPendant",
+    effect: "demonToothPendant",
     rarity: "uncommon",
     translations: {
-      es: { name: "Módulo de Rebote", description: "+1 rebote" },
-      en: { name: "Rebound Mod", description: "+1 bounce" },
+      es: {
+        name: "Colgante de Diente Demoníaco",
+        description: "Inflige 10% más de daño contra demonios.",
+      },
+      en: {
+        name: "Demon Tooth Pendant",
+        description: "Deal 10% more damage against demons.",
+      },
     },
   },
   {
-    id: "splitcartridge",
-    effect: "stat-add:multishot:1",
+    id: "reactorCore",
+    effect: "reactorCore",
     rarity: "uncommon",
     translations: {
-      es: { name: "Cartucho Dividido", description: "+1 proyectil adicional" },
-      en: { name: "Split Cartridge", description: "+1 extra projectile" },
+      es: {
+        name: "Núcleo de Reactor",
+        description: "Emite chispas de energía cada 3 segundos.",
+      },
+      en: {
+        name: "Reactor Core",
+        description: "Emits energy sparks every 3 seconds.",
+      },
     },
   },
   {
-    id: "stasisbrace",
-    effect: "stat-mult:rangeMultiplier:1.1",
+    id: "nanoInsulationWeave",
+    effect: "nanoInsulationWeave",
     rarity: "uncommon",
     translations: {
-      es: { name: "Férula de Estasis", description: "+10% alcance" },
-      en: { name: "Stasis Brace", description: "+10% range" },
+      es: {
+        name: "Fibra Nano-Aislante",
+        description: "Reduce el daño de fuego y electricidad en 15%.",
+      },
+      en: {
+        name: "Nano-Insulation Weave",
+        description: "Reduces fire and electric damage by 15%.",
+      },
     },
   },
   {
-    id: "stabilizerbar",
-    effect: "stat-mult:damageMultiplier:1.08",
+    id: "adaptivePlating",
+    effect: "adaptivePlating",
     rarity: "uncommon",
     translations: {
-      es: { name: "Barra Estabilizadora", description: "+8% daño" },
-      en: { name: "Stabilizer Bar", description: "+8% damage" },
-    },
-  },
-  {
-    id: "tacticalvisor",
-    effect: "stat-add:damageReduction:0.05",
-    rarity: "uncommon",
-    translations: {
-      es: { name: "Visor Táctico", description: "-5% daño recibido" },
-      en: { name: "Tactical Visor", description: "-5% damage taken" },
-    },
-  },
-  {
-    id: "endurancebooster",
-    effect: "stamina-max:10",
-    rarity: "uncommon",
-    translations: {
-      es: { name: "Impulsor de Resistencia", description: "+10 stamina máxima" },
-      en: { name: "Endurance Booster", description: "+10 max stamina" },
-    },
-  },
-  {
-    id: "lungmod",
-    effect: "sprint-efficiency:0.85",
-    rarity: "uncommon",
-    translations: {
-      es: { name: "Mod Pulmonar", description: "-15% consumo de stamina al sprintar" },
-      en: { name: "Lung Mod", description: "-15% sprint stamina cost" },
-    },
-  },
-  {
-    id: "rehydrationpack",
-    effect: "sprint-recovery:1.25",
-    rarity: "uncommon",
-    translations: {
-      es: { name: "Paquete de Rehidratación", description: "+25% recuperación de stamina" },
-      en: { name: "Rehydration Pack", description: "+25% stamina recovery" },
-    },
-  },
-  {
-    id: "chronoaccelerator",
-    effect: "stat-mult:powerupDuration:1.1",
-    rarity: "uncommon",
-    translations: {
-      es: { name: "Acelerador Crono", description: "+10% duración de powerups" },
-      en: { name: "Chrono Accelerator", description: "+10% power-up duration" },
+      es: {
+        name: "Placa Adaptativa",
+        description: "Al recibir daño, obtén 10% de resistencia a ese tipo por 10 segundos.",
+      },
+      en: {
+        name: "Adaptive Plating",
+        description: "After taking damage, gain 10% resistance to that type for 10s.",
+      },
     },
   },
 ];
 
 const RARE_ITEMS: ItemDefinition[] = [
   {
-    id: "combatglasses",
-    effect: "stat-add:precision:15",
+    id: "bioArmorPlating",
+    effect: "bioArmorPlating",
     rarity: "rare",
     translations: {
-      es: { name: "Gafas de Combate", description: "+15 precisión" },
-      en: { name: "Combat Glasses", description: "+15 accuracy" },
+      es: {
+        name: "Placas Bioarmadas",
+        description: "Convierte 10% del daño recibido en curación.",
+      },
+      en: {
+        name: "Bio-Armor Plating",
+        description: "Converts 10% of incoming damage into healing.",
+      },
     },
   },
   {
-    id: "reinforcedpants",
-    effect: "stat-add:damageReduction:0.07",
+    id: "aetherStabilizer",
+    effect: "aetherStabilizer",
     rarity: "rare",
     translations: {
-      es: { name: "Pantalones Reforzados", description: "-7% daño recibido" },
-      en: { name: "Reinforced Pants", description: "-7% damage taken" },
+      es: {
+        name: "Estabilizador Etéreo",
+        description: "Reduce la acumulación de corrupción con el tiempo.",
+      },
+      en: {
+        name: "Aether Stabilizer",
+        description: "Reduces corruption buildup over time.",
+      },
     },
   },
   {
-    id: "bouncegloves",
-    effect: "stat-add:bounces:1",
+    id: "adrenalSurge",
+    effect: "adrenalSurge",
     rarity: "rare",
     translations: {
-      es: { name: "Guantes de Rebote", description: "+1 rebote" },
-      en: { name: "Bounce Gloves", description: "+1 bounce" },
+      es: {
+        name: "Oleada Adrenalina",
+        description: "Los golpes críticos otorgan +30% de velocidad por 4 segundos.",
+      },
+      en: {
+        name: "Adrenal Surge",
+        description: "Critical hits grant +30% speed for 4s.",
+      },
     },
   },
   {
-    id: "energyclock",
-    effect: "stat-mult:fireRateMultiplier:1.12",
+    id: "titaniumBones",
+    effect: "titaniumBones",
     rarity: "rare",
     translations: {
-      es: { name: "Reloj de Energía", description: "+12% cadencia" },
-      en: { name: "Energy Clock", description: "+12% fire rate" },
+      es: {
+        name: "Huesos de Titanio",
+        description: "Reduce todo el daño físico en 15%.",
+      },
+      en: {
+        name: "Titanium Bones",
+        description: "Reduce all physical damage by 15%.",
+      },
     },
   },
   {
-    id: "ballistichelmet",
-    effect: "firsthitimmune",
+    id: "neuralUplink",
+    effect: "neuralUplink",
     rarity: "rare",
-    maxStacks: 1,
     translations: {
-      es: { name: "Casco Balístico", description: "Bloquea el primer golpe de cada oleada" },
-      en: { name: "Ballistic Helmet", description: "Blocks the first hit each wave" },
+      es: {
+        name: "Enlace Neural",
+        description: "Resalta enemigos élite y jefes en el minimapa.",
+      },
+      en: {
+        name: "Neural Uplink",
+        description: "Highlights elite enemies and bosses on minimap.",
+      },
     },
   },
   {
-    id: "heavyvest",
-    effect: "heavyarmor",
+    id: "ghostSerum",
+    effect: "ghostSerum",
     rarity: "rare",
     translations: {
-      es: { name: "Chaleco Pesado", description: "-10% velocidad, +25% reducción de daño" },
-      en: { name: "Heavy Vest", description: "-10% speed, +25% damage reduction" },
+      es: {
+        name: "Suero Fantasma",
+        description: "Al morir, revives como fantasma durante 10 segundos.",
+      },
+      en: {
+        name: "Ghost Serum",
+        description: "Upon death, revive as a ghost for 10s.",
+      },
     },
   },
   {
-    id: "plasmafragment",
-    effect: "plasmafrag",
+    id: "infernalBloodVial",
+    effect: "infernalBloodVial",
     rarity: "rare",
     translations: {
-      es: { name: "Fragmento de Plasma", description: "+1 rebote y +15% alcance" },
-      en: { name: "Plasma Fragment", description: "+1 bounce and +15% range" },
+      es: {
+        name: "Frasco de Sangre Infernal",
+        description: "+25% daño pero pierdes 1% de HP cada 3 segundos.",
+      },
+      en: {
+        name: "Infernal Blood Vial",
+        description: "+25% damage but lose 1% HP every 3s.",
+      },
     },
   },
   {
-    id: "adrenalineinjector",
-    effect: "adrenaline:0.08:0.12:0.45",
+    id: "orbitalBeacon",
+    effect: "orbitalBeacon",
     rarity: "rare",
     translations: {
-      es: { name: "Inyector de Adrenalina", description: "+8% velocidad y +12% daño bajo 45% HP" },
-      en: { name: "Adrenaline Injector", description: "+8% speed and +12% damage under 45% HP" },
+      es: {
+        name: "Baliza Orbital",
+        description: "Llama un ataque orbital cada 3 minutos.",
+      },
+      en: {
+        name: "Orbital Beacon",
+        description: "Calls down an orbital strike every 3 minutes.",
+      },
     },
   },
   {
-    id: "stimsynth",
-    effect: "adrenaline:0.05:0.08:0.5",
+    id: "plagueVector",
+    effect: "plagueVector",
     rarity: "rare",
     translations: {
-      es: { name: "Sintetizador de Estímulos", description: "+5% velocidad y +8% daño bajo 50% HP" },
-      en: { name: "Stim Synth", description: "+5% speed and +8% damage under 50% HP" },
-    },
-  },
-  {
-    id: "nanodrones",
-    effect: "drone:attack:1",
-    rarity: "rare",
-    translations: {
-      es: { name: "Nanodrones", description: "Despliega un dron atacante" },
-      en: { name: "Nano Drones", description: "Deploys an attacking drone" },
-    },
-  },
-  {
-    id: "shieldedcore",
-    effect: "stat-add:damageReduction:0.08",
-    rarity: "rare",
-    translations: {
-      es: { name: "Núcleo Blindado", description: "-8% daño recibido" },
-      en: { name: "Shielded Core", description: "-8% damage taken" },
-    },
-  },
-  {
-    id: "hyperlens",
-    effect: "stat-mult:rangeMultiplier:1.15",
-    rarity: "rare",
-    translations: {
-      es: { name: "Hiper Lente", description: "+15% alcance" },
-      en: { name: "Hyper Lens", description: "+15% range" },
-    },
-  },
-  {
-    id: "thrusterpack",
-    effect: "sprint-efficiency:0.75",
-    rarity: "rare",
-    translations: {
-      es: { name: "Mochila Impulsora", description: "-25% consumo de stamina al sprintar" },
-      en: { name: "Thruster Pack", description: "-25% sprint stamina cost" },
-    },
-  },
-  {
-    id: "xpamplifier",
-    effect: "stat-mult:xpMultiplier:1.2",
-    rarity: "rare",
-    translations: {
-      es: { name: "Amplificador de XP", description: "+20% XP global" },
-      en: { name: "XP Amplifier", description: "+20% global XP" },
-    },
-  },
-  {
-    id: "magnetarray",
-    effect: "stat-mult:magnetMultiplier:1.25",
-    rarity: "rare",
-    translations: {
-      es: { name: "Matriz Magnética", description: "+25% magnetismo" },
-      en: { name: "Magnet Array", description: "+25% magnetism" },
+      es: {
+        name: "Vector de Plaga",
+        description: "Los proyectiles propagan infecciones a enemigos cercanos.",
+      },
+      en: {
+        name: "Plague Vector",
+        description: "Projectiles spread infections to nearby enemies.",
+      },
     },
   },
 ];
 
 const EPIC_ITEMS: ItemDefinition[] = [
   {
-    id: "jetboots",
-    effect: "jetspeed",
+    id: "cryoCore",
+    effect: "cryoCore",
     rarity: "epic",
-    translations: {
-      es: { name: "Botas Jet", description: "+15% velocidad base" },
-      en: { name: "Jet Boots", description: "+15% base speed" },
-    },
-  },
-  {
-    id: "reactiveshield",
-    effect: "reactiveshield",
-    rarity: "epic",
-    translations: {
-      es: { name: "Escudo Reactivo", description: "Activa un pulso defensivo" },
-      en: { name: "Reactive Shield", description: "Activates a defensive pulse" },
-    },
-  },
-  {
-    id: "horizonscanner",
-    effect: "horizonscanner",
-    rarity: "epic",
-    maxStacks: 2,
     translations: {
       es: {
-        name: "Escáner Horizonte",
-        description: "Nv1: -30% zoom, Nv2: minimapa activado",
+        name: "Núcleo Criogénico",
+        description: "Las explosiones congelan a los enemigos cercanos.",
       },
       en: {
-        name: "Horizon Scanner",
-        description: "Lvl1: -30% zoom, Lvl2: minimap enabled",
+        name: "Cryo Core",
+        description: "Explosions freeze nearby enemies.",
       },
     },
   },
   {
-    id: "chaosamuleto",
-    effect: "chaosdamage",
+    id: "nanoParasiteArmor",
+    effect: "nanoParasiteArmor",
     rarity: "epic",
     translations: {
-      es: { name: "Amuleto del Caos", description: "Daño fluctuante +10% a +50%" },
-      en: { name: "Chaos Amulet", description: "Damage fluctuates +10% to +50%" },
-    },
-  },
-  {
-    id: "ironmedal",
-    effect: "maxhp15",
-    rarity: "epic",
-    translations: {
-      es: { name: "Medalla de Hierro", description: "+15% HP máximo" },
-      en: { name: "Iron Medal", description: "+15% max HP" },
-    },
-  },
-  {
-    id: "commandnode",
-    effect: "drone:attack:2",
-    rarity: "epic",
-    translations: {
-      es: { name: "Nodo de Comando", description: "Convoca drones ofensivos avanzados" },
-      en: { name: "Command Node", description: "Deploys advanced attack drones" },
-    },
-  },
-  {
-    id: "supportgrid",
-    effect: "drone:support:1",
-    rarity: "epic",
-    translations: {
-      es: { name: "Red de Soporte", description: "Dron médico que repara al escuadrón" },
-      en: { name: "Support Grid", description: "Support drone that patches the squad" },
-    },
-  },
-  {
-    id: "shieldarray",
-    effect: "drone:shield:1",
-    rarity: "epic",
-    translations: {
-      es: { name: "Matriz de Escudos", description: "Dron que regenera cargas defensivas" },
-      en: { name: "Shield Array", description: "Drone that restores shield charges" },
-    },
-  },
-  {
-    id: "infernalengine",
-    effect: "infernalengine",
-    rarity: "epic",
-    translations: {
-      es: { name: "Motor Infernal", description: "+25% velocidad, +20% daño, +10% daño recibido" },
+      es: {
+        name: "Armadura de Nanoparásitos",
+        description: "Cura 20% del HP al eliminar jefes.",
+      },
       en: {
-        name: "Infernal Engine",
-        description: "+25% speed, +20% damage, +10% damage taken",
+        name: "Nano-Parasite Armor",
+        description: "Heal 20% HP after killing bosses.",
       },
     },
   },
   {
-    id: "artificialheart",
-    effect: "artificialheart",
+    id: "overlordsCrown",
+    effect: "overlordsCrown",
     rarity: "epic",
     translations: {
-      es: { name: "Corazón Artificial", description: "+50 HP permanente" },
-      en: { name: "Artificial Heart", description: "+50 permanent HP" },
+      es: {
+        name: "Corona del Señor Oscuro",
+        description: "+50% de daño contra enemigos con más del 70% de HP.",
+      },
+      en: {
+        name: "Overlord’s Crown",
+        description: "+50% damage against enemies above 70% HP.",
+      },
+    },
+  },
+  {
+    id: "grimCodex",
+    effect: "grimCodex",
+    rarity: "epic",
+    translations: {
+      es: {
+        name: "Códice Funesto",
+        description: "Aumenta el daño mágico y causa miedo al golpear.",
+      },
+      en: {
+        name: "Grim Codex",
+        description: "Increases magic damage and inflicts fear on hit.",
+      },
+    },
+  },
+  {
+    id: "cursedMedallion",
+    effect: "cursedMedallion",
+    rarity: "epic",
+    translations: {
+      es: {
+        name: "Medallón Maldito",
+        description: "Duplica tu daño, pero también el daño que recibes.",
+      },
+      en: {
+        name: "Cursed Medallion",
+        description: "Double your damage, double the damage you take.",
+      },
+    },
+  },
+  {
+    id: "etherealAmmoBelt",
+    effect: "etherealAmmoBelt",
+    rarity: "epic",
+    translations: {
+      es: {
+        name: "Cinturón de Munición Etérea",
+        description: "Munición infinita durante 4 segundos cada 60 segundos.",
+      },
+      en: {
+        name: "Ethereal Ammo Belt",
+        description: "Gain infinite ammo for 4s every 60s.",
+      },
+    },
+  },
+  {
+    id: "houndmasterTotem",
+    effect: "houndmasterTotem",
+    rarity: "epic",
+    translations: {
+      es: {
+        name: "Tótem del Amo de Bestias",
+        description: "Invoca un sabueso espectral que ataca a enemigos cercanos.",
+      },
+      en: {
+        name: "Houndmaster Totem",
+        description: "Summons a spectral hound that attacks nearby enemies.",
+      },
+    },
+  },
+  {
+    id: "hellfireReactor",
+    effect: "hellfireReactor",
+    rarity: "epic",
+    translations: {
+      es: {
+        name: "Reactor de Fuego Infernal",
+        description: "Las balas explotan al impactar, causando daño en área.",
+      },
+      en: {
+        name: "Hellfire Reactor",
+        description: "Bullets explode on impact, dealing AoE damage.",
+      },
+    },
+  },
+  {
+    id: "voidRations",
+    effect: "voidRations",
+    rarity: "epic",
+    translations: {
+      es: {
+        name: "Raciones del Vacío",
+        description: "Abrir cofres restaura instantáneamente 50 HP.",
+      },
+      en: {
+        name: "Void Rations",
+        description: "Open chests instantly restores 50 HP.",
+      },
     },
   },
 ];
 
 const LEGENDARY_ITEMS: ItemDefinition[] = [
   {
-    id: "voidcore",
-    effect: "doublexp",
+    id: "demonheartReactor",
+    effect: "demonheartReactor",
     rarity: "legendary",
     translations: {
-      es: { name: "Núcleo del Vacío", description: "Duplica toda la XP obtenida" },
-      en: { name: "Void Core", description: "Doubles all XP gained" },
+      es: {
+        name: "Reactor del Corazón Demoníaco",
+        description: "Al tener 1 HP, te vuelves invulnerable por 3 segundos y liberas una explosión infernal.",
+      },
+      en: {
+        name: "Demonheart Reactor",
+        description: "At 1 HP, become invulnerable for 3s and release an infernal blast.",
+      },
     },
   },
   {
-    id: "solargauntlet",
-    effect: "solargauntlet",
+    id: "revenantCore",
+    effect: "revenantCore",
     rarity: "legendary",
     translations: {
-      es: { name: "Guantelete Solar", description: "Lanza un proyectil cada 10 bajas" },
-      en: { name: "Solar Gauntlet", description: "Fires a projectile every 10 kills" },
+      es: {
+        name: "Núcleo del Revenant",
+        description: "Revive con toda la salud una vez por partida.",
+      },
+      en: {
+        name: "Revenant Core",
+        description: "Revive with full HP once per run.",
+      },
     },
   },
   {
-    id: "bloodstone",
-    effect: "bloodstone",
+    id: "apocalypseTrigger",
+    effect: "apocalypseTrigger",
     rarity: "legendary",
     translations: {
-      es: { name: "Piedra de Sangre", description: "Recupera 5 HP cada 30 bajas" },
-      en: { name: "Blood Stone", description: "Restore 5 HP every 30 kills" },
+      es: {
+        name: "Disparador del Apocalipsis",
+        description: "Multiplica tu daño x4 por 10 segundos, pero consume todo tu HP al terminar.",
+      },
+      en: {
+        name: "Apocalypse Trigger",
+        description: "Multiply your damage by 4 for 10s but consume all HP afterward.",
+      },
     },
   },
   {
-    id: "hordetotem",
-    effect: "hordetotem",
+    id: "celestialCore",
+    effect: "celestialCore",
     rarity: "legendary",
     translations: {
-      es: { name: "Tótem de la Horda", description: "+1 enemigo generado y +2 XP por baja" },
-      en: { name: "Horde Totem", description: "+1 spawn enemy and +2 XP per kill" },
+      es: {
+        name: "Núcleo Celestial",
+        description: "Tus ataques infligen daño verdadero e ignoran armadura.",
+      },
+      en: {
+        name: "Celestial Core",
+        description: "Your attacks deal true damage and ignore armor.",
+      },
     },
   },
   {
-    id: "infinitylens",
-    effect: "infinitylens",
+    id: "markOfTheForgottenSoldier",
+    effect: "markOfTheForgottenSoldier",
     rarity: "legendary",
     translations: {
-      es: { name: "Lente del Infinito", description: "+10% a todos los multiplicadores" },
-      en: { name: "Infinity Lens", description: "+10% to all multipliers" },
+      es: {
+        name: "Marca del Soldado Olvidado",
+        description: "Duplica todas tus estadísticas base pero reduce los drops en 80%.",
+      },
+      en: {
+        name: "Mark of the Forgotten Soldier",
+        description: "Doubles all base stats but reduces item drop chance by 80%.",
+      },
     },
   },
 ];
@@ -1188,13 +1417,13 @@ for (const definition of ITEM_DEFINITIONS) {
   itemTextMap.en[definition.id] = definition.translations.en;
 }
 
-itemTextMap.es.horizonvisor = {
-  name: "Visor Horizonte",
-  description: "Reduce el zoom y prepara el minimapa",
+itemTextMap.es.nvg = {
+  name: "Gafas NVG",
+  description: "Activa visión nocturna y prepara el minimapa",
 };
-itemTextMap.en.horizonvisor = {
-  name: "Horizon Visor",
-  description: "Zooms out and readies the minimap",
+itemTextMap.en.nvg = {
+  name: "NVG",
+  description: "Activates night vision and readies the minimap",
 };
 
 export const itemTexts = itemTextMap;
@@ -1396,7 +1625,7 @@ export const getTomeDescription = (
 };
 
 export const HORIZON_VISOR_ITEM: Item = {
-  id: "horizonvisor",
+  id: "nvg",
   effect: "horizonvisor",
   rarity: "epic",
   color: RARITY_COLOR_MAP.epic,
