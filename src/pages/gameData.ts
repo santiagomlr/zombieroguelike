@@ -12,6 +12,9 @@ export interface Translations {
   range: string;
   level: string;
   wave: string;
+  difficulty: string;
+  difficultyHint: string;
+  difficultyEscalation: string;
   weapons: string;
   tomes: string;
   items: string;
@@ -23,12 +26,13 @@ export interface Translations {
   gameOver: string;
   finalScore: string;
   finalLevel: string;
-  finalWave: string;
+  finalDifficulty: string;
   playAgain: string;
   leaderboard: string;
   stats: string;
   continue: string;
   paused: string;
+  levelShort: string;
   musicControls: {
     buttonLabel: string;
     menuTitle: string;
@@ -192,6 +196,9 @@ const translationsES: Translations = {
   range: "Alcance",
   level: "Nivel",
   wave: "Wave",
+  difficulty: "Dificultad",
+  difficultyHint: "Aumenta de forma constante con el tiempo.",
+  difficultyEscalation: "La amenaza escala con el paso de los minutos.",
   weapons: "Armas:",
   tomes: "Libros:",
   items: "Ítems:",
@@ -203,12 +210,13 @@ const translationsES: Translations = {
   gameOver: "GAME OVER",
   finalScore: "Puntuación",
   finalLevel: "Nivel alcanzado",
-  finalWave: "Wave alcanzado",
+  finalDifficulty: "Dificultad alcanzada",
   playAgain: "Jugar de nuevo",
   leaderboard: "TOP 10",
   stats: "Estadísticas",
   continue: "Continuar",
   paused: "PAUSA",
+  levelShort: "Nv.",
   musicControls: {
     buttonLabel: "Música",
     menuTitle: "Control de música",
@@ -297,6 +305,9 @@ const translationsEN: Translations = {
   range: "Range",
   level: "Level",
   wave: "Wave",
+  difficulty: "Difficulty",
+  difficultyHint: "Scales relentlessly over time.",
+  difficultyEscalation: "Threat level continues to climb.",
   weapons: "Weapons:",
   tomes: "Books:",
   items: "Items:",
@@ -308,12 +319,13 @@ const translationsEN: Translations = {
   gameOver: "GAME OVER",
   finalScore: "Score",
   finalLevel: "Level Reached",
-  finalWave: "Wave Reached",
+  finalDifficulty: "Difficulty Reached",
   playAgain: "Play Again",
   leaderboard: "TOP 10",
   stats: "Stats",
   continue: "Continue",
   paused: "PAUSED",
+  levelShort: "Lv.",
   musicControls: {
     buttonLabel: "Music",
     menuTitle: "Music controls",
