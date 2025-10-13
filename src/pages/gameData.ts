@@ -1172,6 +1172,202 @@ itemTextMap.en.horizonvisor = {
 
 export const itemTexts = itemTextMap;
 
+export const upgradeDescriptionTexts: Record<Language, Record<string, string>> = {
+  es: {
+    "weapon.damage": "+30% Daño",
+    "weapon.fireRate": "+25% Cadencia",
+    "weapon.range": "+20% Alcance",
+    "weapon.spread": "+1 Pellet adicional",
+    "weapon.aoe": "+50% Radio de explosión",
+    "weapon.pierce": "+2 Perforaciones",
+    "tome.damage.effect": "+20% Daño",
+    "tome.damage.special": "+15% Daño crítico",
+    "tome.speed.effect": "+15% Velocidad",
+    "tome.speed.special": "+10% Esquiva",
+    "tome.range.effect": "+20% Alcance",
+    "tome.range.special": "+15% Velocidad de proyectil",
+    "tome.fireRate.effect": "+20% Cadencia",
+    "tome.fireRate.special": "Recarga instantánea ocasional",
+    "tome.bounce.effect": "+1 Rebote",
+    "tome.bounce.special": "Rebotes explosivos",
+    "tome.multishot.effect": "+1 Proyectil",
+    "tome.multishot.special": "Patrón circular",
+    "tome.magnet.effect": "+15% radio imán",
+    "tome.magnet.special": "Atrae powerups lejanos",
+    "tome.regen.effect": "Duplica velocidad de regen",
+    "tome.regen.special": "Escudo temporal al regenerar",
+    "tome.precision.effect": "+15% Precisión",
+    "tome.precision.special": "+20% Chance crítico",
+    "tome.xp.effect": "+25% XP",
+    "tome.xp.special": "Doble XP de jefes",
+  },
+  en: {
+    "weapon.damage": "+30% Damage",
+    "weapon.fireRate": "+25% Fire rate",
+    "weapon.range": "+20% Range",
+    "weapon.spread": "+1 Additional pellet",
+    "weapon.aoe": "+50% Explosion radius",
+    "weapon.pierce": "+2 Pierces",
+    "tome.damage.effect": "+20% Damage",
+    "tome.damage.special": "+15% Critical damage",
+    "tome.speed.effect": "+15% Speed",
+    "tome.speed.special": "+10% Dodge chance",
+    "tome.range.effect": "+20% Range",
+    "tome.range.special": "+15% Projectile speed",
+    "tome.fireRate.effect": "+20% Fire rate",
+    "tome.fireRate.special": "Occasional instant reload",
+    "tome.bounce.effect": "+1 Bounce",
+    "tome.bounce.special": "Explosive bounces",
+    "tome.multishot.effect": "+1 Projectile",
+    "tome.multishot.special": "Circular pattern",
+    "tome.magnet.effect": "+15% Magnet radius",
+    "tome.magnet.special": "Pulls distant power-ups",
+    "tome.regen.effect": "Doubles regen speed",
+    "tome.regen.special": "Temporary shield on regen",
+    "tome.precision.effect": "+15% Accuracy",
+    "tome.precision.special": "+20% Critical chance",
+    "tome.xp.effect": "+25% XP",
+    "tome.xp.special": "Double boss XP",
+  },
+};
+
+export const getUpgradeDescriptionText = (
+  key: string | undefined,
+  language: Language,
+): string | undefined => {
+  if (!key) return undefined;
+  return upgradeDescriptionTexts[language][key] ?? upgradeDescriptionTexts.en[key];
+};
+
+export type TomeDescriptionTemplate = {
+  damage: (value: number) => string;
+  speed: (value: number) => string;
+  bounce: (value: number) => string;
+  range: (value: number) => string;
+  precision: (value: number) => string;
+  multishot: (value: number) => string;
+  regen: (params: { rate: number; interval: number }) => string;
+  magnet: (value: number) => string;
+  fire: (value: number) => string;
+};
+
+export const tomeDescriptionTemplates: Record<Language, TomeDescriptionTemplate> = {
+  es: {
+    damage: (value) => `+${value}% Daño`,
+    speed: (value) => `+${value}% Velocidad`,
+    bounce: (value) => `${value} Rebotes (Enemigos)`,
+    range: (value) => `+${value}% Alcance`,
+    precision: (value) => `+${value}% Precisión`,
+    multishot: (value) => `+${value} Proyectiles`,
+    regen: ({ rate, interval }) => `Regenera ${rate} HP cada ${interval}s`,
+    magnet: (value) => `+${value}% Rango imán`,
+    fire: (value) => `+${value}% Cadencia`,
+  },
+  en: {
+    damage: (value) => `+${value}% Damage`,
+    speed: (value) => `+${value}% Speed`,
+    bounce: (value) => `${value} Bounces (Enemies)`,
+    range: (value) => `+${value}% Range`,
+    precision: (value) => `+${value}% Accuracy`,
+    multishot: (value) => `+${value} Projectiles`,
+    regen: ({ rate, interval }) => `Regenerates ${rate} HP every ${interval}s`,
+    magnet: (value) => `+${value}% Magnet range`,
+    fire: (value) => `+${value}% Fire rate`,
+  },
+};
+
+const getWeaponId = (weapon: Weapon | string): string =>
+  typeof weapon === "string" ? weapon : weapon.id;
+
+const getTomeId = (tome: Tome | string): string => (typeof tome === "string" ? tome : tome.id);
+
+const getItemId = (item: Item | string): string => (typeof item === "string" ? item : item.id);
+
+export const getWeaponName = (weapon: Weapon | string, language: Language): string => {
+  const id = getWeaponId(weapon);
+  const localized = weaponTexts[language][id] ?? weaponTexts.en[id];
+  return localized ? localized.name : id;
+};
+
+export const getTomeName = (tome: Tome | string, language: Language): string => {
+  const id = getTomeId(tome);
+  const localized = tomeTexts[language][id] ?? tomeTexts.en[id];
+  return localized ? localized.name : id;
+};
+
+export const getItemText = (item: Item | string, language: Language): ItemLocalization => {
+  const id = getItemId(item);
+  const localized = itemTexts[language][id] ?? itemTexts.en[id];
+  if (localized) {
+    return localized;
+  }
+  return { name: id, description: "" };
+};
+
+export const getTomeDescription = (
+  tome: Tome,
+  language: Language,
+  stats?: PlayerStats,
+): string => {
+  const fallbackTemplates = tomeDescriptionTemplates.en;
+  const templates = tomeDescriptionTemplates[language] ?? fallbackTemplates;
+
+  switch (tome.effect) {
+    case "damage": {
+      const bonus = Math.round(tome.level * 10);
+      return (templates?.damage ?? fallbackTemplates.damage)(bonus);
+    }
+    case "speed": {
+      const bonus = Math.round(Math.min(tome.level, 5) * 5);
+      return (templates?.speed ?? fallbackTemplates.speed)(bonus);
+    }
+    case "bounce": {
+      const bonus = Math.max(1, Math.round(tome.level));
+      return (templates?.bounce ?? fallbackTemplates.bounce)(bonus);
+    }
+    case "range": {
+      const bonus = Math.round(tome.level * 15);
+      return (templates?.range ?? fallbackTemplates.range)(bonus);
+    }
+    case "precision": {
+      const bonus = Math.round(tome.level * 10);
+      return (templates?.precision ?? fallbackTemplates.precision)(bonus);
+    }
+    case "multishot": {
+      const bonus = Math.max(1, Math.round(tome.level));
+      return (templates?.multishot ?? fallbackTemplates.multishot)(bonus);
+    }
+    case "regen": {
+      const rate = Math.round(2 + tome.level * 2);
+      const interval = Math.max(1, 5 - tome.level);
+      return (templates?.regen ?? fallbackTemplates.regen)({ rate, interval });
+    }
+    case "magnet": {
+      const bonus = Math.round(tome.level * 20);
+      return (templates?.magnet ?? fallbackTemplates.magnet)(bonus);
+    }
+    case "fireRate": {
+      const bonus = Math.round(tome.level * 12);
+      return (templates?.fire ?? fallbackTemplates.fire)(bonus);
+    }
+    default: {
+      if (!stats) return tome.effect;
+
+      const { auraRadius, vampire, regenRate, regenInterval } = stats;
+      if (tome.effect === "aura" && auraRadius) {
+        return `${Math.round(auraRadius)} Aura`;
+      }
+      if (tome.effect === "vampire" && vampire) {
+        return `${vampire}% Lifesteal`;
+      }
+      if (tome.effect === "regen" && regenRate && regenInterval) {
+        return `${regenRate} HP / ${regenInterval}s`;
+      }
+      return tome.effect;
+    }
+  }
+};
+
 export const HORIZON_VISOR_ITEM: Item = {
   id: "horizonvisor",
   effect: "horizonvisor",
