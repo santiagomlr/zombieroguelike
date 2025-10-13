@@ -4804,7 +4804,7 @@ const Index = () => {
         right: visibilityCamera.x + visibilityExtents.halfViewW,
         bottom: visibilityCamera.y + visibilityExtents.halfViewH,
       };
-      const allEnemies = gameState.enemies;
+      const allEnemies = [...gameState.enemies];
       const visibleEnemies = cullEntities(
         allEnemies,
         expandBounds(visibilityBounds, MAX_ENEMY_RADIUS),
@@ -4922,6 +4922,233 @@ const Index = () => {
         gameState.waveEnemiesSpawned++;
       }
 
+      const handleEnemyDeath = (enemy: any, killer: any | null) => {
+        if (!enemy || (enemy as any).__removed) {
+          return;
+        }
+
+        const enemyIndex = gameState.enemies.indexOf(enemy);
+        if (enemyIndex === -1) {
+          (enemy as any).__removed = true;
+          return;
+        }
+
+        recordEnemyKill(enemy);
+        (enemy as any).__removed = true;
+
+        if (!enemy.isBoss && !enemy.isMiniBoss) {
+          gameState.normalEnemyCount = Math.max(0, gameState.normalEnemyCount - 1);
+          normalEnemyCount = gameState.normalEnemyCount;
+        }
+        gameState.enemies.splice(enemyIndex, 1);
+
+        if (enemy.specialType === "explosive") {
+          const explosionRadiusSq = 80 * 80;
+          const impactedEnemies = [...gameState.enemies];
+          for (const otherEnemy of impactedEnemies) {
+            if (!otherEnemy || otherEnemy === enemy || (otherEnemy as any).__removed) continue;
+            const dx = otherEnemy.x - enemy.x;
+            const dy = otherEnemy.y - enemy.y;
+            if (dx * dx + dy * dy < explosionRadiusSq) {
+              otherEnemy.hp -= 10;
+              if (otherEnemy.hp <= 0) {
+                handleEnemyDeath(otherEnemy, null);
+              }
+            }
+          }
+
+          const playerDx = gameState.player.x - enemy.x;
+          const playerDy = gameState.player.y - enemy.y;
+          if (playerDx * playerDx + playerDy * playerDy < explosionRadiusSq) {
+            if (gameState.player.ifr <= 0 && gameState.player.shield === 0) {
+              gameState.player.hp -= 10;
+              gameState.player.ifr = gameState.player.ifrDuration;
+            }
+          }
+          if (gameState.particles.length < gameState.maxParticles - 30) {
+            for (let j = 0; j < 30; j++) {
+              const angle = (Math.PI * 2 * j) / 30;
+              gameState.particles.push({
+                x: enemy.x,
+                y: enemy.y,
+                vx: Math.cos(angle) * 10,
+                vy: Math.sin(angle) * 10,
+                life: 1,
+                color: "#ef4444",
+                size: 5,
+              });
+            }
+          }
+        }
+
+        if (!enemy.isSummoned) {
+          gameState.waveKills++;
+        }
+
+        let points = 10;
+        let xpBundles = 1;
+        let dropChance = 0;
+
+        if (enemy.isBoss) {
+          points = 500;
+          xpBundles = 10;
+          const legendaryItems = ITEMS.filter((it) => {
+            if (it.rarity !== "legendary") return false;
+            const currentStacks = gameState.player.itemStacks[it.id] ?? 0;
+            if (it.maxStacks !== undefined && currentStacks >= it.maxStacks) {
+              return false;
+            }
+            return true;
+          });
+          if (legendaryItems.length > 0) {
+            const randomLegendary = legendaryItems[Math.floor(Math.random() * legendaryItems.length)];
+            grantItemToPlayer(randomLegendary, { notify: true, playSound: true });
+          }
+          gameState.player.hp = gameState.player.maxhp;
+        } else if (enemy.isMiniBoss) {
+          points = 100;
+          xpBundles = Math.floor(Math.random() * 3) + 4;
+          dropChance = 0.1;
+        } else if (enemy.isElite) {
+          points = 25;
+          xpBundles = 2;
+          dropChance = 0.15;
+        } else if (enemy.specialType) {
+          points = 15;
+          xpBundles = 1;
+          dropChance = 0.08;
+        } else if (enemy.enemyType === "strong") {
+          points = 10;
+          xpBundles = 1;
+          dropChance = 0.05;
+        } else if (enemy.enemyType === "medium") {
+          points = 7;
+          xpBundles = 1;
+          dropChance = 0.03;
+        } else {
+          points = 5;
+          xpBundles = 1;
+          dropChance = 0.02;
+        }
+
+        gameState.score += points;
+        setScore(gameState.score);
+
+        for (let k = 0; k < xpBundles; k++) {
+          const offsetX = (Math.random() - 0.5) * 40;
+          const offsetY = (Math.random() - 0.5) * 40;
+          let xpValue = enemy.isMiniBoss
+            ? 30
+            : enemy.enemyType === "strong"
+              ? 5
+              : enemy.enemyType === "medium"
+                ? 3
+                : 2;
+
+          const hordeStacksForXp = getItemStacks("hordetotem");
+          if (hordeStacksForXp > 0) {
+            xpValue += 2 * hordeStacksForXp;
+          }
+
+          dropXP(enemy.x + offsetX, enemy.y + offsetY, xpValue);
+        }
+
+        const healRoll = Math.random();
+        const luckStacks = getItemStacks("luck");
+        const luckMultiplier = luckStacks > 0 ? 1 + 0.5 * luckStacks : 1;
+
+        if (healRoll < 0.05 * luckMultiplier) {
+          dropHeal(enemy.x, enemy.y);
+        }
+
+        if (Math.random() < dropChance) {
+          const roll = Math.random();
+          const powerupType = roll < 0.3 ? "magnet" : roll < 0.5 ? "shield" : roll < 0.65 ? "rage" : "speed";
+          dropPowerup(enemy.x, enemy.y, powerupType);
+        }
+
+        if (Math.random() < CHEST_DROP_RATE) {
+          dropChest(enemy.x, enemy.y);
+        }
+
+        if (
+          enemy.specialType === "tank" &&
+          getItemStacks(HORIZON_VISOR_ITEM.id) < (HORIZON_VISOR_ITEM.maxStacks ?? Infinity) &&
+          Math.random() < 0.15
+        ) {
+          dropHorizonVisor(enemy.x, enemy.y);
+        }
+
+        if (gameState.player.stats.vampire > 0 && killer) {
+          const healAmount = Math.floor(killer.damage * gameState.player.stats.vampire * 10);
+          gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + healAmount);
+        }
+
+        const solarStacks = getItemStacks("solargauntlet");
+        if (solarStacks > 0) {
+          gameState.player.stats.solarGauntletKills++;
+          const requiredKills = Math.max(2, 10 - (solarStacks - 1) * 2);
+          if (gameState.player.stats.solarGauntletKills >= requiredKills) {
+            gameState.player.stats.solarGauntletKills = 0;
+            for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
+              gameState.bullets.push({
+                x: gameState.player.x,
+                y: gameState.player.y,
+                dir: angle,
+                spd: 15,
+                life: 3,
+                damage: gameState.player.stats.damageMultiplier * 50 * solarStacks,
+                color: "#ffc300",
+                bounces: 0,
+                bounceOnEnemies: false,
+                pierce: true,
+                aoe: false,
+              });
+            }
+            if (gameState.particles.length < gameState.maxParticles - 30) {
+              for (let j = 0; j < 30; j++) {
+                const angle = (Math.PI * 2 * j) / 30;
+                gameState.particles.push({
+                  x: gameState.player.x,
+                  y: gameState.player.y,
+                  vx: Math.cos(angle) * 10,
+                  vy: Math.sin(angle) * 10,
+                  life: 1,
+                  color: "#ffc300",
+                  size: 5,
+                });
+              }
+            }
+            playPowerupSound();
+          }
+        }
+
+        const bloodstoneStacks = getItemStacks("bloodstone");
+        if (bloodstoneStacks > 0) {
+          gameState.player.stats.bloodstoneKills++;
+          const killsRequired = Math.max(10, 30 - (bloodstoneStacks - 1) * 5);
+          if (gameState.player.stats.bloodstoneKills >= killsRequired) {
+            gameState.player.stats.bloodstoneKills = 0;
+            const healAmount = 5 * bloodstoneStacks;
+            gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + healAmount);
+            if (gameState.particles.length < gameState.maxParticles - 12) {
+              for (let j = 0; j < 12; j++) {
+                const angle = (Math.PI * 2 * j) / 12;
+                gameState.particles.push({
+                  x: gameState.player.x,
+                  y: gameState.player.y,
+                  vx: Math.cos(angle) * 4,
+                  vy: Math.sin(angle) * 4,
+                  life: 0.8,
+                  color: "#dc2626",
+                  size: 4,
+                });
+              }
+            }
+          }
+        }
+      };
+
       // Mover enemigos y aplicar efectos elementales
       for (const e of allEnemies) {
         const isVisible = visibleEnemySet ? visibleEnemySet.has(e) : true;
@@ -4966,6 +5193,11 @@ const Index = () => {
               size: 2,
             });
           }
+        }
+
+        if (e.hp <= 0) {
+          handleEnemyDeath(e, null);
+          continue;
         }
 
         // Movimiento (ralentizado si está congelado)
@@ -5043,13 +5275,19 @@ const Index = () => {
               }
             }
 
+            const victims: any[] = [];
+
             // Daño a enemigos cercanos (también reciben daño de explosión)
-            for (const otherEnemy of gameState.enemies) {
-              if (otherEnemy === e) continue;
+            const impactedEnemies = [...gameState.enemies];
+            for (const otherEnemy of impactedEnemies) {
+              if (!otherEnemy || otherEnemy === e || (otherEnemy as any).__removed) continue;
               const distToEnemy = Math.hypot(e.x - otherEnemy.x, e.y - otherEnemy.y);
               if (distToEnemy < explosionRadius) {
                 const damageMultiplier = 1 - (distToEnemy / explosionRadius) * 0.5;
                 otherEnemy.hp -= explosionDamage * 0.5 * damageMultiplier; // 50% daño a otros enemigos
+                if (otherEnemy.hp <= 0) {
+                  victims.push(otherEnemy);
+                }
               }
             }
 
@@ -5081,8 +5319,13 @@ const Index = () => {
             // Sonido de explosión (más fuerte)
             audioManager.playSfx("death", { volume: 1 });
 
-            // Eliminar bomber
+            // Eliminar bomber y víctimas marcadas
             e.hp = 0;
+            victims.push(e);
+            for (const victim of victims) {
+              handleEnemyDeath(victim, null);
+            }
+            continue;
           }
         }
 
@@ -5286,6 +5529,12 @@ const Index = () => {
         }
       }
 
+      for (const enemy of [...gameState.enemies]) {
+        if (enemy.hp <= 0 && !(enemy as any).__removed) {
+          handleEnemyDeath(enemy, null);
+        }
+      }
+
       // Disparo automático
       autoShoot(dt);
       weaponAudioController.updateLoopingSounds();
@@ -5384,226 +5633,6 @@ const Index = () => {
         }
         spatialHash.insertProjectile(projectile as any);
       }
-
-      const handleEnemyDeath = (enemy: any, killer: any | null) => {
-        if (!enemy || (enemy as any).__removed) {
-          return;
-        }
-
-        const enemyIndex = gameState.enemies.indexOf(enemy);
-        if (enemyIndex === -1) {
-          (enemy as any).__removed = true;
-          return;
-        }
-
-        recordEnemyKill(enemy);
-        (enemy as any).__removed = true;
-
-        if (!enemy.isBoss && !enemy.isMiniBoss) {
-          gameState.normalEnemyCount = Math.max(0, gameState.normalEnemyCount - 1);
-          normalEnemyCount = gameState.normalEnemyCount;
-        }
-        gameState.enemies.splice(enemyIndex, 1);
-
-        if (enemy.specialType === "explosive") {
-          for (const otherEnemy of gameState.enemies) {
-            const dx = otherEnemy.x - enemy.x;
-            const dy = otherEnemy.y - enemy.y;
-            if (dx * dx + dy * dy < 80 * 80) {
-              otherEnemy.hp -= 10;
-            }
-          }
-          const playerDx = gameState.player.x - enemy.x;
-          const playerDy = gameState.player.y - enemy.y;
-          if (playerDx * playerDx + playerDy * playerDy < 80 * 80) {
-            if (gameState.player.ifr <= 0 && gameState.player.shield === 0) {
-              gameState.player.hp -= 10;
-              gameState.player.ifr = gameState.player.ifrDuration;
-            }
-          }
-          if (gameState.particles.length < gameState.maxParticles - 30) {
-            for (let j = 0; j < 30; j++) {
-              const angle = (Math.PI * 2 * j) / 30;
-              gameState.particles.push({
-                x: enemy.x,
-                y: enemy.y,
-                vx: Math.cos(angle) * 10,
-                vy: Math.sin(angle) * 10,
-                life: 1,
-                color: "#ef4444",
-                size: 5,
-              });
-            }
-          }
-        }
-
-        if (!enemy.isSummoned) {
-          gameState.waveKills++;
-        }
-
-        let points = 10;
-        let xpBundles = 1;
-        let dropChance = 0;
-
-        if (enemy.isBoss) {
-          points = 500;
-          xpBundles = 10;
-          const legendaryItems = ITEMS.filter((it) => {
-            if (it.rarity !== "legendary") return false;
-            const currentStacks = gameState.player.itemStacks[it.id] ?? 0;
-            if (it.maxStacks !== undefined && currentStacks >= it.maxStacks) {
-              return false;
-            }
-            return true;
-          });
-          if (legendaryItems.length > 0) {
-            const randomLegendary = legendaryItems[Math.floor(Math.random() * legendaryItems.length)];
-            grantItemToPlayer(randomLegendary, { notify: true, playSound: true });
-          }
-          gameState.player.hp = gameState.player.maxhp;
-        } else if (enemy.isMiniBoss) {
-          points = 100;
-          xpBundles = Math.floor(Math.random() * 3) + 4;
-          dropChance = 0.1;
-        } else if (enemy.isElite) {
-          points = 25;
-          xpBundles = 2;
-          dropChance = 0.15;
-        } else if (enemy.specialType) {
-          points = 15;
-          xpBundles = 1;
-          dropChance = 0.08;
-        } else if (enemy.enemyType === "strong") {
-          points = 10;
-          xpBundles = 1;
-          dropChance = 0.05;
-        } else if (enemy.enemyType === "medium") {
-          points = 7;
-          xpBundles = 1;
-          dropChance = 0.03;
-        } else {
-          points = 5;
-          xpBundles = 1;
-          dropChance = 0.02;
-        }
-
-        gameState.score += points;
-        setScore(gameState.score);
-
-        for (let k = 0; k < xpBundles; k++) {
-          const offsetX = (Math.random() - 0.5) * 40;
-          const offsetY = (Math.random() - 0.5) * 40;
-          let xpValue = enemy.isMiniBoss
-            ? 30
-            : enemy.enemyType === "strong"
-              ? 5
-              : enemy.enemyType === "medium"
-                ? 3
-                : 2;
-
-          const hordeStacksForXp = getItemStacks("hordetotem");
-          if (hordeStacksForXp > 0) {
-            xpValue += 2 * hordeStacksForXp;
-          }
-
-          dropXP(enemy.x + offsetX, enemy.y + offsetY, xpValue);
-        }
-
-        const healRoll = Math.random();
-        const luckStacks = getItemStacks("luck");
-        const luckMultiplier = luckStacks > 0 ? 1 + 0.5 * luckStacks : 1;
-
-        if (healRoll < 0.05 * luckMultiplier) {
-          dropHeal(enemy.x, enemy.y);
-        }
-
-        if (Math.random() < dropChance) {
-          const roll = Math.random();
-          const powerupType = roll < 0.3 ? "magnet" : roll < 0.5 ? "shield" : roll < 0.65 ? "rage" : "speed";
-          dropPowerup(enemy.x, enemy.y, powerupType);
-        }
-
-        if (Math.random() < CHEST_DROP_RATE) {
-          dropChest(enemy.x, enemy.y);
-        }
-
-        if (
-          enemy.specialType === "tank" &&
-          getItemStacks(HORIZON_VISOR_ITEM.id) < (HORIZON_VISOR_ITEM.maxStacks ?? Infinity) &&
-          Math.random() < 0.15
-        ) {
-          dropHorizonVisor(enemy.x, enemy.y);
-        }
-
-        if (gameState.player.stats.vampire > 0 && killer) {
-          const healAmount = Math.floor(killer.damage * gameState.player.stats.vampire * 10);
-          gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + healAmount);
-        }
-
-        const solarStacks = getItemStacks("solargauntlet");
-        if (solarStacks > 0) {
-          gameState.player.stats.solarGauntletKills++;
-          const requiredKills = Math.max(2, 10 - (solarStacks - 1) * 2);
-          if (gameState.player.stats.solarGauntletKills >= requiredKills) {
-            gameState.player.stats.solarGauntletKills = 0;
-            for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 8) {
-              gameState.bullets.push({
-                x: gameState.player.x,
-                y: gameState.player.y,
-                dir: angle,
-                spd: 15,
-                life: 3,
-                damage: gameState.player.stats.damageMultiplier * 50 * solarStacks,
-                color: "#ffc300",
-                bounces: 0,
-                bounceOnEnemies: false,
-                pierce: true,
-                aoe: false,
-              });
-            }
-            if (gameState.particles.length < gameState.maxParticles - 30) {
-              for (let j = 0; j < 30; j++) {
-                const angle = (Math.PI * 2 * j) / 30;
-                gameState.particles.push({
-                  x: gameState.player.x,
-                  y: gameState.player.y,
-                  vx: Math.cos(angle) * 10,
-                  vy: Math.sin(angle) * 10,
-                  life: 1,
-                  color: "#ffc300",
-                  size: 5,
-                });
-              }
-            }
-            playPowerupSound();
-          }
-        }
-
-        const bloodstoneStacks = getItemStacks("bloodstone");
-        if (bloodstoneStacks > 0) {
-          gameState.player.stats.bloodstoneKills++;
-          const killsRequired = Math.max(10, 30 - (bloodstoneStacks - 1) * 5);
-          if (gameState.player.stats.bloodstoneKills >= killsRequired) {
-            gameState.player.stats.bloodstoneKills = 0;
-            const healAmount = 5 * bloodstoneStacks;
-            gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + healAmount);
-            if (gameState.particles.length < gameState.maxParticles - 12) {
-              for (let j = 0; j < 12; j++) {
-                const angle = (Math.PI * 2 * j) / 12;
-                gameState.particles.push({
-                  x: gameState.player.x,
-                  y: gameState.player.y,
-                  vx: Math.cos(angle) * 4,
-                  vy: Math.sin(angle) * 4,
-                  life: 0.8,
-                  color: "#dc2626",
-                  size: 4,
-                });
-              }
-            }
-          }
-        }
-      };
 
       const triggerExplosion = (bullet: any, hitCategories: EnemyCategory[]) => {
         if (!bullet.explosive || bullet.explosionTriggered) {
@@ -6138,6 +6167,7 @@ const Index = () => {
                 const reactiveStacks = Math.max(1, getItemStacks("reactiveshield"));
                 const reactiveRadius = 150 * (1 + 0.1 * (reactiveStacks - 1));
                 const reactivePush = 50 * reactiveStacks;
+                const shieldKills: any[] = [];
                 for (const enemy of gameState.enemies) {
                   const dist = Math.hypot(enemy.x - gameState.player.x, enemy.y - gameState.player.y);
                   if (dist < reactiveRadius) {
@@ -6146,8 +6176,14 @@ const Index = () => {
                     enemy.y += Math.sin(pushDir) * reactivePush;
                     // Daño a enemigos empujados
                     enemy.hp -= gameState.player.stats.damageMultiplier * 5 * reactiveStacks;
+                    if (enemy.hp <= 0) {
+                      shieldKills.push(enemy);
+                    }
                     trackEnemyCategoryHit(enemy as EnemyWithCategory, reactiveImpactCategories);
                   }
+                }
+                for (const slain of shieldKills) {
+                  handleEnemyDeath(slain, null);
                 }
                 // Efecto visual de onda con límite
                 if (gameState.particles.length < gameState.maxParticles - 20) {
