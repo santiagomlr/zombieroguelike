@@ -7677,10 +7677,11 @@ const Index = () => {
         meterY + meterH + 38 * meterScale,
       );
 
-      if (meterScale >= 1) {
+      const difficultyHint = t.difficultyHint?.trim();
+      if (meterScale >= 1 && difficultyHint) {
         ctx.font = withTerminalFont("11px system-ui");
         ctx.fillStyle = textSecondary;
-        ctx.fillText(t.difficultyHint, labelCenterX, meterY - 32 * meterScale);
+        ctx.fillText(difficultyHint, labelCenterX, meterY - 32 * meterScale);
       }
 
       // Score
@@ -10251,7 +10252,7 @@ const Index = () => {
         ctx.fillStyle = DIFFICULTY_TIERS[gameState.difficulty.tierIndex].color;
         ctx.textAlign = "right";
         ctx.fillText(
-          `${gameState.difficulty.tierLabel.toUpperCase()} (Lv. ${gameState.difficulty.level})`,
+          `${t.levelShort ?? t.level} ${gameState.difficulty.level}`,
           rightCol + 180,
           contentY,
         );
@@ -10367,7 +10368,7 @@ const Index = () => {
           const stats = [
             {
               label: t.difficulty,
-              value: `${gameState.difficulty.tierLabel.toUpperCase()} (${t.levelShort ?? t.level} ${gameState.difficulty.level})`,
+              value: `${t.levelShort ?? t.level} ${gameState.difficulty.level}`,
               color: DIFFICULTY_TIERS[gameState.difficulty.tierIndex].color,
             },
             { label: t.level, value: `${gameState.level}`, color: UI_COLORS.ammo },
