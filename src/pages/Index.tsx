@@ -5399,11 +5399,18 @@ const Index = () => {
           enemy.hp -= bullet.damage;
           trackEnemyCategoryHit(enemy as EnemyWithCategory, hitCategories);
 
+          let handledDirectKill = false;
+
           if (bullet.fire) {
             enemy.burnTimer = 3;
           }
           if (bullet.freeze) {
             enemy.frozenTimer = 2;
+          }
+
+          if (enemy.hp <= 0) {
+            handleEnemyDeath(enemy, bullet);
+            handledDirectKill = true;
           }
 
           if (bullet.chain && bullet.chainCount > 0) {
@@ -5556,7 +5563,7 @@ const Index = () => {
             bullet.life = 0;
           }
 
-          if (enemy.hp <= 0) {
+          if (!handledDirectKill && enemy.hp <= 0) {
             handleEnemyDeath(enemy, bullet);
           }
 
