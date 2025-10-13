@@ -152,6 +152,11 @@ export interface PlayerStats {
   bounceOnEnemies: boolean;
   damageReduction: number;
   powerupDuration: number;
+  critDamageMultiplier: number;
+  lowHealthDamageThreshold: number;
+  lowHealthDamageBonus: number;
+  lootDropChanceBonus: number;
+  weaponSwapSpeedMultiplier: number;
   xpBonus: number;
   firstHitImmuneChargesUsed: number;
   chaosDamage: boolean;
@@ -197,6 +202,84 @@ export interface Item {
   rarity: Rarity;
   color: string;
   maxStacks?: number;
+}
+
+export type ItemMechanicHook =
+  | {
+      kind: "statMultiplier";
+      stat: keyof PlayerStats;
+      multiplierPerStack: number;
+    }
+  | {
+      kind: "statAdd";
+      stat: keyof PlayerStats;
+      amountPerStack: number;
+    }
+  | {
+      kind: "onKillTempStat";
+      stat: keyof PlayerStats;
+      multiplierPerStack: number;
+      duration: number;
+    }
+  | {
+      kind: "outOfCombatRegen";
+      healPerStack: number;
+      interval: number;
+      gracePeriod: number;
+    }
+  | {
+      kind: "healBonus";
+      bonusPerStack: number;
+    }
+  | {
+      kind: "conditionalDamage";
+      threshold: number;
+      bonusPerStack: number;
+    }
+  | {
+      kind: "lootBonus";
+      additivePerStack: number;
+    }
+  | {
+      kind: "critDamage";
+      bonusPerStack: number;
+    }
+  | {
+      kind: "waveHeal";
+      healPerStack: number;
+    }
+  | {
+      kind: "minimapDetail";
+      minimumDetail: number;
+      baseOpacity: number;
+    }
+  | {
+      kind: "stunOnHit";
+      chancePerStack: number;
+      duration: number;
+    }
+  | {
+      kind: "lethalProtection";
+      chancePerStack: number;
+    }
+  | {
+      kind: "stationaryRegen";
+      healPerSecondPerStack: number;
+    }
+  | {
+      kind: "staminaRegen";
+      recoveryBonusPerStack?: number;
+      efficiencyBonusPerStack?: number;
+      maxStaminaBonusPerStack?: number;
+    }
+  | {
+      kind: "swapSpeed";
+      bonusPerStack: number;
+    };
+
+export interface ItemMechanicDefinition {
+  summary: string;
+  hooks: readonly ItemMechanicHook[];
 }
 
 export interface Upgrade {
@@ -1015,6 +1098,142 @@ const COMMON_ITEMS: ItemDefinition[] = [
     },
   },
 ];
+
+export const ITEM_MECHANICS: Record<string, ItemMechanicDefinition> = {
+  adrenalineShot: {
+    summary: "Gain 10% attack speed for 5 seconds after killing an enemy.",
+    hooks: [
+      {
+        kind: "onKillTempStat",
+        stat: "fireRateMultiplier",
+        multiplierPerStack: 1.1,
+        duration: 5,
+      },
+    ],
+  },
+  kevlarVest: {
+    summary: "Reduces incoming damage by 5%.",
+    hooks: [
+      { kind: "statAdd", stat: "damageReduction", amountPerStack: 0.05 },
+    ],
+  },
+  combatBoots: {
+    summary: "Increases movement speed by 7%.",
+    hooks: [
+      {
+        kind: "statMultiplier",
+        stat: "speedMultiplier",
+        multiplierPerStack: 1.07,
+      },
+    ],
+  },
+  morphineInjector: {
+    summary: "Restores 5 HP every 10 seconds outside combat.",
+    hooks: [
+      {
+        kind: "outOfCombatRegen",
+        healPerStack: 5,
+        interval: 10,
+        gracePeriod: 5,
+      },
+    ],
+  },
+  tacticalGloves: {
+    summary: "Reload speed increased by 15%.",
+    hooks: [
+      {
+        kind: "statMultiplier",
+        stat: "fireRateMultiplier",
+        multiplierPerStack: 1.15,
+      },
+    ],
+  },
+  fieldManualFragment: {
+    summary: "Gain 5% more experience from kills.",
+    hooks: [
+      {
+        kind: "statMultiplier",
+        stat: "xpMultiplier",
+        multiplierPerStack: 1.05,
+      },
+    ],
+  },
+  rustyCompass: {
+    summary: "Expands minimap range slightly.",
+    hooks: [
+      { kind: "minimapDetail", minimumDetail: 1, baseOpacity: 0.35 },
+    ],
+  },
+  caffeinePills: {
+    summary: "Fire rate increased by 5%.",
+    hooks: [
+      {
+        kind: "statMultiplier",
+        stat: "fireRateMultiplier",
+        multiplierPerStack: 1.05,
+      },
+    ],
+  },
+  stunGrenadeShard: {
+    summary: "10% chance to stun enemies on hit.",
+    hooks: [
+      { kind: "stunOnHit", chancePerStack: 0.1, duration: 1.5 },
+    ],
+  },
+  luckyCigarStub: {
+    summary: "2% chance to survive lethal damage with 1 HP.",
+    hooks: [{ kind: "lethalProtection", chancePerStack: 0.02 }],
+  },
+  dogTagOfValor: {
+    summary: "+5% damage when below 50% HP.",
+    hooks: [
+      { kind: "conditionalDamage", threshold: 0.5, bonusPerStack: 0.05 },
+    ],
+  },
+  firstAidTape: {
+    summary: "Healing items are 10% more effective.",
+    hooks: [{ kind: "healBonus", bonusPerStack: 0.1 }],
+  },
+  brokenDogTags: {
+    summary: "Slightly increases loot drop chance.",
+    hooks: [{ kind: "lootBonus", additivePerStack: 0.01 }],
+  },
+  improvisedScope: {
+    summary: "Increases accuracy by 5%.",
+    hooks: [{ kind: "statAdd", stat: "precision", amountPerStack: 5 }],
+  },
+  tornPatch: {
+    summary: "Regenerates 1 HP per second while stationary.",
+    hooks: [{ kind: "stationaryRegen", healPerSecondPerStack: 1 }],
+  },
+  leadBulletCharm: {
+    summary: "Critical hit damage increased by 10%.",
+    hooks: [{ kind: "critDamage", bonusPerStack: 0.1 }],
+  },
+  combatRation: {
+    summary: "Restores 15 HP after clearing a wave.",
+    hooks: [{ kind: "waveHeal", healPerStack: 15 }],
+  },
+  oldRadio: {
+    summary: "Detects hidden enemies nearby.",
+    hooks: [{ kind: "minimapDetail", minimumDetail: 2, baseOpacity: 0.65 }],
+  },
+  bootKnifeHolster: {
+    summary: "5% faster weapon swap speed.",
+    hooks: [{ kind: "swapSpeed", bonusPerStack: 0.05 }],
+  },
+  fieldBattery: {
+    summary: "Small passive energy regeneration.",
+    hooks: [
+      {
+        kind: "staminaRegen",
+        recoveryBonusPerStack: 0.1,
+        efficiencyBonusPerStack: 0.05,
+        maxStaminaBonusPerStack: 3,
+      },
+    ],
+  },
+};
 
 const UNCOMMON_ITEMS: ItemDefinition[] = [
   {
