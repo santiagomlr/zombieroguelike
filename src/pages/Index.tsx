@@ -936,6 +936,15 @@ const Index = () => {
           solarGauntletKills: 0,
           bloodstoneKills: 0,
           reactiveShieldActive: false,
+          sprintEfficiencyMultiplier: 1,
+          sprintRecoveryMultiplier: 1,
+          adrenalineStacks: 0,
+          adrenalineSpeedBonus: 0,
+          adrenalineDamageBonus: 0,
+          adrenalineThreshold: 0,
+          droneAttackLevel: 0,
+          droneSupportLevel: 0,
+          droneShieldLevel: 0,
         },
       },
       bullets: [] as any[],
@@ -999,6 +1008,9 @@ const Index = () => {
       showUpgradeUI: false,
       upgradeOptions: [] as Upgrade[],
       regenTimer: 0,
+      droneAttackCooldown: 0,
+      droneSupportCooldown: 0,
+      droneShieldCooldown: 0,
       auraTimer: 0,
       hotspotTimer: 0,
       dangerZoneTimer: 0,
@@ -1747,6 +1759,15 @@ const Index = () => {
         solarGauntletKills: 0,
         bloodstoneKills: 0,
         reactiveShieldActive: false,
+        sprintEfficiencyMultiplier: 1,
+        sprintRecoveryMultiplier: 1,
+        adrenalineStacks: 0,
+        adrenalineSpeedBonus: 0,
+        adrenalineDamageBonus: 0,
+        adrenalineThreshold: 0,
+        droneAttackLevel: 0,
+        droneSupportLevel: 0,
+        droneShieldLevel: 0,
       };
 
       // Resetear juego
@@ -1774,6 +1795,9 @@ const Index = () => {
       gameState.canSpawn = true;
       gameState.weaponCooldowns = {};
       gameState.regenTimer = 0;
+      gameState.droneAttackCooldown = 0;
+      gameState.droneSupportCooldown = 0;
+      gameState.droneShieldCooldown = 0;
       gameState.auraTimer = 0;
       gameState.hotspotTimer = 0;
       gameState.dangerZoneTimer = 0;
@@ -2592,11 +2616,20 @@ const Index = () => {
       // Incrementar contador de disparos para el tutorial
       gameState.player.shotsFired = (gameState.player.shotsFired || 0) + 1;
 
-      const range = weapon.range * gameState.player.stats.rangeMultiplier;
-      let baseDamage = weapon.damage * gameState.player.stats.damageMultiplier;
+      const stats = gameState.player.stats;
+      const range = weapon.range * stats.rangeMultiplier;
+      let baseDamage = weapon.damage * stats.damageMultiplier;
+
+      if (
+        stats.adrenalineStacks > 0 &&
+        stats.adrenalineThreshold > 0 &&
+        gameState.player.hp <= gameState.player.maxhp * stats.adrenalineThreshold
+      ) {
+        baseDamage *= 1 + stats.adrenalineDamageBonus;
+      }
 
       // Amuleto del Caos: daño aleatorio +10% a +50%
-      if (gameState.player.stats.chaosDamage) {
+      if (stats.chaosDamage) {
         const chaosStacks = Math.max(1, getItemStacks("chaosamuleto"));
         const chaosBonus = 1 + (Math.random() * 0.4 + 0.1) * chaosStacks; // 1.1x a 1.5x por stack
         baseDamage *= chaosBonus;
@@ -2620,8 +2653,8 @@ const Index = () => {
 
       // Aplicar dispersión reducida por precisión
       const baseSpread = 0.15;
-      const spreadReduction = gameState.player.stats.precision > 0 ? (1 - gameState.player.stats.precision / 100) : 1;
-      const multishotTightening = 1 / (1 + gameState.player.stats.multishot * 0.5);
+      const spreadReduction = stats.precision > 0 ? 1 - stats.precision / 100 : 1;
+      const multishotTightening = 1 / (1 + stats.multishot * 0.5);
       const actualSpread = baseSpread * spreadReduction * multishotTightening;
       
       const visualType =
@@ -3534,41 +3567,132 @@ const Index = () => {
     function applyItemEffect(item: Item) {
       const player = gameState.player;
       const stats = player.stats;
+      const effect = item.effect;
 
-      switch (item.effect) {
-        case "speedboost":
-          stats.speedMultiplier *= 1.05;
-          break;
-        case "firerateitem":
-          stats.fireRateMultiplier *= 1.05;
-          break;
-        case "maxhp10":
-          player.maxhp += 10;
-          player.hp = Math.min(player.maxhp, player.hp + 10);
-          break;
-        case "magnetitem":
-          stats.magnetMultiplier *= 1.1;
-          break;
-        case "powerupduration":
-          stats.powerupDuration *= 1.05;
-          break;
-        case "xpbonus":
-          stats.xpBonus += 10;
-          break;
-        case "precisionitem":
-          stats.precision += 10;
-          break;
-        case "damagereduction":
-          stats.damageReduction += 0.05;
-          break;
-        case "bounceitem":
-          stats.bounces += 1;
-          break;
-        case "globalfirerate":
-          stats.fireRateMultiplier *= 1.1;
-          break;
+      const statMultKeys: Partial<Record<string, keyof PlayerStats>> = {
+        damageMultiplier: "damageMultiplier",
+        speedMultiplier: "speedMultiplier",
+        rangeMultiplier: "rangeMultiplier",
+        fireRateMultiplier: "fireRateMultiplier",
+        xpMultiplier: "xpMultiplier",
+        magnetMultiplier: "magnetMultiplier",
+        powerupDuration: "powerupDuration",
+        cameraZoomMultiplier: "cameraZoomMultiplier",
+      };
+
+      if (effect.startsWith("stat-mult:")) {
+        const [, key, valueStr] = effect.split(":");
+        const multiplier = parseFloat(valueStr ?? "1");
+        const statKey = statMultKeys[key ?? ""];
+        if (statKey && Number.isFinite(multiplier)) {
+          (stats as Record<string, number>)[statKey] =
+            ((stats as Record<string, number>)[statKey] ?? 0) * multiplier;
+        }
+        return;
+      }
+
+      const statAddKeys: Partial<Record<string, keyof PlayerStats>> = {
+        xpBonus: "xpBonus",
+        precision: "precision",
+        bounces: "bounces",
+        multishot: "multishot",
+        damageReduction: "damageReduction",
+      };
+
+      if (effect.startsWith("stat-add:")) {
+        const [, key, valueStr] = effect.split(":");
+        const value = parseFloat(valueStr ?? "0");
+        const statKey = statAddKeys[key ?? ""];
+        if (statKey && Number.isFinite(value)) {
+          (stats as Record<string, number>)[statKey] =
+            ((stats as Record<string, number>)[statKey] ?? 0) + value;
+        }
+        return;
+      }
+
+      if (effect.startsWith("maxhp-flat:")) {
+        const value = parseFloat(effect.split(":")[1] ?? "0");
+        if (Number.isFinite(value) && value !== 0) {
+          const amount = Math.round(value);
+          player.maxhp += amount;
+          player.hp = Math.min(player.maxhp, player.hp + amount);
+        }
+        return;
+      }
+
+      if (effect.startsWith("maxhp-percent:")) {
+        const percent = parseFloat(effect.split(":")[1] ?? "0");
+        if (Number.isFinite(percent) && percent > 0) {
+          const bonus = Math.max(1, Math.round(player.maxhp * percent));
+          player.maxhp += bonus;
+          player.hp = Math.min(player.maxhp, player.hp + bonus);
+        }
+        return;
+      }
+
+      if (effect.startsWith("stamina-max:")) {
+        const value = parseFloat(effect.split(":")[1] ?? "0");
+        if (Number.isFinite(value) && value > 0) {
+          player.maxStamina += value;
+          player.stamina = Math.min(player.maxStamina, player.stamina + value);
+        }
+        return;
+      }
+
+      if (effect.startsWith("sprint-efficiency:")) {
+        const value = parseFloat(effect.split(":")[1] ?? "1");
+        if (Number.isFinite(value) && value > 0) {
+          stats.sprintEfficiencyMultiplier = Math.max(
+            0.25,
+            stats.sprintEfficiencyMultiplier * value,
+          );
+        }
+        return;
+      }
+
+      if (effect.startsWith("sprint-recovery:")) {
+        const value = parseFloat(effect.split(":")[1] ?? "1");
+        if (Number.isFinite(value) && value > 0) {
+          stats.sprintRecoveryMultiplier = Math.min(
+            4,
+            stats.sprintRecoveryMultiplier * value,
+          );
+        }
+        return;
+      }
+
+      if (effect.startsWith("adrenaline:")) {
+        const [, speedBonusStr, damageBonusStr, thresholdStr] = effect.split(":");
+        const speedBonus = parseFloat(speedBonusStr ?? "0");
+        const damageBonus = parseFloat(damageBonusStr ?? "0");
+        const threshold = parseFloat(thresholdStr ?? "0");
+        stats.adrenalineStacks += 1;
+        if (Number.isFinite(speedBonus)) stats.adrenalineSpeedBonus += speedBonus;
+        if (Number.isFinite(damageBonus)) stats.adrenalineDamageBonus += damageBonus;
+        if (Number.isFinite(threshold)) {
+          stats.adrenalineThreshold = Math.max(stats.adrenalineThreshold, threshold);
+        }
+        return;
+      }
+
+      if (effect.startsWith("drone:")) {
+        const [, type, amountStr] = effect.split(":");
+        const amount = parseFloat(amountStr ?? "0");
+        if (Number.isFinite(amount) && amount > 0) {
+          if (type === "attack") {
+            stats.droneAttackLevel += amount;
+          } else if (type === "support") {
+            stats.droneSupportLevel += amount;
+          } else if (type === "shield") {
+            stats.droneShieldLevel += amount;
+          }
+        }
+        return;
+      }
+
+      switch (effect) {
         case "firsthitimmune":
-          // Se maneja en la colisión
+          stats.firstHitImmuneChargesUsed = 0;
           break;
         case "jetspeed":
           stats.speedMultiplier *= 1.15;
@@ -4732,12 +4856,17 @@ const Index = () => {
       if (gameState.keys[" "] && isMoving && gameState.player.stamina > 0) {
         // Sprint activado
         gameState.player.isSprinting = true;
-        gameState.player.stamina = Math.max(0, gameState.player.stamina - 5 * dt); // Consume 5 stamina/segundo (dura 4s)
+        const staminaDrainRate = 5 * gameState.player.stats.sprintEfficiencyMultiplier;
+        gameState.player.stamina = Math.max(0, gameState.player.stamina - staminaDrainRate * dt);
       } else {
         // Sprint desactivado, regenerar stamina
         gameState.player.isSprinting = false;
         if (gameState.player.stamina < gameState.player.maxStamina) {
-          gameState.player.stamina = Math.min(gameState.player.maxStamina, gameState.player.stamina + 10 * dt); // Regenera 10 stamina/segundo (llena en 2s)
+          const staminaRecoveryRate = 10 * gameState.player.stats.sprintRecoveryMultiplier;
+          gameState.player.stamina = Math.min(
+            gameState.player.maxStamina,
+            gameState.player.stamina + staminaRecoveryRate * dt,
+          );
         }
       }
 
@@ -4764,6 +4893,97 @@ const Index = () => {
         if (gameState.regenTimer >= 10) {
           gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + 1);
         }
+      }
+
+      const droneStats = gameState.player.stats;
+      if (droneStats.droneAttackLevel > 0) {
+        gameState.droneAttackCooldown -= dt;
+        if (gameState.droneAttackCooldown <= 0) {
+          let target: any | null = null;
+          let bestDist = Infinity;
+          for (const enemy of gameState.enemies) {
+            if (!enemy || enemy.hp <= 0) continue;
+            const dist = Math.hypot(enemy.x - gameState.player.x, enemy.y - gameState.player.y);
+            if (dist < bestDist && dist <= 360) {
+              bestDist = dist;
+              target = enemy;
+            }
+          }
+
+          const attackLevel = droneStats.droneAttackLevel;
+          const nextCooldown = Math.max(0.45, 1.4 - attackLevel * 0.15);
+          gameState.droneAttackCooldown = nextCooldown;
+
+          if (target) {
+            const damage = (8 + attackLevel * 6) * droneStats.damageMultiplier;
+            target.hp -= damage;
+            if (target.hp <= 0) {
+              handleEnemyDeath(target, null);
+            }
+
+            if (gameState.particles.length < gameState.maxParticles) {
+              gameState.particles.push({
+                x: target.x,
+                y: target.y,
+                vx: (Math.random() - 0.5) * 2,
+                vy: -2,
+                life: 0.4,
+                color: "#8e44ad",
+                size: 3,
+              });
+            }
+          }
+        }
+      } else {
+        gameState.droneAttackCooldown = Math.max(0, gameState.droneAttackCooldown);
+      }
+
+      if (droneStats.droneSupportLevel > 0) {
+        gameState.droneSupportCooldown -= dt;
+        if (gameState.droneSupportCooldown <= 0) {
+          const level = droneStats.droneSupportLevel;
+          const heal = 3 * level;
+          gameState.player.hp = Math.min(gameState.player.maxhp, gameState.player.hp + heal);
+          gameState.droneSupportCooldown = Math.max(3, 6 - level * 0.5);
+
+          if (gameState.particles.length < gameState.maxParticles) {
+            gameState.particles.push({
+              x: gameState.player.x,
+              y: gameState.player.y,
+              vx: (Math.random() - 0.5) * 1.5,
+              vy: -1.5,
+              life: 0.6,
+              color: "#5dbb63",
+              size: 4,
+            });
+          }
+        }
+      } else {
+        gameState.droneSupportCooldown = Math.max(0, gameState.droneSupportCooldown);
+      }
+
+      if (droneStats.droneShieldLevel > 0) {
+        gameState.droneShieldCooldown -= dt;
+        if (gameState.droneShieldCooldown <= 0) {
+          const level = droneStats.droneShieldLevel;
+          const shieldGain = 1 + Math.floor(level / 2);
+          gameState.player.shield = Math.min(8, gameState.player.shield + shieldGain);
+          gameState.droneShieldCooldown = Math.max(5, 9 - level * 0.6);
+
+          if (gameState.particles.length < gameState.maxParticles) {
+            gameState.particles.push({
+              x: gameState.player.x,
+              y: gameState.player.y - 10,
+              vx: (Math.random() - 0.5) * 1.2,
+              vy: -1,
+              life: 0.5,
+              color: "#2e86c1",
+              size: 3,
+            });
+          }
+        }
+      } else {
+        gameState.droneShieldCooldown = Math.max(0, gameState.droneShieldCooldown);
       }
 
       // Aura de fuego
@@ -4806,6 +5026,14 @@ const Index = () => {
       vy /= len;
 
       let spd = gameState.player.spd * gameState.player.stats.speedMultiplier;
+      const adrenalineActive =
+        gameState.player.stats.adrenalineStacks > 0 &&
+        gameState.player.stats.adrenalineThreshold > 0 &&
+        gameState.player.hp <=
+          gameState.player.maxhp * gameState.player.stats.adrenalineThreshold;
+      if (adrenalineActive) {
+        spd *= 1 + gameState.player.stats.adrenalineSpeedBonus;
+      }
       if (gameState.player.rageTimer > 0) spd *= 1.5; // Rage mode: +50% velocidad
       if (gameState.player.isSprinting) spd *= 1.7; // Sprint: +70% velocidad
 
