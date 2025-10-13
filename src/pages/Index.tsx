@@ -2018,7 +2018,6 @@ const Index = () => {
       const spawnCount = 1 + hordeStacks;
 
       const difficultyLevel = gameState.difficulty.level;
-      const difficultyIntensity = gameState.difficulty.intensity;
 
       for (let spawnIdx = 0; spawnIdx < spawnCount; spawnIdx++) {
         const roll = Math.random();
@@ -4891,8 +4890,7 @@ const Index = () => {
 
       gameState.lastSpawn += dt;
 
-      const difficultyLevel = gameState.difficulty.level;
-      const difficultyIntensity = gameState.difficulty.intensity;
+      const spawnLoopIntensity = gameState.difficulty.intensity;
 
       if (gameState.spawnCooldown > 0) {
         gameState.spawnCooldown = Math.max(0, gameState.spawnCooldown - dt);
@@ -4904,7 +4902,7 @@ const Index = () => {
         gameState.canSpawn
       ) {
         gameState.canSpawn = false;
-        gameState.spawnCooldown = Math.max(0.5, 2.5 - difficultyIntensity * 0.15);
+        gameState.spawnCooldown = Math.max(0.5, 2.5 - spawnLoopIntensity * 0.15);
       }
 
       if (!gameState.canSpawn && gameState.spawnCooldown === 0) {
@@ -4918,13 +4916,13 @@ const Index = () => {
         gameState.canSpawn;
 
       if (canSpawnNow) {
-        const spawnInterval = Math.max(0.18, 1.15 / (1 + difficultyIntensity * 0.55));
+        const spawnInterval = Math.max(0.18, 1.15 / (1 + spawnLoopIntensity * 0.55));
         if (gameState.lastSpawn >= spawnInterval) {
-          const burstChance = Math.min(0.55, 0.12 + difficultyIntensity * 0.05);
-          const burstBase = difficultyIntensity > 5 ? 3 : 2;
+          const burstChance = Math.min(0.55, 0.12 + spawnLoopIntensity * 0.05);
+          const burstBase = spawnLoopIntensity > 5 ? 3 : 2;
           let spawnCount = 1;
           if (Math.random() < burstChance) {
-            const burstExtra = difficultyIntensity > 8 ? 3 : difficultyIntensity > 4 ? 2 : 1;
+            const burstExtra = spawnLoopIntensity > 8 ? 3 : spawnLoopIntensity > 4 ? 2 : 1;
             spawnCount = Math.min(6, burstBase + Math.floor(Math.random() * burstExtra));
           }
 
