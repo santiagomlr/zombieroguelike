@@ -106,13 +106,18 @@ export interface Translations {
     interactHint: string;
   };
   bossEvent: {
-    timerLabel: string;
+    prePortalTimerLabel: string;
     portalReady: string;
-    interactPrompt: string;
+    activatePrompt: string;
+    activateHold: string;
+    activating: string;
+    spawnWarning: string;
+    objective: string;
     bossName: string;
     exitPortalReady: string;
     exitPrompt: string;
-    continueNotice: string;
+    stayNotice: string;
+    timerLabel: string;
   };
 }
 
@@ -312,13 +317,18 @@ const translationsES: Translations = {
     interactHint: "Pulsa {key} para abrir el cofre",
   },
   bossEvent: {
-    timerLabel: "Inestabilidad dimensional",
+    prePortalTimerLabel: "Inestabilidad dimensional",
     portalReady: "¡Un portal dimensional ha aparecido!",
-    interactPrompt: "Pulsa {key} para entrar al portal",
+    activatePrompt: "Mantén {key} para activar el portal",
+    activateHold: "Mantén presionado para canalizar la energía",
+    activating: "Activando portal...",
+    spawnWarning: "¡El jefe está cruzando la grieta!",
+    objective: "Derrota al jefe para abrir el portal",
     bossName: "Avatar del Vacío",
-    exitPortalReady: "Se abre un portal de salida brillante.",
-    exitPrompt: "Pulsa {key} para escapar por el portal",
-    continueNotice: "Puedes ignorarlo para seguir cazando y subir tu puntuación.",
+    exitPortalReady: "El portal brilla: decide tu destino.",
+    exitPrompt: "Mantén {key} para cruzar el portal",
+    stayNotice: "Quédate fuera para desafiar la ascensión y ganar mejores recompensas.",
+    timerLabel: "Supervivencia Post-Jefe",
   },
 };
 
@@ -430,13 +440,18 @@ const translationsEN: Translations = {
     interactHint: "Press {key} to open the chest",
   },
   bossEvent: {
-    timerLabel: "Dimensional instability",
+    prePortalTimerLabel: "Dimensional instability",
     portalReady: "An ominous portal tears open!",
-    interactPrompt: "Press {key} to step into the portal",
+    activatePrompt: "Hold {key} to activate the portal",
+    activateHold: "Keep holding to channel energy",
+    activating: "Stabilising portal...",
+    spawnWarning: "The boss is forcing its way through!",
+    objective: "Defeat the boss to reopen the portal",
     bossName: "Void Herald",
-    exitPortalReady: "A radiant exit portal materialises.",
-    exitPrompt: "Press {key} to escape through the portal",
-    continueNotice: "Ignore it to keep the run going and chase a new high score.",
+    exitPortalReady: "The portal hums open—choose your fate.",
+    exitPrompt: "Hold {key} to step through",
+    stayNotice: "Stay outside to push your luck and chase a new high score.",
+    timerLabel: "Post-Boss Survival",
   },
 };
 

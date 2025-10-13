@@ -88,6 +88,7 @@ import type {
   DifficultyTier,
   GamePortal,
   PauseMenuTab,
+  BossPortalStatus,
 } from "./indexConstants";
 
 type BossEncounterState = {
@@ -104,6 +105,26 @@ const hotspotPathCache = new Map<number, Path2D>();
 const HUD_FONT_FAMILY =
   '"Orbitron", "Press Start 2P", "VT323", "IBM Plex Mono", monospace';
 const withTerminalFont = (font: string) => font.replace(/system-ui/g, HUD_FONT_FAMILY);
+
+const MINIMAP_SIZE = 180;
+const MINIMAP_PADDING = 24;
+const MINIMAP_BOTTOM_OFFSET = 50;
+const MINIMAP_FRAME_RADIUS = MINIMAP_SIZE / 2 + 10;
+
+const PORTAL_ACTIVATION_HOLD_SECONDS = 1;
+const PORTAL_BOSS_SPAWN_DELAY = 2;
+const PORTAL_STUCK_FAILSAFE_SECONDS = 60;
+const POST_BOSS_SURVIVAL_LIMIT = 600;
+const POST_BOSS_REWARD_INTERVAL = 120;
+const POST_BOSS_REWARD_XP = 50;
+const POST_BOSS_SPAWN_DENSITY_PER_MIN = 0.1;
+const POST_BOSS_ELITE_CHANCE_PER_MIN = 0.02;
+
+const EXPLODER_INNER_RADIUS = 30;
+const EXPLODER_OUTER_RADIUS = 70;
+const EXPLODER_OUTER_MULTIPLIER = 0.4;
+const EXPLODER_PLAYER_DAMAGE_MULTIPLIER = 0.8;
+const EXPLODER_RAGDOLL_FORCE = 350;
 
 const getDiamondPath = (radius: number) => {
   let path = dropPathCache.get(radius);
@@ -1010,6 +1031,19 @@ const Index = () => {
       } as BossEncounterState,
       bossPortal: null as GamePortal | null,
       exitPortal: null as GamePortal | null,
+      bossFailSafe: {
+        spawnTime: 0,
+        respawned: false,
+        lastHpCheck: 0,
+        lastHpValue: 0,
+      },
+      postBossSurvival: {
+        active: false,
+        elapsed: 0,
+        nextReward: POST_BOSS_REWARD_INTERVAL,
+        rewardsGranted: 0,
+        lootBiasBonus: { rare: 0, epic: 0, legendary: 0 },
+      },
       nearbyBossPortal: null as GamePortal | null,
       nearbyExitPortal: null as GamePortal | null,
       difficulty: createInitialDifficultyState(),
@@ -1801,6 +1835,19 @@ const Index = () => {
       } as BossEncounterState;
       gameState.bossPortal = null;
       gameState.exitPortal = null;
+      gameState.bossFailSafe = {
+        spawnTime: 0,
+        respawned: false,
+        lastHpCheck: 0,
+        lastHpValue: 0,
+      };
+      gameState.postBossSurvival = {
+        active: false,
+        elapsed: 0,
+        nextReward: POST_BOSS_REWARD_INTERVAL,
+        rewardsGranted: 0,
+        lootBiasBonus: { rare: 0, epic: 0, legendary: 0 },
+      };
       gameState.nearbyBossPortal = null;
       gameState.nearbyExitPortal = null;
       gameState.nearbyChest = null;
@@ -1986,23 +2033,12 @@ const Index = () => {
       }
 
       portal.activated = true;
-      portal.active = false;
-      gameState.bossPortal = null;
+      portal.interactable = false;
+      portal.status = "spawningBoss";
+      portal.bossSpawnAt = gameState.time + PORTAL_BOSS_SPAWN_DELAY;
+      portal.activationProgress = 1;
 
-      for (let i = 0; i < 40 && gameState.particles.length < gameState.maxParticles - 40; i++) {
-        const angle = (Math.PI * 2 * i) / 40;
-        gameState.particles.push({
-          x: portal.x,
-          y: portal.y,
-          vx: Math.cos(angle) * 6,
-          vy: Math.sin(angle) * 6,
-          life: 1,
-          color: PORTAL_GLOW_COLORS.boss,
-          size: 5,
-        });
-      }
-
-      spawnUniqueBoss();
+      spawnPortalActivationEffects(portal.x, portal.y, PORTAL_GLOW_COLORS.boss);
     }
 
     function enterExitPortal() {
@@ -2013,6 +2049,7 @@ const Index = () => {
 
       portal.active = false;
       gameState.exitPortal = null;
+      gameState.postBossSurvival.active = false;
       endGame();
     }
 
@@ -2040,7 +2077,6 @@ const Index = () => {
       if (gameState.state === "running" && e.key.toLowerCase() === "e") {
         if (gameState.nearbyBossPortal) {
           e.preventDefault();
-          activateBossPortal();
           return;
         }
         if (gameState.nearbyExitPortal) {
@@ -2243,10 +2279,10 @@ const Index = () => {
             } else {
               bomberBaseDamage = 180 + (difficultyLevel - 20) * 20; // 200+
             }
-            damage = bomberBaseDamage;
+            damage = Math.floor(bomberBaseDamage * 0.8);
             baseHp = 2;
             rad = EXPLOSIVE_ENEMY_BASE_RADIUS;
-            spd = 1.8; // Más rápido para ser más peligroso
+            spd = 1.8 * 0.85;
           } else if (specialRoll < 0.5) {
             specialType = "fast";
             enemyType = "fast";
@@ -2447,6 +2483,20 @@ const Index = () => {
                     ? MEDIUM_ELITE_COLOR
                     : WEAK_ELITE_COLOR;
             }
+            const survivalEliteBonus = gameState.postBossSurvival.active
+              ? (gameState.postBossSurvival.elapsed / 60) * POST_BOSS_ELITE_CHANCE_PER_MIN
+              : 0;
+            const eliteChance = Math.min(0.35, 0.05 + survivalEliteBonus);
+            if (!isElite && Math.random() < eliteChance) {
+              isElite = true;
+              baseHp *= 1.35;
+              color =
+                enemyType === "strong"
+                  ? STRONG_ELITE_COLOR
+                  : enemyType === "medium"
+                    ? MEDIUM_ELITE_COLOR
+                    : WEAK_ELITE_COLOR;
+            }
           }
 
           // Escalado de dificultad estilo COD Zombies - Velocidad
@@ -2518,6 +2568,9 @@ const Index = () => {
           // Bomber-specific properties
           explosionTimer: specialType === "explosive" ? -1 : undefined, // -1 = no activado, >= 0 = contando
           explosionDelay: specialType === "explosive" ? (Math.random() < 0.5 ? 0 : 1) : undefined, // 50% instant, 50% 1s delay
+          acceleration: specialType === "explosive" ? 0.9 : undefined,
+          currentSpeed: specialType === "explosive" ? 0 : undefined,
+          allyAvoidanceRadius: specialType === "explosive" ? 140 : undefined,
         };
 
         gameState.enemies.push(enemy);
@@ -2617,10 +2670,17 @@ const Index = () => {
         active: true,
         activated: false,
         spawnTime: gameState.time,
+        status: "awaitingActivation",
+        activationProgress: 0,
+        activationHoldSeconds: PORTAL_ACTIVATION_HOLD_SECONDS,
+        bossSpawnAt: null,
+        interactable: true,
       };
 
       gameState.bossPortal = portal;
       gameState.bossEncounter.portalSpawned = true;
+      gameState.bossEncounter.bossDefeated = false;
+      gameState.postBossSurvival.active = false;
       gameState.globalEventTimer = 0;
     }
 
@@ -2662,6 +2722,12 @@ const Index = () => {
       gameState.bossEncounter.bossActive = true;
       gameState.bossEncounter.uniqueBossId = uniqueBossId;
       gameState.lastBossSpawn = gameState.elapsedTime;
+      gameState.bossFailSafe = {
+        spawnTime: gameState.time,
+        respawned: gameState.bossFailSafe?.respawned ?? false,
+        lastHpCheck: gameState.time,
+        lastHpValue: boss.hp,
+      };
     }
 
     function spawnExitPortal(position?: { x: number; y: number }) {
@@ -2680,9 +2746,219 @@ const Index = () => {
         type: "exit",
         active: true,
         spawnTime: gameState.time,
+        status: "open",
+        activationProgress: 0,
+        activationHoldSeconds: PORTAL_ACTIVATION_HOLD_SECONDS,
+        interactable: true,
       };
 
       gameState.exitPortal = portal;
+    }
+
+    const computeExplosionFalloff = (distance: number) => {
+      if (distance >= EXPLODER_OUTER_RADIUS) return 0;
+      if (distance <= EXPLODER_INNER_RADIUS) return 1;
+      const normalized =
+        (distance - EXPLODER_INNER_RADIUS) /
+        Math.max(EXPLODER_OUTER_RADIUS - EXPLODER_INNER_RADIUS, 1);
+      return 1 - normalized * (1 - EXPLODER_OUTER_MULTIPLIER);
+    };
+
+    function spawnShockwaveExplosion(
+      x: number,
+      y: number,
+      radius: number,
+      {
+        primary = "#ff7a2a",
+        secondary = "#facc15",
+        debrisColor = "rgba(90, 99, 109, 0.9)",
+        emberColor = "rgba(255, 147, 65, 0.8)",
+        distortion = 0.3,
+        debrisCount = 24,
+        emberCount = 48,
+      }: {
+        primary?: string;
+        secondary?: string;
+        debrisColor?: string;
+        emberColor?: string;
+        distortion?: number;
+        debrisCount?: number;
+        emberCount?: number;
+      } = {},
+    ) {
+      const slotsNeeded = debrisCount + emberCount + 4;
+      if (gameState.particles.length > gameState.maxParticles - slotsNeeded) {
+        return;
+      }
+
+      gameState.particles.push({
+        x,
+        y,
+        life: 0.32,
+        maxLife: 0.32,
+        radius,
+        maxRadius: radius,
+        size: radius * 0.3,
+        style: "shockwave",
+        opacity: 0.9,
+        distortion,
+      });
+
+      for (let i = 0; i < debrisCount; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 6 + Math.random() * 8;
+        gameState.particles.push({
+          x,
+          y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          life: 0.9 + Math.random() * 0.4,
+          color: debrisColor,
+          size: 3 + Math.random() * 2,
+          style: "debris",
+        });
+      }
+
+      for (let i = 0; i < emberCount; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 2 + Math.random() * 2;
+        gameState.particles.push({
+          x,
+          y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed * 0.7,
+          life: 0.6 + Math.random() * 0.4,
+          color: emberColor,
+          size: 2 + Math.random() * 1.5,
+          style: "ember",
+        });
+      }
+
+      gameState.particles.push({
+        x,
+        y,
+        vx: 0,
+        vy: 0,
+        life: 0.4,
+        color: secondary,
+        size: radius * 0.12,
+        style: "heat",
+        opacity: 0.4,
+      });
+
+      gameState.particles.push({
+        x,
+        y,
+        vx: 0,
+        vy: 0,
+        life: 0.26,
+        color: primary,
+        size: radius * 0.08,
+        style: "core",
+        opacity: 0.7,
+      });
+    }
+
+    function spawnPortalActivationEffects(x: number, y: number, color: string) {
+      spawnShockwaveExplosion(x, y, EXPLODER_OUTER_RADIUS * 0.85, {
+        primary: color,
+        secondary: hexToRgba(color, 0.5),
+        debrisColor: hexToRgba(color, 0.35),
+        emberColor: hexToRgba(color, 0.6),
+        distortion: 0.45,
+        debrisCount: 18,
+        emberCount: 32,
+      });
+
+      for (let i = 0; i < 28 && gameState.particles.length < gameState.maxParticles; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 2 + Math.random() * 2;
+        gameState.particles.push({
+          x: x + Math.cos(angle) * 12,
+          y: y + Math.sin(angle) * 12,
+          vx: Math.cos(angle + Math.PI / 2) * speed,
+          vy: Math.sin(angle + Math.PI / 2) * speed,
+          life: 0.8 + Math.random() * 0.3,
+          color: hexToRgba(color, 0.75),
+          size: 3,
+        });
+      }
+    }
+
+    function resolveExploderExplosion(enemy: any, dt = 0.016) {
+      const originX = enemy.x;
+      const originY = enemy.y;
+      const explosionDamage = enemy.damage ?? 0;
+      const victims: any[] = [];
+
+      const distToPlayer = Math.hypot(originX - gameState.player.x, originY - gameState.player.y);
+      if (distToPlayer < EXPLODER_OUTER_RADIUS) {
+        const falloff = computeExplosionFalloff(distToPlayer);
+        if (falloff > 0 && gameState.player.ifr <= 0) {
+          const finalDamage = explosionDamage * falloff * EXPLODER_PLAYER_DAMAGE_MULTIPLIER;
+          if (gameState.player.shield > 0) {
+            gameState.player.shield--;
+          } else {
+            const reducedDamage = finalDamage * (1 - gameState.player.stats.damageReduction);
+            gameState.player.hp = Math.max(0, gameState.player.hp - reducedDamage);
+            const knockbackForce = EXPLODER_RAGDOLL_FORCE;
+            const angle = Math.atan2(gameState.player.y - originY, gameState.player.x - originX);
+            const displacement = knockbackForce * falloff * dt * 6;
+            gameState.player.x += Math.cos(angle) * displacement;
+            gameState.player.y += Math.sin(angle) * displacement;
+            gameState.player.x = Math.max(
+              gameState.player.rad,
+              Math.min(gameState.worldWidth - gameState.player.rad, gameState.player.x),
+            );
+            gameState.player.y = Math.max(
+              gameState.player.rad,
+              Math.min(gameState.worldHeight - gameState.player.rad, gameState.player.y),
+            );
+            if (gameState.player.hp <= 0) {
+              endGame();
+            }
+          }
+          gameState.player.ifr = gameState.player.ifrDuration;
+        }
+      }
+
+      const impactedEnemies = [...gameState.enemies];
+      for (const otherEnemy of impactedEnemies) {
+        if (!otherEnemy || otherEnemy === enemy || (otherEnemy as any).__removed) continue;
+        const distToEnemy = Math.hypot(originX - otherEnemy.x, originY - otherEnemy.y);
+        if (distToEnemy >= EXPLODER_OUTER_RADIUS) continue;
+        const falloff = computeExplosionFalloff(distToEnemy);
+        if (falloff <= 0) continue;
+        otherEnemy.hp -= explosionDamage * falloff;
+        if (distToEnemy > 0) {
+          const push = (EXPLODER_RAGDOLL_FORCE * falloff) / Math.max(distToEnemy, 1) * 0.6;
+          otherEnemy.x += (otherEnemy.x - originX) * push * 0.01;
+          otherEnemy.y += (otherEnemy.y - originY) * push * 0.01;
+        }
+        if (otherEnemy.hp <= 0) {
+          victims.push(otherEnemy);
+        }
+      }
+
+      spawnShockwaveExplosion(originX, originY, EXPLODER_OUTER_RADIUS, {
+        primary: "#ff7a2a",
+        secondary: "rgba(255, 208, 110, 0.85)",
+        emberColor: "rgba(255, 138, 76, 0.8)",
+        debrisColor: "rgba(70, 60, 55, 0.9)",
+      });
+
+      gameState.explosionMarks.push({
+        x: originX,
+        y: originY,
+        radius: EXPLODER_OUTER_RADIUS * 0.7,
+        life: 3.5,
+      });
+
+      audioManager.playSfx("death", { volume: 1 });
+
+      for (const victim of victims) {
+        handleEnemyDeath(victim, null);
+      }
     }
 
     function nearestEnemy() {
@@ -3307,6 +3583,13 @@ const Index = () => {
         epic: 0.1,
         legendary: 0.05,
       };
+
+      if (gameState.postBossSurvival.active) {
+        const bias = gameState.postBossSurvival.lootBiasBonus;
+        rarityWeights.rare += bias.rare ?? 0;
+        rarityWeights.epic += bias.epic ?? 0;
+        rarityWeights.legendary += bias.legendary ?? 0;
+      }
 
       const availableRarities = (Object.keys(rarityBuckets) as Rarity[]).filter(
         (rarity) => rarityBuckets[rarity].length > 0,
@@ -4620,6 +4903,16 @@ const Index = () => {
       const previousDifficultyLevel = gameState.difficulty.level;
       const previousTierIndex = gameState.difficulty.tierIndex;
 
+      if (gameState.postBossSurvival.active) {
+        const survival = gameState.postBossSurvival;
+        survival.elapsed = Math.min(POST_BOSS_SURVIVAL_LIMIT, survival.elapsed + dt);
+        if (survival.elapsed >= survival.nextReward && survival.nextReward <= POST_BOSS_SURVIVAL_LIMIT) {
+          collectXP(POST_BOSS_REWARD_XP);
+          survival.rewardsGranted++;
+          survival.nextReward += POST_BOSS_REWARD_INTERVAL;
+        }
+      }
+
       const difficultyVars = gameState.difficulty.variables;
       difficultyVars.time_minutes = gameState.elapsedTime / 60;
       difficultyVars.player_level = gameState.level;
@@ -4707,7 +5000,11 @@ const Index = () => {
         gameState.difficulty.notification = Math.max(0, gameState.difficulty.notification - dt);
       }
 
-      const targetConcurrent = Math.min(55, Math.round(12 + difficultyIntensity * 8));
+      const baseTargetConcurrent = Math.min(55, Math.round(12 + difficultyIntensity * 8));
+      const survivalDensityMultiplier = gameState.postBossSurvival.active
+        ? 1 + (gameState.postBossSurvival.elapsed / 60) * POST_BOSS_SPAWN_DENSITY_PER_MIN
+        : 1;
+      const targetConcurrent = Math.min(70, Math.round(baseTargetConcurrent * survivalDensityMultiplier));
       gameState.maxConcurrentEnemies = targetConcurrent;
 
       if (previousDifficultyLevel !== difficultyLevel) {
@@ -5556,47 +5853,34 @@ const Index = () => {
           gameState.bossEncounter.portalSpawned = false;
           if (!gameState.bossEncounter.bossDefeated) {
             gameState.bossEncounter.bossDefeated = true;
-            spawnExitPortal({ x: enemy.x, y: enemy.y });
+            const portal = gameState.bossPortal ?? gameState.exitPortal;
+            if (portal) {
+              portal.type = "exit";
+              portal.active = true;
+              portal.interactable = true;
+              portal.status = "open" as BossPortalStatus;
+              portal.activated = true;
+              portal.bossSpawnAt = null;
+              portal.activationProgress = 0;
+              portal.spawnTime = gameState.time;
+              gameState.exitPortal = portal;
+              gameState.bossPortal = null;
+            } else {
+              spawnExitPortal({ x: enemy.x, y: enemy.y });
+            }
+            gameState.postBossSurvival = {
+              active: true,
+              elapsed: 0,
+              nextReward: POST_BOSS_REWARD_INTERVAL,
+              rewardsGranted: 0,
+              lootBiasBonus: { rare: 5, epic: 3, legendary: 1 },
+            };
+            gameState.bossFailSafe.respawned = false;
           }
         }
 
         if (enemy.specialType === "explosive") {
-          const explosionRadiusSq = 80 * 80;
-          const impactedEnemies = [...gameState.enemies];
-          for (const otherEnemy of impactedEnemies) {
-            if (!otherEnemy || otherEnemy === enemy || (otherEnemy as any).__removed) continue;
-            const dx = otherEnemy.x - enemy.x;
-            const dy = otherEnemy.y - enemy.y;
-            if (dx * dx + dy * dy < explosionRadiusSq) {
-              otherEnemy.hp -= 10;
-              if (otherEnemy.hp <= 0) {
-                handleEnemyDeath(otherEnemy, null);
-              }
-            }
-          }
-
-          const playerDx = gameState.player.x - enemy.x;
-          const playerDy = gameState.player.y - enemy.y;
-          if (playerDx * playerDx + playerDy * playerDy < explosionRadiusSq) {
-            if (gameState.player.ifr <= 0 && gameState.player.shield === 0) {
-              gameState.player.hp -= 10;
-              gameState.player.ifr = gameState.player.ifrDuration;
-            }
-          }
-          if (gameState.particles.length < gameState.maxParticles - 30) {
-            for (let j = 0; j < 30; j++) {
-              const angle = (Math.PI * 2 * j) / 30;
-              gameState.particles.push({
-                x: enemy.x,
-                y: enemy.y,
-                vx: Math.cos(angle) * 10,
-                vy: Math.sin(angle) * 10,
-                life: 1,
-                color: "#ef4444",
-                size: 5,
-              });
-            }
-          }
+          resolveExploderExplosion(enemy);
         }
 
         let points = 10;
@@ -5818,6 +6102,16 @@ const Index = () => {
           movementSpeed *= 0.5; // 50% más lento
         }
 
+        if (typeof (e as any).acceleration === "number") {
+          const accel = Math.max(0.1, (e as any).acceleration);
+          const current = typeof (e as any).currentSpeed === "number" ? (e as any).currentSpeed : 0;
+          const target = movementSpeed;
+          const blend = Math.min(1, accel * dt * 4);
+          const nextSpeed = current + (target - current) * blend;
+          (e as any).currentSpeed = nextSpeed;
+          movementSpeed = nextSpeed;
+        }
+
         // Comportamientos especiales de enemigos
 
         // BOMBER: Countdown de explosión
@@ -5844,98 +6138,10 @@ const Index = () => {
 
           // BOOM! Explosión
           if (e.explosionTimer <= 0) {
-            const explosionRadius = 80; // Radio AOE
-            const explosionDamage = e.damage; // Usar el daño escalado del bomber
-
-            // Daño al jugador si está en rango
-            const distToPlayer = Math.hypot(e.x - gameState.player.x, e.y - gameState.player.y);
-            if (distToPlayer < explosionRadius) {
-              // Daño proporcional a la distancia
-              const damageMultiplier = 1 - (distToPlayer / explosionRadius) * 0.5; // 100% en el centro, 50% en el borde
-              const finalDamage = explosionDamage * damageMultiplier;
-
-              if (gameState.player.ifr <= 0) {
-                if (gameState.player.shield > 0) {
-                  gameState.player.shield--;
-                } else {
-                  // Aplicar reducción de daño
-                  const reducedDamage = finalDamage * (1 - gameState.player.stats.damageReduction);
-                  gameState.player.hp = Math.max(0, gameState.player.hp - reducedDamage);
-
-                  // Knockback
-                  const knockbackForce = 150;
-                  const angle = Math.atan2(gameState.player.y - e.y, gameState.player.x - e.x);
-                  gameState.player.x += Math.cos(angle) * knockbackForce * dt * 10;
-                  gameState.player.y += Math.sin(angle) * knockbackForce * dt * 10;
-
-                  // Clamp dentro del mapa
-                  gameState.player.x = Math.max(
-                    gameState.player.rad,
-                    Math.min(gameState.worldWidth - gameState.player.rad, gameState.player.x),
-                  );
-                  gameState.player.y = Math.max(
-                    gameState.player.rad,
-                    Math.min(gameState.worldHeight - gameState.player.rad, gameState.player.y),
-                  );
-                }
-                gameState.player.ifr = gameState.player.ifrDuration;
-
-                if (gameState.player.hp <= 0) {
-                  endGame();
-                }
-              }
-            }
-
-            const victims: any[] = [];
-
-            // Daño a enemigos cercanos (también reciben daño de explosión)
-            const impactedEnemies = [...gameState.enemies];
-            for (const otherEnemy of impactedEnemies) {
-              if (!otherEnemy || otherEnemy === e || (otherEnemy as any).__removed) continue;
-              const distToEnemy = Math.hypot(e.x - otherEnemy.x, e.y - otherEnemy.y);
-              if (distToEnemy < explosionRadius) {
-                const damageMultiplier = 1 - (distToEnemy / explosionRadius) * 0.5;
-                otherEnemy.hp -= explosionDamage * 0.5 * damageMultiplier; // 50% daño a otros enemigos
-                if (otherEnemy.hp <= 0) {
-                  victims.push(otherEnemy);
-                }
-              }
-            }
-
-            // Explosión visual GRANDE
-            if (isVisible && gameState.particles.length < gameState.maxParticles - 50) {
-              for (let j = 0; j < 50; j++) {
-                const angle = (Math.PI * 2 * j) / 50;
-                const speed = 8 + Math.random() * 8;
-                gameState.particles.push({
-                  x: e.x,
-                  y: e.y,
-                  vx: Math.cos(angle) * speed,
-                  vy: Math.sin(angle) * speed,
-                  life: 1 + Math.random() * 0.5,
-                  color: j % 2 === 0 ? "#ef4444" : "#ff7a2a",
-                  size: 6 + Math.random() * 4,
-                });
-              }
-            }
-
-            // Marca en el suelo
-            gameState.explosionMarks.push({
-              x: e.x,
-              y: e.y,
-              radius: explosionRadius,
-              life: 3, // 3 segundos
-            });
-
-            // Sonido de explosión (más fuerte)
-            audioManager.playSfx("death", { volume: 1 });
-
-            // Eliminar bomber y víctimas marcadas
+            resolveExploderExplosion(e, dt);
+            e.specialType = null;
             e.hp = 0;
-            victims.push(e);
-            for (const victim of victims) {
-              handleEnemyDeath(victim, null);
-            }
+            handleEnemyDeath(e, null);
             continue;
           }
         }
@@ -6007,8 +6213,44 @@ const Index = () => {
             }
           }
 
-          e.x += (dx / d) * movementSpeed * speedBonus;
-          e.y += (dy / d) * movementSpeed * speedBonus;
+          let targetDirX = dx / d;
+          let targetDirY = dy / d;
+
+          if (e.specialType === "explosive" && typeof (e as any).allyAvoidanceRadius === "number") {
+            const avoidanceRadius = (e as any).allyAvoidanceRadius as number;
+            const radiusSq = avoidanceRadius * avoidanceRadius;
+            let avoidX = 0;
+            let avoidY = 0;
+            let avoidCount = 0;
+            for (const other of gameState.enemies) {
+              if (!other || other === e || other.hp <= 0 || (other as any).__removed) continue;
+              const adx = e.x - other.x;
+              const ady = e.y - other.y;
+              const distSq = adx * adx + ady * ady;
+              if (distSq > 0 && distSq < radiusSq) {
+                const dist = Math.sqrt(distSq);
+                avoidX += adx / dist;
+                avoidY += ady / dist;
+                avoidCount++;
+              }
+            }
+
+            if (avoidCount > 0) {
+              const weight = 0.35;
+              const avgX = avoidX / avoidCount;
+              const avgY = avoidY / avoidCount;
+              targetDirX = targetDirX * (1 - weight) + avgX * weight;
+              targetDirY = targetDirY * (1 - weight) + avgY * weight;
+              movementSpeed *= 1 / (1 + avoidCount * 0.25);
+            }
+          }
+
+          const targetDirLength = Math.hypot(targetDirX, targetDirY) || 1;
+          targetDirX /= targetDirLength;
+          targetDirY /= targetDirLength;
+
+          e.x += targetDirX * movementSpeed * speedBonus;
+          e.y += targetDirY * movementSpeed * speedBonus;
         } else {
           // Comportamiento de boss
           if (e.phase === 1 && e.hp < e.maxhp * 0.66) e.phase = 2;
@@ -6353,6 +6595,36 @@ const Index = () => {
         bullet.life = 0;
       };
 
+      if (gameState.bossEncounter.bossActive) {
+        const uniqueBoss = gameState.enemies.find(
+          (candidate: any) => candidate?.isBoss && (candidate as any).isUniqueBoss,
+        );
+        if (uniqueBoss) {
+          const failSafe = gameState.bossFailSafe;
+          if (gameState.time - failSafe.lastHpCheck > 5) {
+            failSafe.lastHpCheck = gameState.time;
+            failSafe.lastHpValue = uniqueBoss.hp;
+          }
+
+          if (
+            !failSafe.respawned &&
+            gameState.time - failSafe.spawnTime > PORTAL_STUCK_FAILSAFE_SECONDS &&
+            uniqueBoss.hp >= failSafe.lastHpValue - 1
+          ) {
+            const bossIndex = gameState.enemies.indexOf(uniqueBoss as any);
+            if (bossIndex !== -1) {
+              gameState.enemies.splice(bossIndex, 1);
+            }
+            failSafe.respawned = true;
+            spawnUniqueBoss();
+          }
+        } else {
+          gameState.bossEncounter.bossActive = false;
+        }
+      } else {
+        gameState.bossFailSafe.respawned = false;
+      }
+
       for (const bullet of gameState.bullets) {
         if (bullet.isEnemyBullet || bullet.life <= 0) continue;
 
@@ -6656,7 +6928,7 @@ const Index = () => {
       gameState.nearbyExitPortal = null;
 
       const checkPortalProximity = (portal: GamePortal | null) => {
-        if (!portal || !portal.active) {
+        if (!portal || !portal.active || portal.interactable === false) {
           return;
         }
         const dx = gameState.player.x - portal.x;
@@ -6674,6 +6946,45 @@ const Index = () => {
 
       checkPortalProximity(gameState.bossPortal);
       checkPortalProximity(gameState.exitPortal);
+
+      const bossPortal = gameState.bossPortal;
+      if (bossPortal) {
+        const holdSeconds = bossPortal.activationHoldSeconds ?? PORTAL_ACTIVATION_HOLD_SECONDS;
+        const activationProgress = bossPortal.activationProgress ?? 0;
+        const interactHeld = Boolean(gameState.keys["e"]);
+        const canInteract = bossPortal.interactable !== false;
+        const isNearby =
+          canInteract &&
+          gameState.nearbyBossPortal === bossPortal &&
+          bossPortal.status !== "spawningBoss" &&
+          bossPortal.status !== "sealed";
+
+        if (
+          (bossPortal.status === "awaitingActivation" || bossPortal.status === "activating") &&
+          isNearby &&
+          interactHeld
+        ) {
+          bossPortal.status = "activating";
+          bossPortal.activationProgress = Math.min(1, activationProgress + dt / Math.max(holdSeconds, 0.001));
+          if ((bossPortal.activationProgress ?? 0) >= 1) {
+            activateBossPortal();
+          }
+        } else if (bossPortal.status === "activating") {
+          bossPortal.activationProgress = Math.max(0, activationProgress - dt * 0.75);
+          if ((bossPortal.activationProgress ?? 0) <= 0.001) {
+            bossPortal.activationProgress = 0;
+            bossPortal.status = "awaitingActivation";
+          }
+        }
+
+        if (bossPortal.status === "spawningBoss" && bossPortal.bossSpawnAt && gameState.time >= bossPortal.bossSpawnAt) {
+          spawnUniqueBoss();
+          bossPortal.status = "sealed";
+          bossPortal.interactable = false;
+          bossPortal.bossSpawnAt = null;
+          bossPortal.activationProgress = 0;
+        }
+      }
 
       // Colisión jugador-enemigo con separación física - Rage mode invulnerable
       for (const e of gameState.enemies) {
@@ -6963,12 +7274,27 @@ const Index = () => {
       // Actualizar partículas
       for (let i = gameState.particles.length - 1; i >= 0; i--) {
         const p = gameState.particles[i];
-        p.x += p.vx;
-        p.y += p.vy;
+        if (p.style === "shockwave") {
+          const maxLife = p.maxLife ?? 0.32;
+          p.life -= dt;
+          const progress = 1 - Math.max(0, p.life) / Math.max(maxLife, 0.001);
+          p.radius = (p.maxRadius ?? p.radius ?? 0) * Math.min(1, progress);
+          p.opacity = Math.max(0, (p.opacity ?? 1) * (1 - progress));
+          if (p.life <= 0) gameState.particles.splice(i, 1);
+          continue;
+        }
+
+        p.x += p.vx ?? 0;
+        p.y += p.vy ?? 0;
         p.life -= dt;
-        p.vx *= 0.98;
-        p.vy *= 0.98;
-        if (p.life <= 0) gameState.particles.splice(i, 1);
+        if (p.vx) p.vx *= 0.98;
+        if (p.vy) p.vy *= 0.98;
+        if (p.style === "heat" || p.style === "core") {
+          p.opacity = Math.max(0, (p.opacity ?? 1) - dt * (p.style === "heat" ? 1.8 : 2.4));
+        }
+        if (p.life <= 0 || (p.opacity !== undefined && p.opacity <= 0)) {
+          gameState.particles.splice(i, 1);
+        }
       }
     }
 
@@ -7021,12 +7347,30 @@ const Index = () => {
           const seconds = Math.floor(gameState.globalEventTimer % 60)
             .toString()
             .padStart(2, "0");
-          drawTopStatus(`${bossEventTexts.timerLabel}: ${minutes}:${seconds}`, PORTAL_COLORS.boss);
-        } else if (gameState.bossPortal && !gameState.bossEncounter.bossActive) {
-          drawTopStatus(bossEventTexts.portalReady, PORTAL_COLORS.boss);
+          drawTopStatus(`${bossEventTexts.prePortalTimerLabel}: ${minutes}:${seconds}`, PORTAL_COLORS.boss);
+        } else if (gameState.bossEncounter.bossActive) {
+          drawTopStatus(bossEventTexts.objective, PORTAL_COLORS.boss);
+        } else if (gameState.bossPortal) {
+          const status = gameState.bossPortal.status;
+          if (status === "spawningBoss") {
+            drawTopStatus(bossEventTexts.spawnWarning, PORTAL_COLORS.boss);
+          } else if (status === "activating") {
+            drawTopStatus(bossEventTexts.activateHold, PORTAL_COLORS.boss);
+          } else {
+            drawTopStatus(bossEventTexts.portalReady, PORTAL_COLORS.boss);
+          }
         }
-      } else if (gameState.exitPortal) {
-        drawTopStatus(bossEventTexts.exitPortalReady, PORTAL_COLORS.exit);
+      } else {
+        if (gameState.postBossSurvival.active) {
+          const elapsed = Math.min(POST_BOSS_SURVIVAL_LIMIT, gameState.postBossSurvival.elapsed);
+          const minutes = Math.floor(elapsed / 60);
+          const seconds = Math.floor(elapsed % 60)
+            .toString()
+            .padStart(2, "0");
+          drawTopStatus(`${bossEventTexts.timerLabel}: ${minutes}:${seconds}`, PORTAL_COLORS.exit);
+        } else if (gameState.exitPortal) {
+          drawTopStatus(bossEventTexts.exitPortalReady, PORTAL_COLORS.exit);
+        }
       }
 
       const uniqueBoss = gameState.enemies.find(
@@ -7235,10 +7579,32 @@ const Index = () => {
       ctx.shadowBlur = 0;
 
       // Termómetro de dificultad (inspirado en Risk of Rain 2)
-      const meterX = 20;
-      const meterY = staminaBarY + staminaBarH + 32;
-      const meterW = 22;
-      const meterH = 140;
+      const minimapCenterX = MINIMAP_SIZE / 2 + MINIMAP_PADDING;
+      const minimapCenterY = H - MINIMAP_SIZE / 2 - MINIMAP_BOTTOM_OFFSET;
+      const minimapTop = minimapCenterY - MINIMAP_FRAME_RADIUS;
+      const aspectRatio = W / Math.max(H, 1);
+
+      let meterScale = 1;
+      let meterOffsetX = 0;
+      let meterOffsetY = -12;
+      if (aspectRatio > 2.05) {
+        meterScale = 1.1;
+        meterOffsetX = 24;
+        meterOffsetY = -18;
+      } else if (W <= 900 || H <= 720) {
+        meterScale = 0.9;
+        meterOffsetX = 0;
+        meterOffsetY = -6;
+      }
+
+      const baseMeterW = 24;
+      const baseMeterH = 150;
+      const meterW = Math.round(baseMeterW * meterScale);
+      const meterH = Math.round(baseMeterH * meterScale);
+      const meterGap = 12;
+      const meterBottom = minimapTop - meterGap + meterOffsetY;
+      const meterX = minimapCenterX - meterW / 2 + meterOffsetX;
+      const meterY = meterBottom - meterH;
       const tierIndex = gameState.difficulty.tierIndex;
       const tierProgress = gameState.difficulty.tierProgress;
       const difficultyLevel = gameState.difficulty.level;
@@ -7280,41 +7646,41 @@ const Index = () => {
         ctx.moveTo(meterX, y);
         ctx.lineTo(meterX + meterW, y);
         ctx.stroke();
-
-        const tierInfo = DIFFICULTY_TIERS[i];
-        const tierLabel = tierInfo.labels?.[language] ?? tierInfo.label;
-        ctx.textAlign = "left";
-        ctx.font = withTerminalFont(i === tierIndex ? "bold 12px system-ui" : "12px system-ui");
-        ctx.fillStyle = i <= tierIndex ? tierInfo.color : textSecondary;
-        ctx.shadowBlur = 0;
-        ctx.fillText(tierLabel.toUpperCase(), meterX + meterW + 20, y + 4);
       }
 
       const pointerY = meterY + meterH - 2 - fillHeight;
+      const pointerX = meterX + meterW + 8;
       ctx.fillStyle = UI_COLORS.xp;
       ctx.beginPath();
-      ctx.moveTo(meterX + meterW + 6, pointerY);
-      ctx.lineTo(meterX + meterW + 16, pointerY - 6);
-      ctx.lineTo(meterX + meterW + 16, pointerY + 6);
+      ctx.moveTo(pointerX, pointerY);
+      ctx.lineTo(pointerX + 12 * meterScale, pointerY - 6 * meterScale);
+      ctx.lineTo(pointerX + 12 * meterScale, pointerY + 6 * meterScale);
       ctx.closePath();
       ctx.fill();
 
-      ctx.textAlign = "left";
+      const labelCenterX = minimapCenterX + meterOffsetX;
+      ctx.textAlign = "center";
       ctx.fillStyle = textPrimary;
-      ctx.font = withTerminalFont("bold 16px system-ui");
-      ctx.fillText(t.difficulty.toUpperCase(), meterX + meterW + 20, meterY - 10);
-      ctx.font = withTerminalFont("bold 20px system-ui");
-      ctx.fillStyle = DIFFICULTY_TIERS[tierIndex].color;
-      ctx.fillText(gameState.difficulty.tierLabel.toUpperCase(), meterX + meterW + 20, meterY + 18);
-      ctx.font = withTerminalFont("12px system-ui");
-      ctx.fillStyle = textSecondary;
-      ctx.fillText(`${t.levelShort ?? t.level} ${difficultyLevel}`, meterX + meterW + 20, meterY + 36);
-      ctx.shadowBlur = 0;
+      ctx.font = withTerminalFont(`bold ${Math.round(16 * meterScale)}px system-ui`);
+      ctx.fillText(t.difficulty.toUpperCase(), labelCenterX, meterY - 16 * meterScale);
 
-      ctx.textAlign = "left";
+      ctx.font = withTerminalFont(`bold ${Math.round(20 * meterScale)}px system-ui`);
+      ctx.fillStyle = DIFFICULTY_TIERS[tierIndex].color;
+      ctx.fillText(gameState.difficulty.tierLabel.toUpperCase(), labelCenterX, meterY + meterH + 22 * meterScale);
+
+      ctx.font = withTerminalFont(`${Math.round(12 * meterScale)}px system-ui`);
       ctx.fillStyle = textSecondary;
-      ctx.font = withTerminalFont("11px system-ui");
-      ctx.fillText(t.difficultyHint, meterX + meterW + 20, meterY + meterH + 16);
+      ctx.fillText(
+        `${t.levelShort ?? t.level} ${difficultyLevel}`,
+        labelCenterX,
+        meterY + meterH + 38 * meterScale,
+      );
+
+      if (meterScale >= 1) {
+        ctx.font = withTerminalFont("11px system-ui");
+        ctx.fillStyle = textSecondary;
+        ctx.fillText(t.difficultyHint, labelCenterX, meterY - 32 * meterScale);
+      }
 
       // Score
       ctx.textAlign = "right";
@@ -7565,7 +7931,12 @@ const Index = () => {
         ctx.globalAlpha = 1;
       }
 
-      const drawPortalPrompt = (primary: string, secondary: string | null, color: string) => {
+      const drawPortalPrompt = (
+        primary: string,
+        secondary: string | null,
+        color: string,
+        progress?: number | null,
+      ) => {
         ctx.save();
         ctx.textAlign = "center";
         ctx.font = withTerminalFont("bold 20px system-ui");
@@ -7573,7 +7944,7 @@ const Index = () => {
         ctx.font = withTerminalFont("14px system-ui");
         const secondaryWidth = secondary ? ctx.measureText(secondary).width : 0;
         const boxW = Math.max(primaryWidth, secondaryWidth) + 40;
-        const boxH = secondary ? 80 : 52;
+        const boxH = secondary ? 96 : 64;
         const boxX = W / 2 - boxW / 2;
         const boxY = H - boxH - 60;
 
@@ -7601,16 +7972,33 @@ const Index = () => {
           ctx.fillText(secondary, W / 2, boxY + boxH - 18);
         }
 
+        if (typeof progress === "number") {
+          const clamped = Math.max(0, Math.min(1, progress));
+          const barW = boxW - 60;
+          const barX = boxX + 30;
+          const barY = boxY + boxH - 34;
+          ctx.fillStyle = hexToRgba(color, 0.25);
+          ctx.fillRect(barX, barY, barW, 8);
+          ctx.fillStyle = color;
+          ctx.fillRect(barX, barY, barW * clamped, 8);
+        }
+
         ctx.restore();
       };
 
       if (gameState.state === "running") {
         if (gameState.nearbyBossPortal) {
-          const prompt = bossEventTexts.interactPrompt.replace("{key}", "E");
-          drawPortalPrompt(prompt, null, PORTAL_COLORS.boss);
+          const portal = gameState.nearbyBossPortal;
+          const status = portal.status;
+          if (status === "spawningBoss") {
+            drawPortalPrompt(bossEventTexts.spawnWarning, null, PORTAL_COLORS.boss);
+          } else {
+            const prompt = bossEventTexts.activatePrompt.replace("{key}", "E");
+            drawPortalPrompt(prompt, bossEventTexts.activateHold, PORTAL_COLORS.boss, portal.activationProgress ?? 0);
+          }
         } else if (gameState.nearbyExitPortal) {
           const prompt = bossEventTexts.exitPrompt.replace("{key}", "E");
-          drawPortalPrompt(prompt, bossEventTexts.continueNotice, PORTAL_COLORS.exit);
+          drawPortalPrompt(prompt, bossEventTexts.stayNotice, PORTAL_COLORS.exit);
         }
       }
 
@@ -9068,11 +9456,46 @@ const Index = () => {
       const shouldRenderParticles = !gameState.activeChestChoice && !gameState.suppressParticlesForChest;
       if (!overlaySupportedRef.current && shouldRenderParticles) {
         for (const p of visibleParticles) {
-          ctx.fillStyle = p.color;
-          ctx.globalAlpha = p.life;
+          ctx.save();
+          ctx.globalAlpha = p.opacity ?? Math.max(0, Math.min(1, p.life));
+          if (p.style === "shockwave") {
+            const radius = Math.max(6, p.radius ?? p.size ?? 12);
+            ctx.strokeStyle = hexToRgba(p.color ?? "#ffedd5", ctx.globalAlpha * 0.9);
+            ctx.lineWidth = Math.max(2, (p.maxRadius ?? radius) * 0.04);
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+            continue;
+          }
+
+          if (p.style === "heat") {
+            const radius = (p.size ?? 16) * 1.4;
+            const gradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, radius);
+            gradient.addColorStop(0, hexToRgba(p.color ?? "#ff9f68", ctx.globalAlpha * 0.7));
+            gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+            continue;
+          }
+
+          if (p.style === "core") {
+            ctx.fillStyle = hexToRgba(p.color ?? "#ff7a2a", ctx.globalAlpha);
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size ?? 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+            continue;
+          }
+
+          ctx.fillStyle = p.color ?? "#ffffff";
           ctx.beginPath();
-          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.arc(p.x, p.y, p.size ?? 3, 0, Math.PI * 2);
           ctx.fill();
+          ctx.restore();
         }
       }
       if (!overlaySupportedRef.current) {
