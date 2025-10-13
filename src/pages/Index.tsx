@@ -103,6 +103,41 @@ const UI_COLORS = {
   backgroundGradient: ["#111", "#0a0a0a", "#050505"],
 };
 
+const DIFFICULTY_TIERS = [
+  { label: "Tranquilo", threshold: 0, color: "#22c55e" },
+  { label: "Fácil", threshold: 120, color: "#84cc16" },
+  { label: "Desafiante", threshold: 300, color: "#fbbf24" },
+  { label: "Implacable", threshold: 540, color: "#f97316" },
+  { label: "Apocalíptico", threshold: 780, color: "#ef4444" },
+  { label: "Imposible", threshold: 1080, color: "#a855f7" },
+] as const;
+
+type DifficultyTier = (typeof DIFFICULTY_TIERS)[number];
+
+const getDifficultyIntensity = (elapsedTime: number) => Math.pow(1 + elapsedTime / 90, 1.12) - 1;
+
+const getDifficultyLevel = (elapsedTime: number) => Math.max(1, Math.floor(getDifficultyIntensity(elapsedTime)) + 1);
+
+const getDifficultyTierIndex = (elapsedTime: number) => {
+  let tierIndex = 0;
+  for (let i = 0; i < DIFFICULTY_TIERS.length; i++) {
+    if (elapsedTime >= DIFFICULTY_TIERS[i].threshold) {
+      tierIndex = i;
+    } else {
+      break;
+    }
+  }
+  return tierIndex;
+};
+
+const getTierProgress = (elapsedTime: number, tier: DifficultyTier, nextTier: DifficultyTier | undefined) => {
+  if (!nextTier) {
+    return 1;
+  }
+  const span = Math.max(1, nextTier.threshold - tier.threshold);
+  return Math.min(1, Math.max(0, (elapsedTime - tier.threshold) / span));
+};
+
 const hexToRgba = (hex: string, alpha: number) => {
   if (!hex.startsWith("#")) {
     return hex;
@@ -937,10 +972,14 @@ const Index = () => {
       nextXpDisplayTarget: 25,
       time: 0,
       elapsedTime: 0,
-      wave: 1,
-      waveKills: 0,
-      waveEnemiesTotal: 10, // Wave 1 empieza con 10 (estilo COD Zombies)
-      waveEnemiesSpawned: 0,
+      difficulty: {
+        intensity: 0,
+        level: 1,
+        tierIndex: 0,
+        tierLabel: DIFFICULTY_TIERS[0].label,
+        tierProgress: 0,
+        notification: 0,
+      },
       maxConcurrentEnemies: 12,
       lastSpawn: 0,
       lastBossSpawn: 0,
@@ -962,19 +1001,18 @@ const Index = () => {
       upgradeUIAnimation: 0,
       xpBarRainbow: false,
       minimapOpacity: 0,
-      waveNotification: 0,
       restartTimer: 0,
       restartHoldTime: 2, // 2 segundos para reiniciar sosteniendo R
       gameOverTimer: 0,
       countdownTimer: 0, // Countdown 3-2-1 al reanudar desde pausa
-      // Sistema de Eventos Ambientales (vinculado a waves)
+      // Sistema de Eventos Ambientales (sincronizado con dificultad)
       environmentalEvent: null as "storm" | "fog" | "rain" | null,
       eventNotification: 0,
       eventDuration: 0,
       eventTimer: 0,
       eventPhase: "none" as "none" | "notification" | "fadein" | "active" | "fadeout",
       eventIntensity: 0, // 0 a 1 para fade in/out
-      eventActivatedThisWave: false, // Control: solo 1 evento por wave
+      eventActivatedThisTier: false, // Control: solo 1 evento por subida de dificultad
       lightningTimer: 0,
       fogOpacity: 0,
       fogZones: [] as Array<{ x: number; y: number; width: number; height: number }>,
@@ -1703,10 +1741,14 @@ const Index = () => {
       gameState.nextXpDisplayTarget = 25;
       gameState.time = 0;
       gameState.elapsedTime = 0;
-      gameState.wave = 1;
-      gameState.waveKills = 0;
-      gameState.waveEnemiesTotal = 10; // Wave 1 empieza con 10 enemigos (estilo COD Zombies)
-      gameState.waveEnemiesSpawned = 0;
+      gameState.difficulty = {
+        intensity: 0,
+        level: 1,
+        tierIndex: 0,
+        tierLabel: DIFFICULTY_TIERS[0].label,
+        tierProgress: 0,
+        notification: 0,
+      };
       gameState.maxConcurrentEnemies = 12;
       gameState.lastSpawn = 0;
       gameState.spawnCooldown = 0;
@@ -1721,7 +1763,7 @@ const Index = () => {
       gameState.levelUpAnimation = 0;
       gameState.upgradeAnimation = 0;
       gameState.xpBarRainbow = false;
-      gameState.waveNotification = 0;
+      gameState.difficulty.notification = 0;
       gameState.minimapOpacity = 0;
       gameState.itemNotification = "";
       gameState.itemNotificationTimer = 0;
@@ -1742,7 +1784,7 @@ const Index = () => {
       gameState.eventTimer = 0;
       gameState.eventPhase = "none";
       gameState.eventIntensity = 0;
-      gameState.eventActivatedThisWave = false;
+      gameState.eventActivatedThisTier = false;
       gameState.lightningTimer = 0;
       gameState.fogOpacity = 0;
       gameState.fogZones = [];
@@ -1965,6 +2007,9 @@ const Index = () => {
       const hordeStacks = gameState.player.itemStacks.hordetotem ?? 0;
       const spawnCount = 1 + hordeStacks;
 
+      const difficultyLevel = gameState.difficulty.level;
+      const difficultyIntensity = gameState.difficulty.intensity;
+
       for (let spawnIdx = 0; spawnIdx < spawnCount; spawnIdx++) {
         const roll = Math.random();
         const typeRoll = Math.random();
@@ -1977,15 +2022,15 @@ const Index = () => {
         let isElite = false;
         let specialType: "explosive" | "fast" | "tank" | "summoner" | null = null;
 
-        // Tipos especiales de enemigos (escalado estilo COD Zombies)
+        // Tipos especiales de enemigos (escalado por dificultad creciente)
         let specialChance = 0;
-        if (gameState.wave <= 3) {
+        if (difficultyLevel <= 3) {
           specialChance = 0.05;
-        } else if (gameState.wave <= 7) {
+        } else if (difficultyLevel <= 7) {
           specialChance = 0.15;
-        } else if (gameState.wave <= 12) {
+        } else if (difficultyLevel <= 12) {
           specialChance = 0.25;
-        } else if (gameState.wave <= 18) {
+        } else if (difficultyLevel <= 18) {
           specialChance = 0.35;
         } else {
           specialChance = 0.45;
@@ -1999,17 +2044,17 @@ const Index = () => {
             color = "#ef4444";
             // NUEVO: Zombie Bomber - daño base MUY alto
             let bomberBaseDamage = 30;
-            // Escalado agresivo del bomber por wave
-            if (gameState.wave <= 5) {
-              bomberBaseDamage = 20 + gameState.wave * 3; // 23-35
-            } else if (gameState.wave <= 10) {
-              bomberBaseDamage = 35 + (gameState.wave - 5) * 5; // 40-65
-            } else if (gameState.wave <= 15) {
-              bomberBaseDamage = 65 + (gameState.wave - 10) * 7; // 72-100
-            } else if (gameState.wave <= 20) {
-              bomberBaseDamage = 100 + (gameState.wave - 15) * 16; // 116-180
+            // Escalado agresivo del bomber por dificultad
+            if (difficultyLevel <= 5) {
+              bomberBaseDamage = 20 + difficultyLevel * 3; // 23-35
+            } else if (difficultyLevel <= 10) {
+              bomberBaseDamage = 35 + (difficultyLevel - 5) * 5; // 40-65
+            } else if (difficultyLevel <= 15) {
+              bomberBaseDamage = 65 + (difficultyLevel - 10) * 7; // 72-100
+            } else if (difficultyLevel <= 20) {
+              bomberBaseDamage = 100 + (difficultyLevel - 15) * 16; // 116-180
             } else {
-              bomberBaseDamage = 180 + (gameState.wave - 20) * 20; // 200+
+              bomberBaseDamage = 180 + (difficultyLevel - 20) * 20; // 200+
             }
             damage = bomberBaseDamage;
             baseHp = 2;
@@ -2044,8 +2089,8 @@ const Index = () => {
           // Enemigos normales
           specialType = null;
 
-          // Progresión detallada por wave
-          if (gameState.wave === 1) {
+          // Progresión detallada por dificultad
+          if (difficultyLevel === 1) {
             // Wave 1: Solo verdes
             enemyType = "weak";
             color = "#5dbb63";
@@ -2053,7 +2098,7 @@ const Index = () => {
             baseHp = 3;
             rad = WEAK_ENEMY_BASE_RADIUS;
             spd = 1.3;
-          } else if (gameState.wave === 2) {
+          } else if (difficultyLevel === 2) {
             // Wave 2: Mayoría verdes, algunos morados (≤10%)
             if (roll < 0.9) {
               enemyType = "weak";
@@ -2070,7 +2115,7 @@ const Index = () => {
               rad = MEDIUM_ENEMY_BASE_RADIUS;
               spd = 1.1;
             }
-          } else if (gameState.wave === 3) {
+          } else if (difficultyLevel === 3) {
             // Wave 3: Mezcla verde/morado (20-30% morado)
             if (roll < 0.75) {
               enemyType = "weak";
@@ -2087,7 +2132,7 @@ const Index = () => {
               rad = MEDIUM_ENEMY_BASE_RADIUS;
               spd = 1.1;
             }
-          } else if (gameState.wave === 4) {
+          } else if (difficultyLevel === 4) {
             // Wave 4: Más morado (30-40%)
             if (roll < 0.65) {
               enemyType = "weak";
@@ -2104,7 +2149,7 @@ const Index = () => {
               rad = MEDIUM_ENEMY_BASE_RADIUS;
               spd = 1.1;
             }
-          } else if (gameState.wave === 5) {
+          } else if (difficultyLevel === 5) {
             // Wave 5: Introducir amarillo (3-5%)
             if (roll < 0.04) {
               enemyType = "strong";
@@ -2128,7 +2173,7 @@ const Index = () => {
               rad = WEAK_ENEMY_BASE_RADIUS;
               spd = 1.3;
             }
-          } else if (gameState.wave === 6) {
+          } else if (difficultyLevel === 6) {
             // Wave 6: Mezcla estable 50/40/10%
             if (roll < 0.1) {
               enemyType = "strong";
@@ -2152,7 +2197,7 @@ const Index = () => {
               rad = WEAK_ENEMY_BASE_RADIUS;
               spd = 1.3;
             }
-          } else if (gameState.wave === 7) {
+          } else if (difficultyLevel === 7) {
             // Wave 7: Amarillos hasta 12-15%
             if (roll < 0.13) {
               enemyType = "strong";
@@ -2178,7 +2223,7 @@ const Index = () => {
             }
           } else {
             // Wave 8+: Escalado progresivo (amarillos hasta 25-30%)
-            const yellowChance = Math.min(0.3, 0.15 + (gameState.wave - 8) * 0.02);
+            const yellowChance = Math.min(0.3, 0.15 + (difficultyLevel - 8) * 0.02);
 
             if (roll < yellowChance) {
               enemyType = "strong";
@@ -2203,7 +2248,7 @@ const Index = () => {
               spd = 1.3;
             }
 
-            // Posibilidad de enemigos élite (5% chance en wave 8+)
+            // Posibilidad de enemigos élite (5% chance en dificultad 8+)
             if (Math.random() < 0.05) {
               isElite = true;
               baseHp *= 1.5;
@@ -2214,25 +2259,25 @@ const Index = () => {
 
           // Escalado de dificultad estilo COD Zombies - Velocidad
           let speedScale = 1;
-          if (gameState.wave <= 10) {
-            speedScale = 1 + (gameState.wave - 1) * 0.03;
-          } else if (gameState.wave <= 20) {
-            speedScale = 1 + (gameState.wave - 1) * 0.05;
+          if (difficultyLevel <= 10) {
+            speedScale = 1 + (difficultyLevel - 1) * 0.03;
+          } else if (difficultyLevel <= 20) {
+            speedScale = 1 + (difficultyLevel - 1) * 0.05;
           } else {
-            speedScale = Math.min(3, 1 + (gameState.wave - 1) * 0.07); // Cap en +200%
+            speedScale = Math.min(3, 1 + (difficultyLevel - 1) * 0.07); // Cap en +200%
           }
 
           // Escalado de daño - NUEVO SISTEMA POST-WAVE 13
           let damageScale = 1;
-          if (gameState.wave <= 5) {
+          if (difficultyLevel <= 5) {
             damageScale = 1.0; // Base
-          } else if (gameState.wave <= 10) {
+          } else if (difficultyLevel <= 10) {
             damageScale = 1.3; // +30%
-          } else if (gameState.wave <= 13) {
+          } else if (difficultyLevel <= 13) {
             damageScale = 1.6; // +60%
-          } else if (gameState.wave <= 17) {
+          } else if (difficultyLevel <= 17) {
             damageScale = 2.0; // +100% (doble)
-          } else if (gameState.wave <= 21) {
+          } else if (difficultyLevel <= 21) {
             damageScale = 2.5; // +150%
           } else {
             damageScale = 3.0; // +200% (triple)
@@ -2248,12 +2293,12 @@ const Index = () => {
 
         // HP scaling estilo COD Zombies - Escalado exponencial
         let hpMultiplier = 1;
-        if (gameState.wave <= 5) {
-          hpMultiplier = 1 + (gameState.wave - 1) * 0.2;
-        } else if (gameState.wave <= 15) {
-          hpMultiplier = 1 + (gameState.wave - 1) * 0.35;
+        if (difficultyLevel <= 5) {
+          hpMultiplier = 1 + (difficultyLevel - 1) * 0.2;
+        } else if (difficultyLevel <= 15) {
+          hpMultiplier = 1 + (difficultyLevel - 1) * 0.35;
         } else {
-          hpMultiplier = 1 + (gameState.wave - 1) * 0.5;
+          hpMultiplier = 1 + (difficultyLevel - 1) * 0.5;
         }
         const scaledHp = Math.floor(baseHp * hpMultiplier);
         rad = scaleEnemyRadius(rad);
@@ -2300,7 +2345,8 @@ const Index = () => {
 
       // Boss HP escalado agresivo estilo COD Zombies
       const baseHp = 150;
-      const bossHpMultiplier = 1 + (gameState.wave - 1) * 3; // Mucho más tanque
+      const difficultyLevel = gameState.difficulty.level;
+      const bossHpMultiplier = 1 + (difficultyLevel - 1) * 3; // Mucho más tanque
       const scaledHp = Math.floor(baseHp * bossHpMultiplier);
 
       const boss: EnemyWithCategory = {
@@ -2339,7 +2385,8 @@ const Index = () => {
 
       // Mini-boss HP escalado estilo COD Zombies
       const baseHp = 25;
-      const miniBossHpMultiplier = 1 + (gameState.wave - 1) * 2; // Más tanque que antes
+      const difficultyLevel = gameState.difficulty.level;
+      const miniBossHpMultiplier = 1 + (difficultyLevel - 1) * 2; // Más tanque que antes
       const scaledHp = Math.floor(baseHp * miniBossHpMultiplier);
 
       const miniBoss: EnemyWithCategory = {
@@ -2353,7 +2400,7 @@ const Index = () => {
         isElite: false,
         isMiniBoss: true,
         color: "#ffc300",
-        damage: Math.floor(25 * (1 + (gameState.wave - 1) * 0.05)),
+        damage: Math.floor(25 * (1 + (difficultyLevel - 1) * 0.05)),
       };
 
       gameState.enemies.push(miniBoss);
@@ -3411,10 +3458,10 @@ const Index = () => {
           continue;
         }
 
-        // Control de legendarios: máximo uno cada 3 waves
+        // Control de legendarios: máximo uno cada 3 niveles de dificultad
         if (item.rarity === "legendary") {
-          // Solo permitir legendarios en waves múltiplos de 3
-          if (gameState.wave % 3 === 0) {
+          // Solo permitir legendarios en picos de dificultad múltiplos de 3
+          if (gameState.difficulty.level % 3 === 0) {
             availableUpgrades.push({
               type: "item",
               data: item,
@@ -4134,10 +4181,10 @@ const Index = () => {
       if (gameState.state !== "running" || gameState.countdownTimer > 0) return;
 
       // ═══════════════════════════════════════════════════════════
-      // TUTORIAL - Wave 1 como tutorial obligatorio
+      // TUTORIAL - Mantener ayudas durante el arranque
       // ═══════════════════════════════════════════════════════════
       // Tutorial simplificado: solo mostrar WASD
-      if (gameState.tutorialActive && !tutorialCompleted && gameState.wave === 1) {
+      if (gameState.tutorialActive && !tutorialCompleted && gameState.difficulty.level === 1) {
         const { w, a, s, d } = gameState.keys;
         const timeInTutorial = (performance.now() - gameState.tutorialStartTime) / 1000;
 
@@ -4150,130 +4197,37 @@ const Index = () => {
       }
 
       // ═══════════════════════════════════════════════════════════
-      // SISTEMA DE OLEADAS (WAVES) - Estilo Call of Duty Zombies
+      // SISTEMA DE DIFICULTAD PROGRESIVA - Inspirado en Risk of Rain 2
       // ═══════════════════════════════════════════════════════════
-      //
-      // LÓGICA DE OLEADAS:
-      // • Cada wave tiene un número fijo de enemigos (waveEnemiesTotal)
-      // • Los enemigos solo spawnean si hay cupo (normalEnemies < maxConcurrentEnemies)
-      // • Boss/Mini-boss NO cuentan en el límite de enemigos concurrentes
-      // • La siguiente wave NO inicia hasta que waveKills >= waveEnemiesTotal
-      // • Al completar: bono de XP + mensaje "Wave X completada" por 3s
-      //
-      // PROGRESIÓN:
-      // • Enemigos totales: W1: 10 → W10: 90 → W20: ~350 → W25+: ~700+
-      // • Concurrentes: 12-15 (W1-5) → 25-30 (W10-15) → 50-60 (W21+)
-      // • Spawn rate: 1.2s (W1-2) → 0.5s (W10) → 0.1-0.3s (W16+) + bursts
-      // • HP: +20%/wave (1-5) → +35%/wave (6-15) → +50%/wave (16+)
-      // • Velocidad: +3%/wave → +5%/wave → +7%/wave (max +200%)
-      // • Daño: +15%/wave → +25%/wave → +35%/wave
-      // • Especiales: 5% (W1-3) → 15% (W6-10) → 45% (W19+)
-      //
-      // BOSS/MINI-BOSS:
-      // • Boss cada 5 waves: HP = base × wave × 3
-      // • Mini-boss en W3, W7, W12, W17, W22...: HP = base × wave × 2
-      // • Ambos se agregan sin importar el límite concurrente
-      //
-      // DANGER ZONES:
-      // • Desde W11+: hasta 2 zonas simultáneas
-      // • Duración: 6 segundos
-      // • Daño continuo: 8 HP/s
-      //
-      // ═══════════════════════════════════════════════════════════
+      const previousDifficultyLevel = gameState.difficulty.level;
+      const previousTierIndex = gameState.difficulty.tierIndex;
+      const difficultyIntensity = getDifficultyIntensity(gameState.elapsedTime);
+      const difficultyLevel = getDifficultyLevel(gameState.elapsedTime);
+      const tierIndex = getDifficultyTierIndex(gameState.elapsedTime);
+      const tier = DIFFICULTY_TIERS[tierIndex];
+      const nextTier = DIFFICULTY_TIERS[tierIndex + 1];
+      const tierProgress = getTierProgress(gameState.elapsedTime, tier, nextTier);
 
-      // Wave system basado en conteo de enemigos eliminados (no durante tutorial)
-      if (!gameState.tutorialActive && gameState.waveKills >= gameState.waveEnemiesTotal) {
-        // Wave completada!
-        gameState.wave++;
-        gameState.waveKills = 0;
-        gameState.waveEnemiesSpawned = 0;
+      gameState.difficulty.intensity = difficultyIntensity;
+      gameState.difficulty.level = difficultyLevel;
+      gameState.difficulty.tierIndex = tierIndex;
+      gameState.difficulty.tierLabel = tier.label;
+      gameState.difficulty.tierProgress = tierProgress;
 
-          // Reset first hit immune para la nueva wave
+      if (previousTierIndex !== tierIndex) {
+        gameState.difficulty.notification = 2.5;
+      } else if (gameState.difficulty.notification > 0) {
+        gameState.difficulty.notification = Math.max(0, gameState.difficulty.notification - dt);
+      }
+
+      const targetConcurrent = Math.min(55, Math.round(12 + difficultyIntensity * 8));
+      gameState.maxConcurrentEnemies = targetConcurrent;
+
+      if (previousDifficultyLevel !== difficultyLevel) {
+        if (gameState.player.stats.firstHitImmuneCharges > 0) {
           gameState.player.stats.firstHitImmuneChargesUsed = 0;
-
-        // Sistema de oleadas estilo COD Zombies - Escalado exponencial
-        // POST-WAVE 13: Cantidad de enemigos FIJA, solo aumenta poder
-        let waveTarget: number;
-        let maxConcurrent: number;
-
-        // Fórmula exponencial para número de enemigos
-        if (gameState.wave === 1) {
-          waveTarget = 10;
-          maxConcurrent = 12;
-        } else if (gameState.wave === 2) {
-          waveTarget = 15;
-          maxConcurrent = 13;
-        } else if (gameState.wave === 3) {
-          waveTarget = 20;
-          maxConcurrent = 15;
-        } else if (gameState.wave === 4) {
-          waveTarget = 24;
-          maxConcurrent = 18;
-        } else if (gameState.wave === 5) {
-          waveTarget = 30;
-          maxConcurrent = 20;
-        } else if (gameState.wave === 6) {
-          waveTarget = 38;
-          maxConcurrent = 22;
-        } else if (gameState.wave === 7) {
-          waveTarget = 48;
-          maxConcurrent = 25;
-        } else if (gameState.wave === 8) {
-          waveTarget = 60;
-          maxConcurrent = 28;
-        } else if (gameState.wave === 9) {
-          waveTarget = 75;
-          maxConcurrent = 30;
-        } else if (gameState.wave === 10) {
-          waveTarget = 90;
-          maxConcurrent = 35;
-        } else if (gameState.wave <= 13) {
-          // Wave 11-13: Escalado exponencial fuerte (última escalada de cantidad)
-          waveTarget = Math.floor(90 + (gameState.wave - 10) * 10 * Math.pow(1.15, gameState.wave - 10));
-          maxConcurrent = Math.min(45, 35 + (gameState.wave - 10) * 2);
-        } else {
-          // Wave 14+: CANTIDAD FIJA - Solo escala poder/daño
-          waveTarget = 130; // Cantidad fija de enemigos
-          maxConcurrent = 45; // Max concurrente fijo
         }
 
-        // Boss waves (cada 5) y Mini-boss waves (3, 7, 12, 17, 22...) incluyen +1 enemigo
-        if (gameState.wave % 5 === 0) {
-          waveTarget += 1; // +1 por el boss
-        }
-        const isMiniBossWave =
-          gameState.wave === 3 || (gameState.wave > 3 && (gameState.wave - 3) % 5 === 0 && gameState.wave % 5 !== 0);
-        if (isMiniBossWave) {
-          waveTarget += 1; // +1 por el mini-boss
-        }
-
-        gameState.waveEnemiesTotal = waveTarget;
-        gameState.maxConcurrentEnemies = maxConcurrent;
-
-        // Animación de transición entre waves (3 segundos)
-        gameState.waveNotification = 3;
-
-        // Partículas de celebración
-        for (let i = 0; i < 30; i++) {
-          const angle = (Math.PI * 2 * i) / 30;
-          gameState.particles.push({
-            x: gameState.player.x,
-            y: gameState.player.y,
-            vx: Math.cos(angle) * 8,
-            vy: Math.sin(angle) * 8,
-            life: 1.5,
-            color: "#8e44ad",
-            size: 4,
-          });
-        }
-
-        // Recompensa por completar wave
-        collectXP(20 + gameState.wave * 5);
-
-        // ═══════════════════════════════════════════════════════════
-        // LIMPIAR EVENTOS AL FINALIZAR WAVE
-        // ═══════════════════════════════════════════════════════════
-        // Cuando una wave termina, todos los eventos se detienen inmediatamente
         if (gameState.environmentalEvent) {
           gameState.environmentalEvent = null;
           gameState.eventPhase = "none";
@@ -4281,55 +4235,43 @@ const Index = () => {
           gameState.eventNotification = 0;
           gameState.fogOpacity = 0;
           gameState.fogZones = [];
-          gameState.fogWarningZones = []; // Limpiar warnings también
+          gameState.fogWarningZones = [];
           gameState.stormZone = null;
-
-          // FIX: Limpiar TODOS los hotspots radiactivos (lluvia radiactiva)
           gameState.hotspots = gameState.hotspots.filter((h) => !h.isRadioactive);
         }
 
-        // Reset flag para permitir nuevo evento en la siguiente wave
-        gameState.eventActivatedThisWave = false;
-
-        // ═══════════════════════════════════════════════════════════
-        // ACTIVACIÓN DE EVENTOS AMBIENTALES AL INICIO DE WAVE
-        // ═══════════════════════════════════════════════════════════
-        // Solo se puede activar 1 evento por wave, con probabilidad creciente (NO durante tutorial)
-        // Calcular probabilidad según wave actual (MUCHO MÁS BAJAS)
-        if (!gameState.tutorialActive) {
-          let eventProbability = 0;
-          if (gameState.wave >= 1 && gameState.wave <= 5) {
-            eventProbability = 0.01; // 1% en waves 1-5
-          } else if (gameState.wave >= 6 && gameState.wave <= 10) {
-            eventProbability = 0.03; // 3% en waves 6-10
-          } else if (gameState.wave >= 11 && gameState.wave <= 15) {
-            eventProbability = 0.06; // 6% en waves 11-15
-          } else if (gameState.wave >= 16) {
-            eventProbability = 0.1; // 10% en waves 16+
-          }
-
-          // Intentar activar evento con la probabilidad calculada (UNA VEZ al inicio de la wave)
-          if (Math.random() < eventProbability) {
-            const events = ["storm", "fog", "rain"] as const;
-            const newEvent = events[Math.floor(Math.random() * events.length)];
-
-            gameState.environmentalEvent = newEvent;
-            gameState.eventPhase = "notification";
-            gameState.eventIntensity = 0;
-            gameState.eventTimer = 0;
-            gameState.eventNotification = 5; // 5 segundos de aviso antes de que empiece
-            gameState.fogOpacity = 0;
-            gameState.fogZones = [];
-            gameState.fogWarningZones = [];
-            gameState.stormZone = null;
-            gameState.eventActivatedThisWave = true; // Marcar que ya se activó en esta wave
-          }
-        }
+        collectXP(10 + difficultyLevel * 4);
+        gameState.eventActivatedThisTier = false;
       }
 
-      // Reducir timer de notificación de wave
-      if (gameState.waveNotification > 0) {
-        gameState.waveNotification = Math.max(0, gameState.waveNotification - dt);
+      if (!gameState.tutorialActive && !gameState.eventActivatedThisTier) {
+        let eventProbability = 0;
+        if (difficultyLevel <= 3) {
+          eventProbability = 0.015;
+        } else if (difficultyLevel <= 6) {
+          eventProbability = 0.04;
+        } else if (difficultyLevel <= 10) {
+          eventProbability = 0.07;
+        } else {
+          eventProbability = 0.1;
+        }
+
+        if (Math.random() < eventProbability) {
+          const events = ["storm", "fog", "rain"] as const;
+          const newEvent = events[Math.floor(Math.random() * events.length)];
+
+          gameState.environmentalEvent = newEvent;
+          gameState.eventPhase = "notification";
+          gameState.eventIntensity = 0;
+          gameState.eventTimer = 0;
+          gameState.eventNotification = 5;
+          gameState.fogOpacity = 0;
+          gameState.fogZones = [];
+          gameState.fogWarningZones = [];
+          gameState.stormZone = null;
+        }
+
+        gameState.eventActivatedThisTier = true;
       }
 
       // ═══════════════════════════════════════════════════════════
@@ -4355,18 +4297,6 @@ const Index = () => {
           if (gameState.eventIntensity >= 1) {
             gameState.eventPhase = "active";
           }
-        }
-
-        // Verificar si la wave terminó (evento termina inmediatamente)
-        if (gameState.waveKills >= gameState.waveEnemiesTotal) {
-          // Limpiar todos los eventos inmediatamente
-          gameState.environmentalEvent = null;
-          gameState.fogOpacity = 0;
-          gameState.fogZones = [];
-          gameState.stormZone = null;
-          gameState.eventPhase = "none";
-          gameState.eventIntensity = 0;
-          gameState.eventNotification = 0;
         }
 
         // Aplicar efectos solo en fase active
@@ -4632,13 +4562,13 @@ const Index = () => {
 
       // Danger Zone spawning (negativos) - Más frecuentes estilo COD Zombies
       if (
-        gameState.wave >= 3 &&
-        negativeHotspotCount < (gameState.wave >= 11 ? 2 : 1)
+        gameState.difficulty.level >= 3 &&
+        negativeHotspotCount < (gameState.difficulty.level >= 11 ? 2 : 1)
       ) {
         let dangerChance = 0.02;
-        if (gameState.wave >= 6 && gameState.wave < 11) {
+        if (gameState.difficulty.level >= 6 && gameState.difficulty.level < 11) {
           dangerChance = 0.025; // Cada ~40s
-        } else if (gameState.wave >= 11) {
+        } else if (gameState.difficulty.level >= 11) {
           dangerChance = 0.033; // Cada ~30s, hasta 2 zonas
         }
 
@@ -4665,8 +4595,8 @@ const Index = () => {
           continue; // Skip player interaction
         }
 
-        // Danger zones permanentes desde wave 8
-        const isDangerZonePermanent = h.isNegative && gameState.wave >= 8;
+        // Danger zones permanentes desde dificultad 8
+        const isDangerZonePermanent = h.isNegative && gameState.difficulty.level >= 8;
 
         if (d < h.rad) {
           h.active = true;
@@ -4941,112 +4871,75 @@ const Index = () => {
         visibleEnemies.length === allEnemies.length ? null : new Set(visibleEnemies);
 
       // ═══════════════════════════════════════════════════════════
-      // SISTEMA DE SPAWN DE ENEMIGOS - Estilo COD Zombies
-      // ═══════════════════════════════════════════════════════════
-      //
-      // Reglas:
-      // 1. Solo se spawnean enemigos normales si waveEnemiesSpawned < waveEnemiesTotal
-      // 2. Boss y Mini-boss NO cuentan en el límite de maxConcurrentEnemies
-      // 3. Los spawns se detienen cuando se alcanza waveEnemiesTotal
-      // 4. La wave NO avanza hasta que waveKills >= waveEnemiesTotal
-      // 5. En waves 8+, enemigos aparecen en bursts de 3-5 simultáneos
-      //
+      // SISTEMA DE SPAWN DINÁMICO BASADO EN DIFICULTAD
       // ═══════════════════════════════════════════════════════════
 
       gameState.lastSpawn += dt;
 
-      // Sistema de cooldown: Reducir el cooldown
+      const difficultyLevel = gameState.difficulty.level;
+      const difficultyIntensity = gameState.difficulty.intensity;
+
       if (gameState.spawnCooldown > 0) {
         gameState.spawnCooldown = Math.max(0, gameState.spawnCooldown - dt);
       }
 
-      // Verificar si todos los enemigos fueron eliminados
-      if (gameState.enemies.length === 0 && gameState.waveEnemiesSpawned > 0 && gameState.canSpawn) {
-        // Activar cooldown de 3 segundos
+      if (
+        gameState.enemies.length === 0 &&
+        gameState.normalEnemyCount === 0 &&
+        gameState.canSpawn
+      ) {
         gameState.canSpawn = false;
-        gameState.spawnCooldown = 3;
+        gameState.spawnCooldown = Math.max(0.5, 2.5 - difficultyIntensity * 0.15);
       }
 
-      // Después del cooldown, permitir spawn de nuevo
       if (!gameState.canSpawn && gameState.spawnCooldown === 0) {
         gameState.canSpawn = true;
       }
 
-      // Solo spawnear enemigos normales si:
-      // 1. No estamos en tutorial
-      // 2. No hemos alcanzado el total de la wave
-      // 3. Hay cupo (normalEnemies < maxConcurrentEnemies)
-      // 4. El cooldown ha terminado (canSpawn = true)
       let normalEnemyCount = gameState.normalEnemyCount;
       const canSpawnNow =
         !gameState.tutorialActive &&
-        gameState.waveEnemiesSpawned < gameState.waveEnemiesTotal &&
         normalEnemyCount < gameState.maxConcurrentEnemies &&
         gameState.canSpawn;
 
       if (canSpawnNow) {
-        // Velocidad de spawn estilo COD Zombies - Spawns en bursts agresivos
-        let spawnRate: number;
-
-        if (gameState.wave === 1 || gameState.wave === 2) {
-          // Wave 1-2: Spawn controlado
-          spawnRate = 1.2 + Math.random() * 0.3;
-        } else if (gameState.wave <= 5) {
-          // Wave 3-5: Aumenta presión
-          spawnRate = 0.8 + Math.random() * 0.2;
-        } else if (gameState.wave <= 10) {
-          // Wave 6-10: Spawns rápidos en bursts
-          spawnRate = 0.4 + Math.random() * 0.3;
-        } else if (gameState.wave <= 15) {
-          // Wave 11-15: Spawns constantes
-          spawnRate = 0.2 + Math.random() * 0.2;
-        } else {
-          // Wave 16+: Inundación continua
-          spawnRate = 0.1 + Math.random() * 0.2;
-        }
-
-        if (gameState.lastSpawn > spawnRate) {
-          // Spawns en hordas (Wave 8+)
+        const spawnInterval = Math.max(0.18, 1.15 / (1 + difficultyIntensity * 0.55));
+        if (gameState.lastSpawn >= spawnInterval) {
+          const burstChance = Math.min(0.55, 0.12 + difficultyIntensity * 0.05);
+          const burstBase = difficultyIntensity > 5 ? 3 : 2;
           let spawnCount = 1;
-          if (gameState.wave >= 8 && Math.random() < 0.3) {
-            spawnCount = Math.floor(Math.random() * 3) + 3; // 3-5 enemigos simultáneos
+          if (Math.random() < burstChance) {
+            const burstExtra = difficultyIntensity > 8 ? 3 : difficultyIntensity > 4 ? 2 : 1;
+            spawnCount = Math.min(6, burstBase + Math.floor(Math.random() * burstExtra));
           }
 
           for (let i = 0; i < spawnCount; i++) {
-            if (
-              gameState.waveEnemiesSpawned < gameState.waveEnemiesTotal &&
-              normalEnemyCount < gameState.maxConcurrentEnemies
-            ) {
+            if (normalEnemyCount < gameState.maxConcurrentEnemies) {
               spawnEnemy();
               normalEnemyCount = gameState.normalEnemyCount;
-              gameState.waveEnemiesSpawned++;
             }
           }
+
           gameState.lastSpawn = 0;
         }
       }
 
-      // Boss spawn cada 5 waves (NO durante tutorial, NO cuenta en límite concurrente)
+      const bossInterval = Math.max(75, 240 - difficultyIntensity * 18);
       if (
         !gameState.tutorialActive &&
-        gameState.wave % 5 === 0 &&
-        gameState.waveEnemiesSpawned === gameState.waveEnemiesTotal - 1 &&
-        gameState.enemies.length === 0
+        gameState.elapsedTime - gameState.lastBossSpawn > bossInterval
       ) {
         spawnBoss();
-        gameState.waveEnemiesSpawned++;
+        gameState.lastBossSpawn = gameState.elapsedTime;
       }
 
-      // Mini-boss spawn (wave 3, 7, 12, 17, 22...) (NO durante tutorial, NO cuenta en límite concurrente)
-      const isMiniBossWave = gameState.wave === 3 || (gameState.wave > 3 && (gameState.wave - 3) % 5 === 0);
+      const miniBossInterval = Math.max(45, 150 - difficultyIntensity * 12);
       if (
         !gameState.tutorialActive &&
-        isMiniBossWave &&
-        gameState.waveEnemiesSpawned === gameState.waveEnemiesTotal - 1 &&
-        gameState.enemies.length === 0
+        gameState.elapsedTime - gameState.lastMiniBossSpawn > miniBossInterval
       ) {
         spawnMiniBoss();
-        gameState.waveEnemiesSpawned++;
+        gameState.lastMiniBossSpawn = gameState.elapsedTime;
       }
 
       const handleEnemyDeath = (enemy: any, killer: any | null) => {
@@ -5106,10 +4999,6 @@ const Index = () => {
               });
             }
           }
-        }
-
-        if (!enemy.isSummoned) {
-          gameState.waveKills++;
         }
 
         let points = 10;
@@ -5459,7 +5348,7 @@ const Index = () => {
         if (e.specialType === "summoner" && e.summonCooldown !== undefined) {
           e.summonCooldown -= dt;
           if (e.summonCooldown <= 0 && normalEnemyCount < gameState.maxConcurrentEnemies) {
-            // Invocar zombi pequeño (NO cuenta en límite si viene de summoner en wave boss)
+            // Invocar zombi pequeño (NO cuenta en límite si viene de summoner en jefe)
             for (let i = 0; i < 2 && normalEnemyCount < gameState.maxConcurrentEnemies; i++) {
               const angle = Math.random() * Math.PI * 2;
               const dist = 30;
@@ -5476,7 +5365,7 @@ const Index = () => {
                 isElite: false,
                 isMiniBoss: false,
                 isBoss: false,
-                isSummoned: true, // Marcado como invocado, no cuenta para la wave
+                isSummoned: true, // Marcado como invocado, no cuenta para la dificultad
                 color: "#8e44ad",
                 specialType: null,
                 frozenTimer: 0,
@@ -6233,7 +6122,7 @@ const Index = () => {
             const reactiveImpactCategories: EnemyCategory[] = [];
             let playerWasHit = false;
 
-            // First Hit Immune: revisar si es el primer golpe de la wave
+            // First Hit Immune: revisar si es el primer golpe del ciclo actual
             const helmetStacks = getItemStacks("ballistichelmet");
             if (helmetStacks > gameState.player.stats.firstHitImmuneChargesUsed) {
               // Inmunidad al primer golpe
@@ -6626,57 +6515,76 @@ const Index = () => {
       ctx.fillText(`${t.level.toUpperCase()} ${gameState.level}`, 20, staminaBarY + staminaBarH + 22);
       ctx.shadowBlur = 0;
 
-      // Wave counter (debajo del nivel)
-      const waveY = staminaBarY + staminaBarH + 47;
-      ctx.fillStyle = "#8e44ad";
-      ctx.font = "bold 16px system-ui";
-      ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-      ctx.shadowBlur = 0;
-      ctx.fillText(`WAVE ${gameState.wave}`, 20, waveY);
-      ctx.shadowBlur = 0;
+      // Termómetro de dificultad (inspirado en Risk of Rain 2)
+      const meterX = 20;
+      const meterY = staminaBarY + staminaBarH + 32;
+      const meterW = 22;
+      const meterH = 140;
+      const tierIndex = gameState.difficulty.tierIndex;
+      const tierProgress = gameState.difficulty.tierProgress;
+      const difficultyLevel = gameState.difficulty.level;
+      const tierSteps = Math.max(1, DIFFICULTY_TIERS.length - 1);
+      const normalizedFill = Math.min(1, (tierIndex + tierProgress) / tierSteps);
 
-      // Wave progression bar (debajo del wave counter)
-      const progressBarX = 20;
-      const progressBarY = waveY + 10;
-      const progressBarW = 300;
-      const progressBarH = 20;
-
-      // Fondo de la barra
       ctx.fillStyle = "rgba(20, 25, 35, 0.9)";
-      ctx.fillRect(progressBarX, progressBarY, progressBarW, progressBarH);
+      ctx.fillRect(meterX, meterY, meterW, meterH);
       ctx.strokeStyle = "#334155";
       ctx.lineWidth = 2;
-      ctx.strokeRect(progressBarX, progressBarY, progressBarW, progressBarH);
+      ctx.strokeRect(meterX, meterY, meterW, meterH);
 
-      // Progreso (enemigos eliminados / total de la wave)
-      const waveProgress = Math.min(1, gameState.waveKills / Math.max(1, gameState.waveEnemiesTotal));
-      const currentProgressW = Math.max(0, progressBarW * waveProgress);
-
-      if (currentProgressW > 0) {
-        const progressGradient = ctx.createLinearGradient(
-          progressBarX,
-          progressBarY,
-          progressBarX + currentProgressW,
-          progressBarY,
-        );
-        progressGradient.addColorStop(0, "#8e44ad");
-        progressGradient.addColorStop(1, "#7c3aed");
-        ctx.fillStyle = progressGradient;
-        ctx.fillRect(progressBarX + 1, progressBarY + 1, currentProgressW - 2, progressBarH - 2);
+      const meterGradient = ctx.createLinearGradient(0, meterY + meterH, 0, meterY);
+      meterGradient.addColorStop(0, "#22c55e");
+      meterGradient.addColorStop(0.5, "#facc15");
+      meterGradient.addColorStop(1, "#ef4444");
+      const fillHeight = Math.max(0, (meterH - 4) * normalizedFill);
+      if (fillHeight > 0) {
+        ctx.fillStyle = meterGradient;
+        ctx.fillRect(meterX + 2, meterY + meterH - 2 - fillHeight, meterW - 4, fillHeight);
       }
 
-      // Texto de progreso
-      ctx.fillStyle = "#fff";
-      ctx.font = "bold 12px system-ui";
-      ctx.textAlign = "center";
-      ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
+      ctx.lineWidth = 1;
+      for (let i = 0; i < DIFFICULTY_TIERS.length; i++) {
+        const ratio = i / tierSteps;
+        const y = meterY + meterH - ratio * meterH;
+        ctx.beginPath();
+        ctx.moveTo(meterX, y);
+        ctx.lineTo(meterX + meterW, y);
+        ctx.stroke();
+
+        const tierInfo = DIFFICULTY_TIERS[i];
+        ctx.textAlign = "left";
+        ctx.font = i === tierIndex ? "bold 12px system-ui" : "12px system-ui";
+        ctx.fillStyle = i <= tierIndex ? tierInfo.color : textSecondary;
+        ctx.shadowBlur = 0;
+        ctx.fillText(tierInfo.label.toUpperCase(), meterX + meterW + 20, y + 4);
+      }
+
+      const pointerY = meterY + meterH - 2 - fillHeight;
+      ctx.fillStyle = UI_COLORS.accent;
+      ctx.beginPath();
+      ctx.moveTo(meterX + meterW + 6, pointerY);
+      ctx.lineTo(meterX + meterW + 16, pointerY - 6);
+      ctx.lineTo(meterX + meterW + 16, pointerY + 6);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.textAlign = "left";
+      ctx.fillStyle = textPrimary;
+      ctx.font = "bold 16px system-ui";
+      ctx.fillText(t.difficulty.toUpperCase(), meterX + meterW + 20, meterY - 10);
+      ctx.font = "bold 20px system-ui";
+      ctx.fillStyle = DIFFICULTY_TIERS[tierIndex].color;
+      ctx.fillText(gameState.difficulty.tierLabel.toUpperCase(), meterX + meterW + 20, meterY + 18);
+      ctx.font = "12px system-ui";
+      ctx.fillStyle = textSecondary;
+      ctx.fillText(`${t.levelShort ?? t.level} ${difficultyLevel}`, meterX + meterW + 20, meterY + 36);
       ctx.shadowBlur = 0;
-      ctx.fillText(
-        `${gameState.waveKills} / ${gameState.waveEnemiesTotal}`,
-        progressBarX + progressBarW / 2,
-        progressBarY + progressBarH / 2 + 4,
-      );
-      ctx.shadowBlur = 0;
+
+      ctx.textAlign = "left";
+      ctx.fillStyle = textSecondary;
+      ctx.font = "11px system-ui";
+      ctx.fillText(t.difficultyHint, meterX + meterW + 20, meterY + meterH + 16);
 
       // Score
       ctx.textAlign = "right";
@@ -6892,138 +6800,27 @@ const Index = () => {
         ctx.globalAlpha = 1;
       }
 
-      // Wave notification - Anuncio de la wave que viene
-      if (gameState.waveNotification > 0) {
-        const totalDuration = 3;
-        const timeRemaining = gameState.waveNotification;
-        const timeElapsed = Math.max(0, totalDuration - timeRemaining);
-        const introProgress = Math.min(1, timeElapsed / 0.45);
-        const outroProgress = timeRemaining < 0.7 ? Math.max(0, timeRemaining / 0.7) : 1;
-        const overlayAlpha = introProgress * outroProgress;
-        const pulse = 1 + Math.sin(timeElapsed * 6) * 0.04 * outroProgress;
-        const focusTightness = 1 + (1 - introProgress) * 0.2;
-        const glitchOffset = Math.sin(timeElapsed * 10) * 8 * outroProgress;
-        const waveTitle = `WAVE ${gameState.wave}`;
-
-        let waveTagline = "";
-        let taglineColor = UI_COLORS.accent;
-        let panelCoreColor = "rgba(16, 40, 30, 0.88)";
-
-        if (gameState.wave === 2) {
-          waveTagline = "THE DEAD DON'T STAY DOWN";
-          taglineColor = UI_COLORS.rageAccent;
-          panelCoreColor = "rgba(36, 20, 10, 0.88)";
-        } else if (gameState.wave > 2) {
-          waveTagline = `ENEMIES: ${gameState.waveEnemiesTotal}`;
-        }
-
+      if (gameState.difficulty.notification > 0) {
+        const alpha = Math.min(1, gameState.difficulty.notification / 2.5);
         ctx.save();
-        ctx.globalAlpha = overlayAlpha;
-
-        const centerX = W / 2;
-        const centerY = H / 2;
-        const panelWidth = Math.min(660, W * 0.75);
-        const panelHeight = Math.min(230, H * 0.45);
-
-        const ambientGradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, panelWidth);
-        ambientGradient.addColorStop(0, "rgba(0, 0, 0, 0.4)");
-        ambientGradient.addColorStop(0.5, "rgba(0, 0, 0, 0.6)");
-        ambientGradient.addColorStop(1, "rgba(0, 0, 0, 0.85)");
-        ctx.fillStyle = ambientGradient;
+        ctx.globalAlpha = alpha * 0.7;
+        ctx.fillStyle = UI_COLORS.overlay;
         ctx.fillRect(0, 0, W, H);
-
-        ctx.translate(centerX + glitchOffset, centerY);
-        ctx.scale(pulse * focusTightness, pulse * focusTightness);
-
-        const left = -panelWidth / 2;
-        const right = panelWidth / 2;
-        const top = -panelHeight / 2;
-        const bottom = panelHeight / 2;
-        const bevel = Math.max(24, panelWidth * 0.08);
-
-        const frameGradient = ctx.createLinearGradient(left, 0, right, 0);
-        frameGradient.addColorStop(0, `${taglineColor}33`);
-        frameGradient.addColorStop(0.5, `${taglineColor}aa`);
-        frameGradient.addColorStop(1, `${UI_COLORS.ammo}66`);
-
-        ctx.beginPath();
-        ctx.moveTo(left + bevel, top);
-        ctx.lineTo(right - bevel, top);
-        ctx.lineTo(right, 0);
-        ctx.lineTo(right - bevel, bottom);
-        ctx.lineTo(left + bevel, bottom);
-        ctx.lineTo(left, 0);
-        ctx.closePath();
-        ctx.fillStyle = panelCoreColor;
-        ctx.fill();
-
-        ctx.strokeStyle = frameGradient;
-        ctx.lineWidth = 6;
-        ctx.shadowColor = `${taglineColor}55`;
-        ctx.shadowBlur = 24;
-        ctx.stroke();
-
-        ctx.shadowBlur = 0;
+        ctx.restore();
 
         ctx.save();
-        ctx.clip();
-        ctx.fillStyle = `${UI_COLORS.textSecondary}11`;
-        const scanSpacing = 12;
-        for (let y = top; y < bottom; y += scanSpacing) {
-          ctx.fillRect(left, y, panelWidth, 2);
-        }
-        ctx.restore();
-
-        ctx.strokeStyle = `${UI_COLORS.ammo}55`;
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(left + 40, top + 28);
-        ctx.lineTo(right - 40, top + 28);
-        ctx.moveTo(left + 40, bottom - 28);
-        ctx.lineTo(right - 40, bottom - 28);
-        ctx.stroke();
-
-        ctx.fillStyle = `${taglineColor}55`;
-        ctx.beginPath();
-        ctx.moveTo(left - 30, -10);
-        ctx.lineTo(left - 60, -30);
-        ctx.lineTo(left - 40, 0);
-        ctx.lineTo(left - 60, 30);
-        ctx.closePath();
-        ctx.fill();
-        ctx.beginPath();
-        ctx.moveTo(right + 30, -10);
-        ctx.lineTo(right + 60, -30);
-        ctx.lineTo(right + 40, 0);
-        ctx.lineTo(right + 60, 30);
-        ctx.closePath();
-        ctx.fill();
-
+        ctx.translate(W / 2, H * 0.3);
         ctx.textAlign = "center";
-        ctx.fillStyle = UI_COLORS.textSecondary;
-        ctx.font = "600 20px 'Orbitron', system-ui";
-        ctx.fillText("INCOMING WAVE", 0, top + 54);
-
-        ctx.fillStyle = UI_COLORS.ammo;
-        ctx.shadowColor = `${UI_COLORS.ammo}aa`;
-        ctx.shadowBlur = 28;
-        ctx.font = "900 68px 'Orbitron', system-ui";
-        ctx.fillText(waveTitle, 0, 18);
-
-        if (waveTagline) {
-          ctx.shadowColor = `${taglineColor}aa`;
-          ctx.shadowBlur = 18;
-          ctx.fillStyle = taglineColor;
-          ctx.font = "700 28px 'Orbitron', system-ui";
-          ctx.fillText(waveTagline, 0, 70);
-        }
-
+        ctx.fillStyle = DIFFICULTY_TIERS[gameState.difficulty.tierIndex].color;
+        ctx.shadowColor = `${DIFFICULTY_TIERS[gameState.difficulty.tierIndex].color}80`;
+        ctx.shadowBlur = 40;
+        ctx.font = "bold 56px system-ui";
+        ctx.fillText(gameState.difficulty.tierLabel.toUpperCase(), 0, 0);
         ctx.shadowBlur = 0;
-        ctx.fillStyle = `${taglineColor}44`;
-        ctx.fillRect(left + 40, bottom - 18, panelWidth - 80, 2);
-
+        ctx.fillStyle = textSecondary;
+        ctx.font = "18px system-ui";
+        ctx.fillText(t.difficultyEscalation, 0, 34);
         ctx.restore();
-        ctx.globalAlpha = 1;
       }
 
       // Barra de notificación ambiental - Estilo noticiero (visible durante todo el evento)
@@ -9127,13 +8924,17 @@ const Index = () => {
         ctx.fillText(gameState.level.toString(), rightCol + 180, contentY);
         contentY += 50;
 
-        // Wave
+        // Dificultad final
         ctx.fillStyle = textSecondary;
         ctx.textAlign = "left";
-        ctx.fillText(t.finalWave + ":", leftCol, contentY);
-        ctx.fillStyle = UI_COLORS.shield;
+        ctx.fillText(t.finalDifficulty + ":", leftCol, contentY);
+        ctx.fillStyle = DIFFICULTY_TIERS[gameState.difficulty.tierIndex].color;
         ctx.textAlign = "right";
-        ctx.fillText(gameState.wave.toString(), rightCol + 180, contentY);
+        ctx.fillText(
+          `${gameState.difficulty.tierLabel.toUpperCase()} (Lv. ${gameState.difficulty.level})`,
+          rightCol + 180,
+          contentY,
+        );
         contentY += 50;
 
         // Tiempo
@@ -9244,7 +9045,11 @@ const Index = () => {
 
           const timeLabel = currentLanguage === "es" ? "TIEMPO" : "TIME";
           const stats = [
-            { label: t.wave, value: `${gameState.wave}`, color: UI_COLORS.shield },
+            {
+              label: t.difficulty,
+              value: `${gameState.difficulty.tierLabel.toUpperCase()} (${t.levelShort ?? t.level} ${gameState.difficulty.level})`,
+              color: DIFFICULTY_TIERS[gameState.difficulty.tierIndex].color,
+            },
             { label: t.level, value: `${gameState.level}`, color: UI_COLORS.ammo },
             { label: timeLabel, value: `${minutes}:${seconds}`, color: UI_COLORS.xp },
           ];
@@ -9675,7 +9480,9 @@ const Index = () => {
       )}
 
       {/* TUTORIAL SIMPLIFICADO */}
-      {gameStateRef.current?.tutorialActive && !tutorialCompleted && gameStateRef.current?.wave === 1 && (
+      {gameStateRef.current?.tutorialActive &&
+        !tutorialCompleted &&
+        gameStateRef.current?.difficulty.level === 1 && (
         <div className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center">
           {/* Overlay oscuro sutil */}
           <div className="absolute inset-0 bg-black/30 pointer-events-none" />
