@@ -2877,7 +2877,7 @@ const Index = () => {
               }
             : null;
 
-      const projectileSpeedPerSecond = weapon.projectileSpeed * 60;
+      const projectileSpeed = weapon.projectileSpeed;
 
       const createPlayerBullet = (
         bulletDir: number,
@@ -2895,8 +2895,8 @@ const Index = () => {
         x: gameState.player.x,
         y: gameState.player.y,
         dir: bulletDir,
-        spd: projectileSpeedPerSecond,
-        life: range / projectileSpeedPerSecond,
+        spd: projectileSpeed,
+        life: range / projectileSpeed,
         damage,
         color: weapon.color,
         weaponId: weapon.id,
