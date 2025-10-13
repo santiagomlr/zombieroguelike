@@ -162,6 +162,100 @@ const getExplosionGradient = (ctx: CanvasRenderingContext2D, radius: number) => 
   return gradient;
 };
 
+type Rect = { x: number; y: number; w: number; h: number };
+
+type WeaponSlotHit = {
+  key: string;
+  type: "weapon";
+  rect: Rect;
+  weapon: Weapon;
+  level: number;
+  hotkey: string;
+  cooldownInterval: number;
+  cooldownProgress: number;
+};
+
+type TomeSlotHit = {
+  key: string;
+  type: "tome";
+  rect: Rect;
+  tome: Tome;
+  hotkey: string;
+};
+
+type ItemSlotHit = {
+  key: string;
+  type: "item";
+  rect: Rect;
+  item: Item;
+  count: number;
+};
+
+type InventorySlotHit = WeaponSlotHit | TomeSlotHit | ItemSlotHit;
+
+const RARITY_ORDER: Record<Rarity, number> = {
+  common: 0,
+  uncommon: 1,
+  rare: 2,
+  epic: 3,
+  legendary: 4,
+};
+
+const ITEM_LOOKUP: Record<string, Item> = (() => {
+  const lookup: Record<string, Item> = {};
+  for (const item of ITEMS) {
+    lookup[item.id] = item;
+  }
+  return lookup;
+})();
+
+const INVENTORY_THEME = {
+  weapons: {
+    iconSize: 64,
+    spacing: 12,
+    border: "#8B0000",
+    hoverGlow: "#FF3B3B",
+    bg: "rgba(17, 17, 17, 0.85)",
+  },
+  tomes: {
+    iconSize: 64,
+    spacing: 12,
+    border: "#2E00B3",
+    hoverGlow: "#8F6BFF",
+    bg: "rgba(17, 17, 17, 0.85)",
+    cornerRadius: 14,
+  },
+  items: {
+    iconSize: 48,
+    spacing: 6,
+    border: "#666666",
+    hoverGlow: "#FFD966",
+    selection: "#FFF600",
+    bg: "rgba(17, 17, 17, 0.4)",
+    cornerRadius: 10,
+  },
+  xpBar: {
+    height: 14,
+    widthRatio: 0.5,
+    fill: "#4BFF63",
+    bg: "#222222",
+    border: "#000000",
+  },
+  tooltip: {
+    maxWidth: 280,
+    paddingX: 16,
+    paddingY: 12,
+    background: "rgba(10, 10, 10, 0.86)",
+    border: "rgba(255, 255, 255, 0.1)",
+    shadow: "rgba(0, 0, 0, 0.6)",
+  },
+};
+
+const SLOT_HOTKEYS = ["1", "2", "3"];
+const BOOK_HOTKEYS = ["Q", "E", "R"];
+const INVENTORY_TOOLTIP_DELAY = 0.15;
+const MAX_ITEM_STACK_DISPLAY = 99;
+
 const expandBounds = (bounds: Bounds, padding: number): Bounds => ({
   left: bounds.left - padding,
   top: bounds.top - padding,
@@ -1053,6 +1147,7 @@ const Index = () => {
       spawnCooldown: 0, // Cooldown de 3 segundos después de matar todos los enemigos
       canSpawn: true, // Flag para controlar si se puede spawnar
       weaponCooldowns: {} as Record<string, number>,
+      weaponIconCache: {} as Record<string, HTMLImageElement | null>,
       autoAimMemory: {} as Record<string, { target: any | null; lostTimer: number; lastScore: number }>,
       keys: {} as Record<string, boolean>,
       showUpgradeUI: false,
@@ -1184,6 +1279,17 @@ const Index = () => {
       },
       language,
       auditLog: createEmptyAuditLog(),
+      inventoryUi: {
+        weapons: [] as WeaponSlotHit[],
+        tomes: [] as TomeSlotHit[],
+        items: [] as ItemSlotHit[],
+        hoverCandidateKey: null as string | null,
+        hoverKey: null as string | null,
+        hoverTimer: 0,
+        pointerX: 0,
+        pointerY: 0,
+        xpBarRect: { x: 0, y: 0, w: 0, h: 0 },
+      },
     };
 
     const getDifficultyValue = () => gameState.difficulty.value;
@@ -1303,6 +1409,36 @@ const Index = () => {
       if (!audit || value <= 0) return;
       audit.drops.heal.count += 1;
       audit.drops.heal.totalValue += value;
+    };
+
+    const inventoryPointInRect = (rect: Rect, px: number, py: number) =>
+      px >= rect.x && px <= rect.x + rect.w && py >= rect.y && py <= rect.y + rect.h;
+
+    const findInventorySlotByKey = (key: string | null): InventorySlotHit | null => {
+      if (!key) return null;
+      const ui = gameState.inventoryUi;
+      const collections: InventorySlotHit[][] = [ui.weapons, ui.tomes, ui.items];
+      for (const collection of collections) {
+        for (const slot of collection) {
+          if (slot.key === key) {
+            return slot;
+          }
+        }
+      }
+      return null;
+    };
+
+    const findInventorySlotAt = (px: number, py: number): InventorySlotHit | null => {
+      const ui = gameState.inventoryUi;
+      const collections: InventorySlotHit[][] = [ui.weapons, ui.tomes, ui.items];
+      for (const collection of collections) {
+        for (const slot of collection) {
+          if (inventoryPointInRect(slot.rect, px, py)) {
+            return slot;
+          }
+        }
+      }
+      return null;
     };
 
     const getItemStacks = (id: string) => gameState.player.itemStacks[id] ?? 0;
@@ -1504,6 +1640,23 @@ const Index = () => {
     mapBackground.onerror = () => {
       console.error("Failed to load map background");
     };
+
+    for (const weapon of WEAPONS) {
+      if (!weapon.icon) {
+        gameState.weaponIconCache[weapon.id] = null;
+        continue;
+      }
+      const icon = new Image();
+      icon.src = weapon.icon;
+      gameState.weaponIconCache[weapon.id] = null;
+      icon.onload = () => {
+        gameState.weaponIconCache[weapon.id] = icon;
+      };
+      icon.onerror = () => {
+        gameState.weaponIconCache[weapon.id] = null;
+        console.error(`Failed to load weapon icon for ${weapon.id}`);
+      };
+    }
 
     // Initialize audio manager and preload SFX buffers
     audioManager.initialize();
@@ -4744,6 +4897,48 @@ const Index = () => {
       }
     });
 
+    const updateInventoryHover = (clientX: number, clientY: number) => {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = rect.width > 0 ? canvas.width / rect.width : 1;
+      const scaleY = rect.height > 0 ? canvas.height / rect.height : 1;
+      const px = (clientX - rect.left) * scaleX;
+      const py = (clientY - rect.top) * scaleY;
+
+      const ui = gameState.inventoryUi;
+      ui.pointerX = px;
+      ui.pointerY = py;
+
+      const slot = findInventorySlotAt(px, py);
+      if (!slot) {
+        if (ui.hoverCandidateKey !== null || ui.hoverKey !== null) {
+          ui.hoverCandidateKey = null;
+          ui.hoverKey = null;
+          ui.hoverTimer = 0;
+        }
+        return;
+      }
+
+      if (ui.hoverCandidateKey !== slot.key) {
+        ui.hoverTimer = 0;
+      }
+
+      ui.hoverCandidateKey = slot.key;
+    };
+
+    const handleMouseMove = (event: MouseEvent) => {
+      updateInventoryHover(event.clientX, event.clientY);
+    };
+
+    const handleMouseLeave = () => {
+      const ui = gameState.inventoryUi;
+      ui.hoverCandidateKey = null;
+      ui.hoverKey = null;
+      ui.hoverTimer = 0;
+    };
+
+    canvas.addEventListener("mousemove", handleMouseMove);
+    canvas.addEventListener("mouseleave", handleMouseLeave);
+
     const handlePauseMenuScroll = (e: WheelEvent) => {
       // Simplified - no scrolling needed in new design
       e.preventDefault();
@@ -4754,6 +4949,27 @@ const Index = () => {
     function update(dt: number) {
       // Actualizar tiempo siempre (necesario para animaciones)
       gameState.time += dt;
+
+      const inventoryUi = gameState.inventoryUi;
+      if (inventoryUi.hoverCandidateKey) {
+        if (inventoryUi.hoverKey === inventoryUi.hoverCandidateKey) {
+          inventoryUi.hoverTimer = Math.min(
+            INVENTORY_TOOLTIP_DELAY,
+            inventoryUi.hoverTimer + dt,
+          );
+        } else {
+          inventoryUi.hoverTimer = Math.min(
+            INVENTORY_TOOLTIP_DELAY,
+            inventoryUi.hoverTimer + dt,
+          );
+          if (inventoryUi.hoverTimer >= INVENTORY_TOOLTIP_DELAY) {
+            inventoryUi.hoverKey = inventoryUi.hoverCandidateKey;
+          }
+        }
+      } else {
+        inventoryUi.hoverTimer = 0;
+        inventoryUi.hoverKey = null;
+      }
 
       // Solo incrementar el temporizador de partida cuando el juego está corriendo
       if (gameState.state === "running" && gameState.countdownTimer <= 0) {
@@ -7693,148 +7909,529 @@ const Index = () => {
       ctx.fillText(`${gameState.score}`, W - 20, 40);
       ctx.shadowBlur = 0;
 
-      // ========== BARRA DE XP FULL-WIDTH (PARTE INFERIOR) ==========
-      const xpBarH = 40;
-      const xpBarY = H - xpBarH - 10;
-      const xpBarX = 20;
-      const xpBarW = W - 40;
-      const xpBarRadius = 20;
+      // ========== INVENTORY + XP HUD (PARTE INFERIOR) ==========
+      const inventoryUi = gameState.inventoryUi;
+      const candidateKey = inventoryUi.hoverCandidateKey;
+      const activeKey = inventoryUi.hoverKey;
+      const bottomCenterX = W / 2;
+      const bottomAnchorY = H;
 
-      // Fondo de la barra (redondeada)
-      drawPixelPanel(ctx, xpBarX, xpBarY, xpBarW, xpBarH, {
-        border: hexToRgba(UI_COLORS.xp, 0.4),
-        highlight: hexToRgba(UI_COLORS.xp, 0.15),
+      // XP bar (bottom center)
+      const xpTheme = INVENTORY_THEME.xpBar;
+      const xpBarH = xpTheme.height;
+      const xpBarW = Math.max(240, Math.round(W * xpTheme.widthRatio));
+      const xpBarBottomOffset = 10;
+      const xpBarX = bottomCenterX - xpBarW / 2;
+      const xpBarY = bottomAnchorY - xpBarBottomOffset - xpBarH;
+      inventoryUi.xpBarRect = { x: xpBarX, y: xpBarY, w: xpBarW, h: xpBarH };
+
+      ctx.save();
+      ctx.beginPath();
+      drawRoundedRect(ctx, xpBarX, xpBarY, xpBarW, xpBarH, xpBarH / 2);
+      ctx.fillStyle = xpTheme.bg;
+      ctx.globalAlpha = 0.92;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = xpTheme.border;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+
+      const xpProgress = Math.max(0, Math.min(1, gameState.xpDisplay / Math.max(1, gameState.nextXpDisplay)));
+      const xpInnerPadding = 3;
+      const xpInnerW = xpBarW - xpInnerPadding * 2;
+      const xpInnerH = xpBarH - xpInnerPadding * 2;
+      const xpFillW = Math.max(0, xpInnerW * xpProgress);
+
+      if (xpFillW > 0) {
+        ctx.save();
+        ctx.beginPath();
+        drawRoundedRect(
+          ctx,
+          xpBarX + xpInnerPadding,
+          xpBarY + xpInnerPadding,
+          xpFillW,
+          xpInnerH,
+          xpInnerH / 2,
+        );
+        const fillGradient = ctx.createLinearGradient(xpBarX, xpBarY, xpBarX, xpBarY + xpBarH);
+        fillGradient.addColorStop(0, hexToRgba(xpTheme.fill, 0.9));
+        fillGradient.addColorStop(1, hexToRgba(xpTheme.fill, 0.7));
+        ctx.fillStyle = fillGradient;
+        ctx.fill();
+        ctx.restore();
+      }
+
+      ctx.save();
+      ctx.textAlign = "left";
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = withTerminalFont("600 12px system-ui");
+      const xpLabel = currentLanguage === "es" ? "EXP" : "XP";
+      ctx.fillText(xpLabel, xpBarX + 12, xpBarY + xpBarH / 2 + 4);
+      ctx.restore();
+
+      ctx.save();
+      ctx.textAlign = "center";
+      ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+      ctx.font = withTerminalFont("600 12px system-ui");
+      const xpValueText = `${Math.floor(gameState.xpDisplay)} / ${Math.max(1, Math.floor(gameState.nextXpDisplay))}`;
+      ctx.fillText(xpValueText, xpBarX + xpBarW / 2, xpBarY - 8);
+      ctx.restore();
+
+      // Weapons section (top-right column)
+      const weaponTheme = INVENTORY_THEME.weapons;
+      const maxWeaponSlots = SLOT_HOTKEYS.length;
+      const weaponSlots = inventoryUi.weapons;
+      weaponSlots.length = 0;
+      const hudRightMargin = 24;
+      const topHudStartY = 80;
+      const weaponColumnX = W - hudRightMargin - weaponTheme.iconSize;
+
+      for (let i = 0; i < maxWeaponSlots; i++) {
+        const slotX = weaponColumnX;
+        const slotY = topHudStartY + i * (weaponTheme.iconSize + weaponTheme.spacing);
+        const weapon = gameState.player.weapons[i];
+        const slotKey = weapon ? `weapon:${weapon.id}:${i}` : `weapon:empty:${i}`;
+        const glowKey = candidateKey ?? activeKey;
+
+        ctx.save();
+        if (glowKey === slotKey && weapon) {
+          ctx.shadowColor = weaponTheme.hoverGlow;
+          ctx.shadowBlur = 18;
+        }
+        ctx.fillStyle = weaponTheme.bg;
+        ctx.fillRect(slotX, slotY, weaponTheme.iconSize, weaponTheme.iconSize);
+        ctx.lineWidth = weapon && activeKey === slotKey ? 3 : 2;
+        ctx.strokeStyle = weapon && activeKey === slotKey ? hexToRgba(weaponTheme.hoverGlow, 0.9) : weaponTheme.border;
+        ctx.strokeRect(slotX + 0.5, slotY + 0.5, weaponTheme.iconSize - 1, weaponTheme.iconSize - 1);
+        ctx.shadowBlur = 0;
+        ctx.restore();
+
+        ctx.save();
+        ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+        ctx.beginPath();
+        drawRoundedRect(ctx, slotX + 6, slotY + 6, 22, 18, 6);
+        ctx.fill();
+        ctx.fillStyle = "#FFD966";
+        ctx.font = withTerminalFont("700 12px system-ui");
+        ctx.textAlign = "center";
+        ctx.fillText(SLOT_HOTKEYS[i], slotX + 17, slotY + 20);
+        ctx.restore();
+
+        if (weapon) {
+          const icon = gameState.weaponIconCache[weapon.id];
+          if (icon) {
+            const padding = 10;
+            ctx.drawImage(
+              icon,
+              slotX + padding,
+              slotY + padding,
+              weaponTheme.iconSize - padding * 2,
+              weaponTheme.iconSize - padding * 2,
+            );
+          } else {
+            ctx.save();
+            const padding = 12;
+            ctx.fillStyle = weapon.color;
+            ctx.fillRect(
+              slotX + padding,
+              slotY + padding,
+              weaponTheme.iconSize - padding * 2,
+              weaponTheme.iconSize - padding * 2,
+            );
+            ctx.restore();
+          }
+
+          const rateMultiplier = Math.max(0.001, gameState.player.stats.fireRateMultiplier);
+          const interval = 1 / (weapon.fireRate * rateMultiplier);
+          const stored = gameState.weaponCooldowns[weapon.id] ?? 0;
+          const progress = Math.max(0, Math.min(1, stored / Math.max(interval, 0.0001)));
+          if (progress < 0.999) {
+            const overlayHeight = weaponTheme.iconSize * (1 - progress);
+            ctx.save();
+            ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
+            ctx.fillRect(slotX, slotY, weaponTheme.iconSize, overlayHeight);
+            ctx.restore();
+          }
+
+          ctx.save();
+          ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
+          ctx.beginPath();
+          drawRoundedRect(ctx, slotX + weaponTheme.iconSize - 38, slotY + weaponTheme.iconSize - 22, 32, 18, 6);
+          ctx.fill();
+          ctx.fillStyle = "#FFFFFF";
+          ctx.font = withTerminalFont("700 12px system-ui");
+          ctx.textAlign = "right";
+          const levelLabel = currentLanguage === "es" ? "NV" : "LV";
+          ctx.fillText(`${levelLabel}${weapon.level}`, slotX + weaponTheme.iconSize - 6, slotY + weaponTheme.iconSize - 8);
+          ctx.restore();
+
+          weaponSlots.push({
+            key: slotKey,
+            type: "weapon",
+            rect: { x: slotX, y: slotY, w: weaponTheme.iconSize, h: weaponTheme.iconSize },
+            weapon,
+            level: weapon.level,
+            hotkey: SLOT_HOTKEYS[i],
+            cooldownInterval: interval,
+            cooldownProgress: progress,
+          });
+        }
+      }
+
+      // Tomes section (stacked below weapons)
+      const tomeTheme = INVENTORY_THEME.tomes;
+      const maxTomeSlots = BOOK_HOTKEYS.length;
+      const tomeSlots = inventoryUi.tomes;
+      tomeSlots.length = 0;
+      const tomeColumnX = W - hudRightMargin - tomeTheme.iconSize;
+      const tomeStartY =
+        topHudStartY + maxWeaponSlots * (weaponTheme.iconSize + weaponTheme.spacing) + 32;
+
+      for (let i = 0; i < maxTomeSlots; i++) {
+        const slotX = tomeColumnX;
+        const slotY = tomeStartY + i * (tomeTheme.iconSize + tomeTheme.spacing);
+        const tome = gameState.player.tomes[i];
+        const slotKey = tome ? `tome:${tome.id}:${i}` : `tome:empty:${i}`;
+        const glowKey = candidateKey ?? activeKey;
+
+        ctx.save();
+        if (glowKey === slotKey && tome) {
+          ctx.shadowColor = tomeTheme.hoverGlow;
+          ctx.shadowBlur = 18;
+        }
+        ctx.beginPath();
+        drawRoundedRect(ctx, slotX, slotY, tomeTheme.iconSize, tomeTheme.iconSize, tomeTheme.cornerRadius);
+        ctx.fillStyle = tomeTheme.bg;
+        ctx.fill();
+        ctx.lineWidth = tome && activeKey === slotKey ? 3 : 2;
+        ctx.strokeStyle = tome && activeKey === slotKey ? hexToRgba(tomeTheme.hoverGlow, 0.8) : tomeTheme.border;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.restore();
+
+        ctx.save();
+        ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+        ctx.beginPath();
+        drawRoundedRect(ctx, slotX + 6, slotY + 6, 22, 18, 6);
+        ctx.fill();
+        ctx.fillStyle = "#D4C2FF";
+        ctx.font = withTerminalFont("700 12px system-ui");
+        ctx.textAlign = "center";
+        ctx.fillText(BOOK_HOTKEYS[i], slotX + 17, slotY + 20);
+        ctx.restore();
+
+        if (tome) {
+          ctx.save();
+          const padding = 10;
+          ctx.beginPath();
+          drawRoundedRect(
+            ctx,
+            slotX + padding,
+            slotY + padding,
+            tomeTheme.iconSize - padding * 2,
+            tomeTheme.iconSize - padding * 2,
+            Math.max(8, tomeTheme.cornerRadius - 4),
+          );
+          ctx.fillStyle = tome.color;
+          ctx.fill();
+          ctx.strokeStyle = "rgba(0, 0, 0, 0.25)";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.25)";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(slotX + padding + (tomeTheme.iconSize - padding * 2) * 0.35, slotY + padding);
+          ctx.lineTo(slotX + padding + (tomeTheme.iconSize - padding * 2) * 0.35, slotY + tomeTheme.iconSize - padding);
+          ctx.stroke();
+          ctx.restore();
+
+          ctx.save();
+          ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+          ctx.beginPath();
+          drawRoundedRect(ctx, slotX + tomeTheme.iconSize - 38, slotY + tomeTheme.iconSize - 22, 32, 18, 6);
+          ctx.fill();
+          ctx.fillStyle = "#FFFFFF";
+          ctx.font = withTerminalFont("700 12px system-ui");
+          ctx.textAlign = "right";
+          const levelLabel = currentLanguage === "es" ? "NV" : "LV";
+          ctx.fillText(`${levelLabel}${tome.level}`, slotX + tomeTheme.iconSize - 6, slotY + tomeTheme.iconSize - 8);
+          ctx.restore();
+
+          tomeSlots.push({
+            key: slotKey,
+            type: "tome",
+            rect: { x: slotX, y: slotY, w: tomeTheme.iconSize, h: tomeTheme.iconSize },
+            tome,
+            hotkey: BOOK_HOTKEYS[i],
+          });
+        }
+      }
+
+      // Items flow (floating above HP bar)
+      const itemTheme = INVENTORY_THEME.items;
+      const itemSlots = inventoryUi.items;
+      itemSlots.length = 0;
+
+      const stackEntries = Object.entries(gameState.player.itemStacks)
+        .filter(([, count]) => (Number(count) ?? 0) > 0)
+        .map(([id, count]) => {
+          const item = ITEM_LOOKUP[id] ?? ({ id, effect: "unknown", rarity: "common", color: "#888888" } as Item);
+          const safeCount = Number(count) || 0;
+          const localized = getItemText(item, currentLanguage);
+          return { item, count: safeCount, localizedName: localized.name };
+        });
+
+      stackEntries.sort((a, b) => {
+        const rarityDiff = RARITY_ORDER[a.item.rarity] - RARITY_ORDER[b.item.rarity];
+        if (rarityDiff !== 0) return rarityDiff;
+        return a.localizedName.localeCompare(b.localizedName);
       });
 
-      // Progreso de XP
-      const xpProgress = Math.min(1, gameState.xpDisplay / Math.max(1, gameState.nextXpDisplay));
-      const currentXpBarW = (xpBarW - 8) * xpProgress;
-
-      if (currentXpBarW > 0) {
-        const innerWidth = Math.max(0, currentXpBarW - 6);
-        const innerHeight = xpBarH - 6;
-        const barX = xpBarX + 3;
-        const barY = xpBarY + 3;
-        if (innerWidth > 0) {
-          if (gameState.xpBarRainbow) {
-            const rainbowColors = [
-              UI_COLORS.healthHigh,
-              UI_COLORS.ammo,
-              UI_COLORS.accent,
-              UI_COLORS.shield,
-              UI_COLORS.xp,
-            ];
-            const segmentWidth = 12;
-            const shift = Math.floor((gameState.time * 8) % rainbowColors.length);
-            for (let offset = 0; offset < innerWidth; offset += segmentWidth) {
-              const colorIndex = (Math.floor(offset / segmentWidth) + shift) % rainbowColors.length;
-              const blockWidth = Math.min(segmentWidth - 2, innerWidth - offset);
-              if (blockWidth <= 0) continue;
-              ctx.fillStyle = rainbowColors[colorIndex];
-              ctx.fillRect(barX + offset, barY, blockWidth, innerHeight);
-            }
-          } else {
-            drawSegmentedBar(ctx, barX, barY, innerWidth, innerHeight, UI_COLORS.xp, 8);
-          }
-
-          ctx.fillStyle = hexToRgba(UI_COLORS.xp, 0.25);
-          for (let row = 0; row < innerHeight; row += 4) {
-            ctx.fillRect(barX, barY + row, innerWidth, 1);
-          }
-        }
+      const visibleStacks = stackEntries.slice();
+      const itemFlowStep = Math.max(24, Math.round(itemTheme.iconSize * 0.75));
+      const maxVisibleItemSlots = Math.max(1, Math.floor((hpBarW - itemTheme.iconSize) / itemFlowStep) + 1);
+      const overflowStacks = Math.max(0, visibleStacks.length - maxVisibleItemSlots);
+      if (overflowStacks > 0) {
+        visibleStacks.length = maxVisibleItemSlots;
       }
 
-      // Texto de XP centrado
-      ctx.fillStyle = textPrimary;
-      ctx.font = withTerminalFont("bold 20px system-ui");
-      ctx.textAlign = "center";
-      ctx.shadowColor = "rgba(0, 0, 0, 0.9)";
-      ctx.shadowBlur = 0;
-      ctx.fillText(
-        `XP: ${Math.floor(gameState.xpDisplay)} / ${Math.max(1, Math.floor(gameState.nextXpDisplay))}`,
-        xpBarX + xpBarW / 2,
-        xpBarY + xpBarH / 2 + 7,
-      );
-      ctx.shadowBlur = 0;
+      if (visibleStacks.length > 0) {
+        const rowWidth =
+          visibleStacks.length === 1
+            ? itemTheme.iconSize
+            : itemTheme.iconSize + itemFlowStep * (visibleStacks.length - 1);
+        const rowStartX = hpBarX + (hpBarW - rowWidth) / 2;
+        const itemRowY = Math.max(12, hpBarY - itemTheme.iconSize - 8);
 
-      // Weapons display
-      ctx.textAlign = "left";
-      ctx.font = withTerminalFont("bold 14px system-ui");
-      ctx.save();
-      ctx.shadowColor = `${UI_COLORS.ammo}aa`;
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = UI_COLORS.ammo;
-      ctx.fillText(t.weapons, W - 220, 70);
-      ctx.restore();
-      ctx.fillStyle = textPrimary;
-      ctx.fillText(t.weapons, W - 220, 70);
-      for (let i = 0; i < gameState.player.weapons.length; i++) {
-        const w = gameState.player.weapons[i];
-        ctx.fillStyle = w.color;
-        ctx.save();
-        ctx.shadowColor = `${w.color}aa`;
-        ctx.shadowBlur = 0;
-        ctx.fillRect(W - 220, 80 + i * 25, 18, 18);
-        ctx.restore();
-        ctx.fillStyle = textSecondary;
-        ctx.font = withTerminalFont("12px system-ui");
-        const weaponName = getWeaponName(w.id, currentLanguage);
-        const weaponText = w.level > 1 ? `${weaponName} LVL ${w.level}` : weaponName;
-        ctx.fillText(weaponText, W - 195, 93 + i * 25);
-      }
+        visibleStacks.forEach((stack, index) => {
+          const slotX = rowStartX + index * itemFlowStep;
+          const slotY = itemRowY;
+          const slotKey = `item:${stack.item.id}:${index}`;
+          const glowKey = candidateKey ?? activeKey;
 
-      // Books display
-      ctx.fillStyle = textPrimary;
-      ctx.font = withTerminalFont("bold 14px system-ui");
-      const tomeY = 80 + gameState.player.weapons.length * 25 + 10;
-      ctx.fillText(t.tomes, W - 220, tomeY);
-      for (let i = 0; i < gameState.player.tomes.length; i++) {
-        const tome = gameState.player.tomes[i];
-        ctx.fillStyle = tome.color;
-        ctx.save();
-        ctx.shadowColor = `${tome.color}aa`;
-        ctx.shadowBlur = 0;
-        ctx.fillRect(W - 220, tomeY + 10 + i * 25, 18, 18);
-        ctx.restore();
-        ctx.fillStyle = textSecondary;
-        ctx.font = withTerminalFont("12px system-ui");
-        const tomeName = getTomeName(tome.id, currentLanguage);
-        const tomeText = tome.level > 1 ? `${tomeName} LVL ${tome.level}` : tomeName;
-        ctx.fillText(tomeText, W - 195, tomeY + 23 + i * 25);
-      }
-
-      // Items display
-      if (gameState.player.items.length > 0) {
-        ctx.fillStyle = textPrimary;
-        ctx.font = withTerminalFont("bold 14px system-ui");
-        const itemY = tomeY + gameState.player.tomes.length * 25 + 20;
-        ctx.fillText(t.items, W - 220, itemY);
-
-        // Mostrar solo primeros 10 ítems (si hay más, scroll)
-        const maxItemsToShow = Math.min(10, gameState.player.items.length);
-        for (let i = 0; i < maxItemsToShow; i++) {
-          const item = gameState.player.items[i];
-          ctx.fillStyle = item.color;
           ctx.save();
-          ctx.shadowColor = `${item.color}aa`;
+          if (glowKey === slotKey) {
+            ctx.shadowColor = itemTheme.hoverGlow;
+            ctx.shadowBlur = 16;
+          }
+          ctx.beginPath();
+          drawRoundedRect(ctx, slotX, slotY, itemTheme.iconSize, itemTheme.iconSize, itemTheme.cornerRadius);
+          ctx.fillStyle = itemTheme.bg;
+          ctx.fill();
+          ctx.lineWidth = activeKey === slotKey ? 3 : 2;
+          ctx.strokeStyle = activeKey === slotKey ? itemTheme.selection : itemTheme.border;
+          ctx.stroke();
           ctx.shadowBlur = 0;
-          ctx.fillRect(W - 220, itemY + 10 + i * 20, 12, 12);
           ctx.restore();
-          ctx.fillStyle = textSecondary;
-          ctx.font = withTerminalFont("10px system-ui");
-          // Truncar nombre si es muy largo
-          const itemNameFull = getItemText(item, currentLanguage).name;
-          const itemName = itemNameFull.length > 18 ? itemNameFull.substring(0, 16) + "..." : itemNameFull;
-          ctx.fillText(itemName, W - 202, itemY + 20 + i * 20);
+
+          ctx.save();
+          const padding = 8;
+          ctx.beginPath();
+          drawRoundedRect(
+            ctx,
+            slotX + padding,
+            slotY + padding,
+            itemTheme.iconSize - padding * 2,
+            itemTheme.iconSize - padding * 2,
+            Math.max(6, itemTheme.cornerRadius - 4),
+          );
+          ctx.fillStyle = stack.item.color ?? rarityColors[stack.item.rarity];
+          ctx.fill();
+          ctx.strokeStyle = "rgba(0, 0, 0, 0.35)";
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+          ctx.restore();
+
+          ctx.save();
+          ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+          ctx.beginPath();
+          drawRoundedRect(
+            ctx,
+            slotX + itemTheme.iconSize - 26,
+            slotY + itemTheme.iconSize - 18,
+            22,
+            14,
+            5,
+          );
+          ctx.fill();
+          ctx.fillStyle = "#FFFFFF";
+          ctx.font = withTerminalFont("700 11px system-ui");
+          ctx.textAlign = "right";
+          const displayCount = stack.count > MAX_ITEM_STACK_DISPLAY ? `${MAX_ITEM_STACK_DISPLAY}+` : `${stack.count}`;
+          ctx.fillText(displayCount, slotX + itemTheme.iconSize - 6, slotY + itemTheme.iconSize - 6);
+          ctx.restore();
+
+          itemSlots.push({
+            key: slotKey,
+            type: "item",
+            rect: { x: slotX, y: slotY, w: itemTheme.iconSize, h: itemTheme.iconSize },
+            item: stack.item,
+            count: stack.count,
+          });
+        });
+
+        if (overflowStacks > 0) {
+          const moreText = currentLanguage === "es" ? `+${overflowStacks} más` : `+${overflowStacks} more`;
+          ctx.save();
+          ctx.textAlign = "left";
+          ctx.font = withTerminalFont("600 12px system-ui");
+          ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
+          ctx.fillText(moreText, rowStartX + rowWidth + 12, itemRowY + itemTheme.iconSize - 10);
+          ctx.restore();
         }
 
-        // Indicador de más ítems
-        if (gameState.player.items.length > 10) {
-          ctx.fillStyle = textSecondary;
-          ctx.font = withTerminalFont("10px system-ui");
-          const remaining = gameState.player.items.length - 10;
-          const moreItemsText = currentLanguage === "es" ? `+${remaining} más` : `+${remaining} more`;
-          ctx.fillText(moreItemsText, W - 220, itemY + 10 + maxItemsToShow * 20 + 15);
+        ctx.save();
+        ctx.textAlign = "right";
+        ctx.font = withTerminalFont("600 11px system-ui");
+        ctx.fillStyle = "rgba(255, 255, 255, 0.65)";
+        const useLabel = currentLanguage === "es" ? "USAR (F)" : "USE (F)";
+        const labelX = Math.max(16, rowStartX - 12);
+        const labelY = itemRowY + itemTheme.iconSize / 2 + 4;
+        ctx.fillText(useLabel, labelX, labelY);
+        ctx.restore();
+      }
+
+      // Inventory tooltips
+      if (inventoryUi.hoverKey && inventoryUi.hoverTimer >= INVENTORY_TOOLTIP_DELAY - 0.001) {
+        const hoveredSlot = findInventorySlotByKey(inventoryUi.hoverKey);
+        if (hoveredSlot) {
+          const tooltip = (() => {
+            switch (hoveredSlot.type) {
+              case "weapon": {
+                const weapon = hoveredSlot.weapon;
+                const title = getWeaponName(weapon.id, currentLanguage);
+                const levelLabel = currentLanguage === "es" ? "Nivel" : "Level";
+                const hotkeyLabel = currentLanguage === "es" ? `Atajo ${hoveredSlot.hotkey}` : `Hotkey ${hoveredSlot.hotkey}`;
+                const subtitle = `${levelLabel} ${weapon.level} • ${hotkeyLabel}`;
+                const stats = [
+                  `${t.damage}: ${Math.round(weapon.damage)}`,
+                  `${t.fireRate}: ${weapon.fireRate.toFixed(2)}`,
+                  `${t.range}: ${Math.round(weapon.range)}`,
+                ];
+                const cooldownLabel = currentLanguage === "es"
+                  ? `Recarga: ${hoveredSlot.cooldownInterval.toFixed(2)}s`
+                  : `Cooldown: ${hoveredSlot.cooldownInterval.toFixed(2)}s`;
+                stats.push(cooldownLabel);
+                if (weapon.special) {
+                  const specialLabel = currentLanguage === "es" ? `Especial: ${weapon.special}` : `Special: ${weapon.special}`;
+                  stats.push(specialLabel);
+                }
+                return { title, subtitle, body: stats, accent: weapon.color };
+              }
+              case "tome": {
+                const tome = hoveredSlot.tome;
+                const title = getTomeName(tome.id, currentLanguage);
+                const levelLabel = currentLanguage === "es" ? "Nivel" : "Level";
+                const hotkeyLabel = currentLanguage === "es" ? `Atajo ${hoveredSlot.hotkey}` : `Hotkey ${hoveredSlot.hotkey}`;
+                const subtitle = `${levelLabel} ${tome.level} • ${hotkeyLabel}`;
+                const description = getTomeDescription(tome, currentLanguage, gameState.player.stats);
+                return { title, subtitle, body: [description], accent: tome.color };
+              }
+              case "item": {
+                const item = hoveredSlot.item;
+                const itemText = getItemText(item, currentLanguage);
+                const stackLabel = currentLanguage === "es" ? `Cantidad: ${hoveredSlot.count}` : `Stack: ${hoveredSlot.count}`;
+                const useText = currentLanguage === "es" ? "Atajo F" : "Hotkey F";
+                const description = itemText.description || (currentLanguage === "es" ? "Sin descripción disponible." : "No description available.");
+                return {
+                  title: itemText.name,
+                  subtitle: `${stackLabel} • ${useText}`,
+                  body: [description],
+                  accent: item.color ?? rarityColors[item.rarity],
+                };
+              }
+              default:
+                return null;
+            }
+          })();
+
+          if (tooltip) {
+            const tooltipConfig = INVENTORY_THEME.tooltip;
+            const paddingX = tooltipConfig.paddingX;
+            const paddingY = tooltipConfig.paddingY;
+            const maxTooltipWidth = tooltipConfig.maxWidth - paddingX * 2;
+            const titleFont = withTerminalFont("700 16px system-ui");
+            const subtitleFont = withTerminalFont("600 12px system-ui");
+            const bodyFont = withTerminalFont("500 12px system-ui");
+            const lineSpacing = 4;
+            const lineEntries: Array<{ text: string; font: string; color: string; lineHeight: number }> = [];
+            let innerWidth = 0;
+
+            const pushLine = (text: string, font: string, color: string, lineHeight: number) => {
+              ctx.font = font;
+              innerWidth = Math.max(innerWidth, Math.min(ctx.measureText(text).width, maxTooltipWidth));
+              lineEntries.push({ text, font, color, lineHeight });
+            };
+
+            const wrapAndPush = (text: string, font: string, color: string) => {
+              ctx.font = font;
+              const words = text.split(/\s+/);
+              let current = "";
+              for (const word of words) {
+                const candidate = current ? `${current} ${word}` : word;
+                if (ctx.measureText(candidate).width > maxTooltipWidth && current) {
+                  pushLine(current, font, color, 16);
+                  current = word;
+                } else {
+                  current = candidate;
+                }
+              }
+              if (current) {
+                pushLine(current, font, color, 16);
+              }
+            };
+
+            pushLine(tooltip.title, titleFont, "#FFFFFF", 20);
+            if (tooltip.subtitle) {
+              pushLine(tooltip.subtitle, subtitleFont, "rgba(255, 255, 255, 0.75)", 16);
+            }
+            for (const line of tooltip.body) {
+              wrapAndPush(line, bodyFont, "rgba(235, 235, 235, 0.9)");
+            }
+
+            const tooltipWidth = Math.min(tooltipConfig.maxWidth, innerWidth + paddingX * 2);
+            let tooltipHeight = paddingY * 2;
+            lineEntries.forEach((entry, index) => {
+              tooltipHeight += entry.lineHeight;
+              if (index < lineEntries.length - 1) {
+                tooltipHeight += lineSpacing;
+              }
+            });
+
+            const slotRect = hoveredSlot.rect;
+            let tooltipX = slotRect.x + slotRect.w / 2 - tooltipWidth / 2;
+            let tooltipY = slotRect.y - tooltipHeight - 16;
+            if (tooltipY < 12) {
+              tooltipY = slotRect.y + slotRect.h + 16;
+            }
+            tooltipX = Math.max(16, Math.min(W - tooltipWidth - 16, tooltipX));
+
+            ctx.save();
+            ctx.beginPath();
+            drawRoundedRect(ctx, tooltipX, tooltipY, tooltipWidth, tooltipHeight, 12);
+            ctx.fillStyle = tooltipConfig.background;
+            ctx.shadowColor = tooltipConfig.shadow;
+            ctx.shadowBlur = 18;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = tooltip.accent ?? tooltipConfig.border;
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            ctx.restore();
+
+            ctx.save();
+            ctx.textAlign = "left";
+            let textY = tooltipY + paddingY;
+            lineEntries.forEach((entry, index) => {
+              textY += entry.lineHeight;
+              ctx.font = entry.font;
+              ctx.fillStyle = entry.color;
+              ctx.fillText(entry.text, tooltipX + paddingX, textY);
+              textY += index < lineEntries.length - 1 ? lineSpacing : 0;
+            });
+            ctx.restore();
+          }
         }
       }
 
@@ -10700,6 +11297,8 @@ const Index = () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("resize", handleResize);
+      canvas.removeEventListener("mousemove", handleMouseMove);
+      canvas.removeEventListener("mouseleave", handleMouseLeave);
       canvas.removeEventListener("wheel", handlePauseMenuScroll);
       document.removeEventListener("touchmove", preventScroll);
       document.removeEventListener("gesturestart", preventGesture);
