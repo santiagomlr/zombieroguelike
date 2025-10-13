@@ -7639,6 +7639,7 @@ const Index = () => {
 
       ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
       ctx.lineWidth = 1;
+      const showTierLabels = meterScale >= 0.95;
       for (let i = 0; i < DIFFICULTY_TIERS.length; i++) {
         const ratio = i / tierSteps;
         const y = meterY + meterH - ratio * meterH;
