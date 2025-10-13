@@ -5327,13 +5327,9 @@ const Index = () => {
 
             // Eliminar bomber y víctimas marcadas
             e.hp = 0;
-            victims.push(e);
+            handleEnemyDeath(e, null, { skipExplosiveEffect: true });
             for (const victim of victims) {
-              if (victim === e) {
-                handleEnemyDeath(victim, null, { skipExplosiveEffect: true });
-              } else {
-                handleEnemyDeath(victim, null);
-              }
+              handleEnemyDeath(victim, null);
             }
             continue;
           }
