@@ -591,6 +591,7 @@ const WEAPON_DEFINITIONS: WeaponDefinition[] = [
     range: 600,
     projectileSpeed: 650,
     rarity: "uncommon",
+    special: "freeze",
     level: 1,
   },
   {
@@ -600,6 +601,7 @@ const WEAPON_DEFINITIONS: WeaponDefinition[] = [
     range: 540,
     projectileSpeed: 550,
     rarity: "rare",
+    special: "homing",
     level: 1,
   },
 ];
