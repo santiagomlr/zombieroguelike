@@ -5757,6 +5757,114 @@ const Index = () => {
         bullet.life = 0;
       };
 
+      const triggerExplosion = (bullet: any, hitCategories: EnemyCategory[]) => {
+        if (!bullet.explosive || bullet.explosionTriggered) {
+          return;
+        }
+
+        bullet.explosionTriggered = true;
+
+        const originX = bullet.x;
+        const originY = bullet.y;
+        const explosionRadius = bullet.explosionRadius ?? 100;
+        const explosionRadiusSq = explosionRadius * explosionRadius;
+        const splashMultiplier = bullet.explosionDamageMultiplier ?? 0.75;
+        const splashBaseDamage = bullet.damage * splashMultiplier;
+
+        const enemiesSnapshot = [...gameState.enemies];
+        for (const candidate of enemiesSnapshot) {
+          if (!candidate || (candidate as any).__removed || candidate.hp <= 0) continue;
+
+          const cdx = candidate.x - originX;
+          const cdy = candidate.y - originY;
+          const distSq = cdx * cdx + cdy * cdy;
+          if (distSq > explosionRadiusSq) continue;
+
+          const distance = Math.sqrt(distSq);
+          const damageMultiplier = 1 - (distance / explosionRadius) * 0.5;
+          const damageAmount = splashBaseDamage * damageMultiplier;
+          if (damageAmount <= 0) continue;
+
+          candidate.hp -= damageAmount;
+          trackEnemyCategoryHit(candidate as EnemyWithCategory, hitCategories);
+
+          if (candidate.hp <= 0) {
+            handleEnemyDeath(candidate, bullet);
+          }
+        }
+
+        const pushParticle = (particle: any) => {
+          if (gameState.particles.length < gameState.maxParticles) {
+            gameState.particles.push(particle);
+          }
+        };
+
+        const primaryColor = bullet.explosionColor ?? "#ff7a2a";
+        const secondaryColor = bullet.explosionSecondaryColor ?? "#facc15";
+        const ringColor = bullet.explosionRingColor ?? "rgba(255, 255, 255, 0.85)";
+
+        pushParticle({
+          x: originX,
+          y: originY,
+          vx: 0,
+          vy: 0,
+          life: 0.22,
+          color: ringColor,
+          size: 16,
+        });
+
+        for (let j = 0; j < 36; j++) {
+          const angle = (Math.PI * 2 * j) / 36;
+          const speed = 7 + Math.random() * 7;
+          pushParticle({
+            x: originX,
+            y: originY,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            life: 0.7 + Math.random() * 0.4,
+            color: j % 2 === 0 ? primaryColor : secondaryColor,
+            size: 5 + Math.random() * 3,
+          });
+        }
+
+        for (let j = 0; j < 24; j++) {
+          const angle = (Math.PI * 2 * j) / 24;
+          const outward = explosionRadius * 0.12;
+          pushParticle({
+            x: originX + Math.cos(angle) * (explosionRadius * 0.25),
+            y: originY + Math.sin(angle) * (explosionRadius * 0.25),
+            vx: Math.cos(angle) * outward,
+            vy: Math.sin(angle) * outward,
+            life: 0.45 + Math.random() * 0.25,
+            color: ringColor,
+            size: 3 + Math.random() * 1.5,
+          });
+        }
+
+        for (let j = 0; j < 18; j++) {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = Math.random() * 2.5;
+          pushParticle({
+            x: originX,
+            y: originY,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            life: 0.8 + Math.random() * 0.6,
+            color: "rgba(31, 41, 55, 0.55)",
+            size: 6 + Math.random() * 4,
+          });
+        }
+
+        gameState.explosionMarks.push({
+          x: originX,
+          y: originY,
+          radius: explosionRadius * 0.65,
+          life: 3.5,
+        });
+
+        bullet.life = 0;
+      };
+
       for (const bullet of gameState.bullets) {
         if (bullet.isEnemyBullet || bullet.life <= 0) continue;
 
