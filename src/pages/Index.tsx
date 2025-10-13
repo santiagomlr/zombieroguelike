@@ -3092,6 +3092,10 @@ const Index = () => {
       gameState.nearbyChest = null;
       gameState.pendingChestDrop = chest;
 
+      const refreshedItem = chooseChestItem();
+      chest.lootItemId = refreshedItem?.id ?? null;
+      chest.lootRarity = refreshedItem?.rarity ?? null;
+
       const lootItemId = chest.lootItemId as string | null;
       const lootRarity = (chest.lootRarity as Rarity | null) ?? null;
       const chestBurstColor = lootRarity ? rarityColors[lootRarity] : "#5dbb63";
@@ -3202,10 +3206,32 @@ const Index = () => {
       gameState.chestBlacklist.add(choice.item.id);
 
       gameState.chestBanishesRemaining = Math.max(0, gameState.chestBanishesRemaining - 1);
+      const pendingChest = gameState.pendingChestDrop;
 
-      gameState.activeChestChoice = null;
+      const rerolledItem = chooseChestItem();
+
+      if (!rerolledItem) {
+        if (pendingChest) {
+          pendingChest.lootItemId = null;
+          pendingChest.lootRarity = null;
+        }
+        gameState.activeChestChoice = null;
+        gameState.chestUIAnimation = 0;
+        grantChestFallbackReward(choice.chestPosition);
+        finalizeChestDrop();
+        return;
+      }
+
+      if (pendingChest) {
+        pendingChest.lootItemId = rerolledItem.id;
+        pendingChest.lootRarity = rerolledItem.rarity;
+      }
+
+      gameState.activeChestChoice = {
+        item: rerolledItem,
+        chestPosition: choice.chestPosition,
+      };
       gameState.chestUIAnimation = 0;
-      finalizeChestDrop();
     }
 
     function skipChestItem() {
