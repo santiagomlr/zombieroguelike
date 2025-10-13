@@ -1034,7 +1034,7 @@ const UNCOMMON_ITEMS: ItemDefinition[] = [
   },
   {
     id: "medDroneChip",
-    effect: "drone:support:1",
+    effect: "medDroneChip",
     rarity: "uncommon",
     translations: {
       es: {
