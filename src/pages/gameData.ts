@@ -70,6 +70,7 @@ export interface Translations {
     };
     audio: string;
     musicVolume: string;
+    vhsEffect: string;
     music: {
       label: string;
       on: string;
@@ -361,6 +362,7 @@ const translationsES: Translations = {
     },
     audio: "Audio",
     musicVolume: "Volumen de la música",
+    vhsEffect: "Intensidad VHS",
     music: {
       label: "Música",
       on: "Activa",
@@ -484,6 +486,7 @@ const translationsEN: Translations = {
     },
     audio: "Audio",
     musicVolume: "Music volume",
+    vhsEffect: "VHS effect intensity",
     music: {
       label: "Music",
       on: "On",
