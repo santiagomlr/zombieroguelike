@@ -195,7 +195,6 @@ type WeaponSlotHit = {
   rect: Rect;
   weapon: Weapon;
   level: number;
-  hotkey: string;
   cooldownInterval: number;
   cooldownProgress: number;
 };
@@ -205,7 +204,6 @@ type TomeSlotHit = {
   type: "tome";
   rect: Rect;
   tome: Tome;
-  hotkey: string;
 };
 
 type ItemSlotHit = {
@@ -276,8 +274,8 @@ const INVENTORY_THEME = {
   },
 };
 
-const SLOT_HOTKEYS = ["1", "2", "3"];
-const BOOK_HOTKEYS = ["Q", "E", "R"];
+const MAX_WEAPON_SLOTS = 3;
+const MAX_TOME_SLOTS = 3;
 const INVENTORY_TOOLTIP_DELAY = 0.15;
 const MAX_ITEM_STACK_DISPLAY = 99;
 
@@ -8507,7 +8505,7 @@ const Index = () => {
 
       // Weapons section (top-right column)
       const weaponTheme = INVENTORY_THEME.weapons;
-      const maxWeaponSlots = SLOT_HOTKEYS.length;
+      const maxWeaponSlots = MAX_WEAPON_SLOTS;
       const weaponSlots = inventoryUi.weapons;
       weaponSlots.length = 0;
       const hudRightMargin = 24;
@@ -8532,17 +8530,6 @@ const Index = () => {
         ctx.strokeStyle = weapon && activeKey === slotKey ? hexToRgba(weaponTheme.hoverGlow, 0.9) : weaponTheme.border;
         ctx.strokeRect(slotX + 0.5, slotY + 0.5, weaponTheme.iconSize - 1, weaponTheme.iconSize - 1);
         ctx.shadowBlur = 0;
-        ctx.restore();
-
-        ctx.save();
-        ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-        ctx.beginPath();
-        drawRoundedRect(ctx, slotX + 6, slotY + 6, 22, 18, 6);
-        ctx.fill();
-        ctx.fillStyle = "#FFD966";
-        ctx.font = withTerminalFont("700 12px system-ui");
-        ctx.textAlign = "center";
-        ctx.fillText(SLOT_HOTKEYS[i], slotX + 17, slotY + 20);
         ctx.restore();
 
         if (weapon) {
@@ -8599,7 +8586,6 @@ const Index = () => {
             rect: { x: slotX, y: slotY, w: weaponTheme.iconSize, h: weaponTheme.iconSize },
             weapon,
             level: weapon.level,
-            hotkey: SLOT_HOTKEYS[i],
             cooldownInterval: interval,
             cooldownProgress: progress,
           });
@@ -8608,7 +8594,7 @@ const Index = () => {
 
       // Tomes section (stacked below weapons)
       const tomeTheme = INVENTORY_THEME.tomes;
-      const maxTomeSlots = BOOK_HOTKEYS.length;
+      const maxTomeSlots = MAX_TOME_SLOTS;
       const tomeSlots = inventoryUi.tomes;
       tomeSlots.length = 0;
       const tomeColumnX = W - hudRightMargin - tomeTheme.iconSize;
@@ -8635,17 +8621,6 @@ const Index = () => {
         ctx.strokeStyle = tome && activeKey === slotKey ? hexToRgba(tomeTheme.hoverGlow, 0.8) : tomeTheme.border;
         ctx.stroke();
         ctx.shadowBlur = 0;
-        ctx.restore();
-
-        ctx.save();
-        ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-        ctx.beginPath();
-        drawRoundedRect(ctx, slotX + 6, slotY + 6, 22, 18, 6);
-        ctx.fill();
-        ctx.fillStyle = "#D4C2FF";
-        ctx.font = withTerminalFont("700 12px system-ui");
-        ctx.textAlign = "center";
-        ctx.fillText(BOOK_HOTKEYS[i], slotX + 17, slotY + 20);
         ctx.restore();
 
         if (tome) {
@@ -8690,7 +8665,6 @@ const Index = () => {
             type: "tome",
             rect: { x: slotX, y: slotY, w: tomeTheme.iconSize, h: tomeTheme.iconSize },
             tome,
-            hotkey: BOOK_HOTKEYS[i],
           });
         }
       }
@@ -8820,8 +8794,7 @@ const Index = () => {
                 const weapon = hoveredSlot.weapon;
                 const title = getWeaponName(weapon.id, currentLanguage);
                 const levelLabel = currentLanguage === "es" ? "Nivel" : "Level";
-                const hotkeyLabel = currentLanguage === "es" ? `Atajo ${hoveredSlot.hotkey}` : `Hotkey ${hoveredSlot.hotkey}`;
-                const subtitle = `${levelLabel} ${weapon.level} • ${hotkeyLabel}`;
+                const subtitle = `${levelLabel} ${weapon.level}`;
                 const stats = [
                   `${t.damage}: ${Math.round(weapon.damage)}`,
                   `${t.fireRate}: ${weapon.fireRate.toFixed(2)}`,
@@ -8841,8 +8814,7 @@ const Index = () => {
                 const tome = hoveredSlot.tome;
                 const title = getTomeName(tome.id, currentLanguage);
                 const levelLabel = currentLanguage === "es" ? "Nivel" : "Level";
-                const hotkeyLabel = currentLanguage === "es" ? `Atajo ${hoveredSlot.hotkey}` : `Hotkey ${hoveredSlot.hotkey}`;
-                const subtitle = `${levelLabel} ${tome.level} • ${hotkeyLabel}`;
+                const subtitle = `${levelLabel} ${tome.level}`;
                 const description = getTomeDescription(tome, currentLanguage, gameState.player.stats);
                 return { title, subtitle, body: [description], accent: tome.color };
               }
