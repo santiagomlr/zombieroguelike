@@ -316,9 +316,18 @@ const cullEntities = <T extends { x: number; y: number }>(
 
 const CRT_SETTINGS = {
   scanlineSpacing: 2,
-  scanlineOpacity: 0.12,
-  vignetteOpacity: 0.2,
-  chromaShift: 1.8,
+  scanlineOpacity: 0.16,
+  vignetteOpacity: 0.28,
+  horizontalShake: 2.2,
+  verticalWarp: 1.1,
+  lineJitter: 1.4,
+  noiseOpacity: 0.55,
+  noiseDensity: 220,
+  noiseSize: 1.6,
+  edgeBloom: 0.16,
+  distortionOpacity: 0.18,
+  distortionSpeed: 110,
+  distortionShift: 9,
 };
 
 const drawPixelPanel = (
@@ -538,9 +547,15 @@ type PauseMenuHomeLayout = {
   };
   audioPanel: {
     rect: { x: number; y: number; w: number; h: number };
-    slider: {
-      rect: { x: number; y: number; w: number; h: number };
-      hitArea: { x: number; y: number; w: number; h: number };
+    sliders: {
+      music: {
+        rect: { x: number; y: number; w: number; h: number };
+        hitArea: { x: number; y: number; w: number; h: number };
+      };
+      crt: {
+        rect: { x: number; y: number; w: number; h: number };
+        hitArea: { x: number; y: number; w: number; h: number };
+      };
     };
     toggles: {
       music: PauseMenuButtonLayout;
@@ -618,6 +633,8 @@ const getPauseMenuHomeLayout = (
   const sliderX = panelX + 28 * scale;
   const sliderW = panelW - 56 * scale;
   const sliderH = Math.max(8 * scale, 10 * scale);
+  const sliderSpacing = Math.max(22 * scale, Math.min(32 * scale, panelHeight * 0.22));
+  const sliderAreaHeight = sliderH * 2 + sliderSpacing;
   const sliderMinY = panelY + panelInnerPadding + Math.min(32 * scale, panelHeight * 0.25);
 
   const baseToggleHeight = 56 * scale;
@@ -625,30 +642,30 @@ const getPauseMenuHomeLayout = (
   const toggleGap = Math.max(14 * scale, Math.min(18 * scale, panelW * 0.04));
   const toggleWidth = Math.max((panelW - toggleGap - panelInnerPadding * 2) / 2, 0);
 
-  let toggleHeight = Math.min(baseToggleHeight, panelHeight - panelInnerPadding * 2 - sliderH - 28 * scale);
+  let toggleHeight = Math.min(baseToggleHeight, panelHeight - panelInnerPadding * 2 - sliderAreaHeight - 28 * scale);
 
   let toggleY = panelY + panelHeight - toggleHeight - panelInnerPadding;
-  let sliderMaxY = toggleY - sliderH - 24 * scale;
+  let sliderMaxY = toggleY - sliderAreaHeight - 24 * scale;
   if (sliderMaxY <= sliderMinY) {
-    const availableForSlider = panelHeight - panelInnerPadding * 2 - toggleHeight - 24 * scale;
     const adjustedToggleHeight = Math.max(
       minToggleHeight,
-      Math.min(baseToggleHeight, panelHeight - panelInnerPadding - (sliderMinY + sliderH + 24 * scale)),
+      Math.min(baseToggleHeight, panelHeight - panelInnerPadding - (sliderMinY + sliderAreaHeight + 24 * scale)),
     );
     toggleHeight = Math.max(minToggleHeight, Math.min(toggleHeight, adjustedToggleHeight));
     toggleY = panelY + panelHeight - toggleHeight - panelInnerPadding;
-    sliderMaxY = toggleY - sliderH - 20 * scale;
+    sliderMaxY = toggleY - sliderAreaHeight - 20 * scale;
   }
 
   const sliderBaseY = sliderMinY + Math.min(18 * scale, Math.max(12 * scale, panelHeight * 0.15));
-  const sliderY = clamp(sliderBaseY, sliderMinY, sliderMaxY);
-  if (toggleY < sliderY + sliderH + 24 * scale) {
-    toggleY = sliderY + sliderH + 24 * scale;
+  const firstSliderY = clamp(sliderBaseY, sliderMinY, sliderMaxY);
+  const secondSliderY = firstSliderY + sliderH + sliderSpacing;
+  if (toggleY < firstSliderY + sliderAreaHeight + 24 * scale) {
+    toggleY = firstSliderY + sliderAreaHeight + 24 * scale;
   }
 
   const availableToggleHeight = Math.max(panelY + panelHeight - panelInnerPadding - toggleY, 0);
   if (availableToggleHeight < minToggleHeight) {
-    toggleHeight = availableToggleHeight;
+    toggleHeight = Math.max(0, availableToggleHeight);
   } else {
     toggleHeight = Math.min(baseToggleHeight, availableToggleHeight);
   }
@@ -676,13 +693,24 @@ const getPauseMenuHomeLayout = (
     },
     audioPanel: {
       rect: { x: panelX, y: panelY, w: panelW, h: panelHeight },
-      slider: {
-        rect: { x: sliderX, y: sliderY, w: sliderW, h: sliderH },
-        hitArea: {
-          x: sliderX,
-          y: sliderY - 14 * scale,
-          w: sliderW,
-          h: sliderH + 28 * scale,
+      sliders: {
+        music: {
+          rect: { x: sliderX, y: firstSliderY, w: sliderW, h: sliderH },
+          hitArea: {
+            x: sliderX,
+            y: firstSliderY - 14 * scale,
+            w: sliderW,
+            h: sliderH + 28 * scale,
+          },
+        },
+        crt: {
+          rect: { x: sliderX, y: secondSliderY, w: sliderW, h: sliderH },
+          hitArea: {
+            x: sliderX,
+            y: secondSliderY - 14 * scale,
+            w: sliderW,
+            h: sliderH + 28 * scale,
+          },
         },
       },
       toggles: {
@@ -1260,6 +1288,16 @@ const Index = () => {
       musicMuted: false,
       musicVolume: 0.3, // Volumen de la música (0 a 1)
       targetMusicVolume: 0.3, // Volumen objetivo para animación suave
+      crtIntensity: (() => {
+        const stored = localStorage.getItem("crtIntensity");
+        if (stored !== null) {
+          const parsed = Number.parseFloat(stored);
+          if (Number.isFinite(parsed)) {
+            return Math.min(Math.max(parsed, 0), 1);
+          }
+        }
+        return 0.75;
+      })(),
       musicStarted: false, // Flag para saber si el usuario ya inició la música
       musicIsPlaying: false,
       musicButtonClickAnim: {
@@ -1332,7 +1370,10 @@ const Index = () => {
       },
       pauseMenuAudioHitAreas: {
         button: { x: 0, y: 0, w: 0, h: 0 },
-        slider: { x: 0, y: 0, w: 0, h: 0 },
+        sliders: {
+          music: { x: 0, y: 0, w: 0, h: 0 },
+          crt: { x: 0, y: 0, w: 0, h: 0 },
+        },
         musicToggle: { x: 0, y: 0, w: 0, h: 0 },
         sfxToggle: { x: 0, y: 0, w: 0, h: 0 },
       },
@@ -5149,21 +5190,36 @@ const Index = () => {
         }
 
         if (gameState.pauseMenuAudioOpen) {
-          const { slider, toggles } = audioPanel;
+          const {
+            sliders: { music: musicSlider, crt: crtSlider },
+            toggles,
+          } = audioPanel;
 
           if (
-            mx >= slider.hitArea.x &&
-            mx <= slider.hitArea.x + slider.hitArea.w &&
-            my >= slider.hitArea.y &&
-            my <= slider.hitArea.y + slider.hitArea.h
+            mx >= musicSlider.hitArea.x &&
+            mx <= musicSlider.hitArea.x + musicSlider.hitArea.w &&
+            my >= musicSlider.hitArea.y &&
+            my <= musicSlider.hitArea.y + musicSlider.hitArea.h
           ) {
-            const relative = clamp((mx - slider.rect.x) / slider.rect.w, 0, 1);
+            const relative = clamp((mx - musicSlider.rect.x) / musicSlider.rect.w, 0, 1);
             gameState.targetMusicVolume = relative;
             if (!gameState.musicMuted) {
               gameState.musicVolume = relative;
               audioManager.setMusicVolume("background", relative);
               audioManager.setMusicVolume("gameOver", relative);
             }
+            return;
+          }
+
+          if (
+            mx >= crtSlider.hitArea.x &&
+            mx <= crtSlider.hitArea.x + crtSlider.hitArea.w &&
+            my >= crtSlider.hitArea.y &&
+            my <= crtSlider.hitArea.y + crtSlider.hitArea.h
+          ) {
+            const relative = clamp((mx - crtSlider.rect.x) / crtSlider.rect.w, 0, 1);
+            gameState.crtIntensity = relative;
+            localStorage.setItem("crtIntensity", relative.toString());
             return;
           }
 
@@ -9318,9 +9374,17 @@ const Index = () => {
     }
 
     function drawCRTOverlay() {
+      const intensity = clamp(gameState.crtIntensity ?? 0, 0, 1);
+      if (intensity <= 0.001) {
+        return;
+      }
+
+      const eased = Math.pow(intensity, 0.85);
+      const time = gameState.time;
+
       ctx.save();
       ctx.globalCompositeOperation = "soft-light";
-      ctx.globalAlpha = CRT_SETTINGS.vignetteOpacity;
+      ctx.globalAlpha = CRT_SETTINGS.vignetteOpacity * eased;
       const vignette = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H));
       vignette.addColorStop(0, "rgba(0, 0, 0, 0)");
       vignette.addColorStop(1, "rgba(0, 0, 0, 1)");
@@ -9329,33 +9393,58 @@ const Index = () => {
       ctx.restore();
 
       ctx.save();
-      const flicker = 0.9 + Math.sin(gameState.time * 18) * 0.08;
-      ctx.globalAlpha = CRT_SETTINGS.scanlineOpacity * flicker;
-      ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
+      const flicker = 0.92 + Math.sin(time * 20) * 0.06;
+      const shake = Math.sin(time * 8.5) * CRT_SETTINGS.horizontalShake * eased;
+      const warp = Math.sin(time * 0.75) * CRT_SETTINGS.verticalWarp * eased;
+      ctx.translate(shake, 0);
+      ctx.transform(1, warp * 0.003, 0, 1, 0, 0);
+      ctx.globalAlpha = CRT_SETTINGS.scanlineOpacity * flicker * eased;
+      ctx.fillStyle = "rgba(0, 0, 0, 0.85)";
       for (let y = 0; y < H; y += CRT_SETTINGS.scanlineSpacing) {
-        ctx.fillRect(0, y, W, 1);
+        const jitter = Math.sin(time * 35 + y * 0.035) * CRT_SETTINGS.lineJitter * eased;
+        ctx.fillRect(jitter, y, W + CRT_SETTINGS.lineJitter * 2 * eased, 1);
       }
       ctx.restore();
 
       ctx.save();
       ctx.globalCompositeOperation = "screen";
-      ctx.globalAlpha = 0.08;
-      ctx.fillStyle = "rgba(0, 255, 170, 0.25)";
-      ctx.fillRect(-CRT_SETTINGS.chromaShift, 0, W, H);
-      ctx.fillStyle = "rgba(255, 70, 0, 0.18)";
-      ctx.fillRect(CRT_SETTINGS.chromaShift, 0, W, H);
+      ctx.globalAlpha = CRT_SETTINGS.edgeBloom * eased;
+      const edgeGradient = ctx.createLinearGradient(0, 0, W, 0);
+      edgeGradient.addColorStop(0, "rgba(240, 170, 110, 0.28)");
+      edgeGradient.addColorStop(0.5, "rgba(0, 0, 0, 0)");
+      edgeGradient.addColorStop(1, "rgba(120, 210, 255, 0.24)");
+      ctx.fillStyle = edgeGradient;
+      ctx.fillRect(0, 0, W, H);
       ctx.restore();
 
       ctx.save();
-      ctx.globalCompositeOperation = "lighter";
-      ctx.globalAlpha = 0.12;
-      const glitchBands = 5;
-      for (let i = 0; i < glitchBands; i++) {
-        const bandHeight = 2 + (i % 2);
-        const y = Math.floor((gameState.time * 90 + i * 37) % H);
-        const shift = Math.sin(gameState.time * 6 + i) * 8;
-        ctx.fillStyle = i % 2 === 0 ? hexToRgba(UI_COLORS.accent, 0.4) : hexToRgba(UI_COLORS.healthHigh, 0.35);
-        ctx.fillRect(shift, y, W, bandHeight);
+      ctx.globalCompositeOperation = "overlay";
+      ctx.globalAlpha = CRT_SETTINGS.noiseOpacity * eased;
+      const particleCount = Math.floor(CRT_SETTINGS.noiseDensity * eased);
+      for (let i = 0; i < particleCount; i++) {
+        const x = Math.random() * W;
+        const y = Math.random() * H;
+        const size = 1 + Math.random() * CRT_SETTINGS.noiseSize * eased;
+        const brightness = 120 + Math.random() * 100;
+        ctx.fillStyle = `rgba(${brightness}, ${brightness}, ${brightness}, ${0.18 + Math.random() * 0.22})`;
+        ctx.fillRect(x, y, size, size);
+      }
+      ctx.restore();
+
+      ctx.save();
+      ctx.globalCompositeOperation = "soft-light";
+      ctx.globalAlpha = CRT_SETTINGS.distortionOpacity * eased;
+      const bandCount = 2 + Math.round(eased * 2);
+      for (let i = 0; i < bandCount; i++) {
+        const offset = (time * CRT_SETTINGS.distortionSpeed + i * 97) % H;
+        const bandHeight = 3 + Math.sin(time * 3 + i) * 2 * eased;
+        const shift = Math.sin(time * 1.5 + i * 0.7) * CRT_SETTINGS.distortionShift * eased;
+        const gradient = ctx.createLinearGradient(0, offset, W, offset + bandHeight);
+        gradient.addColorStop(0, "rgba(255, 255, 255, 0.08)");
+        gradient.addColorStop(0.5, "rgba(200, 200, 200, 0.04)");
+        gradient.addColorStop(1, "rgba(255, 255, 255, 0.08)");
+        ctx.fillStyle = gradient;
+        ctx.fillRect(shift, offset, W, bandHeight);
       }
       ctx.restore();
     }
@@ -11479,7 +11568,7 @@ const Index = () => {
         if (gameState.pauseMenuAudioOpen) {
           const {
             rect: { x: panelX, y: panelY, w: panelW, h: panelH },
-            slider,
+            sliders,
             toggles,
           } = audioPanel;
 
@@ -11502,55 +11591,61 @@ const Index = () => {
           ctx.fillStyle = textPrimary;
           ctx.font = getScaledFont(18, "700");
           ctx.textAlign = "center";
-          ctx.fillText(t.pauseMenu.audio.toUpperCase(), panelX + panelW / 2, panelY + Math.min(36 * scale, Math.max(24 * scale, panelH * 0.18)));
-
-          ctx.textAlign = "left";
-          ctx.fillStyle = textSecondary;
-          ctx.font = getScaledFont(14, "600");
-          const volumeLabelY = Math.min(panelY + panelH - 20 * scale, panelY + Math.max(54 * scale, panelH * 0.32));
-          ctx.fillText(t.pauseMenu.musicVolume, panelX + 20 * scale, volumeLabelY);
-
-          ctx.textAlign = "right";
-          ctx.fillStyle = textPrimary;
           ctx.fillText(
-            `${Math.round(gameState.targetMusicVolume * 100)}%`,
-            panelX + panelW - 20 * scale,
-            volumeLabelY,
+            t.pauseMenu.audio.toUpperCase(),
+            panelX + panelW / 2,
+            panelY + Math.min(36 * scale, Math.max(24 * scale, panelH * 0.18)),
           );
 
-          const sliderX = slider.rect.x;
-          const sliderW = slider.rect.w;
-          const sliderY = slider.rect.y;
-          const sliderH = slider.rect.h;
+          const drawSliderControl = (
+            sliderLayout: { rect: { x: number; y: number; w: number; h: number } },
+            label: string,
+            value: number,
+            accentColor: string,
+          ) => {
+            const { rect } = sliderLayout;
+            const sliderValue = clamp(value, 0, 1);
+            const labelBaseline = Math.max(panelY + 32 * scale, rect.y - 12 * scale);
 
-          ctx.save();
-          ctx.beginPath();
-          drawRoundedRect(ctx, sliderX, sliderY, sliderW, sliderH, scaledRadius(12));
-          ctx.fillStyle = UI_COLORS.panelBg;
-          ctx.fill();
-          ctx.restore();
+            ctx.textAlign = "left";
+            ctx.fillStyle = textSecondary;
+            ctx.font = getScaledFont(14, "600");
+            ctx.fillText(label, rect.x, labelBaseline);
 
-          const sliderValue = clamp(gameState.targetMusicVolume, 0, 1);
-          const sliderFillW = sliderW * sliderValue;
+            ctx.textAlign = "right";
+            ctx.fillStyle = textPrimary;
+            ctx.fillText(`${Math.round(sliderValue * 100)}%`, rect.x + rect.w, labelBaseline);
 
-          ctx.save();
-          ctx.beginPath();
-          drawRoundedRect(ctx, sliderX, sliderY, sliderFillW, sliderH, scaledRadius(12));
-          ctx.fillStyle = `${UI_COLORS.shield}bb`;
-          ctx.fill();
-          ctx.restore();
+            ctx.save();
+            ctx.beginPath();
+            drawRoundedRect(ctx, rect.x, rect.y, rect.w, rect.h, scaledRadius(12));
+            ctx.fillStyle = UI_COLORS.panelBg;
+            ctx.fill();
+            ctx.restore();
 
-          const handleX = sliderX + sliderFillW;
-          const handleRadius = Math.max(8, 12 * scale);
-          ctx.beginPath();
-          ctx.arc(handleX, sliderY + sliderH / 2, handleRadius, 0, Math.PI * 2);
-          ctx.fillStyle = UI_COLORS.shield;
-          ctx.fill();
-          ctx.strokeStyle = `${UI_COLORS.shield}cc`;
-          ctx.lineWidth = Math.max(1, 1.5 * scale);
-          ctx.stroke();
+            ctx.save();
+            ctx.beginPath();
+            drawRoundedRect(ctx, rect.x, rect.y, rect.w * sliderValue, rect.h, scaledRadius(12));
+            ctx.fillStyle = hexToRgba(accentColor, 0.7);
+            ctx.fill();
+            ctx.restore();
 
-          gameState.pauseMenuAudioHitAreas.slider = slider.hitArea;
+            const handleX = rect.x + rect.w * sliderValue;
+            const handleRadius = Math.max(8, 12 * scale);
+            ctx.beginPath();
+            ctx.arc(handleX, rect.y + rect.h / 2, handleRadius, 0, Math.PI * 2);
+            ctx.fillStyle = accentColor;
+            ctx.fill();
+            ctx.strokeStyle = hexToRgba(accentColor, 0.7);
+            ctx.lineWidth = Math.max(1, 1.5 * scale);
+            ctx.stroke();
+          };
+
+          drawSliderControl(sliders.music, t.pauseMenu.musicVolume, gameState.targetMusicVolume, UI_COLORS.shield);
+          drawSliderControl(sliders.crt, t.pauseMenu.vhsEffect, gameState.crtIntensity, pauseAccent);
+
+          gameState.pauseMenuAudioHitAreas.sliders.music = sliders.music.hitArea;
+          gameState.pauseMenuAudioHitAreas.sliders.crt = sliders.crt.hitArea;
 
           const drawToggle = (
             toggle: PauseMenuButtonLayout,
