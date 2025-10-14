@@ -74,9 +74,6 @@ import {
   scaleEntitySize,
   scaleHotspotRadius,
   SPATIAL_HASH_CELL_SIZE,
-  STRONG_ELITE_COLOR,
-  STRONG_ENEMY_BASE_RADIUS,
-  STRONG_ENEMY_COLOR,
   SUMMONER_ENEMY_BASE_RADIUS,
   TANK_ENEMY_BASE_RADIUS,
   UI_COLORS,
@@ -427,7 +424,6 @@ const ENEMY_LOG_LABELS: Record<string, { en: string; es: string }> = {
   fast: { en: "Fast Zombies", es: "Zombis veloces" },
   tank: { en: "Tank Zombies", es: "Zombis tanque" },
   summoner: { en: "Summoner Zombies", es: "Zombis invocadores" },
-  strong: { en: "Strong Zombies", es: "Zombis fuertes" },
   medium: { en: "Medium Zombies", es: "Zombis medianos" },
   weak: { en: "Weak Zombies", es: "Zombis débiles" },
   elite: { en: "Elite Zombies", es: "Zombis élite" },
@@ -2498,7 +2494,7 @@ const Index = () => {
       for (let spawnIdx = 0; spawnIdx < spawnCount; spawnIdx++) {
         const roll = Math.random();
         const typeRoll = Math.random();
-        let enemyType: "strong" | "medium" | "weak" | "explosive" | "fast" | "tank" | "summoner";
+        let enemyType: "medium" | "weak" | "explosive" | "fast" | "tank" | "summoner";
         let color: string;
         let damage: number;
         let baseHp: number;
@@ -2635,15 +2631,8 @@ const Index = () => {
               spd = 1.1;
             }
           } else if (difficultyLevel === 5) {
-            // Wave 5: Introducir amarillo (3-5%)
-            if (roll < 0.04) {
-              enemyType = "strong";
-              color = STRONG_ENEMY_COLOR;
-              damage = 20;
-              baseHp = 8;
-              rad = STRONG_ENEMY_BASE_RADIUS;
-              spd = 0.9;
-            } else if (roll < 0.6) {
+            // Wave 5: Incrementar presencia morada
+            if (roll < 0.6) {
               enemyType = "medium";
               color = MEDIUM_ENEMY_COLOR;
               damage = 10;
@@ -2659,15 +2648,8 @@ const Index = () => {
               spd = 1.3;
             }
           } else if (difficultyLevel === 6) {
-            // Wave 6: Mezcla estable 50/40/10%
-            if (roll < 0.1) {
-              enemyType = "strong";
-              color = STRONG_ENEMY_COLOR;
-              damage = 20;
-              baseHp = 8;
-              rad = STRONG_ENEMY_BASE_RADIUS;
-              spd = 0.9;
-            } else if (roll < 0.5) {
+            // Wave 6: Mezcla estable 55/45%
+            if (roll < 0.55) {
               enemyType = "medium";
               color = MEDIUM_ENEMY_COLOR;
               damage = 10;
@@ -2683,15 +2665,8 @@ const Index = () => {
               spd = 1.3;
             }
           } else if (difficultyLevel === 7) {
-            // Wave 7: Amarillos hasta 12-15%
-            if (roll < 0.13) {
-              enemyType = "strong";
-              color = STRONG_ENEMY_COLOR;
-              damage = 20;
-              baseHp = 8;
-              rad = STRONG_ENEMY_BASE_RADIUS;
-              spd = 0.9;
-            } else if (roll < 0.6) {
+            // Wave 7: Morados hasta 60%
+            if (roll < 0.6) {
               enemyType = "medium";
               color = MEDIUM_ENEMY_COLOR;
               damage = 10;
@@ -2707,17 +2682,10 @@ const Index = () => {
               spd = 1.3;
             }
           } else {
-            // Wave 8+: Escalado progresivo (amarillos hasta 25-30%)
-            const yellowChance = Math.min(0.3, 0.15 + (difficultyLevel - 8) * 0.02);
+            // Wave 8+: Escalado progresivo (morados hasta 75%)
+            const mediumChance = Math.min(0.75, 0.45 + (difficultyLevel - 8) * 0.02);
 
-            if (roll < strongChance) {
-              enemyType = "strong";
-              color = STRONG_ENEMY_COLOR;
-              damage = 20;
-              baseHp = 8;
-              rad = STRONG_ENEMY_BASE_RADIUS;
-              spd = 0.9;
-            } else if (roll < strongChance + 0.45) {
+            if (roll < mediumChance) {
               enemyType = "medium";
               color = MEDIUM_ENEMY_COLOR;
               damage = 10;
@@ -2738,12 +2706,7 @@ const Index = () => {
               isElite = true;
               baseHp *= 1.5;
               rad += 3;
-              color =
-                enemyType === "strong"
-                  ? STRONG_ELITE_COLOR
-                  : enemyType === "medium"
-                    ? MEDIUM_ELITE_COLOR
-                    : WEAK_ELITE_COLOR;
+              color = enemyType === "medium" ? MEDIUM_ELITE_COLOR : WEAK_ELITE_COLOR;
             }
             const survivalEliteBonus = gameState.postBossSurvival.active
               ? (gameState.postBossSurvival.elapsed / 60) * POST_BOSS_ELITE_CHANCE_PER_MIN
@@ -2752,12 +2715,7 @@ const Index = () => {
             if (!isElite && Math.random() < eliteChance) {
               isElite = true;
               baseHp *= 1.35;
-              color =
-                enemyType === "strong"
-                  ? STRONG_ELITE_COLOR
-                  : enemyType === "medium"
-                    ? MEDIUM_ELITE_COLOR
-                    : WEAK_ELITE_COLOR;
+              color = enemyType === "medium" ? MEDIUM_ELITE_COLOR : WEAK_ELITE_COLOR;
             }
           }
 
@@ -2864,7 +2822,7 @@ const Index = () => {
         maxhp: scaledHp,
         spd: applyEnemySpeedModifier(0.8),
         category: inferEnemyCategory({}),
-        enemyType: "strong",
+        enemyType: "medium",
         damage: 30,
         isElite: false,
         isBoss: true,
@@ -2965,7 +2923,7 @@ const Index = () => {
         maxhp: 1500,
         spd: applyEnemySpeedModifier(0.85),
         category: inferEnemyCategory({}),
-        enemyType: "strong",
+        enemyType: "medium",
         damage: 32,
         isElite: false,
         isMiniBoss: false,
@@ -6605,10 +6563,6 @@ const Index = () => {
           points = 15;
           xpBundles = 1;
           dropChance = 0.08;
-        } else if (enemy.enemyType === "strong") {
-          points = 10;
-          xpBundles = 1;
-          dropChance = 0.05;
         } else if (enemy.enemyType === "medium") {
           points = 7;
           xpBundles = 1;
@@ -6632,12 +6586,7 @@ const Index = () => {
         for (let k = 0; k < xpBundles; k++) {
           const offsetX = (Math.random() - 0.5) * 40;
           const offsetY = (Math.random() - 0.5) * 40;
-          let xpValue =
-            enemy.enemyType === "strong"
-              ? 5
-              : enemy.enemyType === "medium"
-                ? 3
-                : 2;
+          let xpValue = enemy.enemyType === "medium" ? 3 : 2;
 
           const hordeStacksForXp = getItemStacks("hordetotem");
           if (hordeStacksForXp > 0) {
